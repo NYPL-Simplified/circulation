@@ -1,0 +1,562 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.s3 &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.s3</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">boto3</span>
+<span class="kn">from</span> <span class="nn">botocore.exceptions</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">BotoCoreError</span><span class="p">,</span>
+    <span class="n">ClientError</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">urlparse</span> <span class="k">import</span> <span class="n">urlsplit</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span> <span class="nn">mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
+
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">ExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">requests.exceptions</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="ne">ConnectionError</span><span class="p">,</span>
+    <span class="n">HTTPError</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="MultipartS3Upload"><a class="viewcode-back" href="../../core.html#core.s3.MultipartS3Upload">[docs]</a><span class="k">class</span> <span class="nc">MultipartS3Upload</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uploader</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploader</span> <span class="o">=</span> <span class="n">uploader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">representation</span> <span class="o">=</span> <span class="n">representation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bucket</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">uploader</span><span class="o">.</span><span class="n">bucket_and_filename</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">external_media_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">part_number</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">upload</span> <span class="o">=</span> <span class="n">uploader</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">create_multipart_upload</span><span class="p">(</span>
+            <span class="n">Bucket</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket</span><span class="p">,</span>
+            <span class="n">Key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+            <span class="n">ContentType</span><span class="o">=</span><span class="n">media_type</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MultipartS3Upload.upload_part"><a class="viewcode-back" href="../../core.html#core.s3.MultipartS3Upload.upload_part">[docs]</a>    <span class="k">def</span> <span class="nf">upload_part</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Uploading part </span><span class="si">%s</span><span class="s2"> of </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">part_number</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">))</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uploader</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">upload_part</span><span class="p">(</span>
+            <span class="n">Body</span><span class="o">=</span><span class="n">content</span><span class="p">,</span>
+            <span class="n">Bucket</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket</span><span class="p">,</span>
+            <span class="n">Key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+            <span class="n">PartNumber</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">part_number</span><span class="p">,</span>
+            <span class="n">UploadId</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;UploadId&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">ETag</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ETag&quot;</span><span class="p">),</span> <span class="n">PartNumber</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">part_number</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">part_number</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+<div class="viewcode-block" id="MultipartS3Upload.complete"><a class="viewcode-back" href="../../core.html#core.s3.MultipartS3Upload.complete">[docs]</a>    <span class="k">def</span> <span class="nf">complete</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Upload of </span><span class="si">%s</span><span class="s2"> was empty, not mirroring&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abort</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uploader</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">complete_multipart_upload</span><span class="p">(</span>
+                <span class="n">Bucket</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket</span><span class="p">,</span>
+                <span class="n">Key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+                <span class="n">UploadId</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;UploadId&quot;</span><span class="p">),</span>
+                <span class="n">MultipartUpload</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">Parts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">mirror_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uploader</span><span class="o">.</span><span class="n">final_mirror_url</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">set_as_mirrored</span><span class="p">(</span><span class="n">mirror_url</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MIRRORED </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MultipartS3Upload.abort"><a class="viewcode-back" href="../../core.html#core.s3.MultipartS3Upload.abort">[docs]</a>    <span class="k">def</span> <span class="nf">abort</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Aborting upload of </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploader</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">abort_multipart_upload</span><span class="p">(</span>
+            <span class="n">Bucket</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket</span><span class="p">,</span>
+            <span class="n">Key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+            <span class="n">UploadId</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">upload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;UploadId&quot;</span><span class="p">),</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="S3Uploader"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader">[docs]</a><span class="k">class</span> <span class="nc">S3Uploader</span><span class="p">(</span><span class="n">MirrorUploader</span><span class="p">):</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span>
+
+    <span class="n">S3_HOSTNAME</span> <span class="o">=</span> <span class="s2">&quot;s3.amazonaws.com&quot;</span>
+    <span class="n">S3_BASE</span> <span class="o">=</span> <span class="s2">&quot;https://</span><span class="si">%s</span><span class="s2">/&quot;</span> <span class="o">%</span> <span class="n">S3_HOSTNAME</span>
+
+    <span class="n">BOOK_COVERS_BUCKET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;book_covers_bucket&#39;</span>
+    <span class="n">OA_CONTENT_BUCKET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;open_access_content_bucket&#39;</span>
+    <span class="n">MARC_BUCKET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;marc_bucket&#39;</span>
+
+    <span class="n">URL_TEMPLATE_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;bucket_name_transform&#39;</span>
+    <span class="n">URL_TEMPLATE_HTTP</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;http&#39;</span>
+    <span class="n">URL_TEMPLATE_HTTPS</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;https&#39;</span>
+    <span class="n">URL_TEMPLATE_DEFAULT</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;identity&#39;</span>
+
+    <span class="n">URL_TEMPLATES_BY_TEMPLATE</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">URL_TEMPLATE_HTTP</span><span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;http://</span><span class="si">%(bucket)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">URL_TEMPLATE_HTTPS</span><span class="p">:</span> <span class="sa">u</span><span class="s1">&#39;https://</span><span class="si">%(bucket)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">:</span> <span class="n">S3_BASE</span> <span class="o">+</span> <span class="sa">u</span><span class="s1">&#39;</span><span class="si">%(bucket)s</span><span class="s1">/</span><span class="si">%(key)s</span><span class="s1">&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Access Key&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Secret Key&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Book Covers Bucket&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Open Access Content Bucket&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;All open-access books encountered will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">MARC_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;MARC File Bucket&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;All generated MARC files will be uploaded to this S3 bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">URL_TEMPLATE_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;URL format&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;options&quot;</span> <span class="p">:</span> <span class="p">[</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span> <span class="p">:</span> <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">,</span>
+                <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;S3 Default: https://s3.amazonaws.com/</span><span class="si">{bucket}</span><span class="s2">/</span><span class="si">{file}</span><span class="s2">&quot;</span><span class="p">),</span>
+              <span class="p">},</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span> <span class="p">:</span> <span class="n">URL_TEMPLATE_HTTPS</span><span class="p">,</span>
+                <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;HTTPS: https://</span><span class="si">{bucket}</span><span class="s2">/</span><span class="si">{file}</span><span class="s2">&quot;</span><span class="p">),</span>
+              <span class="p">},</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span> <span class="p">:</span> <span class="n">URL_TEMPLATE_HTTP</span><span class="p">,</span>
+                <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;HTTP: http://</span><span class="si">{bucket}</span><span class="s2">/</span><span class="si">{file}</span><span class="s2">&quot;</span><span class="p">),</span>
+              <span class="p">},</span>
+          <span class="p">],</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">,</span>
+          <span class="s2">&quot;description&quot;</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A file mirrored to S3 is available at &lt;code&gt;http://s3.amazonaws.com/</span><span class="si">{bucket}</span><span class="s2">/</span><span class="si">{filename}</span><span class="s2">&lt;/code&gt;. If you&#39;ve set up your DNS so that http:///[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. &lt;p&gt;If you haven&#39;t set up your S3 buckets, don&#39;t change this from the default -- you&#39;ll get URLs that don&#39;t work.&lt;/p&gt;&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="n">SITEWIDE</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">client_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Instantiate an S3Uploader from an ExternalIntegration.</span>
+
+<span class="sd">        :param integration: An ExternalIntegration</span>
+
+<span class="sd">        :param client_class: Mock object (or class) to use (or instantiate)</span>
+<span class="sd">            instead of boto3.client.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">client_class</span><span class="p">:</span>
+            <span class="n">client_class</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span>
+
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">client_class</span><span class="p">):</span>
+            <span class="n">access_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span>
+            <span class="n">secret_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">access_key</span> <span class="ow">and</span> <span class="n">secret_key</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                    <span class="s1">&#39;Cannot create S3Uploader without both&#39;</span>
+                    <span class="s1">&#39; access_key and secret_key.&#39;</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client_class</span><span class="p">(</span>
+                <span class="s1">&#39;s3&#39;</span><span class="p">,</span>
+                <span class="n">aws_access_key_id</span><span class="o">=</span><span class="n">access_key</span><span class="p">,</span>
+                <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="n">secret_key</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client_class</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">url_transform</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATE_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value_or_default</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">)</span>
+
+        <span class="c1"># Transfer information about bucket names from the</span>
+        <span class="c1"># ExternalIntegration to the S3Uploader object, so we don&#39;t</span>
+        <span class="c1"># have to keep the ExternalIntegration around.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buckets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">integration</span><span class="o">.</span><span class="n">settings</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_bucket&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">buckets</span><span class="p">[</span><span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span>
+<div class="viewcode-block" id="S3Uploader.get_bucket"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.get_bucket">[docs]</a>    <span class="k">def</span> <span class="nf">get_bucket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bucket_key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Gets the bucket for a particular use based on the given key&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buckets</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bucket_key</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="S3Uploader.url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.url">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The URL to a resource on S3 identified by bucket and path.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="c1"># This is a list of key components that need to be quoted</span>
+            <span class="c1"># and assembled.</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">key_join</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="n">bucket</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;http://&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">bucket</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;https://&#39;</span><span class="p">):</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">bucket</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">S3_BASE</span> <span class="o">+</span> <span class="n">bucket</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
+            <span class="n">url</span> <span class="o">+=</span> <span class="s1">&#39;/&#39;</span>
+        <span class="k">return</span> <span class="n">url</span> <span class="o">+</span> <span class="n">path</span></div>
+
+<div class="viewcode-block" id="S3Uploader.cover_image_root"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.cover_image_root">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">cover_image_root</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">scaled_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The root URL to the S3 location of cover images for</span>
+<span class="sd">        the given data source.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">scaled_size</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;scaled&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">scaled_size</span><span class="p">)])</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">data_source_name</span> <span class="o">=</span> <span class="n">data_source</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data_source_name</span> <span class="o">=</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_source_name</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">url</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">parts</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
+            <span class="n">url</span> <span class="o">+=</span> <span class="s1">&#39;/&#39;</span>
+        <span class="k">return</span> <span class="n">url</span></div>
+
+<div class="viewcode-block" id="S3Uploader.content_root"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.content_root">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">content_root</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The root URL to the S3 location of hosted content of</span>
+<span class="sd">        the given type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">open_access</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">url</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="S3Uploader.marc_file_root"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.marc_file_root">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">marc_file_root</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">url</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="p">[</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
+            <span class="n">url</span> <span class="o">+=</span> <span class="s2">&quot;/&quot;</span>
+        <span class="k">return</span> <span class="n">url</span></div>
+
+<div class="viewcode-block" id="S3Uploader.key_join"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.key_join">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">key_join</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Quote the path portions of an S3 key while leaving the path</span>
+<span class="sd">        characters themselves alone.</span>
+
+<span class="sd">        :param key: Either a key, or a list of parts to be assembled into a key.</span>
+
+<span class="sd">        :return: A bytestring that can be used as an S3 key.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="n">new_parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+                <span class="n">part</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">part</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
+            <span class="n">new_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">quote_plus</span><span class="p">(</span><span class="n">part</span><span class="p">))</span>
+        <span class="k">return</span> <span class="sa">b</span><span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_parts</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="S3Uploader.book_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.book_url">[docs]</a>    <span class="k">def</span> <span class="nf">book_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The path to the hosted EPUB file for the given identifier.&quot;&quot;&quot;</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_root</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">open_access</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">extension</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+            <span class="n">extension</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">extension</span>
+
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">data_source</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">title</span><span class="p">:</span>
+            <span class="c1"># e.g. DataSource/ISBN/1234/Title.epub</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># e.g. DataSource/ISBN/1234.epub</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">filename</span> <span class="o">+</span> <span class="n">extension</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">root</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="S3Uploader.cover_image_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.cover_image_url">[docs]</a>    <span class="k">def</span> <span class="nf">cover_image_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span>
+                        <span class="n">scaled_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The path to the hosted cover image for the given identifier.&quot;&quot;&quot;</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_image_root</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">scaled_size</span><span class="p">)</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">filename</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">root</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="S3Uploader.marc_file_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.marc_file_url">[docs]</a>    <span class="k">def</span> <span class="nf">marc_file_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The path to the hosted MARC file for the given library, lane,</span>
+<span class="sd">        and date range.&quot;&quot;&quot;</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">marc_file_root</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">start_time</span><span class="p">:</span>
+            <span class="n">time_part</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">start_time</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">end_time</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">time_part</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">end_time</span><span class="p">)</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">time_part</span><span class="p">,</span> <span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">root</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">key_join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.mrc&quot;</span></div>
+
+<div class="viewcode-block" id="S3Uploader.bucket_and_filename"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.bucket_and_filename">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">bucket_and_filename</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">unquote</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">netloc</span> <span class="o">==</span> <span class="s1">&#39;s3.amazonaws.com&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">bucket</span><span class="p">,</span> <span class="n">filename</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">bucket</span> <span class="o">=</span> <span class="n">netloc</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="n">unquote</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">unquote_plus</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">filename</span></div>
+
+<div class="viewcode-block" id="S3Uploader.final_mirror_url"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.final_mirror_url">[docs]</a>    <span class="k">def</span> <span class="nf">final_mirror_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bucket</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine the URL to pass into Representation.set_as_mirrored,</span>
+<span class="sd">        assuming that it was successfully uploaded to the given</span>
+<span class="sd">        `bucket` as `key`.</span>
+
+<span class="sd">        Depending on ExternalIntegration configuration this may</span>
+<span class="sd">        be any of the following:</span>
+
+<span class="sd">        https://s3.amazonaws.com/{bucket}/{key}</span>
+<span class="sd">        http://{bucket}/{key}</span>
+<span class="sd">        https://{bucket}/{key}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">templates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATES_BY_TEMPLATE</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="n">templates</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">URL_TEMPLATE_DEFAULT</span><span class="p">]</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="n">templates</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url_transform</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">template</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">key_join</span><span class="p">(</span><span class="n">key</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="S3Uploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mirror a single representation to the given URL.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Turn the original URL into an s3.amazonaws.com URL.</span>
+        <span class="n">bucket</span><span class="p">,</span> <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bucket_and_filename</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">external_media_type</span>
+        <span class="n">bucket</span><span class="p">,</span> <span class="n">remote_filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bucket_and_filename</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span>
+        <span class="n">fh</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">external_content</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">upload_fileobj</span><span class="p">(</span>
+                <span class="n">Fileobj</span><span class="o">=</span><span class="n">fh</span><span class="p">,</span>
+                <span class="n">Bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span>
+                <span class="n">Key</span><span class="o">=</span><span class="n">remote_filename</span><span class="p">,</span>
+                <span class="n">ExtraArgs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">ContentType</span><span class="o">=</span><span class="n">media_type</span><span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Since upload_fileobj completed without a problem, we</span>
+            <span class="c1"># know the file is available at</span>
+            <span class="c1"># https://s3.amazonaws.com/{bucket}/{remote_filename}. But</span>
+            <span class="c1"># that may not be the URL we want to store.</span>
+            <span class="n">mirror_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_mirror_url</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">remote_filename</span><span class="p">)</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">set_as_mirrored</span><span class="p">(</span><span class="n">mirror_url</span><span class="p">)</span>
+
+            <span class="n">source</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">local_content_path</span>
+            <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span> <span class="o">!=</span> <span class="n">mirror_url</span><span class="p">:</span>
+                <span class="n">source</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span>
+            <span class="k">if</span> <span class="n">source</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MIRRORED </span><span class="si">%s</span><span class="s2"> =&gt; </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                             <span class="n">source</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MIRRORED </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">BotoCoreError</span><span class="p">,</span> <span class="n">ClientError</span><span class="p">),</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># BotoCoreError happens when there&#39;s a problem with</span>
+            <span class="c1"># the network transport. ClientError happens when</span>
+            <span class="c1"># there&#39;s a problem with the credentials. Either way,</span>
+            <span class="c1"># the best thing to do is treat this as a transient</span>
+            <span class="c1"># error and try again later. There&#39;s no scenario where</span>
+            <span class="c1"># giving up is the right move.</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Error uploading </span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+            <span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">fh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="S3Uploader.multipart_upload"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.multipart_upload">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">multipart_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">,</span> <span class="n">upload_class</span><span class="o">=</span><span class="n">MultipartS3Upload</span><span class="p">):</span>
+        <span class="n">upload</span> <span class="o">=</span> <span class="n">upload_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">upload</span>
+            <span class="n">upload</span><span class="o">.</span><span class="n">complete</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Multipart upload of </span><span class="si">%s</span><span class="s2"> failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">upload</span><span class="o">.</span><span class="n">abort</span><span class="p">()</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span></div></div>
+
+<span class="c1"># MirrorUploader.implementation will instantiate an S3Uploader</span>
+<span class="c1"># for storage integrations with protocol &#39;Amazon S3&#39;.</span>
+<span class="n">MirrorUploader</span><span class="o">.</span><span class="n">IMPLEMENTATION_REGISTRY</span><span class="p">[</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">S3Uploader</span>
+
+
+<div class="viewcode-block" id="MockS3Uploader"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Uploader">[docs]</a><span class="k">class</span> <span class="nc">MockS3Uploader</span><span class="p">(</span><span class="n">S3Uploader</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A dummy uploader for use in tests.&quot;&quot;&quot;</span>
+
+    <span class="n">buckets</span> <span class="o">=</span> <span class="p">{</span>
+       <span class="n">S3Uploader</span><span class="o">.</span><span class="n">BOOK_COVERS_BUCKET_KEY</span> <span class="p">:</span> <span class="s1">&#39;test.cover.bucket&#39;</span><span class="p">,</span>
+       <span class="n">S3Uploader</span><span class="o">.</span><span class="n">OA_CONTENT_BUCKET_KEY</span> <span class="p">:</span> <span class="s1">&#39;test.content.bucket&#39;</span><span class="p">,</span>
+       <span class="n">S3Uploader</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">:</span> <span class="s1">&#39;test.marc.bucket&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fail</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploaded</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">destinations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fail</span> <span class="o">=</span> <span class="n">fail</span>
+
+<div class="viewcode-block" id="MockS3Uploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Uploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploaded</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">destinations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">representation</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail</span><span class="p">:</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="s2">&quot;Exception&quot;</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">set_as_mirrored</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockS3Uploader.multipart_upload"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Uploader.multipart_upload">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">multipart_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">):</span>
+        <span class="k">class</span> <span class="nc">MockMultipartS3Upload</span><span class="p">(</span><span class="n">MultipartS3Upload</span><span class="p">):</span>
+            <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">def</span> <span class="nf">upload_part</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">part</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
+        <span class="n">upload</span> <span class="o">=</span> <span class="n">MockMultipartS3Upload</span><span class="p">()</span>
+        <span class="k">yield</span> <span class="n">upload</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploaded</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">destinations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">upload</span><span class="o">.</span><span class="n">parts</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail</span><span class="p">:</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="s2">&quot;Exception&quot;</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">set_as_mirrored</span><span class="p">(</span><span class="n">mirror_to</span><span class="p">)</span></div></div>
+                
+
+
+<div class="viewcode-block" id="MockS3Client"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Client">[docs]</a><span class="k">class</span> <span class="nc">MockS3Client</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This pool lets us test the real S3Uploader class with a mocked-up</span>
+<span class="sd">    boto3 client.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">aws_access_key_id</span><span class="p">,</span> <span class="n">aws_secret_access_key</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">service</span> <span class="o">==</span> <span class="s1">&#39;s3&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">access_key</span> <span class="o">=</span> <span class="n">aws_access_key_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="n">aws_secret_access_key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploads</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fail_with</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="MockS3Client.upload_fileobj"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Client.upload_fileobj">[docs]</a>    <span class="k">def</span> <span class="nf">upload_fileobj</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Fileobj</span><span class="p">,</span> <span class="n">Bucket</span><span class="p">,</span> <span class="n">Key</span><span class="p">,</span> <span class="n">ExtraArgs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_with</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_with</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploads</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">Fileobj</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">Bucket</span><span class="p">,</span> <span class="n">Key</span><span class="p">,</span> <span class="n">ExtraArgs</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="MockS3Client.create_multipart_upload"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Client.create_multipart_upload">[docs]</a>    <span class="k">def</span> <span class="nf">create_multipart_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_with</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_with</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">UploadId</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockS3Client.upload_part"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Client.upload_part">[docs]</a>    <span class="k">def</span> <span class="nf">upload_part</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_with</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_with</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">ETag</span><span class="o">=</span><span class="s2">&quot;etag&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockS3Client.complete_multipart_upload"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Client.complete_multipart_upload">[docs]</a>    <span class="k">def</span> <span class="nf">complete_multipart_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uploads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="MockS3Client.abort_multipart_upload"><a class="viewcode-back" href="../../core.html#core.s3.MockS3Client.abort_multipart_upload">[docs]</a>    <span class="k">def</span> <span class="nf">abort_multipart_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+            
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

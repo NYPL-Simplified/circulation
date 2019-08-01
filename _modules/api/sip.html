@@ -1,0 +1,410 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.sip &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.sip</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">BasicAuthenticationProvider</span><span class="p">,</span>
+    <span class="n">PatronData</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.sip.client</span> <span class="k">import</span> <span class="n">SIPClient</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">RemoteIntegrationException</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">MoneyUtility</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="n">ExternalIntegration</span>
+<span class="kn">import</span> <span class="nn">json</span>
+
+<div class="viewcode-block" id="SIP2AuthenticationProvider"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SIP2AuthenticationProvider</span><span class="p">(</span><span class="n">BasicAuthenticationProvider</span><span class="p">):</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="s2">&quot;SIP2&quot;</span>
+
+    <span class="n">DATE_FORMATS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%Z%H%M%S&quot;</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">    %H%M%S&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Constants for integration configuration settings.</span>
+    <span class="n">PORT</span> <span class="o">=</span> <span class="s2">&quot;port&quot;</span>
+    <span class="n">LOCATION_CODE</span> <span class="o">=</span> <span class="s2">&quot;location code&quot;</span>
+    <span class="n">FIELD_SEPARATOR</span> <span class="o">=</span> <span class="s2">&quot;field separator&quot;</span>
+    <span class="n">USE_SSL</span> <span class="o">=</span> <span class="s2">&quot;use_ssl&quot;</span>
+    <span class="n">SSL_CERTIFICATE</span> <span class="o">=</span> <span class="s2">&quot;ssl_certificate&quot;</span>
+    <span class="n">SSL_KEY</span> <span class="o">=</span> <span class="s2">&quot;ssl_key&quot;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">URL</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Server&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PORT</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Port&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Login User ID&quot;</span><span class="p">)</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Login Password&quot;</span><span class="p">)</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOCATION_CODE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Location Code&quot;</span><span class="p">)</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">USE_SSL</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Connect over SSL?&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Some SIP2 servers require or allow clients to connect securely over SSL. Other servers don&#39;t support SSL, and require clients to use an ordinary socket connection.&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Connect to the SIP2 server over SSL&quot;</span><span class="p">)},</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Connect to the SIP2 server over an ordinary socket connection&quot;</span><span class="p">)},</span>
+          <span class="p">],</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">SSL_CERTIFICATE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;SSL Certificate&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;The SSL certificate used to securely connect to an SSL-enabled SIP2 server. Not all SSL-enabled SIP2 servers require a custom certificate, but some do. This should be a string beginning with &lt;code&gt;-----BEGIN CERTIFICATE-----&lt;/code&gt; and ending with &lt;code&gt;-----END CERTIFICATE-----&lt;/code&gt;&#39;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;textarea&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">SSL_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;SSL Key&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;The private key, if any, used to sign the SSL certificate above. If present, this should be a string beginning with &lt;code&gt;-----BEGIN PRIVATE KEY-----&lt;/code&gt; and ending with &lt;code&gt;-----END PRIVATE KEY-----&lt;/code&gt;&#39;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;textarea&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">FIELD_SEPARATOR</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Field Separator&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;|&quot;</span><span class="p">,</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span> <span class="o">+</span> <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span>
+
+    <span class="c1"># Map the reasons why SIP2 might report a patron is blocked to the</span>
+    <span class="c1"># protocol-independent block reason used by PatronData.</span>
+    <span class="n">SPECIFIC_BLOCK_REASONS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">CARD_REPORTED_LOST</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">CARD_REPORTED_LOST</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">EXCESSIVE_FINES</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">EXCESSIVE_FINES</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">EXCESSIVE_FEES</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">EXCESSIVE_FEES</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">TOO_MANY_ITEMS_BILLED</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">TOO_MANY_ITEMS_BILLED</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">CHARGE_PRIVILEGES_DENIED</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">NO_BORROWING_PRIVILEGES</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">TOO_MANY_ITEMS_CHARGED</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">TOO_MANY_LOANS</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">TOO_MANY_ITEMS_OVERDUE</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">TOO_MANY_OVERDUE</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">TOO_MANY_RENEWALS</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">TOO_MANY_RENEWALS</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">TOO_MANY_LOST</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">TOO_MANY_LOST</span><span class="p">,</span>
+        <span class="n">SIPClient</span><span class="o">.</span><span class="n">RECALL_OVERDUE</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">RECALL_OVERDUE</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connect</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;An object capable of communicating with a SIP server.</span>
+
+<span class="sd">        :param server: Hostname of the SIP server.</span>
+<span class="sd">        :param port: The port number to connect to on the SIP server.</span>
+
+<span class="sd">        :param login_user_id: SIP field CN; the user ID to use when</span>
+<span class="sd">         initiating a SIP session, if necessary. This is _not_ a</span>
+<span class="sd">         patron identifier (SIP field AA); it identifies the SC</span>
+<span class="sd">         creating the SIP session. SIP2 defines SC as &quot;...any library</span>
+<span class="sd">         automation device dealing with patrons or library materials.&quot;</span>
+
+<span class="sd">        :param login_password: Sip field CO; the password to use when</span>
+<span class="sd">         initiating a SIP session, if necessary.</span>
+
+<span class="sd">        :param location_code: SIP field CP; the location code to use</span>
+<span class="sd">         when initiating a SIP session. A location code supposedly</span>
+<span class="sd">         refers to the physical location of a self-checkout machine</span>
+<span class="sd">         within a library system. Some libraries require a special</span>
+<span class="sd">         location code to be provided when authenticating patrons;</span>
+<span class="sd">         others may require the circulation manager to be treated as</span>
+<span class="sd">         its own special &#39;location&#39;.</span>
+
+<span class="sd">        :param field_separator: The field delimiter (see</span>
+<span class="sd">        &quot;Variable-length fields&quot; in the SIP2 spec). If no value is</span>
+<span class="sd">        specified, the default (the pipe character) will be used.</span>
+
+<span class="sd">        :param client: A drop-in replacement for the SIPClient</span>
+<span class="sd">        object. Only intended for use during testing.</span>
+
+<span class="sd">        :param connect: If this is false, the generated SIPClient will</span>
+<span class="sd">        not attempt to connect to the server. Only intended for use</span>
+<span class="sd">        during testing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SIP2AuthenticationProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">server</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">url</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PORT</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">login_password</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">location_code</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOCATION_CODE</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">field_separator</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FIELD_SEPARATOR</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="s1">&#39;|&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">USE_SSL</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SSL_CERTIFICATE</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SSL_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client</span>
+
+<div class="viewcode-block" id="SIP2AuthenticationProvider.patron_information"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.patron_information">[docs]</a>    <span class="k">def</span> <span class="nf">patron_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">:</span>
+                <span class="n">sip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sip</span> <span class="o">=</span> <span class="n">SIPClient</span><span class="p">(</span>
+                    <span class="n">target_server</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">server</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+                    <span class="n">login_user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_password</span><span class="p">,</span>
+                    <span class="n">location_code</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">location_code</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">field_separator</span><span class="p">,</span>
+                    <span class="n">use_ssl</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span>
+                <span class="p">)</span>
+            <span class="n">sip</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+            <span class="n">sip</span><span class="o">.</span><span class="n">login</span><span class="p">()</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="n">sip</span><span class="o">.</span><span class="n">patron_information</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+            <span class="n">sip</span><span class="o">.</span><span class="n">end_session</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+            <span class="n">sip</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">info</span>
+
+        <span class="k">except</span> <span class="ne">IOError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RemoteIntegrationException</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">server</span> <span class="ow">or</span> <span class="s1">&#39;unknown server&#39;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span>
+            <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_remote_patron_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron_or_patrondata</span><span class="p">):</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_information</span><span class="p">(</span>
+            <span class="n">patron_or_patrondata</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">info_to_patrondata</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SIP2AuthenticationProvider.remote_authenticate"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.remote_authenticate">[docs]</a>    <span class="k">def</span> <span class="nf">remote_authenticate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Authenticate a patron with the SIP2 server.</span>
+
+<span class="sd">        :param username: The patron&#39;s username/barcode/card</span>
+<span class="sd">            number/authorization identifier.</span>
+<span class="sd">        :param password: The patron&#39;s password/pin/access code.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">collects_password</span><span class="p">:</span>
+            <span class="c1"># Even if we were somehow given a password, we won&#39;t be</span>
+            <span class="c1"># passing it on.</span>
+            <span class="n">password</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_information</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">info_to_patrondata</span><span class="p">(</span><span class="n">info</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_run_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">makeConnection</span><span class="p">(</span><span class="n">sip</span><span class="p">):</span>
+            <span class="n">sip</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">sip</span><span class="o">.</span><span class="n">connection</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">:</span>
+            <span class="n">sip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sip</span> <span class="o">=</span> <span class="n">SIPClient</span><span class="p">(</span>
+                <span class="n">target_server</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">server</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+                <span class="n">login_user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login_password</span><span class="p">,</span>
+                <span class="n">location_code</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">location_code</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">field_separator</span><span class="p">,</span>
+                <span class="n">use_ssl</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span>
+            <span class="p">)</span>
+        
+        <span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;Test Connection&quot;</span><span class="p">),</span>
+            <span class="n">makeConnection</span><span class="p">,</span>
+            <span class="n">sip</span>
+        <span class="p">)</span>
+        <span class="k">yield</span> <span class="n">connection</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">connection</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">login</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;Test Login with username &#39;</span><span class="si">%s</span><span class="s2">&#39; and password &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">login_password</span><span class="p">)),</span>
+            <span class="n">sip</span><span class="o">.</span><span class="n">login</span>
+        <span class="p">)</span>
+        <span class="k">yield</span> <span class="n">login</span>
+
+        <span class="c1"># Log in was successful so test patron&#39;s test credentials</span>
+        <span class="k">if</span> <span class="n">login</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">SIP2AuthenticationProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_run_self_tests</span><span class="p">(</span><span class="n">_db</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">result</span>
+
+            <span class="k">if</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+                <span class="k">def</span> <span class="nf">raw_patron_information</span><span class="p">():</span>
+                    <span class="n">info</span> <span class="o">=</span> <span class="n">sip</span><span class="o">.</span><span class="n">patron_information</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">test_username</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_password</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+                    <span class="s2">&quot;Patron information request&quot;</span><span class="p">,</span>
+                    <span class="n">sip</span><span class="o">.</span><span class="n">patron_information_request</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">test_username</span><span class="p">,</span>
+                    <span class="n">patron_password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">test_password</span>
+                <span class="p">)</span>
+
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+                    <span class="p">(</span><span class="s2">&quot;Raw test patron information&quot;</span><span class="p">),</span>
+                    <span class="n">raw_patron_information</span>
+                <span class="p">)</span>
+        
+
+<div class="viewcode-block" id="SIP2AuthenticationProvider.info_to_patrondata"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.info_to_patrondata">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">info_to_patrondata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">validate_password</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Convert the SIP-specific dictionary obtained from</span>
+<span class="sd">        SIPClient.patron_information() to an abstract,</span>
+<span class="sd">        authenticator-independent PatronData object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;valid_patron&#39;</span><span class="p">,</span> <span class="s1">&#39;N&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;N&#39;</span><span class="p">:</span>
+            <span class="c1"># The patron could not be identified as a patron of this</span>
+            <span class="c1"># library. Don&#39;t return any data.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;valid_patron_password&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;N&#39;</span> <span class="ow">and</span> <span class="n">validate_password</span><span class="p">:</span>
+            <span class="c1"># The patron did not authenticate correctly. Don&#39;t</span>
+            <span class="c1"># return any data.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+            <span class="c1"># TODO: I&#39;m not 100% convinced that a missing CQ field</span>
+            <span class="c1"># always means &quot;we don&#39;t have passwords so you&#39;re</span>
+            <span class="c1"># authenticated,&quot; rather than &quot;you didn&#39;t provide a</span>
+            <span class="c1"># password so we didn&#39;t check.&quot;</span>
+        <span class="n">patrondata</span> <span class="o">=</span> <span class="n">PatronData</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s1">&#39;sipserver_internal_id&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+            <span class="n">patrondata</span><span class="o">.</span><span class="n">permanent_id</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;sipserver_internal_id&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;patron_identifier&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+            <span class="n">patrondata</span><span class="o">.</span><span class="n">authorization_identifier</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;patron_identifier&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;email_address&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+            <span class="n">patrondata</span><span class="o">.</span><span class="n">email_address</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;email_address&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;personal_name&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+            <span class="n">patrondata</span><span class="o">.</span><span class="n">personal_name</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;personal_name&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;fee_amount&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+            <span class="n">fines</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;fee_amount&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fines</span> <span class="o">=</span> <span class="s1">&#39;0&#39;</span>
+        <span class="n">patrondata</span><span class="o">.</span><span class="n">fines</span> <span class="o">=</span> <span class="n">MoneyUtility</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">fines</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;sipserver_patron_class&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+            <span class="n">patrondata</span><span class="o">.</span><span class="n">external_type</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;sipserver_patron_class&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">expire_field</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;sipserver_patron_expiration&#39;</span><span class="p">,</span> <span class="s1">&#39;polaris_patron_expiration&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">expire_field</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">expire_field</span><span class="p">)</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
+                    <span class="n">patrondata</span><span class="o">.</span><span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">value</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># A True value in most (but not all) subfields of the</span>
+        <span class="c1"># patron_status field will prohibit the patron from borrowing</span>
+        <span class="c1"># books.</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;patron_status_parsed&#39;</span><span class="p">]</span>
+        <span class="n">block_reason</span> <span class="o">=</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">SIPClient</span><span class="o">.</span><span class="n">PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">block_reason</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SPECIFIC_BLOCK_REASONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="n">field</span><span class="p">,</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">UNKNOWN_BLOCK</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">block_reason</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span><span class="p">,</span>
+                                        <span class="n">PatronData</span><span class="o">.</span><span class="n">UNKNOWN_BLOCK</span><span class="p">):</span>
+                    <span class="c1"># Even if there are multiple problems with this</span>
+                    <span class="c1"># patron&#39;s account, we can now present a specific</span>
+                    <span class="c1"># error message. There&#39;s no need to look through</span>
+                    <span class="c1"># more fields.</span>
+                    <span class="k">break</span>
+        <span class="n">patrondata</span><span class="o">.</span><span class="n">block_reason</span> <span class="o">=</span> <span class="n">block_reason</span>
+
+        <span class="c1"># If we can tell by looking at the SIP2 message that the</span>
+        <span class="c1"># patron has excessive fines, we can use that as the reason</span>
+        <span class="c1"># they&#39;re blocked.</span>
+        <span class="k">if</span> <span class="s1">&#39;fee_limit&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+            <span class="n">fee_limit</span> <span class="o">=</span> <span class="n">MoneyUtility</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;fee_limit&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">amount</span>
+            <span class="k">if</span> <span class="n">fee_limit</span> <span class="ow">and</span> <span class="n">patrondata</span><span class="o">.</span><span class="n">fines</span> <span class="o">&gt;</span> <span class="n">fee_limit</span><span class="p">:</span>
+                <span class="n">patrondata</span><span class="o">.</span><span class="n">block_reason</span> <span class="o">=</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">EXCESSIVE_FINES</span>
+
+        <span class="k">return</span> <span class="n">patrondata</span></div>
+
+<div class="viewcode-block" id="SIP2AuthenticationProvider.parse_date"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.parse_date">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_date</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to parse `value` using any of several common date formats.&quot;&quot;&quot;</span>
+        <span class="n">date_value</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="nb">format</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DATE_FORMATS</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">date_value</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">format</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">continue</span>
+        <span class="k">return</span> <span class="n">date_value</span></div></div>
+
+    <span class="c1"># NOTE: It&#39;s not necessary to implement remote_patron_lookup</span>
+    <span class="c1"># because authentication gets patron data as a side effect.</span>
+
+<span class="n">AuthenticationProvider</span> <span class="o">=</span> <span class="n">SIP2AuthenticationProvider</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

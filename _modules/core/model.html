@@ -1,0 +1,661 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">psycopg2.extensions</span> <span class="k">import</span> <span class="n">adapt</span> <span class="k">as</span> <span class="n">sqlescape</span>
+<span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="k">import</span> <span class="n">NumericRange</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">create_engine</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Table</span><span class="p">,</span>
+    <span class="n">text</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">IntegrityError</span><span class="p">,</span>
+    <span class="n">SAWarning</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.declarative</span> <span class="k">import</span> <span class="n">declarative_base</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">relationship</span><span class="p">,</span>
+    <span class="n">sessionmaker</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">NoResultFound</span><span class="p">,</span>
+    <span class="n">MultipleResultsFound</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">compiler</span><span class="p">,</span>
+    <span class="n">select</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">literal_column</span><span class="p">,</span>
+    <span class="n">table</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">Base</span> <span class="o">=</span> <span class="n">declarative_base</span><span class="p">()</span>
+
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">DataSourceConstants</span><span class="p">,</span>
+    <span class="n">EditionConstants</span><span class="p">,</span>
+    <span class="n">IdentifierConstants</span><span class="p">,</span>
+    <span class="n">LinkRelations</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="k">import</span> <span class="n">classifier</span>
+
+<div class="viewcode-block" id="flush"><a class="viewcode-back" href="../../core.model.html#core.coverage.flush">[docs]</a><span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="n">db</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Flush the database connection unless it&#39;s known to already be flushing.&quot;&quot;&quot;</span>
+    <span class="n">is_flushing</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="s1">&#39;_flushing&#39;</span><span class="p">):</span>
+        <span class="c1"># This is a regular database session.</span>
+        <span class="n">is_flushing</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">_flushing</span>
+    <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="s1">&#39;registry&#39;</span><span class="p">):</span>
+        <span class="c1"># This is a flask_scoped_session scoped session.</span>
+        <span class="n">is_flushing</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">registry</span><span class="p">()</span><span class="o">.</span><span class="n">_flushing</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Unknown database connection type: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_flushing</span><span class="p">:</span>
+        <span class="n">db</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="create"><a class="viewcode-back" href="../../core.model.html#core.coverage.create">[docs]</a><span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">create_method</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+           <span class="n">create_method_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">create_method_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">created</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">create_method</span><span class="p">,</span> <span class="n">model</span><span class="p">)(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">db</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">created</span><span class="p">)</span>
+    <span class="n">flush</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">created</span><span class="p">,</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="get_one"><a class="viewcode-back" href="../../core.model.html#core.coverage.get_one">[docs]</a><span class="k">def</span> <span class="nf">get_one</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Gets an object from the database based on its attributes.</span>
+
+<span class="sd">    :param constraint: A single clause that can be passed into</span>
+<span class="sd">        `sqlalchemy.Query.filter` to limit the object that is returned.</span>
+<span class="sd">    :return: object or None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">constraint</span> <span class="o">=</span> <span class="n">constraint</span>
+    <span class="k">if</span> <span class="s1">&#39;constraint&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">constraint</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;constraint&#39;</span><span class="p">]</span>
+        <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;constraint&#39;</span><span class="p">]</span>
+
+    <span class="n">q</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">constraint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">constraint</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">q</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">MultipleResultsFound</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">on_multiple</span> <span class="o">==</span> <span class="s1">&#39;error&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">elif</span> <span class="n">on_multiple</span> <span class="o">==</span> <span class="s1">&#39;interchangeable&#39;</span><span class="p">:</span>
+            <span class="c1"># These records are interchangeable so we can use</span>
+            <span class="c1"># whichever one we want.</span>
+            <span class="c1">#</span>
+            <span class="c1"># This may be a sign of a problem somewhere else. A</span>
+            <span class="c1"># database-level constraint might be useful.</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">q</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="get_one_or_create"><a class="viewcode-back" href="../../core.model.html#core.coverage.get_one_or_create">[docs]</a><span class="k">def</span> <span class="nf">get_one_or_create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">create_method</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+                      <span class="n">create_method_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                      <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">one</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">one</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">one</span><span class="p">,</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">__transaction</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># These kwargs are supported by get_one() but not by create().</span>
+            <span class="n">get_one_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;on_multiple&#39;</span><span class="p">,</span> <span class="s1">&#39;constraint&#39;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">get_one_keys</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">create_method</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">obj</span>
+        <span class="k">except</span> <span class="n">IntegrityError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;INTEGRITY ERROR on </span><span class="si">%r</span><span class="s2"> </span><span class="si">%r</span><span class="s2">, </span><span class="si">%r</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="p">,</span>
+                <span class="n">kwargs</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">(),</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="numericrange_to_string"><a class="viewcode-back" href="../../core.model.html#core.coverage.numericrange_to_string">[docs]</a><span class="k">def</span> <span class="nf">numericrange_to_string</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Helper method to convert a NumericRange to a human-readable string.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">lower</span>
+    <span class="n">upper</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">upper</span>
+    <span class="k">if</span> <span class="n">upper</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">lower</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">lower</span> <span class="ow">and</span> <span class="n">upper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">upper</span> <span class="ow">and</span> <span class="n">lower</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">upper</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">upper_inc</span><span class="p">:</span>
+        <span class="n">upper</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">lower_inc</span><span class="p">:</span>
+        <span class="n">lower</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">upper</span> <span class="o">==</span> <span class="n">lower</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lower</span><span class="p">,</span><span class="n">upper</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="numericrange_to_tuple"><a class="viewcode-back" href="../../core.model.html#core.coverage.numericrange_to_tuple">[docs]</a><span class="k">def</span> <span class="nf">numericrange_to_tuple</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Helper method to normalize NumericRange into a tuple.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">lower</span>
+    <span class="n">upper</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">upper</span>
+    <span class="k">if</span> <span class="n">lower</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">lower_inc</span><span class="p">:</span>
+        <span class="n">lower</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">upper</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">upper_inc</span><span class="p">:</span>
+        <span class="n">upper</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span></div>
+
+<div class="viewcode-block" id="tuple_to_numericrange"><a class="viewcode-back" href="../../core.model.html#core.coverage.tuple_to_numericrange">[docs]</a><span class="k">def</span> <span class="nf">tuple_to_numericrange</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Helper method to convert a tuple to an inclusive NumericRange.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">t</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">NumericRange</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;[]&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PresentationCalculationPolicy"><a class="viewcode-back" href="../../core.model.html#core.coverage.PresentationCalculationPolicy">[docs]</a><span class="k">class</span> <span class="nc">PresentationCalculationPolicy</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Which parts of the Work or Edition&#39;s presentation</span>
+<span class="sd">    are we actually looking to update?</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_LEVELS</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">DEFAULT_THRESHOLD</span> <span class="o">=</span> <span class="mf">0.5</span>
+    <span class="n">DEFAULT_CUTOFF</span> <span class="o">=</span> <span class="mi">1000</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">choose_edition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">set_edition_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">classify</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">choose_summary</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">calculate_quality</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">choose_cover</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">regenerate_opds_entries</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">regenerate_marc_record</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">update_search_index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">equivalent_identifier_levels</span><span class="o">=</span><span class="n">DEFAULT_LEVELS</span><span class="p">,</span>
+                 <span class="n">equivalent_identifier_threshold</span><span class="o">=</span><span class="n">DEFAULT_THRESHOLD</span><span class="p">,</span>
+                 <span class="n">equivalent_identifier_cutoff</span><span class="o">=</span><span class="n">DEFAULT_CUTOFF</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param choose_edition: Should a new presentation edition be</span>
+<span class="sd">           chosen/created, or should we assume the old one is fine?</span>
+<span class="sd">        :param set_edition_metadata: Should we set new values for</span>
+<span class="sd">           basic metadata such as title?</span>
+<span class="sd">        :param classify: Should we reconsider which Genres under which</span>
+<span class="sd">           a Work should be filed?</span>
+<span class="sd">        :param choose_summary: Should we reconsider which of the</span>
+<span class="sd">           available summaries is the best?</span>
+<span class="sd">        :param calculate_quality: Should we recalculate the overall</span>
+<span class="sd">           quality of the Work?</span>
+<span class="sd">        :param choose_cover: Should we reconsider which of the</span>
+<span class="sd">           available cover images is the best?</span>
+<span class="sd">        :param regenerate_opds_entries: Should we recreate the OPDS entries</span>
+<span class="sd">           for this Work?</span>
+<span class="sd">        :param regenerate_marc_record: Should we regenerate the MARC record</span>
+<span class="sd">           for this Work?</span>
+<span class="sd">        :param update_search_index: Should we reindex this Work&#39;s</span>
+<span class="sd">           entry in the search index?</span>
+<span class="sd">        :param verbose: Should we print out information about the work we&#39;re</span>
+<span class="sd">           doing?</span>
+<span class="sd">        :param equivalent_identifier_levels: When determining which</span>
+<span class="sd">           identifiers refer to this Work (used when gathering</span>
+<span class="sd">           classifications, cover images, etc.), how many levels of</span>
+<span class="sd">           equivalency should we go down? E.g. for one level of</span>
+<span class="sd">           equivalency we will go from a proprietary vendor ID to the</span>
+<span class="sd">           equivalent ISBN.</span>
+<span class="sd">        :param equivalent_identifier_threshold: When determining which</span>
+<span class="sd">           identifiers refer to this Work, what is the probability</span>
+<span class="sd">           threshold for &#39;equivalency&#39;? E.g. a value of 1 means that</span>
+<span class="sd">           we will not count two identifiers as equivalent unless we</span>
+<span class="sd">           are absolutely certain.</span>
+<span class="sd">        :param equivalent_identifier_cutoff: When determining which</span>
+<span class="sd">           identifiers refer to this work, how many Identifiers are</span>
+<span class="sd">           enough? Gathering _all_ the identifiers that identify an</span>
+<span class="sd">           extremely popular work can take an extraordinarily long time</span>
+<span class="sd">           for very little payoff, so it&#39;s useful to have a cutoff.</span>
+
+<span class="sd">           The cutoff is applied _per level_, so the total maximum</span>
+<span class="sd">           number of equivalent identifiers is</span>
+<span class="sd">           equivalent_identifier_cutoff * equivalent_identifier_levels.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">choose_edition</span> <span class="o">=</span> <span class="n">choose_edition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_edition_metadata</span> <span class="o">=</span> <span class="n">set_edition_metadata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">classify</span> <span class="o">=</span> <span class="n">classify</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">choose_summary</span><span class="o">=</span><span class="n">choose_summary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calculate_quality</span><span class="o">=</span><span class="n">calculate_quality</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">choose_cover</span> <span class="o">=</span> <span class="n">choose_cover</span>
+
+        <span class="c1"># We will regenerate OPDS entries if any of the metadata</span>
+        <span class="c1"># changes, but if regenerate_opds_entries is True we will</span>
+        <span class="c1"># _always_ do so. This is so we can regenerate _all_ the OPDS</span>
+        <span class="c1"># entries if the OPDS presentation algorithm changes.</span>
+        <span class="c1"># The same is true for the MARC records, except that they will</span>
+        <span class="c1"># never be generated unless a MARC organization code is set</span>
+        <span class="c1"># in a sitewide configuration setting.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">regenerate_opds_entries</span> <span class="o">=</span> <span class="n">regenerate_opds_entries</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">regenerate_marc_record</span> <span class="o">=</span> <span class="n">regenerate_marc_record</span>
+
+        <span class="c1"># Similarly for update_search_index.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_search_index</span> <span class="o">=</span> <span class="n">update_search_index</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_identifier_levels</span> <span class="o">=</span> <span class="n">equivalent_identifier_levels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_identifier_threshold</span> <span class="o">=</span> <span class="n">equivalent_identifier_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_identifier_cutoff</span> <span class="o">=</span> <span class="n">equivalent_identifier_cutoff</span>
+
+
+<div class="viewcode-block" id="PresentationCalculationPolicy.recalculate_everything"><a class="viewcode-back" href="../../core.model.html#core.coverage.PresentationCalculationPolicy.recalculate_everything">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">recalculate_everything</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A PresentationCalculationPolicy that always recalculates</span>
+<span class="sd">        everything, even when it doesn&#39;t seem necessary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">PresentationCalculationPolicy</span><span class="p">(</span>
+            <span class="n">regenerate_opds_entries</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">regenerate_marc_record</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">update_search_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="PresentationCalculationPolicy.reset_cover"><a class="viewcode-back" href="../../core.model.html#core.coverage.PresentationCalculationPolicy.reset_cover">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">reset_cover</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A PresentationCalculationPolicy that only resets covers</span>
+<span class="sd">        (including updating cached entries, if necessary) without</span>
+<span class="sd">        impacting any other metadata.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">choose_cover</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">choose_edition</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">set_edition_metadata</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">classify</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">choose_summary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">calculate_quality</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="dump_query"><a class="viewcode-back" href="../../core.model.html#core.coverage.dump_query">[docs]</a><span class="k">def</span> <span class="nf">dump_query</span><span class="p">(</span><span class="n">query</span><span class="p">):</span>
+    <span class="n">dialect</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">bind</span><span class="o">.</span><span class="n">dialect</span>
+    <span class="n">statement</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">statement</span>
+    <span class="n">comp</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">SQLCompiler</span><span class="p">(</span><span class="n">dialect</span><span class="p">,</span> <span class="n">statement</span><span class="p">)</span>
+    <span class="n">comp</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+    <span class="n">enc</span> <span class="o">=</span> <span class="n">dialect</span><span class="o">.</span><span class="n">encoding</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">enc</span><span class="p">)</span>
+        <span class="n">params</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">sqlescape</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">comp</span><span class="o">.</span><span class="n">string</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">enc</span><span class="p">)</span> <span class="o">%</span> <span class="n">params</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">enc</span><span class="p">)</span></div>
+
+<span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="SessionManager"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager">[docs]</a><span class="k">class</span> <span class="nc">SessionManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="c1"># A function that calculates recursively equivalent identifiers</span>
+    <span class="c1"># is also defined in SQL.</span>
+    <span class="n">RECURSIVE_EQUIVALENTS_FUNCTION</span> <span class="o">=</span> <span class="s1">&#39;recursive_equivalents.sql&#39;</span>
+
+    <span class="n">engine_for_url</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="SessionManager.engine"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager.engine">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">engine</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">url</span> <span class="ow">or</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">database_url</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">DEBUG</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SessionManager.sessionmaker"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager.sessionmaker">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">sessionmaker</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">url</span> <span class="ow">or</span> <span class="n">session</span><span class="p">):</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">database_url</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">url</span><span class="p">:</span>
+            <span class="n">bind_obj</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">engine</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">bind_obj</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">get_bind</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;TESTING&#39;</span><span class="p">):</span>
+                <span class="c1"># If a factory is being created from a session in test mode,</span>
+                <span class="c1"># use the same Connection for all of the tests so objects can</span>
+                <span class="c1"># be accessed. Otherwise, bind against an Engine object.</span>
+                <span class="n">bind_obj</span> <span class="o">=</span> <span class="n">bind_obj</span><span class="o">.</span><span class="n">engine</span>
+        <span class="k">return</span> <span class="n">sessionmaker</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="n">bind_obj</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SessionManager.resource_directory"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager.resource_directory">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">resource_directory</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The directory containing SQL files used in database setup.&quot;&quot;&quot;</span>
+        <span class="n">base_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="s2">&quot;files&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SessionManager.initialize"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager.initialize">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">initialize_data</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">initialize_schema</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the database.</span>
+
+<span class="sd">        This includes the schema, the custom functions, and the</span>
+<span class="sd">        initial content.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">url</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">engine_for_url</span><span class="p">:</span>
+            <span class="n">engine</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">engine_for_url</span><span class="p">[</span><span class="n">url</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">engine</span><span class="p">,</span> <span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+
+        <span class="n">engine</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">engine</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">initialize_schema</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">initialize_schema</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+        <span class="n">connection</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+
+        <span class="c1"># Check if the recursive equivalents function exists already.</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;proname&#39;</span><span class="p">)]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span>
+            <span class="n">table</span><span class="p">(</span><span class="s1">&#39;pg_proc&#39;</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;proname&#39;</span><span class="p">)</span><span class="o">==</span><span class="s1">&#39;fn_recursive_equivalents&#39;</span>
+        <span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+        <span class="c1"># If it doesn&#39;t, create it.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span> <span class="ow">and</span> <span class="n">initialize_data</span><span class="p">:</span>
+            <span class="n">resource_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">resource_directory</span><span class="p">(),</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RECURSIVE_EQUIVALENTS_FUNCTION</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">resource_file</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Could not load recursive equivalents function from </span><span class="si">%s</span><span class="s2">: file does not exist.&quot;</span> <span class="o">%</span> <span class="n">resource_file</span><span class="p">)</span>
+            <span class="n">sql</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">resource_file</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">initialize_data</span><span class="p">:</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="n">connection</span><span class="p">)</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">initialize_schema</span> <span class="ow">and</span> <span class="n">initialize_data</span><span class="p">:</span>
+            <span class="c1"># Only cache the engine if all initialization has been performed.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Some pieces of code (e.g. the script that runs</span>
+            <span class="c1"># migrations) have a legitimate need to bypass some of the</span>
+            <span class="c1"># initialization, but normal operation of the site</span>
+            <span class="c1"># requires that everything be initialized.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Until someone tells this method to initialize</span>
+            <span class="c1"># everything, we can&#39;t short-circuit this method with a</span>
+            <span class="c1"># cache.</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">engine_for_url</span><span class="p">[</span><span class="n">url</span><span class="p">]</span> <span class="o">=</span> <span class="n">engine</span>
+        <span class="k">return</span> <span class="n">engine</span><span class="p">,</span> <span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SessionManager.initialize_schema"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager.initialize_schema">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">initialize_schema</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">engine</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the database schema.&quot;&quot;&quot;</span>
+        <span class="c1"># Use SQLAlchemy to create all the tables.</span>
+        <span class="n">to_create</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">table_obj</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">table_obj</span> <span class="ow">in</span> <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;mv_&#39;</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="n">tables</span><span class="o">=</span><span class="n">to_create</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SessionManager.session"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager.session">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">session</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">initialize_data</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">initialize_schema</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">connection</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="n">SAWarning</span><span class="p">)</span>
+            <span class="n">engine</span><span class="p">,</span> <span class="n">connection</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span>
+                <span class="n">url</span><span class="p">,</span> <span class="n">initialize_data</span><span class="o">=</span><span class="n">initialize_data</span><span class="p">,</span>
+                <span class="n">initialize_schema</span><span class="o">=</span><span class="n">initialize_schema</span>
+            <span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="n">connection</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">initialize_data</span><span class="p">:</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">session</span></div>
+
+<div class="viewcode-block" id="SessionManager.initialize_data"><a class="viewcode-back" href="../../core.model.html#core.coverage.SessionManager.initialize_data">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">initialize_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">set_site_configuration</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="c1"># Create initial content.</span>
+        <span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="n">Genre</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">DeliveryMechanism</span>
+        <span class="nb">list</span><span class="p">(</span><span class="n">DataSource</span><span class="o">.</span><span class="n">well_known_sources</span><span class="p">(</span><span class="n">session</span><span class="p">))</span>
+
+        <span class="c1"># Load all existing Genre objects.</span>
+        <span class="n">Genre</span><span class="o">.</span><span class="n">populate_cache</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+        <span class="c1"># Create any genres not in the database.</span>
+        <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">classifier</span><span class="o">.</span><span class="n">genres</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="c1"># TODO: On the very first startup this is rather expensive</span>
+            <span class="c1"># because the cache is invalidated every time a Genre is</span>
+            <span class="c1"># created, then populated the next time a Genre is looked</span>
+            <span class="c1"># up. This wouldn&#39;t be a big problem, but this also happens</span>
+            <span class="c1"># on setup for the unit tests.</span>
+            <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Make sure that the mechanisms fulfillable by the default</span>
+        <span class="c1"># client are marked as such.</span>
+        <span class="k">for</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="ow">in</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">default_client_can_fulfill_lookup</span><span class="p">:</span>
+            <span class="n">mechanism</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+                <span class="n">session</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span>
+            <span class="p">)</span>
+            <span class="n">mechanism</span><span class="o">.</span><span class="n">default_client_can_fulfill</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># If there is currently no &#39;site configuration change&#39;</span>
+        <span class="c1"># Timestamp in the database, create one.</span>
+        <span class="n">timestamp</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">session</span><span class="p">,</span> <span class="n">Timestamp</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">service</span><span class="o">=</span><span class="n">Configuration</span><span class="o">.</span><span class="n">SITE_CONFIGURATION_CHANGED</span><span class="p">,</span>
+            <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">finish</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">())</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
+            <span class="n">site_configuration_has_changed</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Return a potentially-new Session object in case</span>
+        <span class="c1"># it was updated by cls.update_timestamps_table</span>
+        <span class="k">return</span> <span class="n">session</span></div></div>
+
+<div class="viewcode-block" id="production_session"><a class="viewcode-back" href="../../core.model.html#core.coverage.production_session">[docs]</a><span class="k">def</span> <span class="nf">production_session</span><span class="p">(</span><span class="n">initialize_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">database_url</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Database url: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+    <span class="n">_db</span> <span class="o">=</span> <span class="n">SessionManager</span><span class="o">.</span><span class="n">session</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">initialize_data</span><span class="o">=</span><span class="n">initialize_data</span><span class="p">)</span>
+
+    <span class="c1"># The first thing to do after getting a database connection is to</span>
+    <span class="c1"># set up the logging configuration.</span>
+    <span class="c1">#</span>
+    <span class="c1"># If called during a unit test, this will configure logging</span>
+    <span class="c1"># incorrectly, but 1) this method isn&#39;t normally called during</span>
+    <span class="c1"># unit tests, and 2) package_setup() will call initialize() again</span>
+    <span class="c1"># with the right arguments.</span>
+    <span class="kn">from</span> <span class="nn">..log</span> <span class="k">import</span> <span class="n">LogConfiguration</span>
+    <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_db</span></div>
+
+<span class="kn">from</span> <span class="nn">admin</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Admin</span><span class="p">,</span>
+    <span class="n">AdminRole</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">BaseCoverageRecord</span><span class="p">,</span>
+    <span class="n">CoverageRecord</span><span class="p">,</span>
+    <span class="n">Timestamp</span><span class="p">,</span>
+    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">cachedfeed</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CachedFeed</span><span class="p">,</span>
+    <span class="n">WillNotGenerateExpensiveFeed</span><span class="p">,</span>
+    <span class="n">CachedMARCFile</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">circulationevent</span> <span class="k">import</span> <span class="n">CirculationEvent</span>
+<span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Classification</span><span class="p">,</span>
+    <span class="n">Genre</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">collection</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">CollectionIdentifier</span><span class="p">,</span>
+    <span class="n">CollectionMissing</span><span class="p">,</span>
+    <span class="n">collections_identifiers</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">configuration</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">complaint</span> <span class="k">import</span> <span class="n">Complaint</span>
+<span class="kn">from</span> <span class="nn">contributor</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Contribution</span><span class="p">,</span>
+    <span class="n">Contributor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">credential</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Credential</span><span class="p">,</span>
+    <span class="n">DelegatedPatronIdentifier</span><span class="p">,</span>
+    <span class="n">DRMDeviceIdentifier</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">customlist</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CustomList</span><span class="p">,</span>
+    <span class="n">CustomListEntry</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Equivalency</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">integrationclient</span> <span class="k">import</span> <span class="n">IntegrationClient</span>
+<span class="kn">from</span> <span class="nn">library</span> <span class="k">import</span> <span class="n">Library</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">License</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
+    <span class="n">PolicyException</span><span class="p">,</span>
+    <span class="n">RightsStatus</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">measurement</span> <span class="k">import</span> <span class="n">Measurement</span>
+<span class="kn">from</span> <span class="nn">patron</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Annotation</span><span class="p">,</span>
+    <span class="n">Hold</span><span class="p">,</span>
+    <span class="n">Loan</span><span class="p">,</span>
+    <span class="n">LoanAndHoldMixin</span><span class="p">,</span>
+    <span class="n">Patron</span><span class="p">,</span>
+    <span class="n">PatronProfileStorage</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">listeners</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Hyperlink</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+    <span class="n">Resource</span><span class="p">,</span>
+    <span class="n">ResourceTransformation</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Work</span><span class="p">,</span>
+    <span class="n">WorkGenre</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

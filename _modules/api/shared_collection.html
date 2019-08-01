@@ -1,0 +1,326 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.shared_collection &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.shared_collection</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">IntegrationClient</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+
+<div class="viewcode-block" id="SharedCollectionAPI"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI">[docs]</a><span class="k">class</span> <span class="nc">SharedCollectionAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Logic for circulating books to patrons of libraries on other</span>
+<span class="sd">    circulation managers. This can be used for something like ODL where the</span>
+<span class="sd">    circulation manager is responsible for managing loans and holds rather</span>
+<span class="sd">    than the distributor, or potentially for inter-library loans for other</span>
+<span class="sd">    collection types.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">api_map</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param _db: A database session (probably a scoped session).</span>
+
+<span class="sd">        :param api_map: A dictionary mapping Collection protocols to</span>
+<span class="sd">           API classes that should be instantiated to deal with these</span>
+<span class="sd">           protocols. The default map will work fine unless you&#39;re a</span>
+<span class="sd">           unit test.</span>
+
+<span class="sd">           Since instantiating these API classes may result in API</span>
+<span class="sd">           calls, we only instantiate one SharedCollectionAPI,</span>
+<span class="sd">           and keep it around as long as possible.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TODO: Should there be analytics events for external libraries?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="n">api_map</span> <span class="o">=</span> <span class="n">api_map</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_api_map</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Shared Collection API&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Collection</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="ow">in</span> <span class="n">api_map</span><span class="p">:</span>
+                <span class="n">api</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">api</span> <span class="o">=</span> <span class="n">api_map</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">](</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                        <span class="s2">&quot;Error loading configuration for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
+                <span class="k">if</span> <span class="n">api</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">api</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_api_map</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;When you see a Collection that implements protocol X, instantiate</span>
+<span class="sd">        API class Y to handle that collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">odl</span> <span class="k">import</span> <span class="n">ODLAPI</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">ODLAPI</span><span class="p">,</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="SharedCollectionAPI.api_for_licensepool"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.api_for_licensepool">[docs]</a>    <span class="k">def</span> <span class="nf">api_for_licensepool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the API to use for the given license pool.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SharedCollectionAPI.api"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.api">[docs]</a>    <span class="k">def</span> <span class="nf">api</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the API to use for the given collection, and raise an exception</span>
+<span class="sd">        if there isn&#39;t one.&quot;&quot;&quot;</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">api</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CirculationException</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Collection </span><span class="si">%(collection)s</span><span class="s2"> is not a shared collection.&quot;</span><span class="p">,</span>
+                  <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">api</span></div>
+
+<div class="viewcode-block" id="SharedCollectionAPI.register"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">auth_document_url</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">get_with_timeout</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Register a library on an external circulation manager for access to this</span>
+<span class="sd">        collection. The library&#39;s auth document url must be whitelisted in the</span>
+<span class="sd">        collection&#39;s settings.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">auth_document_url</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InvalidInputException</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;An authentication document URL is required to register a library.&quot;</span><span class="p">))</span>
+
+        <span class="n">auth_response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">auth_document_url</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2xx&quot;</span><span class="p">,</span> <span class="s2">&quot;3xx&quot;</span><span class="p">])</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">auth_document</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">auth_response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Authentication document at </span><span class="si">%(auth_document_url)s</span><span class="s2"> was not valid JSON.&quot;</span><span class="p">,</span>
+                  <span class="n">auth_document_url</span><span class="o">=</span><span class="n">auth_document_url</span><span class="p">),</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote authentication document&quot;</span><span class="p">))</span>
+
+        <span class="n">links</span> <span class="o">=</span> <span class="n">auth_document</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">)</span>
+        <span class="n">start_url</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;start&quot;</span><span class="p">:</span>
+                <span class="n">start_url</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">start_url</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Authentication document at </span><span class="si">%(auth_document_url)s</span><span class="s2"> did not contain a start link.&quot;</span><span class="p">,</span>
+                  <span class="n">auth_document_url</span><span class="o">=</span><span class="n">auth_document_url</span><span class="p">),</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote authentication document&quot;</span><span class="p">))</span>
+
+        <span class="n">external_library_urls</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+            <span class="n">BaseSharedCollectionAPI</span><span class="o">.</span><span class="n">EXTERNAL_LIBRARY_URLS</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">external_library_urls</span> <span class="ow">or</span> <span class="n">start_url</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">external_library_urls</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AuthorizationFailedException</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Your library&#39;s URL is not one of the allowed URLs for this collection. Ask the collection administrator to add </span><span class="si">%(library_url)s</span><span class="s2"> to the list of allowed URLs.&quot;</span><span class="p">,</span>
+                  <span class="n">library_url</span><span class="o">=</span><span class="n">start_url</span><span class="p">))</span>
+
+        <span class="n">public_key</span> <span class="o">=</span> <span class="n">auth_document</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;public_key&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">public_key</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">public_key</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;RSA&quot;</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">public_key</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">RemoteInitiatedServerError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Authentication document at </span><span class="si">%(auth_document_url)s</span><span class="s2"> did not contain an RSA public key.&quot;</span><span class="p">,</span>
+                  <span class="n">auth_document_url</span><span class="o">=</span><span class="n">auth_document_url</span><span class="p">),</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote authentication document&quot;</span><span class="p">))</span>
+
+        <span class="n">public_key</span> <span class="o">=</span> <span class="n">public_key</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">)</span>
+        <span class="n">encryptor</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">cipher</span><span class="p">(</span><span class="n">public_key</span><span class="p">)</span>
+
+        <span class="n">normalized_url</span> <span class="o">=</span> <span class="n">IntegrationClient</span><span class="o">.</span><span class="n">normalize_url</span><span class="p">(</span><span class="n">start_url</span><span class="p">)</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">IntegrationClient</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">normalized_url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">client</span><span class="p">:</span>
+            <span class="n">client</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">IntegrationClient</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">start_url</span><span class="p">)</span>
+
+        <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">shared_secret</span>
+        <span class="n">encrypted_secret</span> <span class="o">=</span> <span class="n">encryptor</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">shared_secret</span><span class="o">=</span><span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">encrypted_secret</span><span class="p">)))</span></div>
+
+<div class="viewcode-block" id="SharedCollectionAPI.check_client_authorization"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.check_client_authorization">[docs]</a>    <span class="k">def</span> <span class="nf">check_client_authorization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Verify that an IntegrationClient is whitelisted for access to the collection.&quot;&quot;&quot;</span>
+        <span class="n">external_library_urls</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+            <span class="n">BaseSharedCollectionAPI</span><span class="o">.</span><span class="n">EXTERNAL_LIBRARY_URLS</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">if</span> <span class="n">client</span><span class="o">.</span><span class="n">url</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">IntegrationClient</span><span class="o">.</span><span class="n">normalize_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">external_library_urls</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="n">AuthorizationFailedException</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SharedCollectionAPI.borrow"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.borrow">[docs]</a>    <span class="k">def</span> <span class="nf">borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_client_authorization</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hold</span> <span class="ow">and</span> <span class="n">hold</span><span class="o">.</span><span class="n">integration_client</span> <span class="o">!=</span> <span class="n">client</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;This hold belongs to a different library.&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">api</span><span class="o">.</span><span class="n">checkout_to_external_library</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="n">hold</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SharedCollectionAPI.revoke_loan"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.revoke_loan">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">):</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_client_authorization</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">integration_client</span> <span class="o">!=</span> <span class="n">client</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NotCheckedOut</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;This loan belongs to a different library.&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">api</span><span class="o">.</span><span class="n">checkin_from_external_library</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SharedCollectionAPI.fulfill"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">):</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_client_authorization</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">integration_client</span> <span class="o">!=</span> <span class="n">client</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;This loan belongs to a different library.&quot;</span><span class="p">))</span>
+
+        <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">fulfill_for_external_library</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">fulfillment</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">content_link</span> <span class="ow">or</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">is_streaming</span><span class="p">:</span>
+            <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+            <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span> <span class="o">=</span> <span class="n">mechanism</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">fulfillment</span></div>
+
+<div class="viewcode-block" id="SharedCollectionAPI.revoke_hold"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI.revoke_hold">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_client_authorization</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hold</span> <span class="ow">and</span> <span class="n">hold</span><span class="o">.</span><span class="n">integration_client</span> <span class="o">!=</span> <span class="n">client</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotReleaseHold</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;This hold belongs to a different library.&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">api</span><span class="o">.</span><span class="n">release_hold_from_external_library</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="BaseSharedCollectionAPI"><a class="viewcode-back" href="../../api.html#api.shared_collection.BaseSharedCollectionAPI">[docs]</a><span class="k">class</span> <span class="nc">BaseSharedCollectionAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;APIs that permit external circulation managers to access their collections</span>
+<span class="sd">    should extend this class.&quot;&quot;&quot;</span>
+
+    <span class="n">EXTERNAL_LIBRARY_URLS</span> <span class="o">=</span> <span class="s2">&quot;external_library_urls&quot;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">EXTERNAL_LIBRARY_URLS</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;URLs for libraries on other circulation managers that use this collection&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A URL should include the library&#39;s short name (e.g. https://circulation.librarysimplified.org/NYNYPL/), even if it is the only library on the circulation manager.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">EBOOK_LOAN_DURATION_KEY</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Ebook Loan Duration for libraries on other circulation managers (in Days)&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">STANDARD_DEFAULT_LOAN_PERIOD</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;When a patron from another library borrows an ebook from this collection, the circulation manager will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="BaseSharedCollectionAPI.checkout_to_external_library"><a class="viewcode-back" href="../../api.html#api.shared_collection.BaseSharedCollectionAPI.checkout_to_external_library">[docs]</a>    <span class="k">def</span> <span class="nf">checkout_to_external_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseSharedCollectionAPI.checkin_from_external_library"><a class="viewcode-back" href="../../api.html#api.shared_collection.BaseSharedCollectionAPI.checkin_from_external_library">[docs]</a>    <span class="k">def</span> <span class="nf">checkin_from_external_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseSharedCollectionAPI.fulfill_for_external_library"><a class="viewcode-back" href="../../api.html#api.shared_collection.BaseSharedCollectionAPI.fulfill_for_external_library">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill_for_external_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">mechanism</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseSharedCollectionAPI.release_hold_from_external_library"><a class="viewcode-back" href="../../api.html#api.shared_collection.BaseSharedCollectionAPI.release_hold_from_external_library">[docs]</a>    <span class="k">def</span> <span class="nf">release_hold_from_external_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

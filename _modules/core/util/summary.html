@@ -1,0 +1,268 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.util.summary &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.summary</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">textblob</span> <span class="k">import</span> <span class="n">TextBlob</span>
+<span class="kn">from</span> <span class="nn">textblob.exceptions</span> <span class="k">import</span> <span class="n">MissingCorpusError</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Bigrams</span><span class="p">,</span>
+    <span class="n">english_bigrams</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<div class="viewcode-block" id="SummaryEvaluator"><a class="viewcode-back" href="../../../core.util.html#core.util.summary.SummaryEvaluator">[docs]</a><span class="k">class</span> <span class="nc">SummaryEvaluator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Evaluate summaries of a book to find a usable summary.</span>
+
+<span class="sd">    A usable summary will have good coverage of the popular noun</span>
+<span class="sd">    phrases found across all summaries of the book, will have an</span>
+<span class="sd">    approximate length of four sentences (this is customizable), and</span>
+<span class="sd">    will not mention words that indicate it&#39;s a summary of a specific</span>
+<span class="sd">    edition of the book.</span>
+
+<span class="sd">    All else being equal, a shorter summary is better.</span>
+
+<span class="sd">    A summary is penalized for apparently not being in English.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># These phrases are indicative of a description we can&#39;t use for</span>
+    <span class="c1"># whatever reason.</span>
+    <span class="n">default_bad_phrases</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+        <span class="s2">&quot;version of&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;retelling of&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;abridged&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;retelling&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;condensed&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;adaptation of&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;look for&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;new edition&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;excerpts&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;version&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;edition&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;selections&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;complete texts&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;in one volume&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;contains&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--container&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--original container&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;playaway&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;complete novels&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;all rights reserved&quot;</span><span class="p">,</span>
+    <span class="p">])</span>
+
+    <span class="n">bad_res</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+        <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;the [^ ]+ Collection&quot;</span><span class="p">),</span>
+        <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;Includes&quot;</span><span class="p">),</span>
+        <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;This is&quot;</span><span class="p">),</span>
+    <span class="p">])</span>
+
+    <span class="n">_nltk_installed</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Summary Evaluator&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimal_number_of_sentences</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+                 <span class="n">noun_phrases_to_consider</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bad_phrases</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimal_number_of_sentences</span><span class="o">=</span><span class="n">optimal_number_of_sentences</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">summaries</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">noun_phrases</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blobs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scores</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">noun_phrases_to_consider</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">noun_phrases_to_consider</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_noun_phrases</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">bad_phrases</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bad_phrases</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_bad_phrases</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bad_phrases</span> <span class="o">=</span> <span class="n">bad_phrases</span>
+
+<div class="viewcode-block" id="SummaryEvaluator.add"><a class="viewcode-back" href="../../../core.util.html#core.util.summary.SummaryEvaluator.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">summary</span><span class="p">,</span> <span class="n">parser</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">parser_class</span> <span class="o">=</span> <span class="n">parser</span> <span class="ow">or</span> <span class="n">TextBlob</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">summary</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">summary</span> <span class="o">=</span> <span class="n">summary</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">summary</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blobs</span><span class="p">:</span>
+            <span class="c1"># We already evaluated this summary. Don&#39;t count it more than once</span>
+            <span class="k">return</span>
+        <span class="n">blob</span> <span class="o">=</span> <span class="n">parser_class</span><span class="p">(</span><span class="n">summary</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blobs</span><span class="p">[</span><span class="n">summary</span><span class="p">]</span> <span class="o">=</span> <span class="n">blob</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">summaries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">summary</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nltk_installed</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">phrase</span> <span class="ow">in</span> <span class="n">blob</span><span class="o">.</span><span class="n">noun_phrases</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">noun_phrases</span><span class="p">[</span><span class="n">phrase</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noun_phrases</span><span class="p">[</span><span class="n">phrase</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">except</span> <span class="n">MissingCorpusError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_nltk_installed</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Summary cannot be evaluated: NLTK not installed </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SummaryEvaluator.ready"><a class="viewcode-back" href="../../../core.util.html#core.util.summary.SummaryEvaluator.ready">[docs]</a>    <span class="k">def</span> <span class="nf">ready</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;We are done adding to the corpus and ready to start evaluating.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_noun_phrases</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+            <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">noun_phrases</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span>
+                <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">noun_phrases_to_consider</span><span class="p">))])</span></div>
+
+<div class="viewcode-block" id="SummaryEvaluator.best_choice"><a class="viewcode-back" href="../../../core.util.html#core.util.summary.SummaryEvaluator.best_choice">[docs]</a>    <span class="k">def</span> <span class="nf">best_choice</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_choices</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">c</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="SummaryEvaluator.best_choices"><a class="viewcode-back" href="../../../core.util.html#core.util.summary.SummaryEvaluator.best_choices">[docs]</a>    <span class="k">def</span> <span class="nf">best_choices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Choose the best `n` choices among the current summaries.&quot;&quot;&quot;</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">summary</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">summaries</span><span class="p">:</span>
+            <span class="n">scores</span><span class="p">[</span><span class="n">summary</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">summary</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scores</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SummaryEvaluator.score"><a class="viewcode-back" href="../../../core.util.html#core.util.summary.SummaryEvaluator.score">[docs]</a>    <span class="k">def</span> <span class="nf">score</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">summary</span><span class="p">,</span> <span class="n">apply_language_penalty</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Score a summary relative to our current view of the dataset.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nltk_installed</span><span class="p">:</span>
+            <span class="c1"># Without NLTK, there&#39;s no need to evaluate the score.</span>
+            <span class="k">return</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">summary</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">summary</span> <span class="o">=</span> <span class="n">summary</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">summary</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">summary</span><span class="p">]</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">blob</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">blobs</span><span class="p">[</span><span class="n">summary</span><span class="p">]</span>
+
+        <span class="n">top_noun_phrases_used</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_noun_phrases</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">blob</span><span class="o">.</span><span class="n">noun_phrases</span><span class="p">])</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="p">(</span><span class="n">top_noun_phrases_used</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">noun_phrases_to_consider</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">sentences</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blob</span><span class="o">.</span><span class="n">sentences</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Can&#39;t parse into sentences for whatever reason.</span>
+            <span class="c1"># Make a really bad guess.</span>
+            <span class="n">sentences</span> <span class="o">=</span> <span class="n">summary</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;. &quot;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">off_from_optimal</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">sentences</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">optimal_number_of_sentences</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">off_from_optimal</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">off_from_optimal</span> <span class="o">=</span> <span class="mf">1.5</span>
+        <span class="k">if</span> <span class="n">off_from_optimal</span><span class="p">:</span>
+            <span class="c1"># This summary is too long or too short.</span>
+            <span class="n">score</span> <span class="o">/=</span> <span class="p">(</span><span class="n">off_from_optimal</span> <span class="o">**</span> <span class="mf">1.5</span><span class="p">)</span>
+
+        <span class="n">bad_phrases</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="n">summary</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bad_phrases</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+                <span class="n">bad_phrases</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bad_res</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">summary</span><span class="p">):</span>
+                <span class="n">bad_phrases</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">l</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot; -- &quot;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">bad_phrases</span> <span class="o">+=</span> <span class="p">(</span><span class="n">l</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot; -- &quot;</span><span class="p">)</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span>
+
+        <span class="n">score</span> <span class="o">*=</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">**</span> <span class="n">bad_phrases</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">apply_language_penalty</span><span class="p">:</span>
+            <span class="n">language_difference</span> <span class="o">=</span> <span class="n">english_bigrams</span><span class="o">.</span><span class="n">difference_from</span><span class="p">(</span>
+                <span class="n">Bigrams</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">summary</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">language_difference</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">score</span> <span class="o">*=</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">**</span> <span class="p">(</span><span class="n">language_difference</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">score</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

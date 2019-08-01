@@ -1,0 +1,791 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.marc &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.marc</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="kn">from</span> <span class="nn">pymarc</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">Record</span><span class="p">,</span>
+    <span class="n">MARCWriter</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="n">BaseFacets</span>
+<span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ExternalSearchIndex</span><span class="p">,</span>
+    <span class="n">SortKeyPagination</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">CachedMARCFile</span><span class="p">,</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+    <span class="n">Session</span><span class="p">,</span>
+    <span class="n">Work</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">s3</span> <span class="k">import</span> <span class="n">S3Uploader</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="n">Lane</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
+
+<div class="viewcode-block" id="Annotator"><a class="viewcode-back" href="../../core.html#core.marc.Annotator">[docs]</a><span class="k">class</span> <span class="nc">Annotator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The Annotator knows how to add information about a Work to</span>
+<span class="sd">    a MARC record.&quot;&quot;&quot;</span>
+
+    <span class="n">marc_cache_field</span> <span class="o">=</span> <span class="n">Work</span><span class="o">.</span><span class="n">marc_record</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="c1"># From https://www.loc.gov/standards/valuelist/marctarget.html</span>
+    <span class="n">AUDIENCE_TERMS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">:</span> <span class="s2">&quot;Juvenile&quot;</span><span class="p">,</span>
+        <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">:</span> <span class="s2">&quot;Adolescent&quot;</span><span class="p">,</span>
+        <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">:</span> <span class="s2">&quot;Adult&quot;</span><span class="p">,</span>
+        <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">:</span> <span class="s2">&quot;General&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># TODO: Add remaining formats. Maybe there&#39;s a better place to</span>
+    <span class="c1"># store this so it&#39;s easier to keep up-to-date.</span>
+    <span class="c1"># There doesn&#39;t seem to be any particular vocabulary for this.</span>
+    <span class="n">FORMAT_TERMS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span><span class="p">):</span> <span class="s2">&quot;EPUB eBook&quot;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span><span class="p">):</span> <span class="s2">&quot;Adobe EPUB eBook&quot;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">PDF_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span><span class="p">):</span> <span class="s2">&quot;PDF eBook&quot;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">PDF_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span><span class="p">):</span> <span class="s2">&quot;Adobe PDF eBook&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="Annotator.annotate_work_record"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.annotate_work_record">[docs]</a>    <span class="k">def</span> <span class="nf">annotate_work_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">active_license_pool</span><span class="p">,</span> <span class="n">edition</span><span class="p">,</span>
+                             <span class="n">identifier</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">integration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">updated</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add metadata from this work to a MARC record.</span>
+
+<span class="sd">        :work: The Work whose record is being annotated.</span>
+<span class="sd">        :active_license_pool: Of all the LicensePools associated with this</span>
+<span class="sd">           Work, the client has expressed interest in this one.</span>
+<span class="sd">        :edition: The Edition to use when associating bibliographic</span>
+<span class="sd">           metadata with this entry.</span>
+<span class="sd">        :identifier: Of all the Identifiers associated with this</span>
+<span class="sd">           Work, the client has expressed interest in this one.</span>
+<span class="sd">        :param record: A MARCRecord object to be annotated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_distributor</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">active_license_pool</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_formats</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">active_license_pool</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Annotator.leader"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.leader">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">leader</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="c1"># The record length is automatically updated once fields are added.</span>
+        <span class="n">initial_record_length</span> <span class="o">=</span> <span class="s2">&quot;00000&quot;</span>
+
+        <span class="n">record_status</span> <span class="o">=</span> <span class="s2">&quot;n&quot;</span> <span class="c1"># New record</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">marc_cache_field</span><span class="p">):</span>
+            <span class="n">record_status</span> <span class="o">=</span> <span class="s2">&quot;c&quot;</span> <span class="c1"># Corrected or revised</span>
+
+        <span class="c1"># Distributors consistently seem to use type &quot;a&quot; - language material - for</span>
+        <span class="c1"># ebooks, though there is also type &quot;m&quot; for computer files.</span>
+        <span class="n">record_type</span> <span class="o">=</span> <span class="s2">&quot;a&quot;</span>
+        <span class="n">bibliographic_level</span> <span class="o">=</span> <span class="s2">&quot;m&quot;</span> <span class="c1"># Monograph/item</span>
+        
+        <span class="n">leader</span> <span class="o">=</span> <span class="n">initial_record_length</span> <span class="o">+</span> <span class="n">record_status</span> <span class="o">+</span> <span class="n">record_type</span> <span class="o">+</span> <span class="n">bibliographic_level</span>
+        <span class="c1"># Additional information about the record that&#39;s always the same.</span>
+        <span class="n">leader</span> <span class="o">+=</span> <span class="s2">&quot;  2200000   4500&quot;</span>
+        <span class="k">return</span> <span class="n">leader</span></div>
+
+<div class="viewcode-block" id="Annotator.add_control_fields"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_control_fields">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_control_fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
+        <span class="c1"># Unique identifier for this record.</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;001&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">))</span>
+
+        <span class="c1"># Field 003 (MARC organization code) is library-specific, so it&#39;s added separately.</span>
+
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;005&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%H%M%S.0&quot;</span><span class="p">)))</span>
+
+        <span class="c1"># Field 006: m = computer file, d = the file is a document</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;006&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="s2">&quot;m        d        &quot;</span><span class="p">))</span>
+
+        <span class="c1"># Field 007: more details about electronic resource</span>
+        <span class="c1"># Since this depends on the pool, it might be better not to cache it.</span>
+        <span class="c1"># But it&#39;s probably not a huge problem if it&#39;s outdated.</span>
+        <span class="c1"># File formats: a=one format, m=multiple formats, u=unknown</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">delivery_mechanisms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">file_formats_code</span> <span class="o">=</span> <span class="s2">&quot;a&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">file_formats_code</span> <span class="o">=</span> <span class="s2">&quot;m&quot;</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;007&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="s2">&quot;cr cn ---&quot;</span> <span class="o">+</span> <span class="n">file_formats_code</span> <span class="o">+</span> <span class="s2">&quot;nuuu&quot;</span><span class="p">))</span>
+
+        <span class="c1"># Field 008 (fixed-length data elements):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">publication_date</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">issued</span> <span class="ow">or</span> <span class="n">edition</span><span class="o">.</span><span class="n">published</span>
+        <span class="k">if</span> <span class="n">publication_date</span><span class="p">:</span>
+            <span class="n">date_type</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span> <span class="c1"># single known date</span>
+            <span class="c1"># Not using strftime because some years are pre-1900.</span>
+            <span class="n">date_value</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%04i</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">publication_date</span><span class="o">.</span><span class="n">year</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">date_type</span> <span class="o">=</span> <span class="s2">&quot;n&quot;</span> <span class="c1"># dates unknown</span>
+            <span class="n">date_value</span> <span class="o">=</span> <span class="s2">&quot;    &quot;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="n">date_type</span> <span class="o">+</span> <span class="n">date_value</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s2">&quot;    &quot;</span>
+        <span class="c1"># TODO: Start tracking place of publication when available. Since we don&#39;t have</span>
+        <span class="c1"># this yet, assume everything was published in the US.</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s2">&quot;xxu&quot;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s2">&quot;                 &quot;</span>
+        <span class="n">language</span> <span class="o">=</span> <span class="s2">&quot;eng&quot;</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">language</span><span class="p">:</span>
+            <span class="n">language</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">string_to_alpha_3</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">language</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="n">language</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s2">&quot;  &quot;</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;008&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_marc_organization_code"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_marc_organization_code">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_marc_organization_code</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">marc_org</span><span class="p">):</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span><span class="n">tag</span><span class="o">=</span><span class="s2">&quot;003&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">marc_org</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_isbn"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_isbn">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_isbn</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="c1"># Add the ISBN if we have one.</span>
+        <span class="n">isbn</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">:</span>
+            <span class="n">isbn</span> <span class="o">=</span> <span class="n">identifier</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">isbn</span><span class="p">:</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="n">identifier_ids</span> <span class="o">=</span> <span class="n">identifier</span><span class="o">.</span><span class="n">equivalent_identifier_ids</span><span class="p">()[</span><span class="n">identifier</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+            <span class="n">isbn</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">))</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">isbn</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;020&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span><span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">isbn</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_title"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_title">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_title</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
+        <span class="c1"># Non-filing characters are used to indicate when the beginning of a title</span>
+        <span class="c1"># should not be used in sorting. This code tries to identify them by comparing</span>
+        <span class="c1"># the title and the sort_title.</span>
+        <span class="n">non_filing_characters</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="o">!=</span> <span class="n">edition</span><span class="o">.</span><span class="n">sort_title</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;,&quot;</span> <span class="ow">in</span> <span class="n">edition</span><span class="o">.</span><span class="n">sort_title</span><span class="p">):</span>
+            <span class="n">stemmed</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">sort_title</span><span class="p">[:</span><span class="n">edition</span><span class="o">.</span><span class="n">sort_title</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+            <span class="n">non_filing_characters</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">stemmed</span><span class="p">)</span>
+        <span class="c1"># MARC only supports up to 9 non-filing characters, but if we got more</span>
+        <span class="c1"># something is probably wrong anyway.</span>
+        <span class="k">if</span> <span class="n">non_filing_characters</span> <span class="o">&gt;</span> <span class="mi">9</span><span class="p">:</span>
+            <span class="n">non_filing_characters</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">subfields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">subtitle</span><span class="p">:</span>
+            <span class="n">subfields</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">subtitle</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">:</span>
+            <span class="n">subfields</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">)]</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span>
+                <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;245&quot;</span><span class="p">,</span>
+                <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="n">non_filing_characters</span><span class="p">],</span>
+                <span class="n">subfields</span><span class="o">=</span><span class="n">subfields</span><span class="p">,</span>
+            <span class="p">))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_contributors"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_contributors">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_contributors</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create contributor fields for this edition.</span>
+
+<span class="sd">        TODO: Use canonical names from LoC.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">contibutor_fields</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># If there&#39;s one author, use the 100 field.</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">sort_author</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">contributions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;100&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1&quot;</span><span class="p">,</span><span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">sort_author</span><span class="p">),</span>
+                    <span class="p">]))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">contributions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">contribution</span> <span class="ow">in</span> <span class="n">edition</span><span class="o">.</span><span class="n">contributions</span><span class="p">:</span>
+                <span class="n">contributor</span> <span class="o">=</span> <span class="n">contribution</span><span class="o">.</span><span class="n">contributor</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                    <span class="n">Field</span><span class="p">(</span>
+                        <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;700&quot;</span><span class="p">,</span>
+                        <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                        <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                            <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">),</span>
+                            <span class="s2">&quot;e&quot;</span><span class="p">,</span> <span class="n">contribution</span><span class="o">.</span><span class="n">role</span><span class="p">,</span>
+                        <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_publisher"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_publisher">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_publisher</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">publisher</span><span class="p">:</span>
+            <span class="n">publication_date</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">issued</span> <span class="ow">or</span> <span class="n">edition</span><span class="o">.</span><span class="n">published</span>
+            <span class="n">year</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">publication_date</span><span class="p">:</span>
+                <span class="n">year</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">publication_date</span><span class="o">.</span><span class="n">year</span><span class="p">)</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;264&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;[Place of publication not identified]&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">publisher</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                        <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span>
+                    <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_distributor"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_distributor">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_distributor</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">pool</span><span class="p">):</span>
+        <span class="c1"># Distributor</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span>
+                <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;264&quot;</span><span class="p">,</span>
+                <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;2&quot;</span><span class="p">],</span>
+                <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_physical_description"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_physical_description">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_physical_description</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
+        <span class="c1"># These 3xx fields are for a physical description of the item.</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;300&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;1 online resource&quot;</span><span class="p">,</span>
+                    <span class="p">]))</span>
+
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;336&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;txt&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;rdacontent&quot;</span>
+                    <span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;300&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;1 sound file&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;digital&quot;</span><span class="p">,</span>
+                    <span class="p">]))</span>
+
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;336&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;spoken word&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;spw&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;rdacontent&quot;</span>
+                    <span class="p">]))</span>
+
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span>
+                <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;337&quot;</span><span class="p">,</span>
+                <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;computer&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;rdamedia&quot;</span>
+                <span class="p">]))</span>
+
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span>
+                <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;338&quot;</span><span class="p">,</span>
+                <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;online resource&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;cr&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;rdacarrier&quot;</span><span class="p">,</span>
+                <span class="p">]))</span>
+
+
+        <span class="n">file_type</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">:</span>
+            <span class="n">file_type</span> <span class="o">=</span> <span class="s2">&quot;text file&quot;</span>
+        <span class="k">elif</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span><span class="p">:</span>
+            <span class="n">file_type</span> <span class="o">=</span> <span class="s2">&quot;audio file&quot;</span>
+        <span class="k">if</span> <span class="n">file_type</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;347&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">file_type</span><span class="p">,</span>
+                        <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;rda&quot;</span><span class="p">,</span>
+                    <span class="p">]))</span>
+
+        <span class="c1"># Form of work</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">:</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="s2">&quot;eBook&quot;</span>
+        <span class="k">elif</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span><span class="p">:</span>
+            <span class="c1"># This field doesn&#39;t seem to be used for audio.</span>
+            <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">form</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;380&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;eBook&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;tlcgt&quot;</span><span class="p">,</span>
+                    <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_audience"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_audience">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="n">audience</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_TERMS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">work</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span> <span class="s2">&quot;General&quot;</span><span class="p">)</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span>
+                <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;385&quot;</span><span class="p">,</span>
+                <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span>  <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span>
+                    <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;tlctarget&quot;</span><span class="p">,</span>
+                <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_series"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_series">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_series</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">series</span><span class="p">:</span>
+            <span class="n">subfields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">series</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">series_position</span><span class="p">:</span>
+                <span class="n">subfields</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;v&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">edition</span><span class="o">.</span><span class="n">series_position</span><span class="p">)])</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;490&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="n">subfields</span><span class="p">,</span>
+                    <span class="p">))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_system_details"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_system_details">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_system_details</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span>
+                <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;538&quot;</span><span class="p">,</span>
+                <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;Mode of access: World Wide Web.&quot;</span>
+                <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_formats"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_formats">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_formats</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">pool</span><span class="p">):</span>
+        <span class="n">formats</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">lpdm</span> <span class="ow">in</span> <span class="n">pool</span><span class="o">.</span><span class="n">delivery_mechanisms</span><span class="p">:</span>
+            <span class="nb">format</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">dm</span> <span class="o">=</span> <span class="n">lpdm</span><span class="o">.</span><span class="n">delivery_mechanism</span>
+            <span class="nb">format</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">FORMAT_TERMS</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">dm</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span> <span class="n">dm</span><span class="o">.</span><span class="n">drm_scheme</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">format</span><span class="p">:</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                    <span class="n">Field</span><span class="p">(</span>
+                        <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;538&quot;</span><span class="p">,</span>
+                        <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span><span class="s2">&quot; &quot;</span><span class="p">],</span>
+                        <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                            <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="p">,</span>
+                        <span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="Annotator.add_summary"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_summary">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_summary</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="n">summary</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">summary_text</span>
+        <span class="k">if</span> <span class="n">summary</span><span class="p">:</span>
+            <span class="n">stripped</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;&lt;[^&gt;]+?&gt;&#39;</span><span class="p">,</span> <span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="n">summary</span><span class="p">)</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;520&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">stripped</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">,</span> <span class="s1">&#39;ignore&#39;</span><span class="p">),</span>
+                    <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_simplified_genres"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_simplified_genres">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_simplified_genres</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create subject fields for this work.&quot;&quot;&quot;</span>
+        <span class="n">genres</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">genres</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">genres</span>
+
+        <span class="k">for</span> <span class="n">genre</span> <span class="ow">in</span> <span class="n">genres</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+                <span class="n">Field</span><span class="p">(</span>
+                    <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;650&quot;</span><span class="p">,</span>
+                    <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="s2">&quot;7&quot;</span><span class="p">],</span>
+                    <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                        <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">genre</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                        <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;Library Simplified&quot;</span><span class="p">,</span>
+                    <span class="p">]))</span></div>
+
+<div class="viewcode-block" id="Annotator.add_ebooks_subject"><a class="viewcode-back" href="../../core.html#core.marc.Annotator.add_ebooks_subject">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_ebooks_subject</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="c1"># This is a general subject that can be added to all records.</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span>
+            <span class="n">Field</span><span class="p">(</span>
+                <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;655&quot;</span><span class="p">,</span>
+                <span class="n">indicators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">],</span>
+                <span class="n">subfields</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;Electronic books.&quot;</span><span class="p">,</span>
+                <span class="p">]))</span></div></div>
+
+
+<div class="viewcode-block" id="MARCExporterFacets"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporterFacets">[docs]</a><span class="k">class</span> <span class="nc">MARCExporterFacets</span><span class="p">(</span><span class="n">BaseFacets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A faceting object used to configure the search engine so that</span>
+<span class="sd">    it only works updated since a certain time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_time</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">start_time</span>
+
+<div class="viewcode-block" id="MARCExporterFacets.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporterFacets.modify_search_filter">[docs]</a>    <span class="k">def</span> <span class="nf">modify_search_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
+        <span class="nb">filter</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ORDER_LAST_UPDATE</span>
+        <span class="p">]</span>
+        <span class="nb">filter</span><span class="o">.</span><span class="n">order_ascending</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="nb">filter</span><span class="o">.</span><span class="n">updated_after</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span></div></div>
+
+
+<div class="viewcode-block" id="MARCExporter"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter">[docs]</a><span class="k">class</span> <span class="nc">MARCExporter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Turn a work into a record for a MARC file.&quot;&quot;&quot;</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MARC_EXPORT</span>
+
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Export metadata into MARC files that can be imported into an ILS manually.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># This setting (in days) controls how often MARC files should be</span>
+    <span class="c1"># automatically updated. Since the crontab in docker isn&#39;t easily</span>
+    <span class="c1"># configurable, we can run a script daily but check this to decide</span>
+    <span class="c1"># whether to do anything.</span>
+    <span class="n">UPDATE_FREQUENCY</span> <span class="o">=</span> <span class="s2">&quot;marc_update_frequency&quot;</span>
+    <span class="n">DEFAULT_UPDATE_FREQUENCY</span> <span class="o">=</span> <span class="mi">30</span>
+
+    <span class="c1"># MARC organization codes are assigned by the</span>
+    <span class="c1"># Library of Congress and can be found here:</span>
+    <span class="c1"># http://www.loc.gov/marc/organizations/org-search.php</span>
+    <span class="n">MARC_ORGANIZATION_CODE</span> <span class="o">=</span> <span class="s2">&quot;marc_organization_code&quot;</span>
+
+    <span class="n">WEB_CLIENT_URL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;marc_web_client_url&#39;</span>
+    <span class="n">INCLUDE_SUMMARY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;include_summary&#39;</span>
+    <span class="n">INCLUDE_SIMPLIFIED_GENRES</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;include_simplified_genres&#39;</span>
+    <span class="n">STORAGE_PROTOCOL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;storage_protocol&#39;</span>
+
+    <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">UPDATE_FREQUENCY</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Update frequency (in days)&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The circulation manager will wait this number of days between generating MARC files.&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_UPDATE_FREQUENCY</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">MARC_ORGANIZATION_CODE</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The MARC organization code for this library (003 field).&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;MARC organization codes are assigned by the Library of Congress.&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+          <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_CLIENT_URL</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The base URL for the web catalog for this library, for the 856 field.&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;If using a library registry that provides a web catalog, this can be left blank.&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">INCLUDE_SUMMARY</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Include summaries in MARC records (520 field)&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Do not include summaries&quot;</span><span class="p">)</span> <span class="p">},</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Include summaries&quot;</span><span class="p">)</span> <span class="p">},</span>
+          <span class="p">],</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">INCLUDE_SIMPLIFIED_GENRES</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Include Library Simplified genres in MARC records (650 fields)&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Do not include Library Simplified genres&quot;</span><span class="p">)</span> <span class="p">},</span>
+              <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Include Library Simplified genres&quot;</span><span class="p">)</span> <span class="p">},</span>
+          <span class="p">],</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">STORAGE_PROTOCOL</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Storage service protocol&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Storage protocol to use for uploading generated MARC files. The service must already be configured under &#39;Storage Services&#39;.&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span> <span class="p">}],</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="MARCExporter.from_config"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.from_config">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">MARC_EXPORT</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">CATALOG_GOAL</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;No MARC export service is configured for this library&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">integration</span> <span class="o">=</span> <span class="n">integration</span>
+
+<div class="viewcode-block" id="MARCExporter.create_record"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.create_record">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">create_record</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">force_create</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">integration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build a complete MARC record for a given work.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">annotator</span><span class="p">):</span>
+            <span class="n">annotator</span> <span class="o">=</span> <span class="n">annotator</span><span class="p">()</span>
+
+        <span class="n">pool</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">active_license_pool</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">edition</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">presentation_edition</span>
+        <span class="n">identifier</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">identifier</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
+
+        <span class="n">record</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">existing_record</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="o">.</span><span class="n">marc_cache_field</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">existing_record</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_create</span><span class="p">:</span>
+            <span class="n">record</span> <span class="o">=</span> <span class="n">Record</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">existing_record</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">),</span> <span class="n">force_utf8</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">record</span><span class="p">:</span>
+            <span class="n">record</span> <span class="o">=</span> <span class="n">Record</span><span class="p">(</span><span class="n">leader</span><span class="o">=</span><span class="n">annotator</span><span class="o">.</span><span class="n">leader</span><span class="p">(</span><span class="n">work</span><span class="p">),</span> <span class="n">force_utf8</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_control_fields</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_isbn</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+
+            <span class="c1"># TODO: The 240 and 130 fields are for translated works, so they can be grouped even</span>
+            <span class="c1"># though they have different titles. We do not group editions of the same work in</span>
+            <span class="c1"># different languages, so we can&#39;t use those yet.</span>
+
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_title</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_contributors</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_publisher</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_physical_description</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_audience</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">work</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_series</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_system_details</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">add_ebooks_subject</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">as_marc</span><span class="p">()</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="o">.</span><span class="n">marc_cache_field</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+        <span class="c1"># Add additional fields that should not be cached.</span>
+        <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_work_record</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">edition</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">record</span></div>
+
+<div class="viewcode-block" id="MARCExporter.records"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.records">[docs]</a>    <span class="k">def</span> <span class="nf">records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">query_batch_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+                <span class="n">upload_batch_size</span><span class="o">=</span><span class="mi">7500</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create and export a MARC file for the books in a lane.</span>
+
+<span class="sd">        :param lane: The Lane to export books from.</span>
+<span class="sd">        :param annotator: The Annotator to use when creating MARC records.</span>
+<span class="sd">        :param start_time: Only include records that were created or modified after this time.</span>
+<span class="sd">        :param force_refresh: Create new records even when cached records are available.</span>
+<span class="sd">        :param mirror: Optional mirror to use instead of loading one from configuration.</span>
+<span class="sd">        :param query_batch_size: Number of works to retrieve with a single Elasticsearch query.</span>
+<span class="sd">        :param upload_batch_size: Number of records to mirror at a time. This is different</span>
+<span class="sd">          from query_batch_size because S3 enforces a minimum size of 5MB for all parts</span>
+<span class="sd">          of a multipart upload except the last, but 5MB of records would be too many</span>
+<span class="sd">          works for a single query.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># We mirror the content, if it&#39;s not empty. If it&#39;s empty, we create a CachedMARCFile</span>
+        <span class="c1"># and Representation, but don&#39;t actually mirror it.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
+            <span class="n">storage_protocol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">STORAGE_PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mirror</span><span class="o">.</span><span class="n">NAME</span> <span class="o">!=</span> <span class="n">storage_protocol</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Sitewide mirror integration does not match configured storage protocol&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;No mirror integration is configured&quot;</span><span class="p">)</span>
+
+        <span class="n">search_engine</span> <span class="o">=</span> <span class="n">search_engine</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+
+        <span class="c1"># End time is before we start the query, because if any records are changed</span>
+        <span class="c1"># during the processing we may not catch them, and they should be handled</span>
+        <span class="c1"># again on the next run.</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+        <span class="n">facets</span> <span class="o">=</span> <span class="n">MARCExporterFacets</span><span class="p">(</span><span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">)</span>
+        <span class="n">pagination</span> <span class="o">=</span> <span class="n">SortKeyPagination</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">query_batch_size</span><span class="p">)</span>
+
+        <span class="n">url</span> <span class="o">=</span> <span class="n">mirror</span><span class="o">.</span><span class="n">marc_file_url</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">start_time</span><span class="p">)</span>
+        <span class="n">representation</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+            <span class="n">media_type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">MARC_MEDIA_TYPE</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">mirror</span><span class="o">.</span><span class="n">multipart_upload</span><span class="p">(</span><span class="n">representation</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span> <span class="k">as</span> <span class="n">upload</span><span class="p">:</span>
+            <span class="n">this_batch</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
+            <span class="n">this_batch_size</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">pagination</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Retrieve one &#39;page&#39; of works from the search index.</span>
+                <span class="n">works</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">works</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
+                    <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">work</span> <span class="ow">in</span> <span class="n">works</span><span class="p">:</span>
+                    <span class="c1"># Create a record for each work and add it to the</span>
+                    <span class="c1"># MARC file in progress.</span>
+                    <span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_record</span><span class="p">(</span>
+                        <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">force_refresh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">record</span><span class="p">:</span>
+                        <span class="n">this_batch</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">as_marc</span><span class="p">())</span>
+                <span class="n">this_batch_size</span> <span class="o">+=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">this_page_size</span>
+                <span class="k">if</span> <span class="n">this_batch_size</span> <span class="o">&gt;=</span> <span class="n">upload_batch_size</span><span class="p">:</span>
+                    <span class="c1"># We&#39;ve reached or exceeded the upload threshold.</span>
+                    <span class="c1"># Upload one part of the multi-part document.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_upload_batch</span><span class="p">(</span><span class="n">this_batch</span><span class="p">,</span> <span class="n">upload</span><span class="p">)</span>
+                    <span class="n">this_batch</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
+                    <span class="n">this_batch_size</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">pagination</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">next_page</span>
+
+            <span class="c1"># Upload the final part of the multi-document, if</span>
+            <span class="c1"># necessary.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_upload_batch</span><span class="p">(</span><span class="n">this_batch</span><span class="p">,</span> <span class="n">upload</span><span class="p">)</span>
+
+        <span class="n">representation</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">end_time</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span><span class="p">:</span>
+            <span class="n">cached</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CachedMARCFile</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span>
+                <span class="n">lane</span><span class="o">=</span><span class="p">(</span><span class="n">lane</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">,</span>
+                <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">representation</span><span class="o">=</span><span class="n">representation</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_new</span><span class="p">:</span>
+                <span class="n">cached</span><span class="o">.</span><span class="n">representation</span> <span class="o">=</span> <span class="n">representation</span>
+            <span class="n">cached</span><span class="o">.</span><span class="n">end_time</span> <span class="o">=</span> <span class="n">end_time</span></div>
+
+    <span class="k">def</span> <span class="nf">_upload_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">upload</span><span class="p">):</span>
+        <span class="s2">&quot;Upload a batch of MARC records as one part of a multi-part upload.&quot;</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">content</span><span class="p">:</span>
+            <span class="n">upload</span><span class="o">.</span><span class="n">upload_part</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">output</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

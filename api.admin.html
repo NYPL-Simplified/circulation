@@ -1,0 +1,943 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.admin package &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="api-admin-package">
+<h1>api.admin package<a class="headerlink" href="#api-admin-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.admin.controller.html">api.admin.controller package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.admin_auth_services">api.admin.controller.admin_auth_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.analytics_services">api.admin.controller.analytics_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.catalog_services">api.admin.controller.catalog_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.cdn_services">api.admin.controller.cdn_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.collection_library_registrations">api.admin.controller.collection_library_registrations module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.collection_self_tests">api.admin.controller.collection_self_tests module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.collection_settings">api.admin.controller.collection_settings module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.discovery_service_library_registrations">api.admin.controller.discovery_service_library_registrations module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.discovery_services">api.admin.controller.discovery_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.individual_admin_settings">api.admin.controller.individual_admin_settings module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.library_settings">api.admin.controller.library_settings module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.metadata_services">api.admin.controller.metadata_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.patron_auth_service_self_tests">api.admin.controller.patron_auth_service_self_tests module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.patron_auth_services">api.admin.controller.patron_auth_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.search_service_self_tests">api.admin.controller.search_service_self_tests module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.self_tests">api.admin.controller.self_tests module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.sitewide_services">api.admin.controller.sitewide_services module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.sitewide_settings">api.admin.controller.sitewide_settings module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.work_editor">api.admin.controller.work_editor module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.admin.admin_authentication_provider">
+<span id="api-admin-admin-authentication-provider-module"></span><h2>api.admin.admin_authentication_provider module<a class="headerlink" href="#module-api.admin.admin_authentication_provider" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.admin_authentication_provider.AdminAuthenticationProvider">
+<em class="property">class </em><code class="descclassname">api.admin.admin_authentication_provider.</code><code class="descname">AdminAuthenticationProvider</code><span class="sig-paren">(</span><em>integration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/admin_authentication_provider.html#AdminAuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.admin_authentication_provider.AdminAuthenticationProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="api.admin.admin_authentication_provider.AdminAuthenticationProvider.active_credentials">
+<code class="descname">active_credentials</code><span class="sig-paren">(</span><em>admin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/admin_authentication_provider.html#AdminAuthenticationProvider.active_credentials"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.admin_authentication_provider.AdminAuthenticationProvider.active_credentials" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.admin_authentication_provider.AdminAuthenticationProvider.sign_in_template">
+<code class="descname">sign_in_template</code><span class="sig-paren">(</span><em>redirect_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/admin_authentication_provider.html#AdminAuthenticationProvider.sign_in_template"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.admin_authentication_provider.AdminAuthenticationProvider.sign_in_template" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.exceptions">
+<span id="api-admin-exceptions-module"></span><h2>api.admin.exceptions module<a class="headerlink" href="#module-api.admin.exceptions" title="Permalink to this headline">¶</a></h2>
+<dl class="exception">
+<dt id="api.admin.exceptions.AdminNotAuthorized">
+<em class="property">exception </em><code class="descclassname">api.admin.exceptions.</code><code class="descname">AdminNotAuthorized</code><a class="reference internal" href="_modules/api/admin/exceptions.html#AdminNotAuthorized"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.exceptions.AdminNotAuthorized" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
+<dl class="method">
+<dt id="api.admin.exceptions.AdminNotAuthorized.as_problem_detail_document">
+<code class="descname">as_problem_detail_document</code><span class="sig-paren">(</span><em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/exceptions.html#AdminNotAuthorized.as_problem_detail_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.exceptions.AdminNotAuthorized.as_problem_detail_document" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.exceptions.AdminNotAuthorized.status_code">
+<code class="descname">status_code</code><em class="property"> = 403</em><a class="headerlink" href="#api.admin.exceptions.AdminNotAuthorized.status_code" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.geographic_validator">
+<span id="api-admin-geographic-validator-module"></span><h2>api.admin.geographic_validator module<a class="headerlink" href="#module-api.admin.geographic_validator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.geographic_validator.GeographicValidator">
+<em class="property">class </em><code class="descclassname">api.admin.geographic_validator.</code><code class="descname">GeographicValidator</code><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.admin.validator.Validator" title="api.admin.validator.Validator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.validator.Validator</span></code></a></p>
+<dl class="method">
+<dt id="api.admin.geographic_validator.GeographicValidator.ask_registry">
+<code class="descname">ask_registry</code><span class="sig-paren">(</span><em>service_area_object</em>, <em>db</em>, <em>do_get=&lt;bound method type.debuggable_get of &lt;class 'core.util.http.HTTP'&gt;&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.ask_registry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.ask_registry" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.geographic_validator.GeographicValidator.find_location_through_registry">
+<code class="descname">find_location_through_registry</code><span class="sig-paren">(</span><em>value</em>, <em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.find_location_through_registry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.find_location_through_registry" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.geographic_validator.GeographicValidator.format_place">
+<code class="descname">format_place</code><span class="sig-paren">(</span><em>zip</em>, <em>city</em>, <em>state_or_province</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.format_place"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.format_place" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.geographic_validator.GeographicValidator.is_zip">
+<code class="descname">is_zip</code><span class="sig-paren">(</span><em>value</em>, <em>country</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.is_zip"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.is_zip" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.geographic_validator.GeographicValidator.look_up_zip">
+<code class="descname">look_up_zip</code><span class="sig-paren">(</span><em>zip</em>, <em>country</em>, <em>formatted=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.look_up_zip"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.look_up_zip" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.geographic_validator.GeographicValidator.validate_geographic_areas">
+<code class="descname">validate_geographic_areas</code><span class="sig-paren">(</span><em>values</em>, <em>db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/geographic_validator.html#GeographicValidator.validate_geographic_areas"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.geographic_validator.GeographicValidator.validate_geographic_areas" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.google_oauth_admin_authentication_provider">
+<span id="api-admin-google-oauth-admin-authentication-provider-module"></span><h2>api.admin.google_oauth_admin_authentication_provider module<a class="headerlink" href="#module-api.admin.google_oauth_admin_authentication_provider" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient">
+<em class="property">class </em><code class="descclassname">api.admin.google_oauth_admin_authentication_provider.</code><code class="descname">DummyGoogleClient</code><span class="sig-paren">(</span><em>email='example&#64;nypl.org'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#DummyGoogleClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Mock Google OAuth client for testing</p>
+<dl class="class">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials">
+<em class="property">class </em><code class="descname">Credentials</code><span class="sig-paren">(</span><em>email</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#DummyGoogleClient.Credentials"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Mock OAuth2Credentials object for testing</p>
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials.access_token_expired">
+<code class="descname">access_token_expired</code><em class="property"> = False</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials.access_token_expired" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials.from_json">
+<code class="descname">from_json</code><span class="sig-paren">(</span><em>credentials</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#DummyGoogleClient.Credentials.from_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials.from_json" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials.to_json">
+<code class="descname">to_json</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#DummyGoogleClient.Credentials.to_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.Credentials.to_json" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.expired">
+<code class="descname">expired</code><em class="property"> = False</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.expired" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.flow_from_client_secrets">
+<code class="descname">flow_from_client_secrets</code><span class="sig-paren">(</span><em>config</em>, <em>scope=None</em>, <em>redirect_uri=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#DummyGoogleClient.flow_from_client_secrets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.flow_from_client_secrets" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.step1_get_authorize_url">
+<code class="descname">step1_get_authorize_url</code><span class="sig-paren">(</span><em>state</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#DummyGoogleClient.step1_get_authorize_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.step1_get_authorize_url" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.step2_exchange">
+<code class="descname">step2_exchange</code><span class="sig-paren">(</span><em>auth_code</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#DummyGoogleClient.step2_exchange"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.DummyGoogleClient.step2_exchange" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider">
+<em class="property">class </em><code class="descclassname">api.admin.google_oauth_admin_authentication_provider.</code><code class="descname">GoogleOAuthAdminAuthenticationProvider</code><span class="sig-paren">(</span><em>integration</em>, <em>redirect_uri</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#GoogleOAuthAdminAuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.admin.admin_authentication_provider.AdminAuthenticationProvider" title="api.admin.admin_authentication_provider.AdminAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.admin_authentication_provider.AdminAuthenticationProvider</span></code></a></p>
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.DESCRIPTION">
+<code class="descname">DESCRIPTION</code><em class="property"> = l'How to Configure a Google OAuth Integration'</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.DESCRIPTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.DOMAINS">
+<code class="descname">DOMAINS</code><em class="property"> = 'domains'</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.DOMAINS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.INSTRUCTIONS">
+<code class="descname">INSTRUCTIONS</code><em class="property"> = l'&lt;p&gt;Configuring a Google OAuth integration in the Circulation Manager will allow admins to sign into the Admin interface with their Google/GMail credentials.&lt;/p&gt;&lt;p&gt;Configure the Google OAuth Service: &lt;/p&gt;&lt;ol&gt;&lt;li&gt;To use this integration, visit the &lt;a href='https://console.developers.google.com/apis/dashboard?pli=1' rel='noopener' rel='noreferer' target='_blank'&gt;Google developer console.&lt;/a&gt; Create a project, click 'Create Credentials' in the left sidebar, and select 'OAuth client ID'. If you get a warning about the consent screen, click 'Configure consent screen' and enter your library name as the product name. Save the consent screen information.&lt;/li&gt;&lt;li&gt;Choose 'Web Application' as the application type.&lt;/li&gt;&lt;li&gt;Leave 'Authorized JavaScript origins' blank, but under 'Authorized redirect URIs', add the url of your circulation manager followed by '/admin/GoogleAuth/callback', e.g. 'http://mycircmanager.org/admin/GoogleAuth/callback'.&lt;/li&gt;&lt;li&gt;Click create, and you'll get a popup with your new client ID and secret. Copy these values and enter them in the form below.&lt;/li&gt;&lt;/ol&gt;'</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.INSTRUCTIONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.LIBRARY_SETTINGS">
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'type': 'list', 'description': l'Anyone who logs in with an email address from one of these domains will automatically have librarian-level access to this library. Library manager roles must still be granted individually by other admins. If you want to set up admins individually but still allow them to log in with Google, you can create the admin authentication service without adding any libraries.', 'key': 'domains', 'label': l'Allowed Domains'}]</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.NAME">
+<code class="descname">NAME</code><em class="property"> = u'Google OAuth'</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SETTINGS">
+<code class="descname">SETTINGS</code><em class="property"> = [{'default': 'https://accounts.google.com/o/oauth2/auth', 'format': 'url', 'required': True, 'key': u'url', 'label': l'Authentication URI'}, {'required': True, 'key': u'username', 'label': l'Client ID'}, {'required': True, 'key': u'password', 'label': l'Client Secret'}]</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SITEWIDE">
+<code class="descname">SITEWIDE</code><em class="property"> = True</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SITEWIDE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.TEMPLATE">
+<code class="descname">TEMPLATE</code><em class="property"> = &quot;\n        &lt;a style='\n    background: #3a7dfd;\n    text-align: center;\n    text-decoration: none;\n    border-color: #3a7dfd;\n    color: #fff;\n    padding: 10px;\n    font-size: 1rem;\n    cursor: pointer;\n    display: block;\n    width: 25vw;\n    margin: 2vh auto;\n' href=%(auth_uri)s&gt;Sign in with Google&lt;/a&gt;\n    &quot;</em><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.active_credentials">
+<code class="descname">active_credentials</code><span class="sig-paren">(</span><em>admin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#GoogleOAuthAdminAuthenticationProvider.active_credentials"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.active_credentials" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check that existing credentials aren’t expired</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.auth_uri">
+<code class="descname">auth_uri</code><span class="sig-paren">(</span><em>redirect_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#GoogleOAuthAdminAuthenticationProvider.auth_uri"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.auth_uri" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.callback">
+<code class="descname">callback</code><span class="sig-paren">(</span><em>_db</em>, <em>request={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#GoogleOAuthAdminAuthenticationProvider.callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.callback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Google OAuth sign-in flow</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.client">
+<code class="descname">client</code><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.client" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.domains">
+<code class="descname">domains</code><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.domains" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.google_error_problem_detail">
+<code class="descname">google_error_problem_detail</code><span class="sig-paren">(</span><em>error</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#GoogleOAuthAdminAuthenticationProvider.google_error_problem_detail"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.google_error_problem_detail" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.sign_in_template">
+<code class="descname">sign_in_template</code><span class="sig-paren">(</span><em>redirect_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#GoogleOAuthAdminAuthenticationProvider.sign_in_template"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.sign_in_template" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.staff_email">
+<code class="descname">staff_email</code><span class="sig-paren">(</span><em>_db</em>, <em>email</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/google_oauth_admin_authentication_provider.html#GoogleOAuthAdminAuthenticationProvider.staff_email"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.staff_email" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.opds">
+<span id="api-admin-opds-module"></span><h2>api.admin.opds module<a class="headerlink" href="#module-api.admin.opds" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.opds.AdminAnnotator">
+<em class="property">class </em><code class="descclassname">api.admin.opds.</code><code class="descname">AdminAnnotator</code><span class="sig-paren">(</span><em>circulation</em>, <em>library</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminAnnotator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminAnnotator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="api.html#api.opds.LibraryAnnotator" title="api.opds.LibraryAnnotator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.opds.LibraryAnnotator</span></code></a></p>
+<dl class="method">
+<dt id="api.admin.opds.AdminAnnotator.annotate_feed">
+<code class="descname">annotate_feed</code><span class="sig-paren">(</span><em>feed</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminAnnotator.annotate_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminAnnotator.annotate_feed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make any custom modifications necessary to integrate this
+OPDS feed into the application’s workflow.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.admin.opds.AdminAnnotator.annotate_work_entry">
+<code class="descname">annotate_work_entry</code><span class="sig-paren">(</span><em>work</em>, <em>active_license_pool</em>, <em>edition</em>, <em>identifier</em>, <em>feed</em>, <em>entry</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminAnnotator.annotate_work_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminAnnotator.annotate_work_entry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make any custom modifications necessary to integrate this
+OPDS entry into the application’s workflow.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Work:</th><td class="field-body"><p class="first">The Work whose OPDS entry is being annotated.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Active_license_pool:</th></tr>
+<tr class="field-even field"><td>&#160;</td><td class="field-body"><p class="first">Of all the LicensePools associated with this
+Work, the client has expressed interest in this one.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Edition:</th><td class="field-body"><p class="first">The Edition to use when associating bibliographic
+metadata with this entry. You will probably not need to use
+this, because bibliographic metadata was associated with
+the entry when it was created.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Identifier:</th><td class="field-body"><p class="first">Of all the Identifiers associated with this
+Work, the client has expressed interest in this one.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>feed</strong> – An OPDSFeed – the feed in which this entry will be
+situated.</li>
+<li><strong>entry</strong> – An lxml Element object, the entry that will be added
+to the feed.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.admin.opds.AdminAnnotator.complaints_url">
+<code class="descname">complaints_url</code><span class="sig-paren">(</span><em>facets</em>, <em>pagination</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminAnnotator.complaints_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminAnnotator.complaints_url" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.opds.AdminAnnotator.suppressed_url">
+<code class="descname">suppressed_url</code><span class="sig-paren">(</span><em>pagination</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminAnnotator.suppressed_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminAnnotator.suppressed_url" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.admin.opds.AdminFeed">
+<em class="property">class </em><code class="descclassname">api.admin.opds.</code><code class="descname">AdminFeed</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>works</em>, <em>annotator=None</em>, <em>precomposed_entries=[]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminFeed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminFeed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.opds.AcquisitionFeed" title="core.opds.AcquisitionFeed"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds.AcquisitionFeed</span></code></a></p>
+<dl class="classmethod">
+<dt id="api.admin.opds.AdminFeed.complaints">
+<em class="property">classmethod </em><code class="descname">complaints</code><span class="sig-paren">(</span><em>library</em>, <em>title</em>, <em>url</em>, <em>annotator</em>, <em>pagination=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminFeed.complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminFeed.complaints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.admin.opds.AdminFeed.suppressed">
+<em class="property">classmethod </em><code class="descname">suppressed</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>annotator</em>, <em>pagination=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/opds.html#AdminFeed.suppressed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.opds.AdminFeed.suppressed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.password_admin_authentication_provider">
+<span id="api-admin-password-admin-authentication-provider-module"></span><h2>api.admin.password_admin_authentication_provider module<a class="headerlink" href="#module-api.admin.password_admin_authentication_provider" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider">
+<em class="property">class </em><code class="descclassname">api.admin.password_admin_authentication_provider.</code><code class="descname">PasswordAdminAuthenticationProvider</code><span class="sig-paren">(</span><em>integration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/password_admin_authentication_provider.html#PasswordAdminAuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.admin.admin_authentication_provider.AdminAuthenticationProvider" title="api.admin.admin_authentication_provider.AdminAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.admin_authentication_provider.AdminAuthenticationProvider</span></code></a></p>
+<dl class="attribute">
+<dt id="api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.NAME">
+<code class="descname">NAME</code><em class="property"> = 'Password Auth'</em><a class="headerlink" href="#api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.TEMPLATE">
+<code class="descname">TEMPLATE</code><em class="property"> = '\n&lt;form action=&quot;%(password_sign_in_url)s&quot; method=&quot;post&quot;&gt;\n&lt;input type=&quot;hidden&quot; name=&quot;redirect&quot; value=&quot;%(redirect)s&quot;/&gt;\n&lt;label style=&quot;\n    font-weight: 700;\n&quot;&gt;Email &lt;input type=&quot;text&quot; name=&quot;email&quot; style=&quot;\n    display: block;\n    padding: 10px;\n    border: 1px solid #403d37;\n    box-shadow: none;\n    font-size: 1rem;\n    margin: 1vh 0 3vh 0;\n    width: 25vw;\n&quot; /&gt;&lt;/label&gt;\n&lt;label style=&quot;\n    font-weight: 700;\n&quot;&gt;Password &lt;input type=&quot;password&quot; name=&quot;password&quot; style=&quot;\n    display: block;\n    padding: 10px;\n    border: 1px solid #403d37;\n    box-shadow: none;\n    font-size: 1rem;\n    margin: 1vh 0 3vh 0;\n    width: 25vw;\n&quot; /&gt;&lt;/label&gt;\n&lt;button type=&quot;submit&quot; style=&quot;\n    background: #3a7dfd;\n    border-color: transparent;\n    color: #fff;\n    padding: 10px;\n    font-size: 1rem;\n    cursor: pointer;\n    display: block;\n    width: 100%%;\n    margin: 2vh auto;\n&quot;&gt;Sign In&lt;/button&gt;\n&lt;/form&gt;'</em><a class="headerlink" href="#api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.TEMPLATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.active_credentials">
+<code class="descname">active_credentials</code><span class="sig-paren">(</span><em>admin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/password_admin_authentication_provider.html#PasswordAdminAuthenticationProvider.active_credentials"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.active_credentials" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.sign_in">
+<code class="descname">sign_in</code><span class="sig-paren">(</span><em>_db</em>, <em>request={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/password_admin_authentication_provider.html#PasswordAdminAuthenticationProvider.sign_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.sign_in" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.sign_in_template">
+<code class="descname">sign_in_template</code><span class="sig-paren">(</span><em>redirect</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/password_admin_authentication_provider.html#PasswordAdminAuthenticationProvider.sign_in_template"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.password_admin_authentication_provider.PasswordAdminAuthenticationProvider.sign_in_template" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.problem_details">
+<span id="api-admin-problem-details-module"></span><h2>api.admin.problem_details module<a class="headerlink" href="#module-api.admin.problem_details" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.admin.routes">
+<span id="api-admin-routes-module"></span><h2>api.admin.routes module<a class="headerlink" href="#module-api.admin.routes" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="api.admin.routes.admin_auth_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_auth_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_auth_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_auth_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_auth_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_auth_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_auth_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_auth_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_base">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_base</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_base"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_base" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_change_password">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_change_password</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_change_password"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_change_password" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_css">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_css</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_css"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_css" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_js">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_js</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_js"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_js" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_sign_in">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_sign_in</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_sign_in"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_sign_in" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_sign_in_again">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_sign_in_again</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_sign_in_again"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_sign_in_again" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allows an  admin with expired credentials to sign back in
+from a new browser tab so they won’t lose changes.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_sign_out">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_sign_out</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_sign_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_sign_out" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.admin_view">
+<code class="descclassname">api.admin.routes.</code><code class="descname">admin_view</code><span class="sig-paren">(</span><em>collection=None</em>, <em>book=None</em>, <em>etc=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#admin_view"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.admin_view" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.allows_admin_auth_setup">
+<code class="descclassname">api.admin.routes.</code><code class="descname">allows_admin_auth_setup</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#allows_admin_auth_setup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.allows_admin_auth_setup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.analytics_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">analytics_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#analytics_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.analytics_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.analytics_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">analytics_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#analytics_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.analytics_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.bulk_circulation_events">
+<code class="descclassname">api.admin.routes.</code><code class="descname">bulk_circulation_events</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#bulk_circulation_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.bulk_circulation_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a CSV representation of all circulation events with optional
+start and end times.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.catalog_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">catalog_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#catalog_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.catalog_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.catalog_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">catalog_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#catalog_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.catalog_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.cdn_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">cdn_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#cdn_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.cdn_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.cdn_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">cdn_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#cdn_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.cdn_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.change_lane_order">
+<code class="descclassname">api.admin.routes.</code><code class="descname">change_lane_order</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#change_lane_order"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.change_lane_order" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.circulation_events">
+<code class="descclassname">api.admin.routes.</code><code class="descname">circulation_events</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#circulation_events"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.circulation_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a JSON representation of the most recent circulation events.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.collection">
+<code class="descclassname">api.admin.routes.</code><code class="descname">collection</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.collection_library_registrations">
+<code class="descclassname">api.admin.routes.</code><code class="descname">collection_library_registrations</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection_library_registrations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection_library_registrations" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.collection_self_tests">
+<code class="descclassname">api.admin.routes.</code><code class="descname">collection_self_tests</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collection_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collection_self_tests" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.collections">
+<code class="descclassname">api.admin.routes.</code><code class="descname">collections</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#collections"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.collections" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.complaints">
+<code class="descclassname">api.admin.routes.</code><code class="descname">complaints</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.complaints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.custom_list">
+<code class="descclassname">api.admin.routes.</code><code class="descname">custom_list</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#custom_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.custom_list" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.custom_lists">
+<code class="descclassname">api.admin.routes.</code><code class="descname">custom_lists</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#custom_lists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.custom_lists" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.diagnostics">
+<code class="descclassname">api.admin.routes.</code><code class="descname">diagnostics</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#diagnostics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.diagnostics" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.discovery_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.discovery_service_library_registrations">
+<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_service_library_registrations</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_service_library_registrations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_service_library_registrations" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.discovery_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">discovery_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#discovery_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.discovery_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.edit">
+<code class="descclassname">api.admin.routes.</code><code class="descname">edit</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#edit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.edit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.edit_classifications">
+<code class="descclassname">api.admin.routes.</code><code class="descname">edit_classifications</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#edit_classifications"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.edit_classifications" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.genres">
+<code class="descclassname">api.admin.routes.</code><code class="descname">genres</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#genres"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.genres" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a JSON representation of complete genre tree.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.google_auth_callback">
+<code class="descclassname">api.admin.routes.</code><code class="descname">google_auth_callback</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#google_auth_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.google_auth_callback" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.individual_admin">
+<code class="descclassname">api.admin.routes.</code><code class="descname">individual_admin</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#individual_admin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.individual_admin" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.individual_admins">
+<code class="descclassname">api.admin.routes.</code><code class="descname">individual_admins</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#individual_admins"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.individual_admins" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.lane">
+<code class="descclassname">api.admin.routes.</code><code class="descname">lane</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.lane_hide">
+<code class="descclassname">api.admin.routes.</code><code class="descname">lane_hide</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane_hide"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane_hide" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.lane_show">
+<code class="descclassname">api.admin.routes.</code><code class="descname">lane_show</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lane_show"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lane_show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.lanes">
+<code class="descclassname">api.admin.routes.</code><code class="descname">lanes</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lanes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lanes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.languages">
+<code class="descclassname">api.admin.routes.</code><code class="descname">languages</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#languages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.languages" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.libraries">
+<code class="descclassname">api.admin.routes.</code><code class="descname">libraries</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#libraries"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.libraries" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.library">
+<code class="descclassname">api.admin.routes.</code><code class="descname">library</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.library" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.logging_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">logging_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#logging_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.logging_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.logging_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">logging_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#logging_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.logging_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.lookup_patron">
+<code class="descclassname">api.admin.routes.</code><code class="descname">lookup_patron</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#lookup_patron"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.lookup_patron" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.media">
+<code class="descclassname">api.admin.routes.</code><code class="descname">media</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#media"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.media" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.metadata_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.metadata_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">metadata_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#metadata_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.metadata_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.password_auth">
+<code class="descclassname">api.admin.routes.</code><code class="descname">password_auth</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#password_auth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.password_auth" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.patron_auth_self_tests">
+<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_self_tests</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_self_tests" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.patron_auth_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.patron_auth_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">patron_auth_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#patron_auth_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.patron_auth_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.refresh">
+<code class="descclassname">api.admin.routes.</code><code class="descname">refresh</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#refresh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.refresh" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.requires_admin">
+<code class="descclassname">api.admin.routes.</code><code class="descname">requires_admin</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#requires_admin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.requires_admin" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.requires_csrf_token">
+<code class="descclassname">api.admin.routes.</code><code class="descname">requires_csrf_token</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#requires_csrf_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.requires_csrf_token" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.reset_adobe_id">
+<code class="descclassname">api.admin.routes.</code><code class="descname">reset_adobe_id</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#reset_adobe_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.reset_adobe_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.reset_lanes">
+<code class="descclassname">api.admin.routes.</code><code class="descname">reset_lanes</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#reset_lanes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.reset_lanes" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.resolve_complaints">
+<code class="descclassname">api.admin.routes.</code><code class="descname">resolve_complaints</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#resolve_complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.resolve_complaints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.returns_json_or_response_or_problem_detail">
+<code class="descclassname">api.admin.routes.</code><code class="descname">returns_json_or_response_or_problem_detail</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#returns_json_or_response_or_problem_detail"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.returns_json_or_response_or_problem_detail" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.rights_status">
+<code class="descclassname">api.admin.routes.</code><code class="descname">rights_status</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#rights_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.rights_status" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.roles">
+<code class="descclassname">api.admin.routes.</code><code class="descname">roles</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#roles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.roles" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.search_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">search_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.search_service_self_tests">
+<code class="descclassname">api.admin.routes.</code><code class="descname">search_service_self_tests</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_service_self_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_service_self_tests" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.search_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">search_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#search_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.search_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.setup_admin">
+<code class="descclassname">api.admin.routes.</code><code class="descname">setup_admin</code><span class="sig-paren">(</span><em>_db=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#setup_admin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.setup_admin" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.sitewide_setting">
+<code class="descclassname">api.admin.routes.</code><code class="descname">sitewide_setting</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#sitewide_setting"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.sitewide_setting" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.sitewide_settings">
+<code class="descclassname">api.admin.routes.</code><code class="descname">sitewide_settings</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#sitewide_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.sitewide_settings" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.stats">
+<code class="descclassname">api.admin.routes.</code><code class="descname">stats</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#stats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.stats" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.storage_service">
+<code class="descclassname">api.admin.routes.</code><code class="descname">storage_service</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#storage_service"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.storage_service" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.storage_services">
+<code class="descclassname">api.admin.routes.</code><code class="descname">storage_services</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#storage_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.storage_services" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.suppress">
+<code class="descclassname">api.admin.routes.</code><code class="descname">suppress</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#suppress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.suppress" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.suppressed">
+<code class="descclassname">api.admin.routes.</code><code class="descname">suppressed</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#suppressed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.suppressed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a feed of suppressed works.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.unsuppress">
+<code class="descclassname">api.admin.routes.</code><code class="descname">unsuppress</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#unsuppress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.unsuppress" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.work_change_book_cover">
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_change_book_cover</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_change_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_change_book_cover" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.work_classifications">
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_classifications</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_classifications"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_classifications" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.work_complaints">
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_complaints</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_complaints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_complaints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.work_custom_lists">
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_custom_lists</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_custom_lists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_custom_lists" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.work_details">
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_details</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_details"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_details" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="api.admin.routes.work_preview_book_cover">
+<code class="descclassname">api.admin.routes.</code><code class="descname">work_preview_book_cover</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/routes.html#work_preview_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.routes.work_preview_book_cover" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.template_styles">
+<span id="api-admin-template-styles-module"></span><h2>api.admin.template_styles module<a class="headerlink" href="#module-api.admin.template_styles" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.admin.templates">
+<span id="api-admin-templates-module"></span><h2>api.admin.templates module<a class="headerlink" href="#module-api.admin.templates" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.admin.validator">
+<span id="api-admin-validator-module"></span><h2>api.admin.validator module<a class="headerlink" href="#module-api.admin.validator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.validator.Validator">
+<em class="property">class </em><code class="descclassname">api.admin.validator.</code><code class="descname">Validator</code><a class="reference internal" href="_modules/api/admin/validator.html#Validator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="api.admin.validator.Validator.validate">
+<code class="descname">validate</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/validator.html#Validator.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator.validate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.validator.Validator.validate_email">
+<code class="descname">validate_email</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/validator.html#Validator.validate_email"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator.validate_email" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find any email addresses that the user has submitted, and make sure that
+they are in a valid format.
+This method is used by individual_admin_settings and library_settings.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.admin.validator.Validator.validate_image">
+<code class="descname">validate_image</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/validator.html#Validator.validate_image"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator.validate_image" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.validator.Validator.validate_language_code">
+<code class="descname">validate_language_code</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/validator.html#Validator.validate_language_code"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator.validate_language_code" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.validator.Validator.validate_number">
+<code class="descname">validate_number</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/validator.html#Validator.validate_number"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator.validate_number" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find any numbers that the user has submitted, and make sure that they are 1) actually numbers,
+2) positive, and 3) lower than the specified maximum, if there is one.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.admin.validator.Validator.validate_url">
+<code class="descname">validate_url</code><span class="sig-paren">(</span><em>settings</em>, <em>content</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/validator.html#Validator.validate_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.validator.Validator.validate_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find any URLs that the user has submitted, and make sure that
+they are in a valid format.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.admin" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/api.admin.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

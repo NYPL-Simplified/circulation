@@ -1,0 +1,393 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.constants &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.constants</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># DataSourceConstants, EditionConstants, IdentifierConstants, LinkRelations,</span>
+<span class="c1"># MediaTypes</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+
+<div class="viewcode-block" id="DataSourceConstants"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.DataSourceConstants">[docs]</a><span class="k">class</span> <span class="nc">DataSourceConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="n">GUTENBERG</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Gutenberg&quot;</span>
+    <span class="n">OVERDRIVE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Overdrive&quot;</span>
+    <span class="n">ODILO</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Odilo&quot;</span>
+    <span class="n">PROJECT_GITENBERG</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Project GITenberg&quot;</span>
+    <span class="n">STANDARD_EBOOKS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Standard Ebooks&quot;</span>
+    <span class="n">UNGLUE_IT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;unglue.it&quot;</span>
+    <span class="n">BIBLIOTHECA</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Bibliotheca&quot;</span>
+    <span class="n">OCLC</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;OCLC Classify&quot;</span>
+    <span class="n">OCLC_LINKED_DATA</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;OCLC Linked Data&quot;</span>
+    <span class="n">AMAZON</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Amazon&quot;</span>
+    <span class="n">XID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;WorldCat xID&quot;</span>
+    <span class="n">AXIS_360</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Axis 360&quot;</span>
+    <span class="n">WEB</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Web&quot;</span>
+    <span class="n">OPEN_LIBRARY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Open Library&quot;</span>
+    <span class="n">CONTENT_CAFE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Content Cafe&quot;</span>
+    <span class="n">VIAF</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;VIAF&quot;</span>
+    <span class="n">GUTENBERG_COVER_GENERATOR</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Gutenberg Illustrated&quot;</span>
+    <span class="n">GUTENBERG_EPUB_GENERATOR</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Project Gutenberg EPUB Generator&quot;</span>
+    <span class="n">METADATA_WRANGLER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Library Simplified metadata wrangler&quot;</span>
+    <span class="n">MANUAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Manual intervention&quot;</span>
+    <span class="n">NOVELIST</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NoveList Select&quot;</span>
+    <span class="n">NYT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;New York Times&quot;</span>
+    <span class="n">NYPL_SHADOWCAT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NYPL Shadowcat&quot;</span>
+    <span class="n">LIBRARY_STAFF</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Library staff&quot;</span>
+    <span class="n">ADOBE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Adobe DRM&quot;</span>
+    <span class="n">PLYMPTON</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Plympton&quot;</span>
+    <span class="n">RB_DIGITAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;RBdigital&quot;</span>
+    <span class="n">ELIB</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;eLiburutegia&quot;</span>
+    <span class="n">OA_CONTENT_SERVER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Library Simplified Open Access Content Server&quot;</span>
+    <span class="n">PRESENTATION_EDITION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Presentation edition generator&quot;</span>
+    <span class="n">INTERNAL_PROCESSING</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Library Simplified Internal Process&quot;</span>
+    <span class="n">FEEDBOOKS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;FeedBooks&quot;</span>
+    <span class="n">BIBBLIO</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Bibblio&quot;</span>
+    <span class="n">ENKI</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Enki&quot;</span>
+
+    <span class="n">DEPRECATED_NAMES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="sa">u</span><span class="s2">&quot;3M&quot;</span> <span class="p">:</span> <span class="n">BIBLIOTHECA</span><span class="p">,</span>
+        <span class="sa">u</span><span class="s2">&quot;OneClick&quot;</span> <span class="p">:</span> <span class="n">RB_DIGITAL</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">THREEM</span> <span class="o">=</span> <span class="n">BIBLIOTHECA</span>
+    <span class="n">ONECLICK</span> <span class="o">=</span> <span class="n">RB_DIGITAL</span>
+
+    <span class="c1"># Some sources of open-access ebooks are better than others. This</span>
+    <span class="c1"># list shows which sources we prefer, in ascending order of</span>
+    <span class="c1"># priority. unglue.it is lowest priority because it tends to</span>
+    <span class="c1"># aggregate books from other sources. We prefer books from their</span>
+    <span class="c1"># original sources.</span>
+    <span class="n">OPEN_ACCESS_SOURCE_PRIORITY</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">UNGLUE_IT</span><span class="p">,</span>
+        <span class="n">GUTENBERG</span><span class="p">,</span>
+        <span class="n">GUTENBERG_EPUB_GENERATOR</span><span class="p">,</span>
+        <span class="n">PROJECT_GITENBERG</span><span class="p">,</span>
+        <span class="n">ELIB</span><span class="p">,</span>
+        <span class="n">FEEDBOOKS</span><span class="p">,</span>
+        <span class="n">PLYMPTON</span><span class="p">,</span>
+        <span class="n">STANDARD_EBOOKS</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># When we&#39;re generating the presentation edition for a</span>
+    <span class="c1"># LicensePool, editions are processed based on their data source,</span>
+    <span class="c1"># in the following order:</span>
+    <span class="c1">#</span>
+    <span class="c1"># [all other sources] &lt; [metadata wrangler] &lt; [source of the license pool]</span>
+    <span class="c1"># &lt; [library staff] &lt; [manual intervention]</span>
+    <span class="c1">#</span>
+    <span class="c1"># This list keeps track of the portion of that ordering that&#39;s</span>
+    <span class="c1"># higher priority than the source of the license pool.</span>
+    <span class="c1">#</span>
+    <span class="c1"># &quot;LIBRARY_STAFF&quot; comes from the Admin Interface.</span>
+    <span class="c1"># &quot;MANUAL&quot; is not currently used, but will give the option of putting in</span>
+    <span class="c1"># software engineer-created system overrides.</span>
+    <span class="n">PRESENTATION_EDITION_PRIORITY</span> <span class="o">=</span> <span class="p">[</span><span class="n">LIBRARY_STAFF</span><span class="p">,</span> <span class="n">MANUAL</span><span class="p">]</span>
+
+    <span class="c1"># When we&#39;re finding the cover image for a book, images from these</span>
+    <span class="c1"># sources are given priority, in the following order:</span>
+    <span class="c1">#</span>
+    <span class="c1"># [Open Library] &lt; [Project Gutenberg] &lt; [Gutenberg cover</span>
+    <span class="c1"># generator] &lt; [all other data sources] &lt; [metadata wrangler] &lt;</span>
+    <span class="c1"># [the presentation edition priority sources]</span>
+    <span class="c1">#</span>
+    <span class="c1"># This list keeps track of the portion of that ordering that&#39;s</span>
+    <span class="c1"># higher priority than the source of the license pool.</span>
+    <span class="n">COVER_IMAGE_PRIORITY</span> <span class="o">=</span> <span class="p">[</span><span class="n">METADATA_WRANGLER</span><span class="p">]</span> <span class="o">+</span> <span class="n">PRESENTATION_EDITION_PRIORITY</span></div>
+
+<div class="viewcode-block" id="EditionConstants"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.EditionConstants">[docs]</a><span class="k">class</span> <span class="nc">EditionConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="n">ALL_MEDIUM</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+    <span class="n">BOOK_MEDIUM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Book&quot;</span>
+    <span class="n">PERIODICAL_MEDIUM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Periodical&quot;</span>
+    <span class="n">AUDIO_MEDIUM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Audio&quot;</span>
+    <span class="n">MUSIC_MEDIUM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Music&quot;</span>
+    <span class="n">VIDEO_MEDIUM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Video&quot;</span>
+    <span class="n">IMAGE_MEDIUM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Image&quot;</span>
+    <span class="n">COURSEWARE_MEDIUM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Courseware&quot;</span>
+
+    <span class="n">ELECTRONIC_FORMAT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Electronic&quot;</span>
+    <span class="n">CODEX_FORMAT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Codex&quot;</span>
+
+    <span class="c1"># These are all media known to the system.</span>
+    <span class="n">KNOWN_MEDIA</span> <span class="o">=</span> <span class="p">(</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span> <span class="n">PERIODICAL_MEDIUM</span><span class="p">,</span> <span class="n">AUDIO_MEDIUM</span><span class="p">,</span> <span class="n">MUSIC_MEDIUM</span><span class="p">,</span>
+                   <span class="n">VIDEO_MEDIUM</span><span class="p">,</span> <span class="n">IMAGE_MEDIUM</span><span class="p">,</span> <span class="n">COURSEWARE_MEDIUM</span><span class="p">)</span>
+
+    <span class="c1"># These are the media types currently fulfillable by the default</span>
+    <span class="c1"># client.</span>
+    <span class="n">FULFILLABLE_MEDIA</span> <span class="o">=</span> <span class="p">[</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span> <span class="n">AUDIO_MEDIUM</span><span class="p">]</span>
+
+    <span class="n">medium_to_additional_type</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">BOOK_MEDIUM</span> <span class="p">:</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/EBook&quot;</span><span class="p">,</span>
+        <span class="n">AUDIO_MEDIUM</span> <span class="p">:</span> <span class="sa">u</span><span class="s2">&quot;http://bib.schema.org/Audiobook&quot;</span><span class="p">,</span>
+        <span class="n">PERIODICAL_MEDIUM</span> <span class="p">:</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/PublicationIssue&quot;</span><span class="p">,</span>
+        <span class="n">MUSIC_MEDIUM</span> <span class="p">:</span>  <span class="sa">u</span><span class="s2">&quot;http://schema.org/MusicRecording&quot;</span><span class="p">,</span>
+        <span class="n">VIDEO_MEDIUM</span> <span class="p">:</span>  <span class="sa">u</span><span class="s2">&quot;http://schema.org/VideoObject&quot;</span><span class="p">,</span>
+        <span class="n">IMAGE_MEDIUM</span><span class="p">:</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/ImageObject&quot;</span><span class="p">,</span>
+        <span class="n">COURSEWARE_MEDIUM</span><span class="p">:</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/Course&quot;</span>
+    <span class="p">}</span>
+
+    <span class="n">additional_type_to_medium</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">medium_to_additional_type</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">additional_type_to_medium</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+
+
+    <span class="c1"># Map the medium constants to the strings used when generating</span>
+    <span class="c1"># permanent work IDs.</span>
+    <span class="n">medium_for_permanent_work_id</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">BOOK_MEDIUM</span> <span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="n">AUDIO_MEDIUM</span> <span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="n">MUSIC_MEDIUM</span> <span class="p">:</span> <span class="s2">&quot;music&quot;</span><span class="p">,</span>
+        <span class="n">PERIODICAL_MEDIUM</span> <span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="n">VIDEO_MEDIUM</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="n">IMAGE_MEDIUM</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
+        <span class="n">COURSEWARE_MEDIUM</span><span class="p">:</span> <span class="s2">&quot;courseware&quot;</span>
+    <span class="p">}</span></div>
+
+<div class="viewcode-block" id="IdentifierConstants"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.IdentifierConstants">[docs]</a><span class="k">class</span> <span class="nc">IdentifierConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="c1"># Common types of identifiers.</span>
+    <span class="n">OVERDRIVE_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Overdrive ID&quot;</span>
+    <span class="n">ODILO_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Odilo ID&quot;</span>
+    <span class="n">BIBLIOTHECA_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Bibliotheca ID&quot;</span>
+    <span class="n">GUTENBERG_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Gutenberg ID&quot;</span>
+    <span class="n">AXIS_360_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Axis 360 ID&quot;</span>
+    <span class="n">ELIB_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;eLiburutegia ID&quot;</span>
+    <span class="n">ASIN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;ASIN&quot;</span>
+    <span class="n">ISBN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;ISBN&quot;</span>
+    <span class="n">NOVELIST_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NoveList ID&quot;</span>
+    <span class="n">OCLC_WORK</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;OCLC Work ID&quot;</span>
+    <span class="n">OCLC_NUMBER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;OCLC Number&quot;</span>
+    <span class="c1"># RBdigital uses ISBNs for ebooks and eaudio, and its own ids for magazines</span>
+    <span class="n">RB_DIGITAL_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;RBdigital ID&quot;</span>
+    <span class="n">OPEN_LIBRARY_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;OLID&quot;</span>
+    <span class="n">BIBLIOCOMMONS_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Bibliocommons ID&quot;</span>
+    <span class="n">URI</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;URI&quot;</span>
+    <span class="n">DOI</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;DOI&quot;</span>
+    <span class="n">UPC</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;UPC&quot;</span>
+    <span class="n">BIBBLIO_CONTENT_ITEM_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Bibblio Content Item ID&quot;</span>
+    <span class="n">ENKI_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Enki ID&quot;</span>
+    <span class="n">SUDOC_CALL_NUMBER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;SuDoc Call Number&quot;</span>
+
+    <span class="n">DEPRECATED_NAMES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="sa">u</span><span class="s2">&quot;3M ID&quot;</span> <span class="p">:</span> <span class="n">BIBLIOTHECA_ID</span><span class="p">,</span>
+        <span class="sa">u</span><span class="s2">&quot;OneClick ID&quot;</span> <span class="p">:</span> <span class="n">RB_DIGITAL_ID</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">THREEM_ID</span> <span class="o">=</span> <span class="n">BIBLIOTHECA_ID</span>
+    <span class="n">ONECLICK_ID</span> <span class="o">=</span> <span class="n">RB_DIGITAL_ID</span>
+
+    <span class="n">LICENSE_PROVIDING_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">BIBLIOTHECA_ID</span><span class="p">,</span> <span class="n">OVERDRIVE_ID</span><span class="p">,</span> <span class="n">ODILO_ID</span><span class="p">,</span> <span class="n">AXIS_360_ID</span><span class="p">,</span>
+        <span class="n">GUTENBERG_ID</span><span class="p">,</span> <span class="n">ELIB_ID</span><span class="p">,</span> <span class="n">SUDOC_CALL_NUMBER</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">URN_SCHEME_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;urn:librarysimplified.org/terms/id/&quot;</span>
+    <span class="n">ISBN_URN_SCHEME_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;urn:isbn:&quot;</span>
+    <span class="n">GUTENBERG_URN_SCHEME_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;http://www.gutenberg.org/ebooks/&quot;</span>
+    <span class="n">GUTENBERG_URN_SCHEME_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+        <span class="n">GUTENBERG_URN_SCHEME_PREFIX</span> <span class="o">+</span> <span class="s2">&quot;([0-9]+)&quot;</span><span class="p">)</span>
+    <span class="n">OTHER_URN_SCHEME_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;urn:&quot;</span>
+
+    <span class="n">IDEAL_COVER_ASPECT_RATIO</span> <span class="o">=</span> <span class="mf">2.0</span><span class="o">/</span><span class="mi">3</span>
+    <span class="n">IDEAL_IMAGE_HEIGHT</span> <span class="o">=</span> <span class="mi">240</span>
+    <span class="n">IDEAL_IMAGE_WIDTH</span> <span class="o">=</span> <span class="mi">160</span></div>
+
+<div class="viewcode-block" id="LinkRelations"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.LinkRelations">[docs]</a><span class="k">class</span> <span class="nc">LinkRelations</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="c1"># Some common link relations.</span>
+    <span class="n">CANONICAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;canonical&quot;</span>
+    <span class="n">GENERIC_OPDS_ACQUISITION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://opds-spec.org/acquisition&quot;</span>
+    <span class="n">OPEN_ACCESS_DOWNLOAD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://opds-spec.org/acquisition/open-access&quot;</span>
+    <span class="n">IMAGE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://opds-spec.org/image&quot;</span>
+    <span class="n">THUMBNAIL_IMAGE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://opds-spec.org/image/thumbnail&quot;</span>
+    <span class="n">SAMPLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://opds-spec.org/acquisition/sample&quot;</span>
+    <span class="n">ILLUSTRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/illustration&quot;</span>
+    <span class="n">REVIEW</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/Review&quot;</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/description&quot;</span>
+    <span class="n">SHORT_DESCRIPTION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/short-description&quot;</span>
+    <span class="n">AUTHOR</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/author&quot;</span>
+    <span class="n">ALTERNATE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;alternate&quot;</span>
+
+    <span class="c1"># TODO: Is this the appropriate relation?</span>
+    <span class="n">DRM_ENCRYPTED_DOWNLOAD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://opds-spec.org/acquisition/&quot;</span>
+    <span class="n">BORROW</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://opds-spec.org/acquisition/borrow&quot;</span>
+
+    <span class="n">CIRCULATION_ALLOWED</span> <span class="o">=</span> <span class="p">[</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">,</span> <span class="n">DRM_ENCRYPTED_DOWNLOAD</span><span class="p">,</span> <span class="n">BORROW</span><span class="p">,</span> <span class="n">GENERIC_OPDS_ACQUISITION</span><span class="p">]</span>
+    <span class="n">METADATA_ALLOWED</span> <span class="o">=</span> <span class="p">[</span><span class="n">CANONICAL</span><span class="p">,</span> <span class="n">IMAGE</span><span class="p">,</span> <span class="n">THUMBNAIL_IMAGE</span><span class="p">,</span> <span class="n">ILLUSTRATION</span><span class="p">,</span> <span class="n">REVIEW</span><span class="p">,</span>
+        <span class="n">DESCRIPTION</span><span class="p">,</span> <span class="n">SHORT_DESCRIPTION</span><span class="p">,</span> <span class="n">AUTHOR</span><span class="p">,</span> <span class="n">ALTERNATE</span><span class="p">,</span> <span class="n">SAMPLE</span><span class="p">]</span>
+    <span class="n">MIRRORED</span> <span class="o">=</span> <span class="p">[</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">,</span> <span class="n">IMAGE</span><span class="p">,</span> <span class="n">THUMBNAIL_IMAGE</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="MediaTypes"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.MediaTypes">[docs]</a><span class="k">class</span> <span class="nc">MediaTypes</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="n">EPUB_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/epub+zip&quot;</span>
+    <span class="n">PDF_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/pdf&quot;</span>
+    <span class="n">MOBI_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/x-mobipocket-ebook&quot;</span>
+    <span class="n">AMAZON_KF8_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/x-mobi8-ebook&quot;</span>
+    <span class="n">TEXT_XML_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;text/xml&quot;</span>
+    <span class="n">TEXT_HTML_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;text/html&quot;</span>
+    <span class="n">APPLICATION_XML_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/xml&quot;</span>
+    <span class="n">JPEG_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;image/jpeg&quot;</span>
+    <span class="n">PNG_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;image/png&quot;</span>
+    <span class="n">GIF_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;image/gif&quot;</span>
+    <span class="n">SVG_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;image/svg+xml&quot;</span>
+    <span class="n">MP3_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;audio/mpeg&quot;</span>
+    <span class="n">MP4_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;video/mp4&quot;</span>
+    <span class="n">WMV_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;video/x-ms-wmv&quot;</span>
+    <span class="n">SCORM_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.librarysimplified.scorm+zip&quot;</span>
+    <span class="n">ZIP_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/zip&quot;</span>
+    <span class="n">OCTET_STREAM_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/octet-stream&quot;</span>
+    <span class="n">TEXT_PLAIN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;text/plain&quot;</span>
+    <span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/audiobook+json&quot;</span>
+    <span class="n">MARC_MEDIA_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/marc&quot;</span>
+
+    <span class="n">BOOK_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">EPUB_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">PDF_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">MOBI_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">MP3_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">AMAZON_KF8_MEDIA_TYPE</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># These media types are in the order we would prefer to use them.</span>
+    <span class="c1"># e.g. all else being equal, we would prefer a PNG to a JPEG.</span>
+    <span class="n">IMAGE_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">PNG_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">JPEG_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">GIF_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">SVG_MEDIA_TYPE</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">SUPPORTED_BOOK_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">EPUB_MEDIA_TYPE</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Most of the time, if you believe a resource to be media type A,</span>
+    <span class="c1"># but then you make a request and get media type B, then the</span>
+    <span class="c1"># actual media type (B) takes precedence over what you thought it</span>
+    <span class="c1"># was (A). These media types are the exceptions: they are so</span>
+    <span class="c1"># generic that they don&#39;t tell you anything, so it&#39;s more useful</span>
+    <span class="c1"># to stick with A.</span>
+    <span class="n">GENERIC_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCTET_STREAM_MEDIA_TYPE</span><span class="p">]</span>
+
+    <span class="n">FILE_EXTENSIONS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">EPUB_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;epub&quot;</span><span class="p">,</span>
+        <span class="n">MOBI_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;mobi&quot;</span><span class="p">,</span>
+        <span class="n">PDF_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;pdf&quot;</span><span class="p">,</span>
+        <span class="n">MP3_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;mp3&quot;</span><span class="p">,</span>
+        <span class="n">MP4_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;mp4&quot;</span><span class="p">,</span>
+        <span class="n">WMV_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;wmv&quot;</span><span class="p">,</span>
+        <span class="n">JPEG_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;jpg&quot;</span><span class="p">,</span>
+        <span class="n">PNG_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;png&quot;</span><span class="p">,</span>
+        <span class="n">SVG_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;svg&quot;</span><span class="p">,</span>
+        <span class="n">GIF_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;gif&quot;</span><span class="p">,</span>
+        <span class="n">ZIP_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;zip&quot;</span><span class="p">,</span>
+        <span class="n">TEXT_PLAIN</span><span class="p">:</span> <span class="s2">&quot;txt&quot;</span><span class="p">,</span>
+        <span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;html&quot;</span><span class="p">,</span>
+        <span class="n">APPLICATION_XML_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;xml&quot;</span><span class="p">,</span>
+        <span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;audiobook-manifest&quot;</span><span class="p">,</span>
+        <span class="n">SCORM_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;zip&quot;</span>
+    <span class="p">}</span>
+
+    <span class="n">COMMON_EBOOK_EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="s1">&#39;.pdf&#39;</span><span class="p">]</span>
+    <span class="n">COMMON_IMAGE_EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.jpg&#39;</span><span class="p">,</span> <span class="s1">&#39;.jpeg&#39;</span><span class="p">,</span> <span class="s1">&#39;.png&#39;</span><span class="p">,</span> <span class="s1">&#39;.gif&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Invert FILE_EXTENSIONS and add some extra guesses.</span>
+    <span class="n">MEDIA_TYPE_FOR_EXTENSION</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;.htm&quot;</span> <span class="p">:</span> <span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="s2">&quot;.jpeg&quot;</span> <span class="p">:</span> <span class="n">JPEG_MEDIA_TYPE</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">media_type</span><span class="p">,</span> <span class="n">extension</span> <span class="ow">in</span> <span class="n">FILE_EXTENSIONS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">MEDIA_TYPE_FOR_EXTENSION</span><span class="p">[</span><span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">extension</span><span class="p">]</span> <span class="o">=</span> <span class="n">media_type</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

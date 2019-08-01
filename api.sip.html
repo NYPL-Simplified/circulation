@@ -1,0 +1,928 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.sip package &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="api-sip-package">
+<h1>api.sip package<a class="headerlink" href="#api-sip-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-api.sip.client">
+<span id="api-sip-client-module"></span><h2>api.sip.client module<a class="headerlink" href="#module-api.sip.client" title="Permalink to this headline">¶</a></h2>
+<p>A simple SIP2 client.</p>
+<dl class="docutils">
+<dt>Implementation is guided by the SIP2 specification:</dt>
+<dd><a class="reference external" href="http://multimedia.3m.com/mws/media/355361O/sip2-protocol.pdf">http://multimedia.3m.com/mws/media/355361O/sip2-protocol.pdf</a></dd>
+</dl>
+<p>This client implements a very small part of SIP2 but is easily extensible.</p>
+<p>This client is based on sip2talk.py. Here is the original licensing
+information for sip2talk.py:</p>
+<p>Copyright [2010] [Eli Fulkerson]</p>
+<p>Licensed under the Apache License, Version 2.0 (the “License”);
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at</p>
+<blockquote>
+<div><a class="reference external" href="http://www.apache.org/licenses/LICENSE-2.0">http://www.apache.org/licenses/LICENSE-2.0</a></div></blockquote>
+<p>Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an “AS IS” BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.</p>
+<dl class="class">
+<dt id="api.sip.client.Constants">
+<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">Constants</code><a class="reference internal" href="_modules/api/sip/client.html#Constants"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.Constants" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="attribute">
+<dt id="api.sip.client.Constants.ENGLISH">
+<code class="descname">ENGLISH</code><em class="property"> = '001'</em><a class="headerlink" href="#api.sip.client.Constants.ENGLISH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.Constants.UNKNOWN_LANGUAGE">
+<code class="descname">UNKNOWN_LANGUAGE</code><em class="property"> = '000'</em><a class="headerlink" href="#api.sip.client.Constants.UNKNOWN_LANGUAGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.sip.client.MockSIPClient">
+<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">MockSIPClient</code><span class="sig-paren">(</span><em>login_user_id=None</em>, <em>login_password=None</em>, <em>separator='|'</em>, <em>target_server=None</em>, <em>target_port=None</em>, <em>location_code=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.sip.client.SIPClient" title="api.sip.client.SIPClient"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.sip.client.SIPClient</span></code></a></p>
+<p>A SIP client that relies on canned responses rather than a socket
+connection.</p>
+<dl class="method">
+<dt id="api.sip.client.MockSIPClient.connect">
+<code class="descname">connect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient.connect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient.connect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a socket connection to a SIP server.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.MockSIPClient.disconnect">
+<code class="descname">disconnect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient.disconnect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient.disconnect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close the connection to the SIP server.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.MockSIPClient.do_send">
+<code class="descname">do_send</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient.do_send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient.do_send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Actually send data over the socket.</p>
+<p>This method exists only to be subclassed by MockSIPClient.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.MockSIPClient.end_session">
+<code class="descname">end_session</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient.end_session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient.end_session" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send end session message.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.MockSIPClient.queue_response">
+<code class="descname">queue_response</code><span class="sig-paren">(</span><em>response</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient.queue_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient.queue_response" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.MockSIPClient.read_message">
+<code class="descname">read_message</code><span class="sig-paren">(</span><em>max_size=1048576</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient.read_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient.read_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read a response message off the queue.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="api.sip.client.RequestResend">
+<em class="property">exception </em><code class="descclassname">api.sip.client.</code><code class="descname">RequestResend</code><a class="reference internal" href="_modules/api/sip/client.html#RequestResend"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.RequestResend" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.IOError</span></code></p>
+<p>There was an error transmitting a message and the server has requested
+that it be resent.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="api.sip.client.SIPClient">
+<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">SIPClient</code><span class="sig-paren">(</span><em>target_server</em>, <em>target_port</em>, <em>login_user_id=None</em>, <em>login_password=None</em>, <em>location_code=None</em>, <em>separator=None</em>, <em>use_ssl=False</em>, <em>ssl_cert=None</em>, <em>ssl_key=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.sip.client.Constants" title="api.sip.client.Constants"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.sip.client.Constants</span></code></a></p>
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.CARD_REPORTED_LOST">
+<code class="descname">CARD_REPORTED_LOST</code><em class="property"> = 'card reported lost'</em><a class="headerlink" href="#api.sip.client.SIPClient.CARD_REPORTED_LOST" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.CHARGE_PRIVILEGES_DENIED">
+<code class="descname">CHARGE_PRIVILEGES_DENIED</code><em class="property"> = 'charge privileges denied'</em><a class="headerlink" href="#api.sip.client.SIPClient.CHARGE_PRIVILEGES_DENIED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.EXCESSIVE_FEES">
+<code class="descname">EXCESSIVE_FEES</code><em class="property"> = 'excessive outstanding fees'</em><a class="headerlink" href="#api.sip.client.SIPClient.EXCESSIVE_FEES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.EXCESSIVE_FINES">
+<code class="descname">EXCESSIVE_FINES</code><em class="property"> = 'excessive outstanding fines'</em><a class="headerlink" href="#api.sip.client.SIPClient.EXCESSIVE_FINES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.HOLD_PRIVILEGES_DENIED">
+<code class="descname">HOLD_PRIVILEGES_DENIED</code><em class="property"> = 'hold privileges denied'</em><a class="headerlink" href="#api.sip.client.SIPClient.HOLD_PRIVILEGES_DENIED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.MAXIMUM_RETRIES">
+<code class="descname">MAXIMUM_RETRIES</code><em class="property"> = 5</em><a class="headerlink" href="#api.sip.client.SIPClient.MAXIMUM_RETRIES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.PATRON_STATUS_FIELDS">
+<code class="descname">PATRON_STATUS_FIELDS</code><em class="property"> = ['charge privileges denied', 'renewal privileges denied', 'recall privileges denied', 'hold privileges denied', 'card reported lost', 'too many items charged', 'too many items overdue', 'too many renewals', 'too many claims of items returned', 'too many items lost', 'excessive outstanding fines', 'excessive outstanding fees', 'recall overdue', 'too many items billed']</em><a class="headerlink" href="#api.sip.client.SIPClient.PATRON_STATUS_FIELDS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES">
+<code class="descname">PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES</code><em class="property"> = ['charge privileges denied', 'card reported lost', 'too many items charged', 'too many items overdue', 'too many items lost', 'excessive outstanding fines', 'excessive outstanding fees', 'recall overdue', 'too many items billed']</em><a class="headerlink" href="#api.sip.client.SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.RECALL_OVERDUE">
+<code class="descname">RECALL_OVERDUE</code><em class="property"> = 'recall overdue'</em><a class="headerlink" href="#api.sip.client.SIPClient.RECALL_OVERDUE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.RECALL_PRIVILEGES_DENIED">
+<code class="descname">RECALL_PRIVILEGES_DENIED</code><em class="property"> = 'recall privileges denied'</em><a class="headerlink" href="#api.sip.client.SIPClient.RECALL_PRIVILEGES_DENIED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.RENEWAL_PRIVILEGES_DENIED">
+<code class="descname">RENEWAL_PRIVILEGES_DENIED</code><em class="property"> = 'renewal privileges denied'</em><a class="headerlink" href="#api.sip.client.SIPClient.RENEWAL_PRIVILEGES_DENIED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.TOO_MANY_ITEMS_BILLED">
+<code class="descname">TOO_MANY_ITEMS_BILLED</code><em class="property"> = 'too many items billed'</em><a class="headerlink" href="#api.sip.client.SIPClient.TOO_MANY_ITEMS_BILLED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.TOO_MANY_ITEMS_CHARGED">
+<code class="descname">TOO_MANY_ITEMS_CHARGED</code><em class="property"> = 'too many items charged'</em><a class="headerlink" href="#api.sip.client.SIPClient.TOO_MANY_ITEMS_CHARGED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.TOO_MANY_ITEMS_OVERDUE">
+<code class="descname">TOO_MANY_ITEMS_OVERDUE</code><em class="property"> = 'too many items overdue'</em><a class="headerlink" href="#api.sip.client.SIPClient.TOO_MANY_ITEMS_OVERDUE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.TOO_MANY_LOST">
+<code class="descname">TOO_MANY_LOST</code><em class="property"> = 'too many items lost'</em><a class="headerlink" href="#api.sip.client.SIPClient.TOO_MANY_LOST" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.TOO_MANY_RENEWALS">
+<code class="descname">TOO_MANY_RENEWALS</code><em class="property"> = 'too many renewals'</em><a class="headerlink" href="#api.sip.client.SIPClient.TOO_MANY_RENEWALS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.TOO_MANY_RETURN_CLAIMS">
+<code class="descname">TOO_MANY_RETURN_CLAIMS</code><em class="property"> = 'too many claims of items returned'</em><a class="headerlink" href="#api.sip.client.SIPClient.TOO_MANY_RETURN_CLAIMS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.append_checksum">
+<code class="descname">append_checksum</code><span class="sig-paren">(</span><em>text</em>, <em>include_sequence_number=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.append_checksum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.append_checksum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates checksum for passed-in message, and returns the message
+with the checksum appended.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>include_sequence_number</strong> – If this is true, include the
+current sequence number in the message, just before the
+checksum, and increment the sequence number. If this is false,
+do not include or increment the sequence number.</td>
+</tr>
+</tbody>
+</table>
+<p>When error checking is enabled between the ACS and the SC,
+each SC-&gt;ACS message is labeled with a sequence number (0, 1, 2, …).
+When responding, the ACS tells the SC which sequence message it’s
+responding to.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.connect">
+<code class="descname">connect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.connect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.connect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a socket connection to a SIP server.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.consume_status_code">
+<code class="descname">consume_status_code</code><span class="sig-paren">(</span><em>data</em>, <em>expected</em>, <em>in_progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.consume_status_code"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.consume_status_code" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pull the status code (the first two characters) off the
+given response string, and verify that it’s as expected.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.disconnect">
+<code class="descname">disconnect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.disconnect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.disconnect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close the connection to the SIP server.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.do_send">
+<code class="descname">do_send</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.do_send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.do_send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Actually send data over the socket.</p>
+<p>This method exists only to be subclassed by MockSIPClient.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.end_session">
+<code class="descname">end_session</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.end_session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.end_session" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send end session message.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.end_session_message">
+<code class="descname">end_session_message</code><span class="sig-paren">(</span><em>patron_identifier</em>, <em>patron_password=''</em>, <em>institution_id=''</em>, <em>terminal_password=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.end_session_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.end_session_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>This message will be sent when a patron has completed all of their
+transactions. The ACS may, upon receipt of this command, close any
+open files or deallocate data structures pertaining to that patron.
+The ACS should respond with an End Session Response message.</p>
+<p>Format of message to send to ILS:
+35&lt;transaction date&gt;&lt;institution id&gt;&lt;patron identifier&gt;
+&lt;terminal password&gt;&lt;patron password&gt;
+transaction date: 18-char, YYYYMMDDZZZZHHMMSS, required
+institution id: AO, variable length, required
+patron identifier: AA, variable length, required
+terminal password: AC, variable length, optional
+patron password: AD, variable length, optional</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.end_session_response_parser">
+<code class="descname">end_session_response_parser</code><span class="sig-paren">(</span><em>message</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.end_session_response_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.end_session_response_parser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the response from a end session message.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.SIPClient.log">
+<code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#api.sip.client.SIPClient.log" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.login">
+<code class="descname">login</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.login"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.login" title="Permalink to this definition">¶</a></dt>
+<dd><p>Log in to the SIP server if required.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.login_message">
+<code class="descname">login_message</code><span class="sig-paren">(</span><em>login_user_id</em>, <em>login_password</em>, <em>location_code=''</em>, <em>uid_algorithm='0'</em>, <em>pwd_algorithm='0'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.login_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.login_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a message for logging in to a SIP server.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.login_response_parser">
+<code class="descname">login_response_parser</code><span class="sig-paren">(</span><em>message</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.login_response_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.login_response_parser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the response from a login message.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.make_insecure_connection">
+<code class="descname">make_insecure_connection</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.make_insecure_connection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.make_insecure_connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Actually set up a socket connection.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.make_request">
+<code class="descname">make_request</code><span class="sig-paren">(</span><em>message_creator</em>, <em>parser</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.make_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.make_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send a request to a SIP server and parse the response.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>connection</strong> – Socket to send data over.</li>
+<li><strong>message_creator</strong> – A function that creates the message to send.</li>
+<li><strong>parser</strong> – A function that parses the response message.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.make_secure_connection">
+<code class="descname">make_secure_connection</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.make_secure_connection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.make_secure_connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an SSL-enabled socket connection.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.now">
+<code class="descname">now</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.now"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.now" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the current time, formatted as SIP expects it.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.sip.client.SIPClient.parse_patron_status">
+<em class="property">classmethod </em><code class="descname">parse_patron_status</code><span class="sig-paren">(</span><em>status_string</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.parse_patron_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.parse_patron_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the raw 14-character patron_status string.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A 14-element dictionary mapping flag names to boolean values.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.parse_response">
+<code class="descname">parse_response</code><span class="sig-paren">(</span><em>data</em>, <em>expect_status_code</em>, <em>*fields</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.parse_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.parse_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Verify that the given response string starts with the expected
+status code. Then extract the values of both fixed-width and
+named fields.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>return</strong> – A dictionary containing the parsed-out information.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.patron_information">
+<code class="descname">patron_information</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.patron_information"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.patron_information" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get information about a patron.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.patron_information_parser">
+<code class="descname">patron_information_parser</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.patron_information_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.patron_information_parser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the message sent in response to a patron information request.</p>
+<p>Format of message expected from ILS:
+64&lt;patron status&gt;&lt;language&gt;&lt;transaction date&gt;&lt;hold items count&gt;&lt;overdue items count&gt;
+&lt;charged items count&gt;&lt;fine items count&gt;&lt;recall items count&gt;&lt;unavailable holds count&gt;
+&lt;institution id&gt;&lt;patron identifier&gt;&lt;personal name&gt;&lt;hold items limit&gt;&lt;overdue items limit&gt;
+&lt;charged items limit&gt;&lt;valid patron&gt;&lt;valid patron password&gt;&lt;currency type&gt;&lt;fee amount&gt;
+&lt;fee limit&gt;&lt;items&gt;&lt;home address&gt;&lt;e-mail address&gt;&lt;home phone number&gt;&lt;screen message&gt;&lt;print line&gt;</p>
+<p>patron status: 14-char, required
+language: 3-char, req
+transaction date: 18-char, YYYYMMDDZZZZHHMMSS, required
+hold items count: 4-char, required
+overdue items count: 4-char, required
+charged items count: 4-char, required
+fine items count: 4-char, required
+recall items count: 4-char, required
+unavailable holds count: 4-char, required
+institution id: AO, variable-length, required
+patron identifier: AA, var-length, req
+personal name: AE, var-length, req
+hold items limit: BZ, 4-char, optional
+overdue items limit: CA, 4-char, optional
+charged items limit: CB, 4-char, optional
+valid patron: BL, 1-char, Y/N, optional
+valid patron password: CQ, 1-char, Y/N, optional
+currency type: BH, 3-char, optional
+fee amount: BV, var-length.  The amount of fees owed by this patron.
+fee limit: CC, variable-length, optional
+items: 0 or more instances of one of the following, based on “summary” field of patron information message
+hold items: AS, var-length opt (should be sent for each hold item)
+overdue items: AT, var-length opt (should be sent for each overdue item)
+charged items: AU, var-length opt (should be sent for each charged item)
+fine items: AV, var-length opt (should be sent for each fine item)
+recall items: BU, var-length opt (should be sent for each recall item)
+unavailable hold items: CD, var-length opt (should be sent for each unavailable hold item)
+home address: BD, variable-length, optional
+email address: VE, variable-length, optional
+home phone number: BF, variable-length optional</p>
+<p>screen message: AF, var-length, optional
+print line: AG, var-length, optional</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.patron_information_request">
+<code class="descname">patron_information_request</code><span class="sig-paren">(</span><em>patron_identifier</em>, <em>patron_password=''</em>, <em>institution_id=''</em>, <em>terminal_password=''</em>, <em>language=None</em>, <em>summary=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.patron_information_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.patron_information_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>A superset of patron status request.</p>
+<p>Format of message to send to ILS:
+63&lt;language&gt;&lt;transaction date&gt;&lt;summary&gt;&lt;institution id&gt;&lt;patron identifier&gt;
+&lt;terminal password&gt;&lt;patron password&gt;&lt;start item&gt;&lt;end item&gt;
+language: 3-char, required
+transaction date: 18-char, YYYYMMDDZZZZHHMMSS, required
+summary: 10-char, required
+institution id: AO, variable length, required
+patron identifier: AA, variable length, required
+terminal password: AC, variable length, optional
+patron password: AD, variable length, optional
+start item: BP, variable length, optional
+end item: BQ, variable length, optional</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.read_message">
+<code class="descname">read_message</code><span class="sig-paren">(</span><em>max_size=1048576</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.read_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.read_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read a SIP2 message from the socket connection.</p>
+<p>A SIP2 message ends with a r character.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.reset_connection_state">
+<code class="descname">reset_connection_state</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.reset_connection_state"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.reset_connection_state" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset connection-specific state.
+Specifically, the sequence number.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.send">
+<code class="descname">send</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send a message over the socket and update the sequence index.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.SIPClient.summary">
+<code class="descname">summary</code><span class="sig-paren">(</span><em>hold_items=False</em>, <em>overdue_items=False</em>, <em>charged_items=False</em>, <em>fine_items=False</em>, <em>recall_items=False</em>, <em>unavailable_holds=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.summary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.summary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate the SIP summary field: a 10-character query string for
+requesting detailed information about a patron’s relationship
+with items.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.sip.client.fixed">
+<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">fixed</code><span class="sig-paren">(</span><em>internal_name</em>, <em>length</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#fixed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.fixed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A fixed-width field in a SIP2 response.</p>
+<dl class="attribute">
+<dt id="api.sip.client.fixed.charged_items_count">
+<code class="descname">charged_items_count</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.charged_items_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.fixed.consume">
+<code class="descname">consume</code><span class="sig-paren">(</span><em>data</em>, <em>in_progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#fixed.consume"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.fixed.consume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove the value of this field from the beginning of the
+input string, and store it in the given dictionary.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>in_progress</strong> – A dictionary mapping field names to
+values. The value of this field will be stored in this
+dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">The original input string, after the value of this
+field has been removed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.end_session">
+<code class="descname">end_session</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.end_session" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.fine_items_count">
+<code class="descname">fine_items_count</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.fine_items_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.hold_items_count">
+<code class="descname">hold_items_count</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.hold_items_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.language">
+<code class="descname">language</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.language" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.login_ok">
+<code class="descname">login_ok</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.login_ok" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.overdue_items_count">
+<code class="descname">overdue_items_count</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.overdue_items_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.patron_status">
+<code class="descname">patron_status</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.patron_status" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.recall_items_count">
+<code class="descname">recall_items_count</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.recall_items_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.transaction_date">
+<code class="descname">transaction_date</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.transaction_date" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.fixed.unavailable_holds_count">
+<code class="descname">unavailable_holds_count</code><em class="property"> = &lt;api.sip.client.fixed object&gt;</em><a class="headerlink" href="#api.sip.client.fixed.unavailable_holds_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.sip.client.named">
+<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">named</code><span class="sig-paren">(</span><em>internal_name</em>, <em>sip_code</em>, <em>required=False</em>, <em>length=None</em>, <em>allow_multiple=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#named"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.named" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A variable-length field in a SIP2 response.</p>
+<dl class="attribute">
+<dt id="api.sip.client.named.charged_items">
+<code class="descname">charged_items</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.charged_items" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.charged_items_limit">
+<code class="descname">charged_items_limit</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.charged_items_limit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.sip.client.named.consume">
+<code class="descname">consume</code><span class="sig-paren">(</span><em>value</em>, <em>in_progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#named.consume"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.named.consume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process the given value for this field.</p>
+<p>Unlike fixed.consume, this does not modify the value – it’s
+assumed that this particular field value has already been
+isolated from the response string.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>in_progress</strong> – A dictionary mapping field names to
+values. The value of this field will be stored in this
+dictionary.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.currency_type">
+<code class="descname">currency_type</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.currency_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.email_address">
+<code class="descname">email_address</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.email_address" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.fee_amount">
+<code class="descname">fee_amount</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.fee_amount" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.fee_limit">
+<code class="descname">fee_limit</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.fee_limit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.fine_items">
+<code class="descname">fine_items</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.fine_items" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.hold_items">
+<code class="descname">hold_items</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.hold_items" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.hold_items_limit">
+<code class="descname">hold_items_limit</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.hold_items_limit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.home_address">
+<code class="descname">home_address</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.home_address" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.institution_id">
+<code class="descname">institution_id</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.institution_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.overdue_items">
+<code class="descname">overdue_items</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.overdue_items" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.overdue_items_limit">
+<code class="descname">overdue_items_limit</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.overdue_items_limit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.patron_identifier">
+<code class="descname">patron_identifier</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.patron_identifier" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.personal_name">
+<code class="descname">personal_name</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.personal_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.phone_number">
+<code class="descname">phone_number</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.phone_number" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.polaris_patron_birthdate">
+<code class="descname">polaris_patron_birthdate</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.polaris_patron_birthdate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.polaris_patron_expiration">
+<code class="descname">polaris_patron_expiration</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.polaris_patron_expiration" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.polaris_patron_expired">
+<code class="descname">polaris_patron_expired</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.polaris_patron_expired" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.polaris_postal_code">
+<code class="descname">polaris_postal_code</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.polaris_postal_code" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.print_line">
+<code class="descname">print_line</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.print_line" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.recall_items">
+<code class="descname">recall_items</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.recall_items" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.required">
+<code class="descname">required</code><a class="headerlink" href="#api.sip.client.named.required" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a variant of this field which is required.</p>
+<p>Most variable-length fields are not required, but certain
+fields may be required in the responses to specific types of
+requests.</p>
+<p>To check whether a specific field actually is required, check
+<cite>field.req</cite>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.screen_message">
+<code class="descname">screen_message</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.screen_message" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.sequence_number">
+<code class="descname">sequence_number</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.sequence_number" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.sipserver_internal_id">
+<code class="descname">sipserver_internal_id</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.sipserver_internal_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.sipserver_internet_privileges">
+<code class="descname">sipserver_internet_privileges</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.sipserver_internet_privileges" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.sipserver_patron_class">
+<code class="descname">sipserver_patron_class</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.sipserver_patron_class" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.sipserver_patron_expiration">
+<code class="descname">sipserver_patron_expiration</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.sipserver_patron_expiration" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.unavailable_hold_items">
+<code class="descname">unavailable_hold_items</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.unavailable_hold_items" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.valid_patron">
+<code class="descname">valid_patron</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.valid_patron" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.client.named.valid_patron_password">
+<code class="descname">valid_patron_password</code><em class="property"> = &lt;api.sip.client.named object&gt;</em><a class="headerlink" href="#api.sip.client.named.valid_patron_password" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.sip">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-api.sip" title="Permalink to this headline">¶</a></h2>
+<dl class="attribute">
+<dt id="api.sip.AuthenticationProvider">
+<code class="descclassname">api.sip.</code><code class="descname">AuthenticationProvider</code><a class="headerlink" href="#api.sip.AuthenticationProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#api.sip.SIP2AuthenticationProvider" title="api.sip.SIP2AuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.sip.SIP2AuthenticationProvider</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="api.sip.SIP2AuthenticationProvider">
+<em class="property">class </em><code class="descclassname">api.sip.</code><code class="descname">SIP2AuthenticationProvider</code><span class="sig-paren">(</span><em>library</em>, <em>integration</em>, <em>analytics=None</em>, <em>client=None</em>, <em>connect=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip.html#SIP2AuthenticationProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="api.html#api.authenticator.BasicAuthenticationProvider" title="api.authenticator.BasicAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.BasicAuthenticationProvider</span></code></a></p>
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.DATE_FORMATS">
+<code class="descname">DATE_FORMATS</code><em class="property"> = ['%Y%m%d', '%Y%m%d%Z%H%M%S', '%Y%m%d    %H%M%S']</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.DATE_FORMATS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.FIELD_SEPARATOR">
+<code class="descname">FIELD_SEPARATOR</code><em class="property"> = 'field separator'</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.FIELD_SEPARATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.LOCATION_CODE">
+<code class="descname">LOCATION_CODE</code><em class="property"> = 'location code'</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.LOCATION_CODE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.NAME">
+<code class="descname">NAME</code><em class="property"> = 'SIP2'</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.PORT">
+<code class="descname">PORT</code><em class="property"> = 'port'</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.PORT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.SETTINGS">
+<code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'key': u'url', 'label': l'Server'}, {'required': True, 'type': 'number', 'key': 'port', 'label': l'Port'}, {'key': u'username', 'label': l'Login User ID'}, {'key': u'password', 'label': l'Login Password'}, {'key': 'location code', 'label': l'Location Code'}, {'description': l'Some SIP2 servers require or allow clients to connect securely over SSL. Other servers don't support SSL, and require clients to use an ordinary socket connection.', 'default': 'false', 'required': True, 'label': l'Connect over SSL?', 'key': 'use_ssl', 'type': 'select', 'options': [{'key': 'true', 'label': l'Connect to the SIP2 server over SSL'}, {'key': 'false', 'label': l'Connect to the SIP2 server over an ordinary socket connection'}]}, {'type': 'textarea', 'description': l'The SSL certificate used to securely connect to an SSL-enabled SIP2 server. Not all SSL-enabled SIP2 servers require a custom certificate, but some do. This should be a string beginning with &lt;code&gt;-----BEGIN CERTIFICATE-----&lt;/code&gt; and ending with &lt;code&gt;-----END CERTIFICATE-----&lt;/code&gt;', 'key': 'ssl_certificate', 'label': l'SSL Certificate'}, {'type': 'textarea', 'description': l'The private key, if any, used to sign the SSL certificate above. If present, this should be a string beginning with &lt;code&gt;-----BEGIN PRIVATE KEY-----&lt;/code&gt; and ending with &lt;code&gt;-----END PRIVATE KEY-----&lt;/code&gt;', 'key': 'ssl_key', 'label': l'SSL Key'}, {'default': '|', 'required': True, 'key': 'field separator', 'label': l'Field Separator'}, {'required': True, 'description': l'A valid identifier that can be used to test that patron authentication is working.', 'key': 'test_identifier', 'label': l'Test Identifier'}, {'required': True, 'description': l'The password for the test identifier.', 'key': 'test_password', 'label': l'Test Password'}, {'description': l'Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers.', 'default': '', 'required': True, 'label': l'Patron identifier barcode format', 'key': 'identifier_barcode_format', 'type': 'select', 'options': [{'key': 'Codabar', 'label': l'Patron identifiers are are rendered as barcodes in Codabar format'}, {'key': '', 'label': l'Patron identifiers are not rendered as barcodes'}]}, {'description': l'A patron's identifier will be immediately rejected if it doesn't match this regular expression.', 'key': u'identifier_regular_expression', 'label': l'Identifier Regular Expression'}, {'description': l'A patron's password will be immediately rejected if it doesn't match this regular expression.', 'key': u'password_regular_expression', 'label': l'Password Regular Expression'}, {'default': u'Default', 'required': True, 'label': l'Keyboard for identifier entry', 'key': u'identifier_keyboard', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Email address', 'label': l'Email address entry'}, {'key': u'Number pad', 'label': l'Number pad'}]}, {'default': u'Default', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Number pad', 'label': l'Number pad'}, {'key': u'No input', 'label': l'Patrons have no password and should not be prompted for one.'}], 'key': u'password_keyboard', 'label': l'Keyboard for password entry'}, {'type': 'number', 'key': u'identifier_maximum_length', 'label': l'Maximum identifier length'}, {'type': 'number', 'key': u'password_maximum_length', 'label': l'Maximum password length'}, {'key': u'identifier_label', 'label': l'Label for identifier entry'}, {'key': u'password_label', 'label': l'Label for password entry'}]</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.SPECIFIC_BLOCK_REASONS">
+<code class="descname">SPECIFIC_BLOCK_REASONS</code><em class="property"> = {'card reported lost': 'card reported lost', 'charge privileges denied': 'no borrowing privileges', 'excessive outstanding fees': 'excessive fees', 'excessive outstanding fines': 'excessive fines', 'recall overdue': 'recall overdue', 'too many items billed': 'too many items billed', 'too many items charged': 'too many active loans', 'too many items lost': 'too many items lost', 'too many items overdue': 'too many items overdue', 'too many renewals': 'too many renewals'}</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.SPECIFIC_BLOCK_REASONS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.SSL_CERTIFICATE">
+<code class="descname">SSL_CERTIFICATE</code><em class="property"> = 'ssl_certificate'</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.SSL_CERTIFICATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.SSL_KEY">
+<code class="descname">SSL_KEY</code><em class="property"> = 'ssl_key'</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.SSL_KEY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.sip.SIP2AuthenticationProvider.USE_SSL">
+<code class="descname">USE_SSL</code><em class="property"> = 'use_ssl'</em><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.USE_SSL" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.sip.SIP2AuthenticationProvider.info_to_patrondata">
+<em class="property">classmethod </em><code class="descname">info_to_patrondata</code><span class="sig-paren">(</span><em>info</em>, <em>validate_password=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip.html#SIP2AuthenticationProvider.info_to_patrondata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.info_to_patrondata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert the SIP-specific dictionary obtained from
+SIPClient.patron_information() to an abstract,
+authenticator-independent PatronData object.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.sip.SIP2AuthenticationProvider.parse_date">
+<em class="property">classmethod </em><code class="descname">parse_date</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip.html#SIP2AuthenticationProvider.parse_date"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.parse_date" title="Permalink to this definition">¶</a></dt>
+<dd><p>Try to parse <cite>value</cite> using any of several common date formats.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.sip.SIP2AuthenticationProvider.patron_information">
+<code class="descname">patron_information</code><span class="sig-paren">(</span><em>username</em>, <em>password</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip.html#SIP2AuthenticationProvider.patron_information"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.patron_information" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.sip.SIP2AuthenticationProvider.remote_authenticate">
+<code class="descname">remote_authenticate</code><span class="sig-paren">(</span><em>username</em>, <em>password</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip.html#SIP2AuthenticationProvider.remote_authenticate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.SIP2AuthenticationProvider.remote_authenticate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Authenticate a patron with the SIP2 server.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>username</strong> – The patron’s username/barcode/card
+number/authorization identifier.</li>
+<li><strong>password</strong> – The patron’s password/pin/access code.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/api.sip.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

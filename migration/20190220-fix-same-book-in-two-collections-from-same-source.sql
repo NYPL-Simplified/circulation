@@ -1,3 +1,0 @@
-update licensepools as lp set presentation_edition_id = lp2.presentation_edition_id from licensepools as lp2 where lp.identifier_id = lp2.identifier_id and lp.id != lp2.id and lp.data_source_id = lp2.data_source_id and lp.presentation_edition_id is null and lp2.presentation_edition_id is not null;
-
-update licensepools as lp set work_id = lp2.work_id from licensepools as lp2 where lp.identifier_id = lp2.identifier_id and lp.id != lp2.id and lp.data_source_id = lp2.data_source_id and lp.work_id is null and lp2.work_id is not null;

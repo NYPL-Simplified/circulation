@@ -1,0 +1,505 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.util.http &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.http</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">problem_detail</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ProblemDetail</span> <span class="k">as</span> <span class="n">pd</span><span class="p">,</span>
+    <span class="n">JSON_MEDIA_TYPE</span> <span class="k">as</span> <span class="n">PROBLEM_DETAIL_JSON_MEDIA_TYPE</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">INTEGRATION_ERROR</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+      <span class="s2">&quot;http://librarysimplified.org/terms/problem/remote-integration-failed&quot;</span><span class="p">,</span>
+      <span class="mi">502</span><span class="p">,</span>
+      <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Third-party service failed.&quot;</span><span class="p">),</span>
+      <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A third-party service has failed.&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="IntegrationException"><a class="viewcode-back" href="../../../core.util.html#core.util.http.IntegrationException">[docs]</a><span class="k">class</span> <span class="nc">IntegrationException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An exception that happens when the site&#39;s connection to a</span>
+<span class="sd">    third-party service is broken.</span>
+
+<span class="sd">    This may be because communication failed</span>
+<span class="sd">    (RemoteIntegrationException), or because local configuration is</span>
+<span class="sd">    missing or obviously wrong (CannotLoadConfiguration).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param message: The normal message passed to any Exception</span>
+<span class="sd">        constructor.</span>
+
+<span class="sd">        :param debug_message: An extra human-readable explanation of the</span>
+<span class="sd">        problem, shown to admins but not to patrons. This may include</span>
+<span class="sd">        instructions on what bits of the integration configuration might need</span>
+<span class="sd">        to be changed.</span>
+
+<span class="sd">        For example, an API key might be wrong, or the API key might</span>
+<span class="sd">        be correct but the API provider might not have granted that</span>
+<span class="sd">        key enough permissions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">IntegrationException</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">=</span> <span class="n">debug_message</span></div>
+
+
+<div class="viewcode-block" id="RemoteIntegrationException"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RemoteIntegrationException">[docs]</a><span class="k">class</span> <span class="nc">RemoteIntegrationException</span><span class="p">(</span><span class="n">IntegrationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An exception that happens when we try and fail to communicate</span>
+<span class="sd">    with a third-party service over HTTP.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Failure contacting external service&quot;</span><span class="p">)</span>
+    <span class="n">detail</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The server tried to access </span><span class="si">%(service)s</span><span class="s2"> but the third-party service experienced an error.&quot;</span><span class="p">)</span>
+    <span class="n">internal_message</span> <span class="o">=</span> <span class="s2">&quot;Error accessing </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url_or_service</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Indicate that a remote integration has failed.</span>
+
+<span class="sd">        `param url_or_service` The name of the service that failed</span>
+<span class="sd">           (e.g. &quot;Overdrive&quot;), or the specific URL that had the problem.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">url_or_service</span> <span class="ow">and</span>
+            <span class="nb">any</span><span class="p">(</span><span class="n">url_or_service</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;http:&#39;</span><span class="p">,</span> <span class="s1">&#39;https:&#39;</span><span class="p">))):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url_or_service</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url_or_service</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">url_or_service</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">debug_message</span><span class="p">:</span>
+            <span class="n">debug_message</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_message</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_message</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RemoteIntegrationException.document_detail"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RemoteIntegrationException.document_detail">[docs]</a>    <span class="k">def</span> <span class="nf">document_detail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteIntegrationException.document_debug_message"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RemoteIntegrationException.document_debug_message">[docs]</a>    <span class="k">def</span> <span class="nf">document_debug_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">),</span> <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="RemoteIntegrationException.as_problem_detail_document"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RemoteIntegrationException.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+            <span class="n">detail</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">document_detail</span><span class="p">(</span><span class="n">debug</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">debug_message</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">document_debug_message</span><span class="p">(</span><span class="n">debug</span><span class="p">)</span>
+        <span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="BadResponseException"><a class="viewcode-back" href="../../../core.util.html#core.util.http.BadResponseException">[docs]</a><span class="k">class</span> <span class="nc">BadResponseException</span><span class="p">(</span><span class="n">RemoteIntegrationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The request seemingly went okay, but we got a bad response.&quot;&quot;&quot;</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Bad response&quot;</span><span class="p">)</span>
+    <span class="n">detail</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The server made a request to </span><span class="si">%(service)s</span><span class="s2">, and got an unexpected or invalid response.&quot;</span><span class="p">)</span>
+    <span class="n">internal_message</span> <span class="o">=</span> <span class="s2">&quot;Bad response from </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span>
+
+    <span class="n">BAD_STATUS_CODE_MESSAGE</span> <span class="o">=</span> <span class="s2">&quot;Got status code </span><span class="si">%s</span><span class="s2"> from external server, cannot continue.&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url_or_service</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Indicate that a remote integration has failed.</span>
+
+<span class="sd">        `param url_or_service` The name of the service that failed</span>
+<span class="sd">           (e.g. &quot;Overdrive&quot;), or the specific URL that had the problem.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">BadResponseException</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">url_or_service</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="p">)</span>
+        <span class="c1"># to be set to 500, etc.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
+
+<div class="viewcode-block" id="BadResponseException.document_debug_message"><a class="viewcode-back" href="../../../core.util.html#core.util.http.BadResponseException.document_debug_message">[docs]</a>    <span class="k">def</span> <span class="nf">document_debug_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span>
+            <span class="k">return</span> <span class="n">msg</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="BadResponseException.from_response"><a class="viewcode-back" href="../../../core.util.html#core.util.http.BadResponseException.from_response">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper method to turn a `requests` Response object into</span>
+<span class="sd">        a BadResponseException.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="c1"># The response has been unrolled into a (status_code,</span>
+            <span class="c1"># headers, body) 3-tuple.</span>
+            <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">response</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">status_code</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+        <span class="k">return</span> <span class="n">BadResponseException</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span>
+            <span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span><span class="p">,</span>
+            <span class="n">debug_message</span><span class="o">=</span><span class="s2">&quot;Status code: </span><span class="si">%s</span><span class="se">\n</span><span class="s2">Content: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">status_code</span><span class="p">,</span>
+                <span class="n">content</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BadResponseException.bad_status_code"><a class="viewcode-back" href="../../../core.util.html#core.util.http.BadResponseException.bad_status_code">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">bad_status_code</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The response is bad because the status code is wrong.&quot;&quot;&quot;</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BAD_STATUS_CODE_MESSAGE</span> <span class="o">%</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_response</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span>
+            <span class="n">message</span><span class="p">,</span>
+            <span class="n">response</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="RequestNetworkException"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RequestNetworkException">[docs]</a><span class="k">class</span> <span class="nc">RequestNetworkException</span><span class="p">(</span><span class="n">RemoteIntegrationException</span><span class="p">,</span>
+                              <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An exception from the requests module that can be represented as</span>
+<span class="sd">    a problem detail document.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Network failure contacting third-party service&quot;</span><span class="p">)</span>
+    <span class="n">detail</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The server experienced a network error while contacting </span><span class="si">%(service)s</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="n">internal_message</span> <span class="o">=</span> <span class="s2">&quot;Network error contacting </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span></div>
+
+
+<div class="viewcode-block" id="RequestTimedOut"><a class="viewcode-back" href="../../../core.util.html#core.util.http.RequestTimedOut">[docs]</a><span class="k">class</span> <span class="nc">RequestTimedOut</span><span class="p">(</span><span class="n">RequestNetworkException</span><span class="p">,</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">Timeout</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A timeout exception that can be represented as a problem</span>
+<span class="sd">    detail document.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">title</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Timeout&quot;</span><span class="p">)</span>
+    <span class="n">detail</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The server made a request to </span><span class="si">%(service)s</span><span class="s2">, and that request timed out.&quot;</span><span class="p">)</span>
+    <span class="n">internal_message</span> <span class="o">=</span> <span class="s2">&quot;Timeout accessing </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span></div>
+
+
+<div class="viewcode-block" id="HTTP"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP">[docs]</a><span class="k">class</span> <span class="nc">HTTP</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A helper for the `requests` module.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HTTP.get_with_timeout"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.get_with_timeout">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_with_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a GET request with timeout handling.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">request_with_timeout</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HTTP.post_with_timeout"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.post_with_timeout">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">post_with_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a POST request with timeout handling.&quot;&quot;&quot;</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">payload</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">request_with_timeout</span><span class="p">(</span><span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HTTP.put_with_timeout"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.put_with_timeout">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">put_with_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a PUT request with timeout handling.&quot;&quot;&quot;</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">payload</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">request_with_timeout</span><span class="p">(</span><span class="s2">&quot;PUT&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HTTP.request_with_timeout"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.request_with_timeout">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">request_with_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">http_method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Call requests.request and turn a timeout into a RequestTimedOut</span>
+<span class="sd">        exception.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_request_with_timeout</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">requests</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="n">http_method</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_request_with_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">make_request_with</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Call some kind of method and turn a timeout into a RequestTimedOut</span>
+<span class="sd">        exception.</span>
+
+<span class="sd">        The core of `request_with_timeout` made easy to test.</span>
+
+<span class="sd">        :param url: Make the request to this URL.</span>
+<span class="sd">        :param make_request_with: A function that actually makes the</span>
+<span class="sd">            HTTP request.</span>
+<span class="sd">        :param args: Positional arguments for the request function.</span>
+<span class="sd">        :param kwargs: Keyword arguments for the request function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">process_response_with</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+            <span class="s1">&#39;process_response_with&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_process_response</span>
+        <span class="p">)</span>
+        <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;allowed_response_codes&#39;</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="n">disallowed_response_codes</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;disallowed_response_codes&#39;</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="n">verbose</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;verbose&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;timeout&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;timeout&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span>
+
+        <span class="c1"># Unicode data can&#39;t be sent over the wire. Convert it</span>
+        <span class="c1"># to UTF-8.</span>
+        <span class="k">if</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">],</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;headers&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">]</span>
+            <span class="n">new_headers</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">headers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+                    <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+                    <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+                <span class="n">new_headers</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_headers</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Sending request to </span><span class="si">%s</span><span class="s2">: args </span><span class="si">%r</span><span class="s2"> kwargs </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                             <span class="n">url</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># requests.request takes two positional arguments,</span>
+                <span class="c1"># an HTTP method and a URL. In most cases, the URL</span>
+                <span class="c1"># gets added on here. But if you do pass in both</span>
+                <span class="c1"># arguments, it will still work.</span>
+                <span class="n">args</span> <span class="o">=</span> <span class="n">args</span> <span class="o">+</span> <span class="p">(</span><span class="n">url</span><span class="p">,)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">make_request_with</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Response from </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2"> </span><span class="si">%r</span><span class="s2"> </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span>
+                    <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+                <span class="p">)</span>
+        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">Timeout</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Wrap the requests-specific Timeout exception</span>
+            <span class="c1"># in a generic RequestTimedOut exception.</span>
+            <span class="k">raise</span> <span class="n">RequestTimedOut</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Wrap all other requests-specific exceptions in</span>
+            <span class="c1"># a generic RequestNetworkException.</span>
+            <span class="k">raise</span> <span class="n">RequestNetworkException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">process_response_with</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">,</span> <span class="n">disallowed_response_codes</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_process_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                          <span class="n">disallowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Raise a RequestNetworkException if the response code indicates a</span>
+<span class="sd">        server-side failure, or behavior so unpredictable that we can&#39;t</span>
+<span class="sd">        continue.</span>
+
+<span class="sd">        :param allowed_response_codes If passed, then only the responses with</span>
+<span class="sd">            http status codes in this list are processed.  The rest generate</span>
+<span class="sd">            BadResponseExceptions.</span>
+<span class="sd">        :param disallowed_response_codes The values passed are added to 5xx, as</span>
+<span class="sd">            http status codes that would generate BadResponseExceptions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">allowed_response_codes</span><span class="p">:</span>
+            <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">)</span>
+            <span class="n">status_code_not_in_allowed</span> <span class="o">=</span> <span class="s2">&quot;Got status code </span><span class="si">%%</span><span class="s2">s from external server, but can only continue on: </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">allowed_response_codes</span><span class="p">)),</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">disallowed_response_codes</span><span class="p">:</span>
+            <span class="n">disallowed_response_codes</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">disallowed_response_codes</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">disallowed_response_codes</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">code</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span>
+        <span class="n">series</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">allowed_response_codes</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="n">code</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span>
+                <span class="ow">or</span> <span class="n">series</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span>
+        <span class="p">):</span>
+            <span class="c1"># The code or series has been explicitly allowed. Allow</span>
+            <span class="c1"># the request to be processed.</span>
+            <span class="k">return</span> <span class="n">response</span>
+
+        <span class="n">error_message</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">series</span> <span class="o">==</span> <span class="s1">&#39;5xx&#39;</span> <span class="ow">or</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">disallowed_response_codes</span>
+            <span class="ow">or</span> <span class="n">series</span> <span class="ow">in</span> <span class="n">disallowed_response_codes</span>
+        <span class="p">):</span>
+            <span class="c1"># Unless explicitly allowed, the 5xx series always results in</span>
+            <span class="c1"># an exception.</span>
+            <span class="n">error_message</span> <span class="o">=</span> <span class="n">BadResponseException</span><span class="o">.</span><span class="n">BAD_STATUS_CODE_MESSAGE</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">allowed_response_codes</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+                <span class="n">code</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span>
+                <span class="ow">or</span> <span class="n">series</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span>
+        <span class="p">)):</span>
+            <span class="n">error_message</span> <span class="o">=</span> <span class="n">status_code_not_in_allowed</span>
+
+        <span class="k">if</span> <span class="n">error_message</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span>
+                <span class="n">url</span><span class="p">,</span>
+                <span class="n">error_message</span> <span class="o">%</span> <span class="n">code</span><span class="p">,</span>
+                <span class="n">status_code</span><span class="o">=</span><span class="n">code</span><span class="p">,</span>
+                <span class="n">debug_message</span><span class="o">=</span><span class="s2">&quot;Response content: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span>
+
+<div class="viewcode-block" id="HTTP.series"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.series">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">series</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">status_code</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the HTTP series for the given status code.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">xx&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">status_code</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HTTP.debuggable_get"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.debuggable_get">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">debuggable_get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a GET request that returns a detailed problem</span>
+<span class="sd">        detail document on error.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">debuggable_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HTTP.debuggable_post"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.debuggable_post">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">debuggable_post</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a POST request that returns a detailed problem</span>
+<span class="sd">        detail document on error.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">payload</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">debuggable_request</span><span class="p">(</span><span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HTTP.debuggable_request"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.debuggable_request">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">debuggable_request</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">http_method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">make_request_with</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a request that returns a detailed problem detail document on</span>
+<span class="sd">        error, rather than a generic &quot;an integration error occured&quot;</span>
+<span class="sd">        message.</span>
+
+<span class="sd">        :param http_method: HTTP method to use when making the request.</span>
+<span class="sd">        :param url: Make the request to this URL.</span>
+<span class="sd">        :param make_request_with: A function that actually makes the</span>
+<span class="sd">            HTTP request.</span>
+<span class="sd">        :param kwargs: Keyword arguments for the make_request_with</span>
+<span class="sd">            function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Making debuggable </span><span class="si">%s</span><span class="s2"> request to </span><span class="si">%s</span><span class="s2">: kwargs </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                     <span class="n">http_method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">make_request_with</span> <span class="o">=</span> <span class="n">make_request_with</span> <span class="ow">or</span> <span class="n">requests</span><span class="o">.</span><span class="n">request</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_request_with_timeout</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">make_request_with</span><span class="p">,</span> <span class="n">http_method</span><span class="p">,</span>
+            <span class="n">process_response_with</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">process_debuggable_response</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="HTTP.process_debuggable_response"><a class="viewcode-back" href="../../../core.util.html#core.util.http.HTTP.process_debuggable_response">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">process_debuggable_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">disallowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If there was a problem with an integration request,</span>
+<span class="sd">        return an appropriate ProblemDetail. Otherwise, return the</span>
+<span class="sd">        response to the original request.</span>
+
+<span class="sd">        :param response: A Response object from the requests library.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="n">allowed_response_codes</span> <span class="ow">or</span> <span class="p">[</span><span class="s1">&#39;2xx&#39;</span><span class="p">,</span> <span class="s1">&#39;3xx&#39;</span><span class="p">]</span>
+        <span class="n">allowed_response_codes</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">allowed_response_codes</span><span class="p">)</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span>
+        <span class="n">series</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">code</span><span class="p">)</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span> <span class="ow">or</span> <span class="n">series</span> <span class="ow">in</span> <span class="n">allowed_response_codes</span><span class="p">:</span>
+            <span class="c1"># Whether or not it looks like there&#39;s been a problem,</span>
+            <span class="c1"># we&#39;ve been told to let this response code through.</span>
+            <span class="k">return</span> <span class="n">response</span>
+
+        <span class="n">content_type</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">content_type</span> <span class="o">==</span> <span class="n">PROBLEM_DETAIL_JSON_MEDIA_TYPE</span><span class="p">:</span>
+            <span class="c1"># The server returned a problem detail document. Wrap it</span>
+            <span class="c1"># in a new document that represents the integration</span>
+            <span class="c1"># failure.</span>
+            <span class="n">problem</span> <span class="o">=</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Remote service returned a problem detail document: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">problem</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+            <span class="k">return</span> <span class="n">problem</span>
+        <span class="c1"># There&#39;s been a problem. Return the message we got from the</span>
+        <span class="c1"># server, verbatim.</span>
+        <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+            <span class="n">_</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> response from integration server: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

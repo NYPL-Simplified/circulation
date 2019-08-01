@@ -1,0 +1,384 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.testing &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.testing</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">contextlib</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">DatabaseTest</span>
+
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">Library</span><span class="p">,</span>
+    <span class="n">Loan</span><span class="p">,</span>
+    <span class="n">Hold</span><span class="p">,</span>
+    <span class="n">Session</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.circulation</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">BaseCirculationAPI</span><span class="p">,</span>
+    <span class="n">CirculationAPI</span><span class="p">,</span>
+    <span class="n">LoanInfo</span><span class="p">,</span>
+    <span class="n">HoldInfo</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.shared_collection</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">SharedCollectionAPI</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+    <span class="n">temp_config</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="k">import</span> <span class="n">AuthdataUtility</span>
+
+<div class="viewcode-block" id="VendorIDTest"><a class="viewcode-back" href="../../api.html#api.testing.VendorIDTest">[docs]</a><span class="k">class</span> <span class="nc">VendorIDTest</span><span class="p">(</span><span class="n">DatabaseTest</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A DatabaseTest that knows how to set up an Adobe Vendor ID</span>
+<span class="sd">    integration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">TEST_VENDOR_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;vendor id&quot;</span>
+    <span class="n">TEST_NODE_VALUE</span> <span class="o">=</span> <span class="mi">114740953091845</span>
+
+<div class="viewcode-block" id="VendorIDTest.initialize_adobe"><a class="viewcode-back" href="../../api.html#api.testing.VendorIDTest.initialize_adobe">[docs]</a>    <span class="k">def</span> <span class="nf">initialize_adobe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vendor_id_library</span><span class="p">,</span> <span class="n">short_token_libraries</span><span class="o">=</span><span class="p">[]):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize an Adobe Vendor ID integration and a</span>
+<span class="sd">        Short Client Token integration with a number of libraries.</span>
+
+<span class="sd">        :param vendor_id_library: The Library that should have an</span>
+<span class="sd">            Adobe Vendor ID integration.</span>
+
+<span class="sd">        :param short_token_libraries: The Libraries that should have a</span>
+<span class="sd">            Short Client Token integration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">short_token_libraries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">short_token_libraries</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">vendor_id_library</span> <span class="ow">in</span> <span class="n">short_token_libraries</span><span class="p">:</span>
+            <span class="n">short_token_libraries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vendor_id_library</span><span class="p">)</span>
+        <span class="c1"># The first library acts as an Adobe Vendor ID server.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">adobe_vendor_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_external_integration</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ADOBE_VENDOR_ID</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DRM_GOAL</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">TEST_VENDOR_ID</span><span class="p">,</span>
+            <span class="n">libraries</span><span class="o">=</span><span class="p">[</span><span class="n">vendor_id_library</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># The other libraries will share a registry integration.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">registry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_external_integration</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_REGISTRATION</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DISCOVERY_GOAL</span><span class="p">,</span>
+            <span class="n">libraries</span><span class="o">=</span><span class="n">short_token_libraries</span>
+        <span class="p">)</span>
+        <span class="c1"># The integration knows which Adobe Vendor ID server it</span>
+        <span class="c1"># gets its Adobe IDs from.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span>
+            <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">VENDOR_ID_KEY</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">adobe_vendor_id</span><span class="o">.</span><span class="n">username</span>
+        <span class="p">)</span>
+
+        <span class="c1"># As we give libraries their Short Client Token settings,</span>
+        <span class="c1"># we build the &#39;other_libraries&#39; setting we&#39;ll apply to the</span>
+        <span class="c1"># Adobe Vendor ID integration.</span>
+        <span class="n">other_libraries</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="c1"># Every library in the system can generate Short Client</span>
+        <span class="c1"># Tokens.</span>
+        <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="n">short_token_libraries</span><span class="p">:</span>
+            <span class="c1"># Each library will get a slightly different short</span>
+            <span class="c1"># name and secret for generating Short Client Tokens.</span>
+            <span class="n">library_uri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_url</span>
+            <span class="n">short_name</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">short_name</span> <span class="o">+</span> <span class="s2">&quot;token&quot;</span>
+            <span class="n">secret</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">short_name</span> <span class="o">+</span> <span class="s2">&quot; token secret&quot;</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">registry</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">short_name</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">registry</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">secret</span>
+
+            <span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">WEBSITE_URL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">library_uri</span>
+
+            <span class="c1"># Each library&#39;s Short Client Token configuration will be registered</span>
+            <span class="c1"># with that Adobe Vendor ID server.</span>
+            <span class="k">if</span> <span class="n">library</span> <span class="o">!=</span> <span class="n">vendor_id_library</span><span class="p">:</span>
+                <span class="n">other_libraries</span><span class="p">[</span><span class="n">library_uri</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">short_name</span><span class="p">,</span> <span class="n">secret</span><span class="p">)</span>
+
+        <span class="c1"># Tell the Adobe Vendor ID server about the other libraries.</span>
+        <span class="n">other_libraries</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">other_libraries</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">adobe_vendor_id</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span>
+            <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">OTHER_LIBRARIES_KEY</span><span class="p">,</span> <span class="n">other_libraries</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="MockRemoteAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI">[docs]</a><span class="k">class</span> <span class="nc">MockRemoteAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">set_delivery_mechanism_at</span><span class="p">,</span> <span class="n">can_revoke_hold_when_reserved</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">set_delivery_mechanism_at</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">CAN_REVOKE_HOLD_WHEN_RESERVED</span> <span class="o">=</span> <span class="n">can_revoke_hold_when_reserved</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Mock remote API&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">availability_updated_for</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="MockRemoteAPI.checkout"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.checkout">[docs]</a>    <span class="k">def</span> <span class="nf">checkout</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">patron_obj</span><span class="p">,</span> <span class="n">patron_password</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
+            <span class="n">delivery_mechanism</span>
+    <span class="p">):</span>
+        <span class="c1"># Should be a LoanInfo.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;checkout&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.update_availability"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.update_availability">[docs]</a>    <span class="k">def</span> <span class="nf">update_availability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Simply record the fact that update_availability was called.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">availability_updated_for</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.place_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.place_hold">[docs]</a>    <span class="k">def</span> <span class="nf">place_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
+                   <span class="n">hold_notification_email</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># Should be a HoldInfo.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;hold&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.fulfill"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># Should be a FulfillmentInfo.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;fulfill&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.checkin"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.checkin">[docs]</a>    <span class="k">def</span> <span class="nf">checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="c1"># Return value is not checked.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;checkin&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.release_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="c1"># Return value is not checked.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;release_hold&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.internal_format"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.internal_format">[docs]</a>    <span class="k">def</span> <span class="nf">internal_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">delivery_mechanism</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.update_loan"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.update_loan">[docs]</a>    <span class="k">def</span> <span class="nf">update_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">status_doc</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">availability_updated_for</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.queue_checkout"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.queue_checkout">[docs]</a>    <span class="k">def</span> <span class="nf">queue_checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;checkout&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.queue_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.queue_hold">[docs]</a>    <span class="k">def</span> <span class="nf">queue_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;hold&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.queue_fulfill"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.queue_fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">queue_fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;fulfill&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.queue_checkin"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.queue_checkin">[docs]</a>    <span class="k">def</span> <span class="nf">queue_checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;checkin&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockRemoteAPI.queue_release_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI.queue_release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">queue_release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;release_hold&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_return_or_raise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">l</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">v</span>
+        <span class="k">return</span> <span class="n">v</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI">[docs]</a><span class="k">class</span> <span class="nc">MockCirculationAPI</span><span class="p">(</span><span class="n">CirculationAPI</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remote_loans</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remote_holds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remotes</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="MockCirculationAPI.local_loans"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.local_loans">[docs]</a>    <span class="k">def</span> <span class="nf">local_loans</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Loan</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Loan</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.local_holds"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.local_holds">[docs]</a>    <span class="k">def</span> <span class="nf">local_holds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hold</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Hold</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.add_remote_loan"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.add_remote_loan">[docs]</a>    <span class="k">def</span> <span class="nf">add_remote_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remote_loans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LoanInfo</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.add_remote_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.add_remote_hold">[docs]</a>    <span class="k">def</span> <span class="nf">add_remote_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remote_holds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">HoldInfo</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.patron_activity"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a 3-tuple (loans, holds, completeness).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_loans</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_holds</span><span class="p">,</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.queue_checkout"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.queue_checkout">[docs]</a>    <span class="k">def</span> <span class="nf">queue_checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;checkout&#39;</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.queue_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.queue_hold">[docs]</a>    <span class="k">def</span> <span class="nf">queue_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;hold&#39;</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.queue_fulfill"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.queue_fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">queue_fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;fulfill&#39;</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.queue_checkin"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.queue_checkin">[docs]</a>    <span class="k">def</span> <span class="nf">queue_checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;checkin&#39;</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockCirculationAPI.queue_release_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.queue_release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">queue_release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;release_hold&#39;</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="n">mock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mock</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MockCirculationAPI.api_for_license_pool"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI.api_for_license_pool">[docs]</a>    <span class="k">def</span> <span class="nf">api_for_license_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">if</span> <span class="n">source</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">remotes</span><span class="p">:</span>
+            <span class="n">set_delivery_mechanism_at</span> <span class="o">=</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">FULFILL_STEP</span>
+            <span class="n">can_revoke_hold_when_reserved</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">:</span>
+                <span class="n">set_delivery_mechanism_at</span> <span class="o">=</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">BORROW_STEP</span>
+            <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">THREEM</span><span class="p">:</span>
+                <span class="n">can_revoke_hold_when_reserved</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">remote</span> <span class="o">=</span> <span class="n">MockRemoteAPI</span><span class="p">(</span>
+                <span class="n">set_delivery_mechanism_at</span><span class="p">,</span> <span class="n">can_revoke_hold_when_reserved</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remotes</span><span class="p">[</span><span class="n">source</span><span class="p">]</span> <span class="o">=</span> <span class="n">remote</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">remotes</span><span class="p">[</span><span class="n">source</span><span class="p">]</span></div></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI">[docs]</a><span class="k">class</span> <span class="nc">MockSharedCollectionAPI</span><span class="p">(</span><span class="n">SharedCollectionAPI</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MockSharedCollectionAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_return_or_raise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">l</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">v</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.queue_register"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.queue_register">[docs]</a>    <span class="k">def</span> <span class="nf">queue_register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;register&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.register"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;register&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.queue_borrow"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.queue_borrow">[docs]</a>    <span class="k">def</span> <span class="nf">queue_borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;borrow&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.borrow"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.borrow">[docs]</a>    <span class="k">def</span> <span class="nf">borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;borrow&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.queue_revoke_loan"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.queue_revoke_loan">[docs]</a>    <span class="k">def</span> <span class="nf">queue_revoke_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;revoke-loan&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.revoke_loan"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.revoke_loan">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">loan</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;revoke-loan&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.queue_fulfill"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.queue_fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">queue_fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;fulfill&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.fulfill"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;fulfill&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.queue_revoke_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.queue_revoke_hold">[docs]</a>    <span class="k">def</span> <span class="nf">queue_revoke_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="p">(</span><span class="s1">&#39;revoke-hold&#39;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSharedCollectionAPI.revoke_hold"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI.revoke_hold">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return_or_raise</span><span class="p">(</span><span class="s1">&#39;revoke-hold&#39;</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

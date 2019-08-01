@@ -1,0 +1,400 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.util.permanent_work_id &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.permanent_work_id</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">md5</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+<span class="kn">import</span> <span class="nn">unicodedata</span>
+
+<div class="viewcode-block" id="WorkIDCalculator"><a class="viewcode-back" href="../../../core.util.html#core.util.permanent_work_id.WorkIDCalculator">[docs]</a><span class="k">class</span> <span class="nc">WorkIDCalculator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+<div class="viewcode-block" id="WorkIDCalculator.permanent_id"><a class="viewcode-back" href="../../../core.util.html#core.util.permanent_work_id.WorkIDCalculator.permanent_id">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">permanent_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">normalized_title</span><span class="p">,</span> <span class="n">normalized_author</span><span class="p">,</span>
+                     <span class="n">grouping_category</span><span class="p">):</span>
+        <span class="n">digest</span> <span class="o">=</span> <span class="n">md5</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">(</span><span class="n">normalized_title</span><span class="p">,</span> <span class="n">normalized_author</span><span class="p">,</span> <span class="n">grouping_category</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span> <span class="ow">or</span> <span class="n">i</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="s1">&#39;--null--&#39;</span>
+            <span class="n">digest</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
+        <span class="n">permanent_id</span> <span class="o">=</span> <span class="n">digest</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span><span class="o">.</span><span class="n">zfill</span><span class="p">(</span><span class="mi">32</span><span class="p">)</span>
+        <span class="n">permanent_id</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span>
+            <span class="n">permanent_id</span><span class="p">[:</span><span class="mi">8</span><span class="p">],</span> <span class="n">permanent_id</span><span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">12</span><span class="p">],</span> <span class="n">permanent_id</span><span class="p">[</span><span class="mi">12</span><span class="p">:</span><span class="mi">16</span><span class="p">],</span>
+            <span class="n">permanent_id</span><span class="p">[</span><span class="mi">16</span><span class="p">:</span><span class="mi">20</span><span class="p">],</span> <span class="n">permanent_id</span><span class="p">[</span><span class="mi">20</span><span class="p">:]])</span>
+        <span class="k">return</span> <span class="n">permanent_id</span></div>
+
+    <span class="c1"># Strings to be removed from author names.</span>
+    <span class="n">authorExtract1</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^(.+?)</span><span class="se">\\</span><span class="s2">spresents.*$&quot;</span><span class="p">)</span>
+    <span class="n">authorExtract2</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^(?:(?:a|an)</span><span class="se">\\</span><span class="s2">s)?(.+?)</span><span class="se">\\</span><span class="s2">spresentation.*$&quot;</span><span class="p">)</span>
+    <span class="n">distributedByRemoval</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^distributed (?:in.*</span><span class="se">\\</span><span class="s2">s)?by</span><span class="se">\\</span><span class="s2">s(.+)$&quot;</span><span class="p">)</span>
+    <span class="n">initialsFix</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;(?&lt;=[A-Z])</span><span class="se">\\</span><span class="s2">.(?=(</span><span class="se">\\</span><span class="s2">s|[A-Z]|$))&quot;</span><span class="p">)</span>
+    <span class="n">apostropheStrip</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;&#39;s&quot;</span><span class="p">)</span>
+    <span class="n">specialCharacterStrip</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;[^</span><span class="se">\\</span><span class="s2">w</span><span class="se">\\</span><span class="s2">d</span><span class="se">\\</span><span class="s2">s]&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">U</span><span class="p">)</span>
+    <span class="n">consecutiveCharacterStrip</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">s{2,}&quot;</span><span class="p">)</span>
+    <span class="n">bracketedCharacterStrip</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">[(.*?)</span><span class="se">\\</span><span class="s2">]&quot;</span><span class="p">)</span>
+    <span class="n">commonAuthorSuffixPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^(.+?)</span><span class="se">\\</span><span class="s2">s(?:general editor|editor|editor in chief|etc|inc|inc</span><span class="se">\\</span><span class="s2">setc|co|corporation|llc|partners|company|home entertainment)$&quot;</span><span class="p">)</span>
+    <span class="n">commonAuthorPrefixPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^(?:edited by|by the editors of|by|chosen by|translated by|prepared by|translated and edited by|completely rev by|pictures by|selected and adapted by|with a foreword by|with a new foreword by|introd by|introduction by|intro by|retold by)</span><span class="se">\\</span><span class="s2">s(.+)$&quot;</span><span class="p">)</span>
+
+    <span class="n">format_to_grouping_category</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Atlas&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Map&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;TapeCartridge&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ChipCartridge&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DiscCartridge&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;TapeCassette&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;TapeReel&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;FloppyDisk&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CDROM&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Software&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Globe&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Braille&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Filmstrip&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Transparency&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Slide&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Microfilm&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Collage&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Drawing&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Painting&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Print&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Photonegative&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;FlashCard&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Chart&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Photo&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MotionPicture&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kit&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MusicalScore&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SensorImage&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SoundDisc&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SoundCassette&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SoundRecording&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VideoCartridge&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VideoDisc&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VideoCassette&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VideoReel&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Video&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MusicalScore&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MusicRecording&quot;</span><span class="p">:</span> <span class="s2">&quot;music&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Electronic&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;PhysicalObject&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Manuscript&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;eBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Book&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Newspaper&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Journal&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Serial&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Unknown&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Playaway&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;LargePrint&quot;</span><span class="p">:</span> <span class="s2">&quot;book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Blu-ray&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DVD&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VerticalFile&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CompactDisc&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;TapeRecording&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Phonograph&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;pdf&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;epub&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;jpg&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gif&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mp3&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;plucker&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;kindle&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;externalLink&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;externalMP3&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;interactiveBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;overdrive&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;external_web&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;external_ebook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;external_eaudio&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;external_emusic&quot;</span><span class="p">:</span> <span class="s2">&quot;music&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;external_evideo&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gifs&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;itunes&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Adobe_EPUB_eBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kindle_Book&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Microsoft_eBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;OverDrive_WMA_Audiobook&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;OverDrive_MP3_Audiobook&quot;</span><span class="p">:</span> <span class="s2">&quot;audio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;OverDrive_Music&quot;</span><span class="p">:</span> <span class="s2">&quot;music&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;OverDrive_Video&quot;</span><span class="p">:</span> <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;OverDrive_Read&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Adobe_PDF_eBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Palm&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Mobipocket_eBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Disney_Online_Book&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Open_PDF_eBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Open_EPUB_eBook&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;eContent&quot;</span><span class="p">:</span> <span class="s2">&quot;ebook&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SeedPacket&quot;</span><span class="p">:</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="WorkIDCalculator.normalize_author"><a class="viewcode-back" href="../../../core.util.html#core.util.permanent_work_id.WorkIDCalculator.normalize_author">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">normalize_author</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">author</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converts to NFKD unicode.</span>
+<span class="sd">        Strips bracket, special characters, dots out.</span>
+<span class="sd">        Converts to single-space and strips trailing spaces.</span>
+<span class="sd">        Strips movie studio language surrouding the possible author&#39;s name.</span>
+<span class="sd">        Lowercases.</span>
+
+<span class="sd">        Returns de-linted author&#39;s name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">author</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">author</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">author</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&#39;</span>
+        <span class="n">author</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">author</span><span class="p">))</span>
+        <span class="n">author</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">bracketedCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+        <span class="n">author</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+
+        <span class="n">groupingAuthor</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">initialsFix</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+        <span class="n">groupingAuthor</span> <span class="o">=</span> <span class="n">groupingAuthor</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">();</span>
+        <span class="n">groupingAuthor</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">consecutiveCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">groupingAuthor</span><span class="p">)</span>
+
+        <span class="c1"># extract common additional info (especially for movie studios)</span>
+        <span class="c1"># Remove home entertainment</span>
+        <span class="k">for</span> <span class="n">regexp</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">authorExtract1</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">authorExtract2</span><span class="p">,</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">commonAuthorSuffixPattern</span><span class="p">,</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">commonAuthorPrefixPattern</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">distributedByRemoval</span>
+                <span class="p">]:</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">regexp</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">groupingAuthor</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="n">groupingAuthor</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Remove md if the author ends with md</span>
+        <span class="k">if</span> <span class="n">groupingAuthor</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; md&quot;</span><span class="p">):</span>
+            <span class="n">groupingAuthor</span> <span class="o">=</span> <span class="n">groupingAuthor</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">groupingAuthor</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">:</span>
+            <span class="n">groupingAuthor</span> <span class="o">=</span> <span class="n">groupingAuthor</span><span class="p">[:</span><span class="mi">50</span><span class="p">]</span>
+        <span class="n">groupingAuthor</span> <span class="o">=</span> <span class="n">groupingAuthor</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="c1"># TODO: I don&#39;t understand this yet.</span>
+        <span class="c1"># groupingAuthor = RecordGroupingProcessor.mapAuthorAuthority(groupingAuthor);</span>
+        <span class="k">return</span> <span class="n">groupingAuthor</span></div>
+
+    <span class="n">commonSubtitlesPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^(.*?)((a|una)</span><span class="se">\\</span><span class="s2">s(.*)novel(a|la)?|a(.*)memoir|a(.*)mystery|a(.*)thriller|by</span><span class="se">\\</span><span class="s2">s(.+)|a novel of .*|stories|an autobiography|a biography|a memoir in books|</span><span class="se">\\</span><span class="s2">d+\S*\s*ed(ition)?|</span><span class="se">\\</span><span class="s2">d+\S*\s*update|1st</span><span class="se">\\</span><span class="s2">s+ed.*|an? .* story|a .*</span><span class="se">\\</span><span class="s2">s?book|poems|the movie|[</span><span class="se">\\</span><span class="s2">w</span><span class="se">\\</span><span class="s2">s]+series book </span><span class="se">\\</span><span class="s2">d+|[</span><span class="se">\\</span><span class="s2">w</span><span class="se">\\</span><span class="s2">s]+trilogy book </span><span class="se">\\</span><span class="s2">d+|large print|graphic novel|magazine|audio cd)$&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">U</span><span class="p">)</span>
+
+    <span class="n">numerics</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">find</span><span class="p">,</span> <span class="n">replace</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;1st&quot;</span><span class="p">,</span> <span class="s2">&quot;first&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;2nd&quot;</span><span class="p">,</span> <span class="s2">&quot;second&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;3rd&quot;</span><span class="p">,</span> <span class="s2">&quot;third&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;4th&quot;</span><span class="p">,</span> <span class="s2">&quot;fourth&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;5th&quot;</span><span class="p">,</span> <span class="s2">&quot;fifth&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;6th&quot;</span><span class="p">,</span> <span class="s2">&quot;sixth&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;7th&quot;</span><span class="p">,</span> <span class="s2">&quot;seventh&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;8th&quot;</span><span class="p">,</span> <span class="s2">&quot;eighth&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;9th&quot;</span><span class="p">,</span> <span class="s2">&quot;ninth&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;10th&quot;</span><span class="p">,</span> <span class="s2">&quot;tenth&quot;</span><span class="p">)):</span>
+        <span class="n">numerics</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">find</span><span class="p">),</span> <span class="n">replace</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="WorkIDCalculator.normalize_subtitle"><a class="viewcode-back" href="../../../core.util.html#core.util.permanent_work_id.WorkIDCalculator.normalize_subtitle">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">normalize_subtitle</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">original_title</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">original_title</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">original_title</span>
+
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">original_title</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;#8211;&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">subtitle</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;and&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Remove any bracketed parts of the title</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">bracketedCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">subtitle</span><span class="p">)</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">apostropheStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">subtitle</span><span class="p">)</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">subtitle</span><span class="p">)</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">subtitle</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">consecutiveCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">subtitle</span><span class="p">)</span>
+
+        <span class="c1"># Remove some common subtitles that are meaningless</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">commonSubtitlesPattern</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">subtitle</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Normalize numeric titles</span>
+        <span class="k">for</span> <span class="n">find</span><span class="p">,</span> <span class="n">replace</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">numerics</span><span class="p">:</span>
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="n">find</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">replace</span><span class="p">,</span> <span class="n">subtitle</span><span class="p">)</span>
+
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">subtitle</span><span class="p">[:</span><span class="mi">175</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">subtitle</span></div>
+
+    <span class="n">subtitleIndicator</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;[:;/=]&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="WorkIDCalculator.normalize_title"><a class="viewcode-back" href="../../../core.util.html#core.util.permanent_work_id.WorkIDCalculator.normalize_title">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">normalize_title</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">full_title</span><span class="p">,</span> <span class="n">num_non_filing_characters</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converts to NFKD unicode.</span>
+<span class="sd">        Strips bracket, special characters.</span>
+<span class="sd">        Splits into title and subtitle portions (normalizes subtitle).</span>
+<span class="sd">        Lowercases.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">full_title</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">full_title</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&#39;</span>
+        <span class="n">full_title</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
+        <span class="c1"># Remove any bracketed parts of the title</span>
+        <span class="n">tmp_title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">bracketedCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
+        <span class="n">tmp_title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
+            <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">num_non_filing_characters</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="ow">and</span> <span class="n">num_non_filing_characters</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">full_title</span><span class="p">)):</span>
+            <span class="n">tmp_title</span> <span class="o">=</span> <span class="n">full_title</span><span class="p">[:</span><span class="n">num_non_filing_characters</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tmp_title</span> <span class="o">=</span> <span class="n">full_title</span>
+
+        <span class="n">tmp_title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">make_value_sortable</span><span class="p">(</span><span class="n">tmp_title</span><span class="p">)</span>
+
+        <span class="c1"># Make sure we don&#39;t strip the entire title</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmp_title</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># And make sure we don&#39;t get just special characters</span>
+            <span class="n">tmp_title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">tmp_title</span><span class="p">)</span>
+            <span class="n">tmp_title</span> <span class="o">=</span> <span class="n">tmp_title</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmp_title</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">tmp_title</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># print &quot;Just saved us from trimming %s to nothing&quot; % full_title</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
+                <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">full_title</span><span class="p">)</span>
+
+
+        <span class="c1"># If the title includes a : in it, take the first part as the title and the second as the subtitle</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">subtitleIndicator</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">normalize_subtitle</span><span class="p">(</span><span class="n">title</span><span class="p">[</span><span class="n">start</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="p">[:</span><span class="n">start</span><span class="p">]</span>
+
+            <span class="c1"># Add the subtitle back</span>
+            <span class="k">if</span> <span class="n">subtitle</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">subtitle</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">title</span> <span class="o">=</span> <span class="n">title</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">subtitle</span>
+
+        <span class="c1"># Fix abbreviations</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">initialsFix</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span>
+
+        <span class="c1"># Replace &#39;&amp;&#39; with &#39;and&#39; for better matching</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;#8211;&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;and&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Remove some common subtitles that are meaningless (do again here in case they were part of the title).</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">commonSubtitlesPattern</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">apostropheStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">specialCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="c1"># Replace consecutive spaces</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">consecutiveCharacterStrip</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span>
+        <span class="n">title_end</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">title</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">title_end</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="p">[:</span><span class="n">title_end</span><span class="p">]</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="n">title</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">title</span><span class="p">:</span>
+            <span class="c1"># print &quot;Title %s was normalized to nothing&quot; % full_title</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">full_title</span>
+        <span class="k">return</span> <span class="n">title</span></div>
+
+
+    <span class="n">sortTrimmingPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;(?i)^(?:(?:a|an|the|el|la|</span><span class="se">\&quot;</span><span class="s2">|&#39;)</span><span class="se">\\</span><span class="s2">s)(.*)$&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="WorkIDCalculator.make_value_sortable"><a class="viewcode-back" href="../../../core.util.html#core.util.permanent_work_id.WorkIDCalculator.make_value_sortable">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_value_sortable</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">curtitle</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">curtitle</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">sort_title</span> <span class="o">=</span> <span class="n">curtitle</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">sortTrimmingPattern</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">sort_title</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+            <span class="n">sort_title</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">sort_title</span> <span class="o">=</span> <span class="n">sort_title</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">sort_title</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,1698 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.coverage &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.coverage</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
+
+<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">BaseCoverageRecord</span><span class="p">,</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">CollectionMissing</span><span class="p">,</span>
+    <span class="n">CoverageRecord</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
+    <span class="n">Timestamp</span><span class="p">,</span>
+    <span class="n">Work</span><span class="p">,</span>
+    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ReplacementPolicy</span><span class="p">,</span>
+    <span class="n">TimestampData</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="k">import</span> <span class="n">DatabaseJob</span>
+
+<span class="kn">import</span> <span class="nn">log</span> <span class="c1"># This sets the appropriate log format.</span>
+
+<div class="viewcode-block" id="CoverageFailure"><a class="viewcode-back" href="../../core.html#core.coverage.CoverageFailure">[docs]</a><span class="k">class</span> <span class="nc">CoverageFailure</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Object representing the failure to provide coverage.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">exception</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">obj</span> <span class="o">=</span> <span class="n">obj</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span> <span class="o">=</span> <span class="n">data_source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">exception</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transient</span> <span class="o">=</span> <span class="n">transient</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">:</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;CoverageFailure: obj=</span><span class="si">%r</span><span class="s2"> data_source=</span><span class="si">%r</span><span class="s2"> transient=</span><span class="si">%r</span><span class="s2"> exception=</span><span class="si">%r</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">obj</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transient</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="CoverageFailure.to_coverage_record"><a class="viewcode-back" href="../../core.html#core.coverage.CoverageFailure.to_coverage_record">[docs]</a>    <span class="k">def</span> <span class="nf">to_coverage_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert this failure into a CoverageRecord.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot convert coverage failure to CoverageRecord because it has no output source.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">record</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">add_for</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">obj</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+        <span class="p">)</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transient</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">TRANSIENT_FAILURE</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">PERSISTENT_FAILURE</span>
+        <span class="k">return</span> <span class="n">record</span></div>
+
+<div class="viewcode-block" id="CoverageFailure.to_work_coverage_record"><a class="viewcode-back" href="../../core.html#core.coverage.CoverageFailure.to_work_coverage_record">[docs]</a>    <span class="k">def</span> <span class="nf">to_work_coverage_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert this failure into a WorkCoverageRecord.&quot;&quot;&quot;</span>
+        <span class="n">record</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">add_for</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">obj</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="n">operation</span>
+        <span class="p">)</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transient</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">TRANSIENT_FAILURE</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">PERSISTENT_FAILURE</span>
+        <span class="k">return</span> <span class="n">record</span></div></div>
+
+
+<div class="viewcode-block" id="CoverageProviderProgress"><a class="viewcode-back" href="../../core.html#core.coverage.CoverageProviderProgress">[docs]</a><span class="k">class</span> <span class="nc">CoverageProviderProgress</span><span class="p">(</span><span class="n">TimestampData</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;A TimestampData optimized for the special needs of</span>
+<span class="sd">    CoverageProviders.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CoverageProviderProgress</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># The offset is distinct from the counter, in that it&#39;s not written</span>
+        <span class="c1"># to the database -- it&#39;s used to track state that&#39;s necessary within</span>
+        <span class="c1"># a single run of the CoverageProvider.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">successes</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transient_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">persistent_failures</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">achievements</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Represent the achievements of a CoverageProvider as a</span>
+<span class="sd">        human-readable string.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="s2">&quot;Items processed: </span><span class="si">%d</span><span class="s2">. Successes: </span><span class="si">%d</span><span class="s2">, transient failures: </span><span class="si">%d</span><span class="s2">, persistent failures: </span><span class="si">%d</span><span class="s2">&quot;</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">successes</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">transient_failures</span>
+                 <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">persistent_failures</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">template</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">total</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">successes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transient_failures</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">persistent_failures</span>
+        <span class="p">)</span>
+
+    <span class="nd">@achievements</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">achievements</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="c1"># It&#39;s not possible to set .achievements directly. Do nothing.</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">BaseCoverageProvider</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Run certain objects through an algorithm. If the algorithm returns</span>
+<span class="sd">    success, add a coverage record for that object, so the object</span>
+<span class="sd">    doesn&#39;t need to be processed again. If the algorithm returns a</span>
+<span class="sd">    CoverageFailure, that failure may itself be memorialized as a</span>
+<span class="sd">    coverage record.</span>
+
+<span class="sd">    Instead of instantiating this class directly, subclass one of its</span>
+<span class="sd">    subclasses: either IdentifierCoverageProvider or</span>
+<span class="sd">    WorkCoverageProvider.</span>
+
+<span class="sd">    In IdentifierCoverageProvider the &#39;objects&#39; are Identifier objects</span>
+<span class="sd">    and the coverage records are CoverageRecord objects. In</span>
+<span class="sd">    WorkCoverageProvider the &#39;objects&#39; are Work objects and the</span>
+<span class="sd">    coverage records are WorkCoverageRecord objects.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># In your subclass, set this to the name of the service,</span>
+    <span class="c1"># e.g. &quot;Overdrive Bibliographic Coverage Provider&quot;.</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># In your subclass, you _may_ set this to a string that distinguishes</span>
+    <span class="c1"># two different CoverageProviders from the same data source.</span>
+    <span class="c1"># (You may also override the operation method, if you need</span>
+    <span class="c1"># database access to determine which operation to use.)</span>
+    <span class="n">OPERATION</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># The database session will be committed each time the</span>
+    <span class="c1"># BaseCoverageProvider has (attempted to) provide coverage to this</span>
+    <span class="c1"># number of Identifiers. You may change this in your subclass.</span>
+    <span class="c1"># It&#39;s also possible to change it by passing in a value for</span>
+    <span class="c1"># `batch_size` in the constructor, but generally nobody bothers</span>
+    <span class="c1"># doing this.</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cutoff_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">registered_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param batch_size: The maximum number of objects that will be processed</span>
+<span class="sd">        at once.</span>
+
+<span class="sd">        :param cutoff_time: Coverage records created before this time</span>
+<span class="sd">        will be treated as though they did not exist.</span>
+
+<span class="sd">        :param registered_only: Optional. Determines whether this</span>
+<span class="sd">        CoverageProvider will only cover items that already have been</span>
+<span class="sd">        &quot;preregistered&quot; with a CoverageRecord with a registered or failing</span>
+<span class="sd">        status. This option is only used on the Metadata Wrangler.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">SERVICE_NAME</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> must define SERVICE_NAME.&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="p">)</span>
+        <span class="n">service_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">SERVICE_NAME</span>
+        <span class="n">operation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operation</span>
+        <span class="k">if</span> <span class="n">operation</span><span class="p">:</span>
+            <span class="n">service_name</span> <span class="o">+=</span> <span class="s1">&#39; (</span><span class="si">%s</span><span class="s1">)&#39;</span> <span class="o">%</span> <span class="n">operation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span> <span class="o">=</span> <span class="n">service_name</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">batch_size</span> <span class="ow">or</span> <span class="n">batch_size</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">batch_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_BATCH_SIZE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cutoff_time</span> <span class="o">=</span> <span class="n">cutoff_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">registered_only</span> <span class="o">=</span> <span class="n">registered_only</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_log&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">collection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve the Collection object associated with this</span>
+<span class="sd">        CoverageProvider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">operation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Which operation should this CoverageProvider use to</span>
+<span class="sd">        distinguish between multiple CoverageRecords from the same data</span>
+<span class="sd">        source?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">OPERATION</span>
+
+<div class="viewcode-block" id="BaseCoverageProvider.run"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_once_and_update_timestamp</span><span class="p">()</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="ow">or</span> <span class="n">CoverageProviderProgress</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finalize_timestampdata</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.run_once_and_update_timestamp"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.run_once_and_update_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">run_once_and_update_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># First prioritize items that have never had a coverage attempt before.</span>
+        <span class="c1"># Then cover items that failed with a transient failure on a</span>
+        <span class="c1"># previous attempt.</span>
+        <span class="n">covered_status_lists</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">PREVIOUSLY_ATTEMPTED</span><span class="p">,</span>
+            <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">DEFAULT_COUNT_AS_COVERED</span>
+        <span class="p">]</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span>
+
+        <span class="c1"># We&#39;ll use this TimestampData object to track our progress</span>
+        <span class="c1"># as we grant coverage to items.</span>
+        <span class="n">progress</span> <span class="o">=</span> <span class="n">CoverageProviderProgress</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">start_time</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">covered_statuses</span> <span class="ow">in</span> <span class="n">covered_status_lists</span><span class="p">:</span>
+            <span class="c1"># We may have completed our work for the previous value of</span>
+            <span class="c1"># covered_statuses, but there&#39;s more work to do. Unset the</span>
+            <span class="c1"># &#39;finish&#39; date to guarantee that progress.is_complete</span>
+            <span class="c1"># starts out False.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Also set the offset to zero to ensure that we always start</span>
+            <span class="c1"># at the start of the database table.</span>
+            <span class="n">original_finish</span> <span class="o">=</span> <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="c1"># Call run_once() until we get an exception or</span>
+            <span class="c1"># progress.finish is set.</span>
+            <span class="k">while</span> <span class="ow">not</span> <span class="n">progress</span><span class="o">.</span><span class="n">is_complete</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">new_progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_once</span><span class="p">(</span>
+                        <span class="n">progress</span><span class="p">,</span> <span class="n">count_as_covered</span><span class="o">=</span><span class="n">covered_statuses</span>
+                    <span class="p">)</span>
+                    <span class="c1"># run_once can either return a new</span>
+                    <span class="c1"># CoverageProviderProgress object, or modify</span>
+                    <span class="c1"># in-place the one it was passed.</span>
+                    <span class="k">if</span> <span class="n">new_progress</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">progress</span> <span class="o">=</span> <span class="n">new_progress</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                        <span class="s2">&quot;CoverageProvider </span><span class="si">%s</span><span class="s2"> raised uncaught exception.&quot;</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+                    <span class="p">)</span>
+                    <span class="n">progress</span><span class="o">.</span><span class="n">exception</span><span class="o">=</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+                    <span class="n">progress</span><span class="o">.</span><span class="n">finish</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+                <span class="c1"># The next run_once() call might raise an exception,</span>
+                <span class="c1"># so let&#39;s write the work to the database as it&#39;s</span>
+                <span class="c1"># done.</span>
+                <span class="n">original_finish</span> <span class="o">=</span> <span class="n">progress</span><span class="o">.</span><span class="n">finish</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">finalize_timestampdata</span><span class="p">(</span><span class="n">progress</span><span class="p">)</span>
+
+                <span class="c1"># That wrote a value for progress.finish to the</span>
+                <span class="c1"># database, which is fine, but we don&#39;t necessarily</span>
+                <span class="c1"># want that value for progress.finish to stand. It</span>
+                <span class="c1"># might incorrectly make progress.is_complete appear</span>
+                <span class="c1"># to be True, making us exit the loop before we mean</span>
+                <span class="c1"># to.</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">progress</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+                    <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">original_finish</span>
+
+        <span class="c1"># TODO: We should be able to return a list of progress objects,</span>
+        <span class="c1"># not just one.</span>
+        <span class="k">return</span> <span class="n">progress</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the Timestamp object for this CoverageProvider.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Timestamp</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">Timestamp</span><span class="o">.</span><span class="n">COVERAGE_PROVIDER_TYPE</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="BaseCoverageProvider.finalize_timestampdata"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.finalize_timestampdata">[docs]</a>    <span class="k">def</span> <span class="nf">finalize_timestampdata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finalize the given TimestampData and write it to the</span>
+<span class="sd">        database.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">timestamp</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">Timestamp</span><span class="o">.</span><span class="n">COVERAGE_PROVIDER_TYPE</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="n">timestamp</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.run_once"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">,</span> <span class="n">count_as_covered</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to grant coverage to a number of uncovered items.</span>
+
+<span class="sd">        NOTE: If you override this method, it&#39;s very important that</span>
+<span class="sd">        your implementation eventually do one of the following:</span>
+<span class="sd">        * Set progress.finish</span>
+<span class="sd">        * Set progress.exception</span>
+<span class="sd">        * Raise an exception</span>
+
+<span class="sd">        If you don&#39;t do any of these things, run() will assume you still</span>
+<span class="sd">        have work to do, and will keep calling run_once() forever.</span>
+
+<span class="sd">        :param progress: A CoverageProviderProgress representing the</span>
+<span class="sd">           progress made so far, and the number of records that</span>
+<span class="sd">           need to be ignored for the rest of the run.</span>
+
+<span class="sd">        :param count_as_covered: Which values for CoverageRecord.status</span>
+<span class="sd">           should count as meaning &#39;already covered&#39;.</span>
+
+<span class="sd">        :return: A CoverageProviderProgress representing whatever</span>
+<span class="sd">           additional progress has been made.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">count_as_covered</span> <span class="o">=</span> <span class="n">count_as_covered</span> <span class="ow">or</span> <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">DEFAULT_COUNT_AS_COVERED</span>
+        <span class="c1"># Make it clear which class of items we&#39;re covering on this</span>
+        <span class="c1"># run.</span>
+        <span class="n">count_as_covered_message</span> <span class="o">=</span> <span class="s1">&#39; (counting </span><span class="si">%s</span><span class="s1"> as covered)&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">count_as_covered</span><span class="p">))</span>
+
+        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">items_that_need_coverage</span><span class="p">(</span><span class="n">count_as_covered</span><span class="o">=</span><span class="n">count_as_covered</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> items need coverage</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">qu</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span>
+                      <span class="n">count_as_covered_message</span><span class="p">)</span>
+        <span class="n">batch</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span><span class="o">.</span><span class="n">offset</span><span class="p">(</span><span class="n">progress</span><span class="o">.</span><span class="n">offset</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">batch</span><span class="o">.</span><span class="n">count</span><span class="p">():</span>
+            <span class="c1"># The batch is empty. We&#39;re done.</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">progress</span>
+
+        <span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">transient_failures</span><span class="p">,</span> <span class="n">persistent_failures</span><span class="p">),</span> <span class="n">results</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">process_batch_and_handle_results</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Update the running totals so that the service&#39;s eventual timestamp</span>
+        <span class="c1"># will have a useful .achievements.</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">successes</span> <span class="o">+=</span> <span class="n">successes</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">transient_failures</span> <span class="o">+=</span> <span class="n">transient_failures</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">persistent_failures</span> <span class="o">+=</span> <span class="n">persistent_failures</span>
+
+        <span class="k">if</span> <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">count_as_covered</span><span class="p">:</span>
+            <span class="c1"># If any successes happened in this batch, increase the</span>
+            <span class="c1"># offset to ignore them, or they will just show up again</span>
+            <span class="c1"># the next time we run this batch.</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">offset</span> <span class="o">+=</span> <span class="n">successes</span>
+
+        <span class="k">if</span> <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">TRANSIENT_FAILURE</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">count_as_covered</span><span class="p">:</span>
+            <span class="c1"># If any transient failures happened in this batch,</span>
+            <span class="c1"># increase the offset to ignore them, or they will</span>
+            <span class="c1"># just show up again the next time we run this batch.</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">offset</span> <span class="o">+=</span> <span class="n">transient_failures</span>
+
+        <span class="k">if</span> <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">PERSISTENT_FAILURE</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">count_as_covered</span><span class="p">:</span>
+            <span class="c1"># If any persistent failures happened in this batch,</span>
+            <span class="c1"># increase the offset to ignore them, or they will</span>
+            <span class="c1"># just show up again the next time we run this batch.</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">offset</span> <span class="o">+=</span> <span class="n">persistent_failures</span>
+
+        <span class="k">return</span> <span class="n">progress</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.process_batch_and_handle_results"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.process_batch_and_handle_results">[docs]</a>    <span class="k">def</span> <span class="nf">process_batch_and_handle_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;:return: A 2-tuple (counts, records).</span>
+
+<span class="sd">        `counts` is a 3-tuple (successes, transient failures,</span>
+<span class="sd">        persistent_failures).</span>
+
+<span class="sd">        `records` is a mixed list of coverage record objects (for</span>
+<span class="sd">        successes and persistent failures) and CoverageFailure objects</span>
+<span class="sd">        (for transient failures).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Batch is a query that may not be ordered, so it may return</span>
+        <span class="c1"># different results when executed multiple times. Converting to</span>
+        <span class="c1"># a list ensures that all subsequent code will run on the same items.</span>
+        <span class="n">batch</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+
+        <span class="n">offset_increment</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="n">successes</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">transient_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">persistent_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">num_ignored</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">unhandled_items</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="n">success_items</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">obj</span> <span class="ow">in</span> <span class="n">unhandled_items</span><span class="p">:</span>
+                    <span class="n">unhandled_items</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">obj</span><span class="p">)</span>
+                <span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">record_failure_as_coverage_record</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">transient</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">&quot;Transient failure covering </span><span class="si">%r</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="n">item</span><span class="o">.</span><span class="n">obj</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">exception</span>
+                    <span class="p">)</span>
+                    <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">TRANSIENT_FAILURE</span>
+                    <span class="n">transient_failures</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                        <span class="s2">&quot;Persistent failure covering </span><span class="si">%r</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="n">item</span><span class="o">.</span><span class="n">obj</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">exception</span>
+                    <span class="p">)</span>
+                    <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">PERSISTENT_FAILURE</span>
+                    <span class="n">persistent_failures</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Count this as a success and prepare to add a</span>
+                <span class="c1"># coverage record for it. It won&#39;t show up anymore, on</span>
+                <span class="c1"># this run or subsequent runs.</span>
+                <span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">unhandled_items</span><span class="p">:</span>
+                    <span class="n">unhandled_items</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+                <span class="n">successes</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">success_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+
+        <span class="n">records</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add_coverage_records_for</span><span class="p">(</span><span class="n">success_items</span><span class="p">))</span>
+
+        <span class="c1"># Perhaps some records were ignored--they neither succeeded nor</span>
+        <span class="c1"># failed. Treat them as transient failures.</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">unhandled_items</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%r</span><span class="s2"> was ignored by a coverage provider that was supposed to cover it.&quot;</span><span class="p">,</span> <span class="n">item</span>
+            <span class="p">)</span>
+            <span class="n">failure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure_for_ignored_item</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+            <span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">record_failure_as_coverage_record</span><span class="p">(</span><span class="n">failure</span><span class="p">)</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">TRANSIENT_FAILURE</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="n">num_ignored</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Batch processed with </span><span class="si">%d</span><span class="s2"> successes, </span><span class="si">%d</span><span class="s2"> transient failures, </span><span class="si">%d</span><span class="s2"> persistent failures, </span><span class="si">%d</span><span class="s2"> ignored.&quot;</span><span class="p">,</span>
+            <span class="n">successes</span><span class="p">,</span> <span class="n">transient_failures</span><span class="p">,</span> <span class="n">persistent_failures</span><span class="p">,</span> <span class="n">num_ignored</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Finalize this batch before moving on to the next one.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finalize_batch</span><span class="p">()</span>
+
+        <span class="c1"># For all purposes outside this method, treat an ignored identifier</span>
+        <span class="c1"># as a transient failure.</span>
+        <span class="n">transient_failures</span> <span class="o">+=</span> <span class="n">num_ignored</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">transient_failures</span><span class="p">,</span> <span class="n">persistent_failures</span><span class="p">),</span> <span class="n">records</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.process_batch"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.process_batch">[docs]</a>    <span class="k">def</span> <span class="nf">process_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do what it takes to give coverage records to a batch of</span>
+<span class="sd">        items.</span>
+
+<span class="sd">        :return: A mixed list of coverage records and CoverageFailures.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_item</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">handle_success</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.add_coverage_records_for"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.add_coverage_records_for">[docs]</a>    <span class="k">def</span> <span class="nf">add_coverage_records_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add CoverageRecords for a group of items from a batch,</span>
+<span class="sd">        each of which was successful.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">add_coverage_record_for</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.handle_success"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.handle_success">[docs]</a>    <span class="k">def</span> <span class="nf">handle_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do something special to mark the successful coverage of the</span>
+<span class="sd">        given item.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.should_update"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.should_update">[docs]</a>    <span class="k">def</span> <span class="nf">should_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coverage_record</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Should we do the work to update the given coverage record?&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">coverage_record</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># An easy decision -- there is no existing coverage record,</span>
+            <span class="c1"># so we need to do the work.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">coverage_record</span><span class="o">.</span><span class="n">status</span><span class="o">==</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">REGISTERED</span><span class="p">:</span>
+            <span class="c1"># There&#39;s a CoverageRecord, but coverage hasn&#39;t actually</span>
+            <span class="c1"># been attempted. Try to get covered.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutoff_time</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># An easy decision -- without a cutoff_time, once we</span>
+            <span class="c1"># create a coverage record we never update it.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># We update a coverage record if it was last updated before</span>
+        <span class="c1"># cutoff_time.</span>
+        <span class="k">return</span> <span class="n">coverage_record</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutoff_time</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.finalize_batch"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.finalize_batch">[docs]</a>    <span class="k">def</span> <span class="nf">finalize_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do whatever is necessary to complete this batch before moving on to</span>
+<span class="sd">        the next one.</span>
+
+<span class="sd">        e.g. committing the database session or uploading a bunch of</span>
+<span class="sd">        assets to S3.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+    <span class="c1">#</span>
+    <span class="c1"># Subclasses must implement these virtual methods.</span>
+    <span class="c1">#</span>
+
+<div class="viewcode-block" id="BaseCoverageProvider.items_that_need_coverage"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a database query returning only those items that</span>
+<span class="sd">        need coverage.</span>
+
+<span class="sd">        :param subset: A list of Identifier objects. If present, return</span>
+<span class="sd">            only items that need coverage *and* are associated with one</span>
+<span class="sd">            of these identifiers.</span>
+
+<span class="sd">        Implemented in CoverageProvider and WorkCoverageProvider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.add_coverage_record_for"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.add_coverage_record_for">[docs]</a>    <span class="k">def</span> <span class="nf">add_coverage_record_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add a coverage record for the given item.</span>
+
+<span class="sd">        Implemented in IdentifierCoverageProvider and WorkCoverageProvider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.record_failure_as_coverage_record"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.record_failure_as_coverage_record">[docs]</a>    <span class="k">def</span> <span class="nf">record_failure_as_coverage_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">failure</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert the given CoverageFailure to a coverage record.</span>
+
+<span class="sd">        Implemented in IdentifierCoverageProvider and WorkCoverageProvider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.failure_for_ignored_item"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.failure_for_ignored_item">[docs]</a>    <span class="k">def</span> <span class="nf">failure_for_ignored_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a CoverageFailure recording the coverage provider&#39;s</span>
+<span class="sd">        failure to even try to process an item.</span>
+
+<span class="sd">        Implemented in IdentifierCoverageProvider and</span>
+<span class="sd">        WorkCoverageProvider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseCoverageProvider.process_item"><a class="viewcode-back" href="../../core.html#core.coverage.BaseCoverageProvider.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do the work necessary to give coverage to one specific item.</span>
+
+<span class="sd">        Since this is where the actual work happens, this is not</span>
+<span class="sd">        implemented in IdentifierCoverageProvider or</span>
+<span class="sd">        WorkCoverageProvider, and must be handled in a subclass.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="IdentifierCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">IdentifierCoverageProvider</span><span class="p">(</span><span class="n">BaseCoverageProvider</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Run Identifiers of certain types (ISBN, Overdrive, OCLC Number,</span>
+<span class="sd">    etc.) through an algorithm associated with a certain DataSource.</span>
+
+<span class="sd">    This class is designed to be subclassed rather than instantiated</span>
+<span class="sd">    directly. Subclasses should define SERVICE_NAME, OPERATION</span>
+<span class="sd">    (optional), DATA_SOURCE_NAME, and</span>
+<span class="sd">    INPUT_IDENTIFIER_TYPES. SERVICE_NAME and OPERATION are described</span>
+<span class="sd">    in BaseCoverageProvider; the rest are described in appropriate</span>
+<span class="sd">    comments in this class.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># In your subclass, set this to the name of the data source you</span>
+    <span class="c1"># consult when providing coverage, e.g. DataSource.OVERDRIVE.</span>
+    <span class="n">DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># In your subclass, set this to a single identifier type, or a list</span>
+    <span class="c1"># of identifier types. The CoverageProvider will attempt to give</span>
+    <span class="c1"># coverage to every Identifier of this type.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Setting this to None will attempt to give coverage to every single</span>
+    <span class="c1"># Identifier in the system, which is probably not what you want.</span>
+    <span class="n">NO_SPECIFIED_TYPES</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+    <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="n">NO_SPECIFIED_TYPES</span>
+
+    <span class="c1"># Set this to False if a given Identifier needs to be run through</span>
+    <span class="c1"># this CoverageProvider once for every Collection that has this</span>
+    <span class="c1"># Identifier in its catalog. If this is set to True, a given</span>
+    <span class="c1"># Identifier will be considered completely covered the first time</span>
+    <span class="c1"># it&#39;s run through this CoverageProvider, no matter how many</span>
+    <span class="c1"># Collections the Identifier belongs to.</span>
+    <span class="n">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">input_identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">replacement_policy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param collection: Optional. If information comes in from a</span>
+<span class="sd">           third party about a license pool associated with an</span>
+<span class="sd">           Identifier, the LicensePool that belongs to this Collection</span>
+<span class="sd">           will be used to contain that data. You may pass in None for</span>
+<span class="sd">           this value, but that means that no circulation information</span>
+<span class="sd">           (such as the formats in which a book is available) will be</span>
+<span class="sd">           stored as a result of running this CoverageProvider. Only</span>
+<span class="sd">           bibliographic information will be stored.</span>
+<span class="sd">        :param input_identifiers: Optional. This CoverageProvider is</span>
+<span class="sd">           requested to provide coverage for these specific</span>
+<span class="sd">           Identifiers.</span>
+<span class="sd">        :param replacement_policy: Optional. A ReplacementPolicy to use</span>
+<span class="sd">           when updating local data with data from the third party.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">IdentifierCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># We store the collection ID rather than the Collection to</span>
+        <span class="c1"># avoid breakage if an app server with a scoped session ever</span>
+        <span class="c1"># uses a IdentifierCoverageProvider.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">collection</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_identifiers</span> <span class="o">=</span> <span class="n">input_identifiers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">replacement_policy</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_replacement_policy</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> must define DATA_SOURCE_NAME&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Get this information immediately so that an error happens immediately</span>
+        <span class="c1"># if INPUT_IDENTIFIER_TYPES is not set properly.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_identifier_types</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_identifier_types</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_default_replacement_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Unless told otherwise, assume that we are getting</span>
+<span class="sd">        this data from a reliable metadata source.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ReplacementPolicy</span><span class="o">.</span><span class="n">from_metadata_source</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">collection_or_not</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If this CoverageProvider needs to be run multiple times on</span>
+<span class="sd">        the same identifier in different collections, this</span>
+<span class="sd">        returns the collection. Otherwise, this returns None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_input_identifier_types</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a normalized value for `input_identifier_types`</span>
+<span class="sd">        based on the INPUT_IDENTIFIER_TYPES class variable.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">INPUT_IDENTIFIER_TYPES</span>
+
+        <span class="c1"># Nip in the bud a situation where someone subclassed this</span>
+        <span class="c1"># class without thinking about a value for</span>
+        <span class="c1"># INPUT_IDENTIFIER_TYPES.</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NO_SPECIFIED_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> must define INPUT_IDENTIFIER_TYPES, even if the value is None.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="c1"># We will be processing every single type of identifier in</span>
+            <span class="c1"># the system. This (hopefully) means that the identifiers</span>
+            <span class="c1"># are restricted in some other way, such as being licensed</span>
+            <span class="c1"># to a specific Collection.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="c1"># We will be processing every identifier of a given type.</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">value</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We will be processing every identify whose type belongs to</span>
+            <span class="c1"># a list of types.</span>
+            <span class="k">return</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.register"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.register">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Registers an identifier for future coverage.</span>
+
+<span class="sd">        See `CoverageProvider.bulk_register` for more information about using</span>
+<span class="sd">        this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SERVICE_NAME</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="n">new_records</span><span class="p">,</span> <span class="n">ignored_identifiers</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">bulk_register</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">identifier</span><span class="p">],</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="n">autocreate</span>
+        <span class="p">)</span>
+        <span class="n">was_registered</span> <span class="o">=</span> <span class="n">identifier</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ignored_identifiers</span>
+
+        <span class="n">new_record</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">new_records</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">new_record</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_records</span>
+
+        <span class="k">if</span> <span class="n">was_registered</span> <span class="ow">and</span> <span class="n">new_record</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;CREATED </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">new_record</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">new_record</span><span class="p">,</span> <span class="n">was_registered</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_data_source_for_registration</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="n">autocreate</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">collection</span> <span class="ow">and</span> <span class="bp">cls</span><span class="o">.</span><span class="n">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</span><span class="p">:</span>
+            <span class="c1"># There&#39;s no need for a collection when registering this</span>
+            <span class="c1"># Identifier, even if it provided the DataSource.</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">existing_record</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">OPERATION</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span>
+        <span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;FOUND </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">existing_record</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">existing_record</span><span class="p">,</span> <span class="n">was_registered</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.bulk_register"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.bulk_register">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">bulk_register</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Registers identifiers for future coverage.</span>
+
+<span class="sd">        This method is primarily for use with CoverageProviders that use the</span>
+<span class="sd">        `registered_only` flag to process items. It&#39;s currently only in use</span>
+<span class="sd">        on the Metadata Wrangler.</span>
+
+<span class="sd">        :param data_source: DataSource object or basestring representing a</span>
+<span class="sd">            DataSource name.</span>
+<span class="sd">        :param collection: Collection object to be associated with the</span>
+<span class="sd">            CoverageRecords.</span>
+<span class="sd">        :param force: When True, even existing CoverageRecords will have</span>
+<span class="sd">            their status reset to CoverageRecord.REGISTERED.</span>
+<span class="sd">        :param autocreate: When True, a basestring provided by data_source will</span>
+<span class="sd">            be autocreated in the database if it didn&#39;t previously exist.</span>
+
+<span class="sd">        :return: A tuple of two lists: the first has fresh new REGISTERED</span>
+<span class="sd">            CoverageRecords and the second list already has Identifiers that</span>
+<span class="sd">            were ignored because they already had coverage.</span>
+
+<span class="sd">        TODO: Take identifier eligibility into account when registering.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifiers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(),</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">identifiers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_data_source_for_registration</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="n">autocreate</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">collection</span> <span class="ow">and</span> <span class="bp">cls</span><span class="o">.</span><span class="n">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</span><span class="p">:</span>
+            <span class="c1"># There&#39;s no need for a collection on this CoverageRecord.</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">new_records</span><span class="p">,</span> <span class="n">ignored_identifiers</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">bulk_add</span><span class="p">(</span>
+            <span class="n">identifiers</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">OPERATION</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">REGISTERED</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">new_records</span><span class="p">,</span> <span class="n">ignored_identifiers</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_data_source_for_registration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds or creates a DataSource for the registration methods</span>
+<span class="sd">        `cls.register` and `cls.bulk_register`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data_source</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">data_source</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="n">autocreate</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">data_source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the DataSource object corresponding to the</span>
+<span class="sd">        service we&#39;re running this data through.</span>
+
+<span class="sd">        Out of an excess of caution, we look up the DataSource every</span>
+<span class="sd">        time, rather than storing it, in case a CoverageProvider is</span>
+<span class="sd">        ever used in an environment where the database session is</span>
+<span class="sd">        scoped (e.g. the circulation manager).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.failure"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.failure">[docs]</a>    <span class="k">def</span> <span class="nf">failure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a CoverageFailure object to memorialize an error.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">CoverageFailure</span><span class="p">(</span>
+            <span class="n">identifier</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">transient</span><span class="o">=</span><span class="n">transient</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_or_not</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.can_cover"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.can_cover">[docs]</a>    <span class="k">def</span> <span class="nf">can_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Can this IdentifierCoverageProvider do anything with the given</span>
+<span class="sd">        Identifier?</span>
+
+<span class="sd">        This is not needed in the normal course of events, but a</span>
+<span class="sd">        caller may need to decide whether to pass an Identifier</span>
+<span class="sd">        into ensure_coverage() or register().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_identifier_types</span>
+                <span class="ow">or</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_identifier_types</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.run_on_specific_identifiers"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.run_on_specific_identifiers">[docs]</a>    <span class="k">def</span> <span class="nf">run_on_specific_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Split a specific set of Identifiers into batches and process one</span>
+<span class="sd">        batch at a time.</span>
+
+<span class="sd">        This is for use by IdentifierInputScript.</span>
+
+<span class="sd">        :return: The same (counts, records) 2-tuple as</span>
+<span class="sd">            process_batch_and_handle_results.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">successes</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">transient_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">persistent_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Of all the items that need coverage, find the intersection</span>
+        <span class="c1"># with the given list of items.</span>
+        <span class="n">need_coverage</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">items_that_need_coverage</span><span class="p">(</span><span class="n">identifiers</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+        <span class="c1"># Treat any items with up-to-date coverage records as</span>
+        <span class="c1"># automatic successes.</span>
+        <span class="c1">#</span>
+        <span class="c1"># NOTE: We won&#39;t actually be returning those coverage records</span>
+        <span class="c1"># in `records`, since items_that_need_coverage() filters them</span>
+        <span class="c1"># out, but nobody who calls this method really needs those</span>
+        <span class="c1"># records.</span>
+        <span class="n">automatic_successes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">identifiers</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">need_coverage</span><span class="p">)</span>
+        <span class="n">successes</span> <span class="o">+=</span> <span class="n">automatic_successes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> automatic successes.&quot;</span><span class="p">,</span> <span class="n">successes</span><span class="p">)</span>
+
+        <span class="c1"># Iterate over any items that were not automatic</span>
+        <span class="c1"># successes.</span>
+        <span class="k">while</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">need_coverage</span><span class="p">):</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="n">need_coverage</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">]</span>
+            <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_batch_and_handle_results</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+            <span class="n">successes</span> <span class="o">+=</span> <span class="n">s</span>
+            <span class="n">transient_failures</span> <span class="o">+=</span> <span class="n">t</span>
+            <span class="n">persistent_failures</span> <span class="o">+=</span> <span class="n">p</span>
+            <span class="n">records</span> <span class="o">+=</span> <span class="n">r</span>
+            <span class="n">index</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">transient_failures</span><span class="p">,</span> <span class="n">persistent_failures</span><span class="p">),</span> <span class="n">records</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.ensure_coverage"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.ensure_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">ensure_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Ensure coverage for one specific item.</span>
+
+<span class="sd">        :param item: This should always be an Identifier, but this</span>
+<span class="sd">            code will also work if it&#39;s an Edition. (The Edition&#39;s</span>
+<span class="sd">            .primary_identifier will be covered.)</span>
+<span class="sd">        :param force: Run the coverage code even if an existing</span>
+<span class="sd">            coverage record for this item was created after `self.cutoff_time`.</span>
+<span class="sd">        :return: Either a coverage record or a CoverageFailure.</span>
+
+<span class="sd">        TODO: This could be abstracted and moved to BaseCoverageProvider.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">item</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">primary_identifier</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</span><span class="p">:</span>
+            <span class="c1"># We need to cover this Identifier once, and then we&#39;re</span>
+            <span class="c1"># done, for all collections.</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We need separate coverage for the specific Collection</span>
+            <span class="c1"># associated with this CoverageProvider.</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+
+        <span class="n">coverage_record</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">CoverageRecord</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_update</span><span class="p">(</span><span class="n">coverage_record</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">coverage_record</span>
+
+        <span class="n">counts</span><span class="p">,</span> <span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_batch_and_handle_results</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">identifier</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">records</span><span class="p">:</span>
+            <span class="n">coverage_record</span> <span class="o">=</span> <span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">coverage_record</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">coverage_record</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.edition"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.edition">[docs]</a>    <span class="k">def</span> <span class="nf">edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds or creates an Edition representing this coverage provider&#39;s</span>
+<span class="sd">        view of a given Identifier.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">edition</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">edition</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.set_metadata"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.set_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">set_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds or creates the Edition for an Identifier, updates it</span>
+<span class="sd">        with the given metadata.</span>
+
+<span class="sd">        :return: The Identifier (if successful) or an appropriate</span>
+<span class="sd">            CoverageFailure (if not).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">edition</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="s2">&quot;Did not receive metadata from input source&quot;</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># We&#39;re passing in the Collection even if this</span>
+            <span class="c1"># CoverageProvider has</span>
+            <span class="c1"># COVERAGE_COUNTS_FOR_EVERY_COLLECTION set to False. If</span>
+            <span class="c1"># we did happen to get some circulation information while</span>
+            <span class="c1"># we were at it, we might as well store it properly.</span>
+            <span class="c1"># The metadata layer will not use the collection when creating</span>
+            <span class="c1"># CoverageRecords for the metadata actions.</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="n">edition</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">replace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Error applying metadata to edition </span><span class="si">%d</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">edition</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">identifier</span></div>
+
+    <span class="c1">#</span>
+    <span class="c1"># Implementation of BaseCoverageProvider virtual methods.</span>
+    <span class="c1">#</span>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.items_that_need_coverage"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all items lacking coverage from this CoverageProvider.</span>
+
+<span class="sd">        Items should be Identifiers, though Editions should also work.</span>
+
+<span class="sd">        By default, all identifiers of the `INPUT_IDENTIFIER_TYPES` which</span>
+<span class="sd">        don&#39;t already have coverage are chosen.</span>
+
+<span class="sd">        :param identifiers: The batch of identifier objects to test</span>
+<span class="sd">            for coverage. identifiers and self.input_identifiers can</span>
+<span class="sd">            intersect -- if this provider was created for the purpose</span>
+<span class="sd">            of running specific Identifiers, and within those</span>
+<span class="sd">            Identifiers you want to batch, you can use both</span>
+<span class="sd">            parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">missing_coverage_from</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_identifier_types</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">count_as_missing_before</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cutoff_time</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">identifiers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">input_identifiers</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_or_not</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">identifiers</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifiers</span> <span class="ow">and</span> <span class="n">identifiers</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># An empty list was provided. The returned query should be empty.</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">registered_only</span><span class="p">:</span>
+            <span class="c1"># Return Identifiers that have been &quot;registered&quot; for coverage</span>
+            <span class="c1"># or already have a failure from previous coverage attempts.</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.add_coverage_record_for"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.add_coverage_record_for">[docs]</a>    <span class="k">def</span> <span class="nf">add_coverage_record_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Record this CoverageProvider&#39;s coverage for the given</span>
+<span class="sd">        Edition/Identifier, as a CoverageRecord.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">record</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">add_for</span><span class="p">(</span>
+            <span class="n">item</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_or_not</span>
+        <span class="p">)</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">record</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.record_failure_as_coverage_record"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.record_failure_as_coverage_record">[docs]</a>    <span class="k">def</span> <span class="nf">record_failure_as_coverage_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">failure</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a CoverageFailure into a CoverageRecord object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">failure</span><span class="o">.</span><span class="n">to_coverage_record</span><span class="p">(</span><span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IdentifierCoverageProvider.failure_for_ignored_item"><a class="viewcode-back" href="../../core.html#core.coverage.IdentifierCoverageProvider.failure_for_ignored_item">[docs]</a>    <span class="k">def</span> <span class="nf">failure_for_ignored_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a CoverageFailure recording the CoverageProvider&#39;s</span>
+<span class="sd">        failure to even try to process an item.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span>
+            <span class="n">item</span><span class="p">,</span> <span class="s2">&quot;Was ignored by CoverageProvider.&quot;</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="CollectionCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">CollectionCoverageProvider</span><span class="p">(</span><span class="n">IdentifierCoverageProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A CoverageProvider that covers all the Identifiers currently</span>
+<span class="sd">    licensed to a given Collection.</span>
+
+<span class="sd">    You should subclass this CoverageProvider if you want to create</span>
+<span class="sd">    Works (as opposed to operating on existing Works) or update the</span>
+<span class="sd">    circulation information for LicensePools. You can&#39;t use it to</span>
+<span class="sd">    create new LicensePools, since it only operates on Identifiers</span>
+<span class="sd">    that already have a LicencePool in the given Collection.</span>
+
+<span class="sd">    If a book shows up in multiple Collections, the first Collection</span>
+<span class="sd">    to process it takes care of it for the others. Any books that were</span>
+<span class="sd">    processed through their membership in another Collection will be</span>
+<span class="sd">    left alone.</span>
+
+<span class="sd">    For this reason it&#39;s important that subclasses of this</span>
+<span class="sd">    CoverageProvider only deal with bibliographic information and</span>
+<span class="sd">    format availability information (such as links to open-access</span>
+<span class="sd">    downloads). You&#39;ll have problems if you try to use</span>
+<span class="sd">    CollectionCoverageProvider to keep track of information like the</span>
+<span class="sd">    number of licenses available for a book.</span>
+
+<span class="sd">    In addition to defining the class variables defined by</span>
+<span class="sd">    CoverageProvider, you must define the class variable PROTOCOL when</span>
+<span class="sd">    subclassing this class. This is the entity that provides the</span>
+<span class="sd">    licenses for this Collection. It should be one of the</span>
+<span class="sd">    collection-type provider constants defined in the</span>
+<span class="sd">    `ExternalIntegration` class, such as</span>
+<span class="sd">    ExternalIntegration.OPDS_IMPORT or ExternalIntegration.OVERDRIVE.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># By default, this type of CoverageProvider will provide coverage to</span>
+    <span class="c1"># all Identifiers in the given Collection, regardless of their type.</span>
+    <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="c1"># Set this to the name of the protocol managed by this type of</span>
+    <span class="c1"># CoverageProvider. If this CoverageProvider can manage collections</span>
+    <span class="c1"># for any protocol, leave this as None.</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># By default, Works calculated by a CollectionCoverageProvider update</span>
+    <span class="c1"># the ExternalSearchIndex. Set this value to True for applications that</span>
+    <span class="c1"># don&#39;t use external search, such as the Metadata Wrangler.</span>
+    <span class="n">EXCLUDE_SEARCH_INDEX</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param collection: Will provide coverage to all Identifiers with</span>
+<span class="sd">            a LicensePool licensed to the given Collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">Collection</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CollectionMissing</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> must be instantiated with a Collection.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">PROTOCOL</span> <span class="ow">and</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Collection protocol (</span><span class="si">%s</span><span class="s2">) does not match CoverageProvider protocol (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PROTOCOL</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CollectionCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_default_replacement_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Unless told otherwise, assume that we are getting</span>
+<span class="sd">        this data from a reliable source of both metadata and circulation</span>
+<span class="sd">        information.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ReplacementPolicy</span><span class="o">.</span><span class="n">from_license_source</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.collections"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.collections">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">collections</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of randomly sorted list of collections covered by the</span>
+<span class="sd">        provider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">:</span>
+            <span class="n">collections</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">collections</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Collection</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">collections</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">random</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.all"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.all">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">all</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Yield a sequence of CollectionCoverageProvider instances, one for</span>
+<span class="sd">        every Collection that gets its licenses from cls.PROTOCOL.</span>
+
+<span class="sd">        CollectionCoverageProviders will be yielded in a random order.</span>
+
+<span class="sd">        :param kwargs: Keyword arguments passed into the constructor for</span>
+<span class="sd">            CollectionCoverageProvider (or, more likely, one of its subclasses).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">collections</span><span class="p">(</span><span class="n">_db</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="bp">cls</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.run_once"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Considering collection </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">CollectionCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">run_once</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.items_that_need_coverage"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all Identifiers associated with this Collection but lacking</span>
+<span class="sd">        coverage through this CoverageProvider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">CollectionCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items_that_need_coverage</span><span class="p">(</span>
+            <span class="n">identifiers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.license_pool"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.license_pool">[docs]</a>    <span class="k">def</span> <span class="nf">license_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds this Collection&#39;s LicensePool for the given Identifier,</span>
+<span class="sd">        creating one if necessary.</span>
+
+<span class="sd">        :param data_source: If it&#39;s necessary to create a LicensePool,</span>
+<span class="sd">            the new LicensePool will have this DataSource. The default is to</span>
+<span class="sd">            use the DataSource associated with the CoverageProvider. This</span>
+<span class="sd">            should only be needed by the metadata wrangler.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">license_pools</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="n">p</span><span class="o">.</span><span class="n">collection</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">license_pools</span><span class="p">:</span>
+            <span class="c1"># A given Collection may have at most one LicensePool for</span>
+            <span class="c1"># a given identifier.</span>
+            <span class="k">return</span> <span class="n">license_pools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">data_source</span> <span class="o">=</span> <span class="n">data_source</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
+
+        <span class="c1"># This Collection has no LicensePool for the given Identifier.</span>
+        <span class="c1"># Create one.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Under normal circumstances, this will never happen, because</span>
+        <span class="c1"># CollectionCoverageProvider only operates on Identifiers that</span>
+        <span class="c1"># already have a LicensePool in this Collection.</span>
+        <span class="c1">#</span>
+        <span class="c1"># However, this does happen in the metadata wrangler,</span>
+        <span class="c1"># which typically has to manage information about books it has no</span>
+        <span class="c1"># rights to.</span>
+        <span class="n">license_pool</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">license_pool</span></div>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.work"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.work">[docs]</a>    <span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">calculate_work_kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds or creates a Work for this Identifier as licensed through</span>
+<span class="sd">        this Collection.</span>
+
+<span class="sd">        If the given Identifier already has a Work associated with it,</span>
+<span class="sd">        that Work will always be used, since an Identifier can only have one</span>
+<span class="sd">        Work associated with it.</span>
+
+<span class="sd">        However, if there is no current Work, a Work will only be</span>
+<span class="sd">        created if the given Identifier already has a LicensePool in</span>
+<span class="sd">        the Collection associated with this CoverageProvider (or if a</span>
+<span class="sd">        LicensePool to use is provided.) This method will not create</span>
+<span class="sd">        new LicensePools.</span>
+
+<span class="sd">        If the work is newly created or an existing work is not</span>
+<span class="sd">        presentation-ready, a new Work will be created by calling</span>
+<span class="sd">        LicensePool.calculate_work(). If there is an existing</span>
+<span class="sd">        presentation-ready work, calculate_work() will not be called;</span>
+<span class="sd">        instead, the work will be slated for recalculation when its</span>
+<span class="sd">        metadata changes through Metadata.apply().</span>
+
+<span class="sd">        :param calculate_work_kwargs: Keyword arguments to pass into</span>
+<span class="sd">            calculate_work() if and when it is called.</span>
+
+<span class="sd">        :return: A Work, if possible. Otherwise, a CoverageFailure explaining</span>
+<span class="sd">            why no Work could be created.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="n">identifier</span><span class="o">.</span><span class="n">work</span>
+        <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="p">:</span>
+            <span class="c1"># There is already a presentation-ready Work associated</span>
+            <span class="c1"># with this Identifier.  Return it.</span>
+            <span class="k">return</span> <span class="n">work</span>
+
+        <span class="c1"># There is no presentation-ready Work associated with this</span>
+        <span class="c1"># Identifier. We need to create one, if possible.</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">license_pool</span><span class="p">:</span>
+            <span class="n">license_pool</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">autocreate</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">license_pool</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span>
+                <span class="ow">or</span> <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="p">):</span>
+                <span class="k">for</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="s1">&#39;exclude_search&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXCLUDE_SEARCH_INDEX</span><span class="p">),</span>
+                <span class="p">):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">calculate_work_kwargs</span><span class="p">:</span>
+                        <span class="n">calculate_work_kwargs</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">default</span>
+
+                <span class="c1"># Calling calculate_work will calculate the work&#39;s</span>
+                <span class="c1"># presentation and make it presentation-ready if</span>
+                <span class="c1"># possible.</span>
+                <span class="n">work</span><span class="p">,</span> <span class="n">created</span> <span class="o">=</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">calculate_work</span><span class="p">(</span>
+                    <span class="o">**</span><span class="n">calculate_work_kwargs</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">work</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s2">&quot;Work could not be calculated&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s2">&quot;Cannot locate LicensePool&quot;</span>
+
+        <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">work</span></div>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.set_metadata_and_circulation_data"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.set_metadata_and_circulation_data">[docs]</a>    <span class="k">def</span> <span class="nf">set_metadata_and_circulation_data</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">circulationdata</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Makes sure that the given Identifier has a Work, Edition (in the</span>
+<span class="sd">        context of this Collection), and LicensePool (ditto), and that</span>
+<span class="sd">        all the information is up to date.</span>
+
+<span class="sd">        :return: The Identifier (if successful) or an appropriate</span>
+<span class="sd">            CoverageFailure (if not).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">circulationdata</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="s2">&quot;Received neither metadata nor circulation data from input source&quot;</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_metadata</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">result</span>
+
+        <span class="k">if</span> <span class="n">circulationdata</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_circulationdata</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">circulationdata</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">result</span>
+
+        <span class="c1"># By this point the Identifier should have an appropriate</span>
+        <span class="c1"># Edition and LicensePool. We should now be able to make a</span>
+        <span class="c1"># Work.</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">work</span>
+
+        <span class="k">return</span> <span class="n">identifier</span></div>
+
+    <span class="k">def</span> <span class="nf">_set_circulationdata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">circulationdata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds or creates a LicensePool for an Identifier, updates it</span>
+<span class="sd">        with the given circulationdata, then creates a Work for the book.</span>
+
+<span class="sd">        :return: The Identifier (if successful) or an appropriate</span>
+<span class="sd">        CoverageFailure (if not).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">circulationdata</span><span class="p">:</span>
+            <span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">circulationdata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">identifier</span> <span class="o">!=</span> <span class="n">primary_identifier</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s2">&quot;Identifier did not match CirculationData&#39;s primary identifier.&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s2">&quot;Did not receive circulationdata from input source&quot;</span>
+
+        <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">circulationdata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">:</span>
+                <span class="n">collection_name</span> <span class="o">=</span> <span class="s2">&quot; to collection </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">collection_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Error applying circulationdata</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">collection_name</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">identifier</span>
+
+<div class="viewcode-block" id="CollectionCoverageProvider.set_presentation_ready"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProvider.set_presentation_ready">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_ready</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set a Work presentation-ready.&quot;&quot;&quot;</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">work</span>
+        <span class="n">work</span><span class="o">.</span><span class="n">set_presentation_ready</span><span class="p">(</span><span class="n">exclude_search</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">EXCLUDE_SEARCH_INDEX</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">identifier</span></div></div>
+
+
+<div class="viewcode-block" id="CollectionCoverageProviderJob"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProviderJob">[docs]</a><span class="k">class</span> <span class="nc">CollectionCoverageProviderJob</span><span class="p">(</span><span class="n">DatabaseJob</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="n">progress</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">provider_kwargs</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">progress</span> <span class="o">=</span> <span class="n">progress</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">provider_class</span> <span class="o">=</span> <span class="n">provider_class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">provider_kwargs</span> <span class="o">=</span> <span class="n">provider_kwargs</span>
+
+<div class="viewcode-block" id="CollectionCoverageProviderJob.run"><a class="viewcode-back" href="../../core.html#core.coverage.CollectionCoverageProviderJob.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">provider_class</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">provider_kwargs</span><span class="p">)</span>
+        <span class="n">provider</span><span class="o">.</span><span class="n">run_once</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">progress</span><span class="p">)</span>
+        <span class="n">provider</span><span class="o">.</span><span class="n">finalize_timestampdata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">progress</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="CatalogCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.CatalogCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">CatalogCoverageProvider</span><span class="p">(</span><span class="n">CollectionCoverageProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Most CollectionCoverageProviders provide coverage to Identifiers</span>
+<span class="sd">    that are licensed through a given Collection.</span>
+
+<span class="sd">    A CatalogCoverageProvider provides coverage to Identifiers that</span>
+<span class="sd">    are present in a given Collection&#39;s catalog.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="CatalogCoverageProvider.items_that_need_coverage"><a class="viewcode-back" href="../../core.html#core.coverage.CatalogCoverageProvider.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all Identifiers in this Collection&#39;s catalog but lacking</span>
+<span class="sd">        coverage through this CoverageProvider.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">CollectionCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items_that_need_coverage</span><span class="p">(</span>
+            <span class="n">identifiers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">collections</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Collection</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div></div>
+
+
+<div class="viewcode-block" id="BibliographicCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.BibliographicCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">BibliographicCoverageProvider</span><span class="p">(</span><span class="n">CollectionCoverageProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fill in bibliographic metadata for all books in a Collection.</span>
+
+<span class="sd">    e.g. ensures that we get Overdrive coverage for all Overdrive IDs</span>
+<span class="sd">    in a collection.</span>
+
+<span class="sd">    Although a BibliographicCoverageProvider may gather</span>
+<span class="sd">    CirculationData for a book, it cannot guarantee equal coverage for</span>
+<span class="sd">    all Collections that contain that book. CirculationData should be</span>
+<span class="sd">    limited to things like formats that don&#39;t vary between</span>
+<span class="sd">    Collections, and you should use a CollectionMonitor to make sure</span>
+<span class="sd">    your circulation information is up-to-date for each Collection.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="BibliographicCoverageProvider.handle_success"><a class="viewcode-back" href="../../core.html#core.coverage.BibliographicCoverageProvider.handle_success">[docs]</a>    <span class="k">def</span> <span class="nf">handle_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Once a book has bibliographic coverage, it can be given a</span>
+<span class="sd">        work and made presentation ready.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_presentation_ready</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="WorkCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">WorkCoverageProvider</span><span class="p">(</span><span class="n">BaseCoverageProvider</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Perform coverage operations on Works rather than Identifiers.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="WorkCoverageProvider.register"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider.register">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Registers a work for future coverage.</span>
+
+<span class="sd">        This method is primarily for use with CoverageProviders that use the</span>
+<span class="sd">        `registered_only` flag to process items. It&#39;s currently only in use</span>
+<span class="sd">        on the Metadata Wrangler.</span>
+
+<span class="sd">        :param force: Set to True to reset an existing CoverageRecord&#39;s status</span>
+<span class="sd">            &quot;registered&quot;, regardless of its current status.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">was_registered</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+            <span class="n">record</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">OPERATION</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">record</span><span class="p">:</span>
+                <span class="n">was_registered</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">return</span> <span class="n">record</span><span class="p">,</span> <span class="n">was_registered</span>
+
+        <span class="c1"># WorkCoverageRecord.add_for overwrites the status already,</span>
+        <span class="c1"># so it can be used to create and to force-register records.</span>
+        <span class="n">record</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">add_for</span><span class="p">(</span>
+            <span class="n">work</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">OPERATION</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">REGISTERED</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">record</span><span class="p">,</span> <span class="n">was_registered</span></div>
+
+    <span class="c1">#</span>
+    <span class="c1"># Implementation of BaseCoverageProvider virtual methods.</span>
+    <span class="c1">#</span>
+
+<div class="viewcode-block" id="WorkCoverageProvider.items_that_need_coverage"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all Works lacking coverage from this CoverageProvider.</span>
+
+<span class="sd">        By default, all Works which don&#39;t already have coverage are</span>
+<span class="sd">        chosen.</span>
+
+<span class="sd">        :param: Only Works connected with one of the given identifiers</span>
+<span class="sd">            are chosen.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">Work</span><span class="o">.</span><span class="n">missing_coverage_from</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">count_as_missing_before</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cutoff_time</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">identifiers</span><span class="p">:</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">registered_only</span><span class="p">:</span>
+            <span class="c1"># Return Identifiers that have been &quot;registered&quot; for coverage</span>
+            <span class="c1"># or already have a failure from previous coverage attempts.</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="WorkCoverageProvider.failure"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider.failure">[docs]</a>    <span class="k">def</span> <span class="nf">failure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a CoverageFailure object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">CoverageFailure</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="n">transient</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WorkCoverageProvider.failure_for_ignored_item"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider.failure_for_ignored_item">[docs]</a>    <span class="k">def</span> <span class="nf">failure_for_ignored_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a CoverageFailure recording the WorkCoverageProvider&#39;s</span>
+<span class="sd">        failure to even try to process a Work.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">CoverageFailure</span><span class="p">(</span>
+            <span class="n">work</span><span class="p">,</span> <span class="s2">&quot;Was ignored by WorkCoverageProvider.&quot;</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="WorkCoverageProvider.add_coverage_records_for"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider.add_coverage_records_for">[docs]</a>    <span class="k">def</span> <span class="nf">add_coverage_records_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">works</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add WorkCoverageRecords for a group of works from a batch,</span>
+<span class="sd">        each of which was successful.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">bulk_add</span><span class="p">(</span>
+            <span class="n">works</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span>
+        <span class="p">)</span>
+
+        <span class="c1"># We can&#39;t return the specific WorkCoverageRecords that were</span>
+        <span class="c1"># created, but it doesn&#39;t matter because they&#39;re not used except</span>
+        <span class="c1"># in tests.</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+<div class="viewcode-block" id="WorkCoverageProvider.add_coverage_record_for"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider.add_coverage_record_for">[docs]</a>    <span class="k">def</span> <span class="nf">add_coverage_record_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Record this CoverageProvider&#39;s coverage for the given</span>
+<span class="sd">        Edition/Identifier, as a WorkCoverageRecord.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">add_for</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WorkCoverageProvider.record_failure_as_coverage_record"><a class="viewcode-back" href="../../core.html#core.coverage.WorkCoverageProvider.record_failure_as_coverage_record">[docs]</a>    <span class="k">def</span> <span class="nf">record_failure_as_coverage_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">failure</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a CoverageFailure into a WorkCoverageRecord object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">failure</span><span class="o">.</span><span class="n">to_work_coverage_record</span><span class="p">(</span><span class="n">operation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="PresentationReadyWorkCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.PresentationReadyWorkCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">PresentationReadyWorkCoverageProvider</span><span class="p">(</span><span class="n">WorkCoverageProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A WorkCoverageProvider that only covers presentation-ready works.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="PresentationReadyWorkCoverageProvider.items_that_need_coverage"><a class="viewcode-back" href="../../core.html#core.coverage.PresentationReadyWorkCoverageProvider.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">PresentationReadyWorkCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items_that_need_coverage</span><span class="p">(</span>
+            <span class="n">identifiers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="o">==</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div></div>
+
+
+<div class="viewcode-block" id="WorkPresentationProvider"><a class="viewcode-back" href="../../core.html#core.coverage.WorkPresentationProvider">[docs]</a><span class="k">class</span> <span class="nc">WorkPresentationProvider</span><span class="p">(</span><span class="n">PresentationReadyWorkCoverageProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Recalculate some part of presentation for works that are</span>
+<span class="sd">    presentation-ready.</span>
+
+<span class="sd">    A Work&#39;s presentation is set when it&#39;s made presentation-ready</span>
+<span class="sd">    (thus the name). When that happens, a number of WorkCoverageRecords</span>
+<span class="sd">    are set for that Work.</span>
+
+<span class="sd">    A migration script may remove a coverage record if it knows a work</span>
+<span class="sd">    needs to have some aspect of its presentation recalculated. These</span>
+<span class="sd">    providers give back the &#39;missing&#39; coverage.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span></div>
+
+
+<div class="viewcode-block" id="OPDSEntryWorkCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.OPDSEntryWorkCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">OPDSEntryWorkCoverageProvider</span><span class="p">(</span><span class="n">WorkPresentationProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make sure all presentation-ready works have an up-to-date OPDS</span>
+<span class="sd">    entry.</span>
+
+<span class="sd">    This is different from the OPDSEntryCacheMonitor, which sweeps</span>
+<span class="sd">    over all presentation-ready works, even ones which are already</span>
+<span class="sd">    covered.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;OPDS Entry Work Coverage Provider&quot;</span>
+    <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">GENERATE_OPDS_OPERATION</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<div class="viewcode-block" id="OPDSEntryWorkCoverageProvider.process_item"><a class="viewcode-back" href="../../core.html#core.coverage.OPDSEntryWorkCoverageProvider.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="n">work</span><span class="o">.</span><span class="n">calculate_opds_entries</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">work</span></div></div>
+
+
+<div class="viewcode-block" id="MARCRecordWorkCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.MARCRecordWorkCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">MARCRecordWorkCoverageProvider</span><span class="p">(</span><span class="n">WorkPresentationProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make sure all presentation-ready works have an up-to-date MARC</span>
+<span class="sd">    record.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;MARC Record Work Coverage Provider&quot;</span>
+    <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">GENERATE_MARC_OPERATION</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<div class="viewcode-block" id="MARCRecordWorkCoverageProvider.process_item"><a class="viewcode-back" href="../../core.html#core.coverage.MARCRecordWorkCoverageProvider.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="n">work</span><span class="o">.</span><span class="n">calculate_marc_record</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">work</span></div></div>
+
+
+<div class="viewcode-block" id="WorkPresentationEditionCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.WorkPresentationEditionCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">WorkPresentationEditionCoverageProvider</span><span class="p">(</span><span class="n">WorkPresentationProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make sure each Work has an up-to-date presentation edition.</span>
+
+<span class="sd">    This basically means comparing all the Editions associated with the</span>
+<span class="sd">    Work and building a composite Edition.</span>
+
+<span class="sd">    Expensive operations -- calculating work quality, summary, and genre</span>
+<span class="sd">    classification -- are reserved for WorkClassificationCoverageProvider</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s1">&#39;Calculated presentation coverage provider&#39;</span>
+
+    <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">CHOOSE_EDITION_OPERATION</span>
+
+    <span class="n">POLICY</span> <span class="o">=</span> <span class="n">PresentationCalculationPolicy</span><span class="p">(</span>
+        <span class="n">choose_edition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">set_edition_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+
+        <span class="c1"># These are the expensive ones, and they&#39;re covered by</span>
+        <span class="c1"># WorkSummaryQualityClassificationCoverageProvider.</span>
+        <span class="n">classify</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">choose_summary</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">calculate_quality</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+
+        <span class="c1"># It would be better if there were a separate class for this</span>
+        <span class="c1"># operation (COVER_OPERATION), but it&#39;s a little complicated because</span>
+        <span class="c1"># that&#39;s not a WorkCoverageRecord operation.</span>
+        <span class="n">choose_cover</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+
+        <span class="c1"># We do this even though it&#39;s redundant with</span>
+        <span class="c1"># OPDSEntryWorkCoverageProvider. If you change a</span>
+        <span class="c1"># Work&#39;s presentation edition but don&#39;t update its OPDS entry,</span>
+        <span class="c1"># it effectively didn&#39;t happen.</span>
+        <span class="n">regenerate_opds_entries</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+
+        <span class="c1"># Same logic for the search index. This will flag the Work as</span>
+        <span class="c1"># needing a search index update, and SearchIndexCoverageProvider</span>
+        <span class="c1"># will take care of it.</span>
+        <span class="n">update_search_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="WorkPresentationEditionCoverageProvider.process_item"><a class="viewcode-back" href="../../core.html#core.coverage.WorkPresentationEditionCoverageProvider.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Recalculate the presentation for a Work.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Calling calculate_presentation_edition won&#39;t, on its own,</span>
+        <span class="c1"># regenerate the OPDS feeds or update the search index.  So we</span>
+        <span class="c1"># call calculate_presentation with a policy that ensures the</span>
+        <span class="c1"># presentation edition will be reevaluated, but nothing</span>
+        <span class="c1"># expensive will happen.</span>
+        <span class="n">work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">POLICY</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">work</span></div></div>
+
+
+<div class="viewcode-block" id="WorkClassificationCoverageProvider"><a class="viewcode-back" href="../../core.html#core.coverage.WorkClassificationCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">WorkClassificationCoverageProvider</span><span class="p">(</span>
+    <span class="n">WorkPresentationEditionCoverageProvider</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculates the &#39;expensive&#39; parts of a work&#39;s presentation:</span>
+<span class="sd">    classifications, summary, and quality.</span>
+
+<span class="sd">    We do all three at once because these gathering together all</span>
+<span class="sd">    equivalent identifiers for the work, which can be, by far, the</span>
+<span class="sd">    most expensive part of the work.</span>
+
+<span class="sd">    This is called &#39;classification&#39; because that&#39;s the most likely use</span>
+<span class="sd">    of this coverage provider. If you want to make sure a bunch of</span>
+<span class="sd">    works get their summaries recalculated, you need to remember that</span>
+<span class="sd">    the coverage record to delete is CLASSIFY_OPERATION.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Work classification coverage provider&quot;</span>
+
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">20</span>
+
+    <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">CLASSIFY_OPERATION</span>
+
+    <span class="c1"># This is going to be expensive -- we might as well recalculate</span>
+    <span class="c1"># everything.</span>
+    <span class="n">POLICY</span> <span class="o">=</span> <span class="n">PresentationCalculationPolicy</span><span class="o">.</span><span class="n">recalculate_everything</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

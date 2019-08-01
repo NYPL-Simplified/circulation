@@ -1,0 +1,561 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.contributor &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.contributor</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Contributor, Contribution</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">flush</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ARRAY</span><span class="p">,</span>
+    <span class="n">JSON</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="k">import</span> <span class="n">IntegrityError</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="k">import</span> <span class="n">MutableDict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">relationship</span><span class="p">,</span>
+    <span class="n">synonym</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">..util.personal_names</span> <span class="k">import</span> <span class="n">display_name_to_sort_name</span>
+
+<div class="viewcode-block" id="Contributor"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor">[docs]</a><span class="k">class</span> <span class="nc">Contributor</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Someone (usually human) who contributes to books.&quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;contributors&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Standard identifiers for this contributor.</span>
+    <span class="n">lc</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">viaf</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># This is the name by which this person is known in the original</span>
+    <span class="c1"># catalog. It is sortable, e.g. &quot;Twain, Mark&quot;.</span>
+    <span class="n">_sort_name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="s1">&#39;sort_name&#39;</span><span class="p">,</span> <span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">aliases</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">ARRAY</span><span class="p">(</span><span class="n">Unicode</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+
+    <span class="c1"># This is the name we will display publicly. Ideally it will be</span>
+    <span class="c1"># the name most familiar to readers.</span>
+    <span class="n">display_name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># This is a short version of the contributor&#39;s name, displayed in</span>
+    <span class="c1"># situations where the full name is too long. For corporate contributors</span>
+    <span class="c1"># this value will be None.</span>
+    <span class="n">family_name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># This is the name used for this contributor on Wikipedia. This</span>
+    <span class="c1"># gives us an entry point to Wikipedia, Wikidata, etc.</span>
+    <span class="n">wikipedia_name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># This is a short biography for this contributor, probably</span>
+    <span class="c1"># provided by a publisher.</span>
+    <span class="n">biography</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="n">extra</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">MutableDict</span><span class="o">.</span><span class="n">as_mutable</span><span class="p">(</span><span class="n">JSON</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="p">{})</span>
+
+    <span class="n">contributions</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Contribution&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;contributor&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Types of roles</span>
+    <span class="n">AUTHOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Author&quot;</span>
+    <span class="n">PRIMARY_AUTHOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Primary Author&quot;</span>
+    <span class="n">EDITOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Editor&quot;</span>
+    <span class="n">ARTIST_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Artist&quot;</span>
+    <span class="n">PHOTOGRAPHER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Photographer&quot;</span>
+    <span class="n">TRANSLATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Translator&quot;</span>
+    <span class="n">ILLUSTRATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Illustrator&quot;</span>
+    <span class="n">INTRODUCTION_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Introduction Author&quot;</span>
+    <span class="n">FOREWORD_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Foreword Author&quot;</span>
+    <span class="n">AFTERWORD_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Afterword Author&quot;</span>
+    <span class="n">COLOPHON_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Colophon Author&quot;</span>
+    <span class="n">UNKNOWN_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Unknown&#39;</span>
+    <span class="n">DIRECTOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Director&#39;</span>
+    <span class="n">PRODUCER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Producer&#39;</span>
+    <span class="n">EXECUTIVE_PRODUCER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Executive Producer&#39;</span>
+    <span class="n">ACTOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Actor&#39;</span>
+    <span class="n">LYRICIST_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Lyricist&#39;</span>
+    <span class="n">CONTRIBUTOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Contributor&#39;</span>
+    <span class="n">COMPOSER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Composer&#39;</span>
+    <span class="n">NARRATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Narrator&#39;</span>
+    <span class="n">COMPILER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Compiler&#39;</span>
+    <span class="n">ADAPTER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Adapter&#39;</span>
+    <span class="n">PERFORMER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Performer&#39;</span>
+    <span class="n">MUSICIAN_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Musician&#39;</span>
+    <span class="n">ASSOCIATED_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Associated name&#39;</span>
+    <span class="n">COLLABORATOR_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Collaborator&#39;</span>
+    <span class="n">ENGINEER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Engineer&#39;</span>
+    <span class="n">COPYRIGHT_HOLDER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Copyright holder&#39;</span>
+    <span class="n">TRANSCRIBER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Transcriber&#39;</span>
+    <span class="n">DESIGNER_ROLE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Designer&#39;</span>
+    <span class="n">AUTHOR_ROLES</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">,</span> <span class="n">AUTHOR_ROLE</span><span class="p">])</span>
+
+    <span class="c1"># Map our recognized roles to MARC relators.</span>
+    <span class="c1"># https://www.loc.gov/marc/relators/relaterm.html</span>
+    <span class="c1">#</span>
+    <span class="c1"># This is used when crediting contributors in OPDS feeds.</span>
+    <span class="n">MARC_ROLE_CODES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ACTOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;act&#39;</span><span class="p">,</span>
+        <span class="n">ADAPTER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;adp&#39;</span><span class="p">,</span>
+        <span class="n">AFTERWORD_ROLE</span> <span class="p">:</span> <span class="s1">&#39;aft&#39;</span><span class="p">,</span>
+        <span class="n">ARTIST_ROLE</span> <span class="p">:</span> <span class="s1">&#39;art&#39;</span><span class="p">,</span>
+        <span class="n">ASSOCIATED_ROLE</span> <span class="p">:</span> <span class="s1">&#39;asn&#39;</span><span class="p">,</span>
+        <span class="n">AUTHOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;aut&#39;</span><span class="p">,</span>            <span class="c1"># Joint author: USE Author</span>
+        <span class="n">COLLABORATOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;ctb&#39;</span><span class="p">,</span>      <span class="c1"># USE Contributor</span>
+        <span class="n">COLOPHON_ROLE</span> <span class="p">:</span> <span class="s1">&#39;aft&#39;</span><span class="p">,</span>          <span class="c1"># Author of afterword, colophon, etc.</span>
+        <span class="n">COMPILER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;com&#39;</span><span class="p">,</span>
+        <span class="n">COMPOSER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;cmp&#39;</span><span class="p">,</span>
+        <span class="n">CONTRIBUTOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;ctb&#39;</span><span class="p">,</span>
+        <span class="n">COPYRIGHT_HOLDER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;cph&#39;</span><span class="p">,</span>
+        <span class="n">DESIGNER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;dsr&#39;</span><span class="p">,</span>
+        <span class="n">DIRECTOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;drt&#39;</span><span class="p">,</span>
+        <span class="n">EDITOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;edt&#39;</span><span class="p">,</span>
+        <span class="n">ENGINEER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;eng&#39;</span><span class="p">,</span>
+        <span class="n">EXECUTIVE_PRODUCER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;pro&#39;</span><span class="p">,</span>
+        <span class="n">FOREWORD_ROLE</span> <span class="p">:</span> <span class="s1">&#39;wpr&#39;</span><span class="p">,</span>          <span class="c1"># Writer of preface</span>
+        <span class="n">ILLUSTRATOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;ill&#39;</span><span class="p">,</span>
+        <span class="n">INTRODUCTION_ROLE</span> <span class="p">:</span> <span class="s1">&#39;win&#39;</span><span class="p">,</span>
+        <span class="n">LYRICIST_ROLE</span> <span class="p">:</span> <span class="s1">&#39;lyr&#39;</span><span class="p">,</span>
+        <span class="n">MUSICIAN_ROLE</span> <span class="p">:</span> <span class="s1">&#39;mus&#39;</span><span class="p">,</span>
+        <span class="n">NARRATOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;nrt&#39;</span><span class="p">,</span>
+        <span class="n">PERFORMER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;prf&#39;</span><span class="p">,</span>
+        <span class="n">PHOTOGRAPHER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;pht&#39;</span><span class="p">,</span>
+        <span class="n">PRIMARY_AUTHOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;aut&#39;</span><span class="p">,</span>
+        <span class="n">PRODUCER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;pro&#39;</span><span class="p">,</span>
+        <span class="n">TRANSCRIBER_ROLE</span> <span class="p">:</span> <span class="s1">&#39;trc&#39;</span><span class="p">,</span>
+        <span class="n">TRANSLATOR_ROLE</span> <span class="p">:</span> <span class="s1">&#39;trl&#39;</span><span class="p">,</span>
+        <span class="n">UNKNOWN_ROLE</span> <span class="p">:</span> <span class="s1">&#39;asn&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># People from these roles can be put into the &#39;author&#39; slot if no</span>
+    <span class="c1"># author proper is given.</span>
+    <span class="n">AUTHOR_SUBSTITUTE_ROLES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="n">COMPILER_ROLE</span><span class="p">,</span> <span class="n">COMPOSER_ROLE</span><span class="p">,</span> <span class="n">DIRECTOR_ROLE</span><span class="p">,</span>
+        <span class="n">CONTRIBUTOR_ROLE</span><span class="p">,</span> <span class="n">TRANSLATOR_ROLE</span><span class="p">,</span> <span class="n">ADAPTER_ROLE</span><span class="p">,</span> <span class="n">PHOTOGRAPHER_ROLE</span><span class="p">,</span>
+        <span class="n">ARTIST_ROLE</span><span class="p">,</span> <span class="n">LYRICIST_ROLE</span><span class="p">,</span> <span class="n">COPYRIGHT_HOLDER_ROLE</span>
+    <span class="p">]</span>
+
+    <span class="n">PERFORMER_ROLES</span> <span class="o">=</span> <span class="p">[</span><span class="n">ACTOR_ROLE</span><span class="p">,</span> <span class="n">PERFORMER_ROLE</span><span class="p">,</span> <span class="n">NARRATOR_ROLE</span><span class="p">,</span> <span class="n">MUSICIAN_ROLE</span><span class="p">]</span>
+
+    <span class="c1"># Extra fields</span>
+    <span class="n">BIRTH_DATE</span> <span class="o">=</span> <span class="s1">&#39;birthDate&#39;</span>
+    <span class="n">DEATH_DATE</span> <span class="o">=</span> <span class="s1">&#39;deathDate&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">extra</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span><span class="p">:</span>
+            <span class="n">extra</span> <span class="o">+=</span> <span class="s2">&quot; lc=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span><span class="p">:</span>
+            <span class="n">extra</span> <span class="o">+=</span> <span class="s2">&quot; viaf=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span>
+        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Contributor </span><span class="si">%d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Contributor.author_contributor_tiers"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor.author_contributor_tiers">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">author_contributor_tiers</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">]</span>
+        <span class="k">yield</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUTHOR_ROLES</span>
+        <span class="k">yield</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUTHOR_SUBSTITUTE_ROLES</span>
+        <span class="k">yield</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PERFORMER_ROLES</span></div>
+
+<div class="viewcode-block" id="Contributor.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">sort_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">viaf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+               <span class="n">extra</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">create_new</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a record (or list of records) for the given Contributor.</span>
+<span class="sd">        :return: A tuple of found Contributor (or None), and a boolean flag</span>
+<span class="sd">        indicating if new Contributor database object has beed created.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">new</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">contributors</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># TODO: Stop using &#39;name&#39; attribute, everywhere.</span>
+        <span class="n">sort_name</span> <span class="o">=</span> <span class="n">sort_name</span> <span class="ow">or</span> <span class="n">name</span>
+        <span class="n">extra</span> <span class="o">=</span> <span class="n">extra</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="n">create_method_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">Contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="o">.</span><span class="n">name</span> <span class="p">:</span> <span class="n">sort_name</span><span class="p">,</span>
+            <span class="n">Contributor</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">name</span> <span class="p">:</span> <span class="n">aliases</span><span class="p">,</span>
+            <span class="n">Contributor</span><span class="o">.</span><span class="n">extra</span><span class="o">.</span><span class="n">name</span> <span class="p">:</span> <span class="n">extra</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sort_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lc</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">viaf</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot look up a Contributor without any identifying &quot;</span>
+                <span class="s2">&quot;information whatsoever!&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">sort_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lc</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">viaf</span><span class="p">:</span>
+            <span class="c1"># We will not create a Contributor based solely on a name</span>
+            <span class="c1"># unless there is no existing Contributor with that name.</span>
+            <span class="c1">#</span>
+            <span class="c1"># If there *are* contributors with that name, we will</span>
+            <span class="c1"># return all of them.</span>
+            <span class="c1">#</span>
+            <span class="c1"># We currently do not check aliases when doing name lookups.</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Contributor</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="o">==</span><span class="n">sort_name</span><span class="p">)</span>
+            <span class="n">contributors</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">contributors</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">contributors</span><span class="p">,</span> <span class="n">new</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">contributor</span> <span class="o">=</span> <span class="n">Contributor</span><span class="p">(</span><span class="o">**</span><span class="n">create_method_kwargs</span><span class="p">)</span>
+                    <span class="n">_db</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">contributor</span><span class="p">)</span>
+                    <span class="n">flush</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+                    <span class="n">contributors</span> <span class="o">=</span> <span class="p">[</span><span class="n">contributor</span><span class="p">]</span>
+                    <span class="n">new</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">except</span> <span class="n">IntegrityError</span><span class="p">:</span>
+                    <span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+                    <span class="n">contributors</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+                    <span class="n">new</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We are perfecly happy to create a Contributor based solely</span>
+            <span class="c1"># on lc or viaf.</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">lc</span><span class="p">:</span>
+                <span class="n">query</span><span class="p">[</span><span class="n">Contributor</span><span class="o">.</span><span class="n">lc</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">lc</span>
+            <span class="k">if</span> <span class="n">viaf</span><span class="p">:</span>
+                <span class="n">query</span><span class="p">[</span><span class="n">Contributor</span><span class="o">.</span><span class="n">viaf</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">viaf</span>
+
+            <span class="k">if</span> <span class="n">create_new</span><span class="p">:</span>
+                <span class="n">contributor</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                    <span class="n">_db</span><span class="p">,</span> <span class="n">Contributor</span><span class="p">,</span> <span class="n">create_method_kwargs</span><span class="o">=</span><span class="n">create_method_kwargs</span><span class="p">,</span>
+                    <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">query</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">contributor</span><span class="p">:</span>
+                    <span class="n">contributors</span> <span class="o">=</span> <span class="p">[</span><span class="n">contributor</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">contributor</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Contributor</span><span class="p">,</span> <span class="o">**</span><span class="n">query</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">contributor</span><span class="p">:</span>
+                    <span class="n">contributors</span> <span class="o">=</span> <span class="p">[</span><span class="n">contributor</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">contributors</span><span class="p">,</span> <span class="n">new</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sort_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sort_name</span>
+
+    <span class="nd">@sort_name</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">sort_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_sort_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; See if the passed-in value is in the prescribed Last, First format.</span>
+<span class="sd">        If it is, great, set the self._sprt_name to the new value.</span>
+
+<span class="sd">        If new value is not in correct format, then</span>
+<span class="sd">        attempt to re-format the value to look like: &quot;Last, First Middle, Dr./Jr./etc.&quot;.</span>
+
+<span class="sd">        Note: If for any reason you need to force the sort_name to an improper value,</span>
+<span class="sd">        set it like so:  contributor._sort_name=&quot;Foo Bar&quot;, and you&#39;ll avoid further processing.</span>
+
+<span class="sd">        Note: For now, have decided to not automatically update any edition.sort_author</span>
+<span class="sd">        that might have contributions by this Contributor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">new_sort_name</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sort_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span>
+
+        <span class="c1"># simplistic test of format, but catches the most frequent problem</span>
+        <span class="c1"># where display-style names are put into sort name metadata by third parties.</span>
+        <span class="k">if</span> <span class="n">new_sort_name</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># auto-magically fix syntax</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sort_name</span> <span class="o">=</span> <span class="n">display_name_to_sort_name</span><span class="p">(</span><span class="n">new_sort_name</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sort_name</span> <span class="o">=</span> <span class="n">new_sort_name</span>
+
+    <span class="c1"># tell SQLAlchemy to use the sort_name setter for ort_name, not _sort_name, after all.</span>
+    <span class="n">sort_name</span> <span class="o">=</span> <span class="n">synonym</span><span class="p">(</span><span class="s1">&#39;_sort_name&#39;</span><span class="p">,</span> <span class="n">descriptor</span><span class="o">=</span><span class="n">sort_name</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Contributor.merge_into"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor.merge_into">[docs]</a>    <span class="k">def</span> <span class="nf">merge_into</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">destination</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Two Contributor records should be the same.</span>
+
+<span class="sd">        Merge this one into the other one.</span>
+
+<span class="sd">        For now, this should only be used when the exact same record</span>
+<span class="sd">        comes in through two sources. It should not be used when two</span>
+<span class="sd">        Contributors turn out to represent different names for the</span>
+<span class="sd">        same human being, e.g. married names or (especially) pen</span>
+<span class="sd">        names. Just because we haven&#39;t thought that situation through</span>
+<span class="sd">        well enough.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">destination</span><span class="p">:</span>
+            <span class="c1"># They&#39;re already the same.</span>
+            <span class="k">return</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;MERGING </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">) into </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span><span class="p">,</span>
+            <span class="n">destination</span><span class="p">,</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">viaf</span>
+        <span class="p">)</span>
+
+        <span class="c1"># make sure we&#39;re not losing any names we know for the contributor</span>
+        <span class="n">existing_aliases</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">destination</span><span class="o">.</span><span class="n">aliases</span><span class="p">)</span>
+        <span class="n">new_aliases</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">destination</span><span class="o">.</span><span class="n">aliases</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="n">destination</span><span class="o">.</span><span class="n">sort_name</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing_aliases</span><span class="p">:</span>
+                <span class="n">new_aliases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_aliases</span> <span class="o">!=</span> <span class="n">destination</span><span class="o">.</span><span class="n">aliases</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">aliases</span> <span class="o">=</span> <span class="n">new_aliases</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">family_name</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">family_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">family_name</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">display_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_name</span>
+        <span class="c1"># keep sort_name if one of the contributor objects has it.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">sort_name</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">sort_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">wikipedia_name</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">wikipedia_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wikipedia_name</span>
+
+        <span class="c1"># merge non-name-related properties</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extra</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">destination</span><span class="o">.</span><span class="n">extra</span><span class="p">:</span>
+                <span class="n">destination</span><span class="o">.</span><span class="n">extra</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">lc</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">lc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">viaf</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">viaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="o">.</span><span class="n">biography</span><span class="p">:</span>
+            <span class="n">destination</span><span class="o">.</span><span class="n">biography</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">biography</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">contribution</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">contributions</span><span class="p">:</span>
+            <span class="c1"># Is the new contributor already associated with this</span>
+            <span class="c1"># Edition in the given role (in which case we delete</span>
+            <span class="c1"># the old contribution) or not (in which case we switch the</span>
+            <span class="c1"># contributor ID)?</span>
+            <span class="n">existing_record</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Contribution</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Contribution</span><span class="o">.</span><span class="n">contributor_id</span><span class="o">==</span><span class="n">destination</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">Contribution</span><span class="o">.</span><span class="n">edition_id</span><span class="o">==</span><span class="n">contribution</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">Contribution</span><span class="o">.</span><span class="n">role</span><span class="o">==</span><span class="n">contribution</span><span class="o">.</span><span class="n">role</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">existing_record</span><span class="o">.</span><span class="n">count</span><span class="p">():</span>
+                <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">contribution</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">contribution</span><span class="o">.</span><span class="n">contributor_id</span> <span class="o">=</span> <span class="n">destination</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+    <span class="c1"># Regular expressions used by default_names().</span>
+    <span class="n">PARENTHETICAL</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;\([^)]*\)&quot;</span><span class="p">)</span>
+    <span class="n">ALPHABETIC</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;[a-zA-z]&quot;</span><span class="p">)</span>
+    <span class="n">NUMBERS</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;[0-9]&quot;</span><span class="p">)</span>
+
+    <span class="n">DATE_RES</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;\(?&quot;</span> <span class="o">+</span> <span class="n">x</span> <span class="o">+</span> <span class="s2">&quot;\)?&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span>
+                <span class="s2">&quot;[0-9?]+-&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;[0-9]+st cent&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;[0-9]+nd cent&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;[0-9]+th cent&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;</span><span class="se">\b</span><span class="s2">circa&quot;</span><span class="p">,</span>
+                <span class="p">]</span>
+
+
+<div class="viewcode-block" id="Contributor.default_names"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor.default_names">[docs]</a>    <span class="k">def</span> <span class="nf">default_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attempt to derive a family name (&quot;Twain&quot;) and a display name (&quot;Mark</span>
+<span class="sd">        Twain&quot;) from a catalog name (&quot;Twain, Mark&quot;).</span>
+
+<span class="sd">        This is full of pitfalls, which is why we prefer to use data</span>
+<span class="sd">        from VIAF. But when there is no data from VIAF, the output of</span>
+<span class="sd">        this algorithm is better than the input in pretty much every</span>
+<span class="sd">        case.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_names</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="n">default_display_name</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_default_names</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">default_display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">original_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="sd">&quot;&quot;&quot;Split out from default_names to make it easy to test.&quot;&quot;&quot;</span>
+        <span class="n">display_name</span> <span class="o">=</span> <span class="n">default_display_name</span>
+        <span class="c1"># &quot;Little, Brown &amp;amp; Co.&quot; =&gt; &quot;Little, Brown &amp; Co.&quot;</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;&amp;&quot;</span><span class="p">)</span>
+
+        <span class="c1"># &quot;Philadelphia Broad Street Church (Philadelphia, Pa.)&quot;</span>
+        <span class="c1">#  =&gt; &quot;Philadelphia Broad Street Church&quot;</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PARENTHETICAL</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="s1">&#39;, &#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="c1"># This is probably a personal name.</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># The most likely scenario is that the final part</span>
+                <span class="c1"># of the name is a date or a set of dates. If this</span>
+                <span class="c1"># seems true, just delete that part.</span>
+                <span class="k">if</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">NUMBERS</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="ow">or</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ALPHABETIC</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])):</span>
+                    <span class="n">parts</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># The final part of the name may have a date or a set</span>
+            <span class="c1"># of dates at the end. If so, remove it from that string.</span>
+            <span class="n">final</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">date_re</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DATE_RES</span><span class="p">:</span>
+                <span class="n">m</span> <span class="o">=</span> <span class="n">date_re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">final</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+                    <span class="n">new_part</span> <span class="o">=</span> <span class="n">final</span><span class="p">[:</span><span class="n">m</span><span class="o">.</span><span class="n">start</span><span class="p">()]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">new_part</span><span class="p">:</span>
+                        <span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_part</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">del</span> <span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="k">break</span>
+
+            <span class="n">family_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">p</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;llc&#39;</span><span class="p">,</span> <span class="s1">&#39;inc&#39;</span><span class="p">,</span> <span class="s1">&#39;inc.&#39;</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="n">p</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;company&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">p</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; co.&quot;</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="n">p</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot; co&quot;</span><span class="p">)):</span>
+                <span class="c1"># No, this is a corporate name that contains a comma.</span>
+                <span class="c1"># It can&#39;t be split on the comma, so don&#39;t bother.</span>
+                <span class="n">family_name</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="n">display_name</span> <span class="ow">or</span> <span class="n">name</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">display_name</span><span class="p">:</span>
+                <span class="c1"># The fateful moment. Swap the second string and the</span>
+                <span class="c1"># first string.</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">display_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">family_name</span> <span class="o">=</span> <span class="n">display_name</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">display_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="c1"># There&#39;s a leftover bit.</span>
+                    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;Mrs.&#39;</span><span class="p">,</span> <span class="s1">&#39;Mrs&#39;</span><span class="p">,</span> <span class="s1">&#39;Sir&#39;</span><span class="p">):</span>
+                        <span class="c1"># &quot;Jones, Bob, Mrs.&quot;</span>
+                        <span class="c1">#  =&gt; &quot;Mrs. Bob Jones&quot;</span>
+                        <span class="n">display_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">display_name</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># &quot;Jones, Bob, Jr.&quot;</span>
+                        <span class="c1">#  =&gt; &quot;Bob Jones, Jr.&quot;</span>
+                        <span class="n">display_name</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Since there&#39;s no comma, this is probably a corporate name.</span>
+            <span class="n">family_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">display_name</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="k">return</span> <span class="n">family_name</span><span class="p">,</span> <span class="n">display_name</span></div>
+
+<div class="viewcode-block" id="Contribution"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contribution">[docs]</a><span class="k">class</span> <span class="nc">Contribution</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A contribution made by a Contributor to a Edition.&quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;contributions&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">edition_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;editions.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                           <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">contributor_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;contributors.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">role</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;edition_id&#39;</span><span class="p">,</span> <span class="s1">&#39;contributor_id&#39;</span><span class="p">,</span> <span class="s1">&#39;role&#39;</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,292 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.util.worker_pools &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.worker_pools</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">RLock</span><span class="p">,</span>
+    <span class="n">Thread</span><span class="p">,</span>
+    <span class="n">settrace</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">Queue</span> <span class="k">import</span> <span class="n">Queue</span>
+
+<span class="c1"># Much of the work in this file is based on</span>
+<span class="c1"># https://github.com/shazow/workerpool, with</span>
+<span class="c1"># great appreciation.</span>
+
+<span class="c1"># TODO: Consider supporting multiprocessing as well as</span>
+<span class="c1"># (or instead of) multithreading.</span>
+
+
+<div class="viewcode-block" id="Worker"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Worker">[docs]</a><span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">Thread</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Thread that performs jobs&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Worker.factory"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Worker.factory">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">factory</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">worker_pool</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">worker_pool</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jobs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Worker</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span> <span class="o">=</span> <span class="n">jobs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log</span>
+
+<div class="viewcode-block" id="Worker.run"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Worker.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">do_job</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">inc_error</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Job raised error: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">task_done</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Worker.do_job"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Worker.do_job">[docs]</a>    <span class="k">def</span> <span class="nf">do_job</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">job</span><span class="p">):</span>
+            <span class="n">job</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># This is a Job object. Do any setup and finalization, as well as</span>
+        <span class="c1"># running the task.</span>
+        <span class="n">job</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DatabaseWorker"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabaseWorker">[docs]</a><span class="k">class</span> <span class="nc">DatabaseWorker</span><span class="p">(</span><span class="n">Worker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A worker Thread that performs jobs with a database session&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DatabaseWorker.factory"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabaseWorker.factory">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">factory</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">worker_pool</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">worker_pool</span><span class="p">,</span> <span class="n">_db</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jobs</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DatabaseWorker</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+
+<div class="viewcode-block" id="DatabaseWorker.do_job"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabaseWorker.do_job">[docs]</a>    <span class="k">def</span> <span class="nf">do_job</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DatabaseWorker</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">do_job</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Pool"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool">[docs]</a><span class="k">class</span> <span class="nc">Pool</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A pool of Worker threads and a job queue to keep them busy.&quot;&quot;&quot;</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">worker_factory</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">job_total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Use Worker for pool by default.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">worker_factory</span> <span class="o">=</span> <span class="n">worker_factory</span> <span class="ow">or</span> <span class="n">Worker</span><span class="o">.</span><span class="n">factory</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_worker</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+            <span class="n">w</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">success_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">job_total</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_count</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_count</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">job_total</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Pool.create_worker"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool.create_worker">[docs]</a>    <span class="k">def</span> <span class="nf">create_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_factory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pool.inc_error"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool.inc_error">[docs]</a>    <span class="k">def</span> <span class="nf">inc_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_count</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+<div class="viewcode-block" id="Pool.restart"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool.restart">[docs]</a>    <span class="k">def</span> <span class="nf">restart</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">w</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+                <span class="n">w</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="fm">__enter__</span> <span class="o">=</span> <span class="n">restart</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Error with </span><span class="si">%r</span><span class="s1">: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">traceback</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">value</span>
+        <span class="k">return</span>
+
+<div class="viewcode-block" id="Pool.get"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">get</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Pool.put"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool.put">[docs]</a>    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">job_total</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">job</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pool.task_done"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool.task_done">[docs]</a>    <span class="k">def</span> <span class="nf">task_done</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">task_done</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Pool.join"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Pool.join">[docs]</a>    <span class="k">def</span> <span class="nf">join</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> job errors occurred. </span><span class="si">%.2f%%</span><span class="s2"> success rate.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">error_count</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">job_total</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">success_rate</span><span class="o">*</span><span class="mi">100</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DatabasePool"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabasePool">[docs]</a><span class="k">class</span> <span class="nc">DatabasePool</span><span class="p">(</span><span class="n">Pool</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A pool of DatabaseWorker threads and a job queue to keep them busy.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">session_factory</span><span class="p">,</span> <span class="n">worker_factory</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session_factory</span> <span class="o">=</span> <span class="n">session_factory</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">worker_factory</span> <span class="o">=</span> <span class="n">worker_factory</span> <span class="ow">or</span> <span class="n">DatabaseWorker</span><span class="o">.</span><span class="n">factory</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DatabasePool</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">size</span><span class="p">,</span> <span class="n">worker_factory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">worker_factory</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="DatabasePool.create_worker"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabasePool.create_worker">[docs]</a>    <span class="k">def</span> <span class="nf">create_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">worker_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_factory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker_session</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Job"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Job">[docs]</a><span class="k">class</span> <span class="nc">Job</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Abstract parent class for a bit o&#39; work that can be run in a Thread.</span>
+<span class="sd">    For use with Worker.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Job.rollback"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Job.rollback">[docs]</a>    <span class="k">def</span> <span class="nf">rollback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Cleans up the task if it errors&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Job.finalize"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Job.finalize">[docs]</a>    <span class="k">def</span> <span class="nf">finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finalizes the task if it is successful&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Job.do_run"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Job.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does the work&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Job.run"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.Job.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">do_run</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rollback</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DatabaseJob"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabaseJob">[docs]</a><span class="k">class</span> <span class="nc">DatabaseJob</span><span class="p">(</span><span class="n">Job</span><span class="p">):</span>
+
+<div class="viewcode-block" id="DatabaseJob.rollback"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabaseJob.rollback">[docs]</a>    <span class="k">def</span> <span class="nf">rollback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="DatabaseJob.finalize"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabaseJob.finalize">[docs]</a>    <span class="k">def</span> <span class="nf">finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="DatabaseJob.do_run"><a class="viewcode-back" href="../../../core.util.html#core.util.worker_pools.DatabaseJob.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

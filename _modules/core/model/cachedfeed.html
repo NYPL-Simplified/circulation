@@ -1,0 +1,346 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.cachedfeed &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.cachedfeed</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># CachedFeed, WillNotGenerateExpensiveFeed</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">flush</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">and_</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="CachedFeed"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed">[docs]</a><span class="k">class</span> <span class="nc">CachedFeed</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;cachedfeeds&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Every feed is associated with a lane. If null, this is a feed</span>
+    <span class="c1"># for a WorkList. If work_id is also null, it&#39;s a feed for the</span>
+    <span class="c1"># top-level.</span>
+    <span class="n">lane_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;lanes.id&#39;</span><span class="p">),</span>
+        <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Every feed has a timestamp reflecting when it was created.</span>
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A feed is of a certain type--such as &#39;page&#39; or &#39;groups&#39;.</span>
+    <span class="nb">type</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># A feed associated with a WorkList can have a unique key.</span>
+    <span class="c1"># This should be null if the feed is associated with a Lane.</span>
+    <span class="n">unique_key</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A &#39;page&#39; feed is associated with a set of values for the facet</span>
+    <span class="c1"># groups.</span>
+    <span class="n">facets</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A &#39;page&#39; feed is associated with a set of values for pagination.</span>
+    <span class="n">pagination</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># The content of the feed.</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Every feed is associated with a Library.</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A feed may be associated with a Work.</span>
+    <span class="n">work_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;works.id&#39;</span><span class="p">),</span>
+        <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Distinct types of feeds that might be cached.</span>
+    <span class="n">GROUPS_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;groups&#39;</span>
+    <span class="n">PAGE_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;page&#39;</span>
+    <span class="n">NAVIGATION_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;navigation&#39;</span>
+    <span class="n">CRAWLABLE_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;crawlable&#39;</span>
+    <span class="n">RELATED_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;related&#39;</span>
+    <span class="n">RECOMMENDATIONS_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;recommendations&#39;</span>
+    <span class="n">SERIES_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;series&#39;</span>
+    <span class="n">CONTRIBUTOR_TYPE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;contributor&#39;</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;CachedFeed&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CachedFeed.fetch"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed.fetch">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">fetch</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+              <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO: It would be good to pull type from the Lane and/or Facets</span>
+        <span class="c1"># class instead of needing a separate argument.</span>
+        <span class="kn">from</span> <span class="nn">..opds</span> <span class="k">import</span> <span class="n">AcquisitionFeed</span>
+        <span class="kn">from</span> <span class="nn">..lane</span> <span class="k">import</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">WorkList</span>
+        <span class="k">if</span> <span class="n">max_age</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Figure out the default max age for a feed of this type</span>
+            <span class="c1"># for this lane.</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">calculate_max_age</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">max_age</span><span class="p">)</span>
+
+        <span class="n">unique_key</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">lane</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
+            <span class="n">lane_id</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lane_id</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">unique_key</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-</span><span class="si">%s</span><span class="s2">-</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">lane</span><span class="o">.</span><span class="n">language_key</span><span class="p">,</span> <span class="n">lane</span><span class="o">.</span><span class="n">audience_key</span><span class="p">)</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">lane</span><span class="p">:</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="s1">&#39;work&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">lane</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">library</span>
+        <span class="k">elif</span> <span class="n">lane</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">):</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">facets</span><span class="p">:</span>
+            <span class="n">facets_key</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">facets</span><span class="o">.</span><span class="n">query_string</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">facets_key</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">pagination</span><span class="p">:</span>
+            <span class="n">pagination_key</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">pagination</span><span class="o">.</span><span class="n">query_string</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pagination_key</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span>
+
+        <span class="c1"># Get a CachedFeed object. We will either return its .content,</span>
+        <span class="c1"># or update its .content.</span>
+        <span class="n">constraint_clause</span> <span class="o">=</span> <span class="n">and_</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">content</span><span class="o">!=</span><span class="kc">None</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">timestamp</span><span class="o">!=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">feed</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span>
+            <span class="n">constraint</span><span class="o">=</span><span class="n">constraint_clause</span><span class="p">,</span>
+            <span class="n">lane_id</span><span class="o">=</span><span class="n">lane_id</span><span class="p">,</span>
+            <span class="n">unique_key</span><span class="o">=</span><span class="n">unique_key</span><span class="p">,</span>
+            <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span>
+            <span class="n">work</span><span class="o">=</span><span class="n">work</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets_key</span><span class="p">,</span>
+            <span class="n">pagination</span><span class="o">=</span><span class="n">pagination_key</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">force_refresh</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="c1"># No matter what, we&#39;ve been directed to treat this</span>
+            <span class="c1"># cached feed as stale.</span>
+            <span class="k">return</span> <span class="n">feed</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">max_age</span> <span class="ow">is</span> <span class="n">lane</span><span class="o">.</span><span class="n">CACHE_FOREVER</span><span class="p">:</span>
+            <span class="c1"># This feed is so expensive to generate that it must be cached</span>
+            <span class="c1"># forever (unless force_refresh is True).</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_new</span> <span class="ow">and</span> <span class="n">feed</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+                <span class="c1"># Cacheable!</span>
+                <span class="k">return</span> <span class="n">feed</span><span class="p">,</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># We&#39;re supposed to generate this feed, but as a group</span>
+                <span class="c1"># feed, it&#39;s too expensive.</span>
+                <span class="c1">#</span>
+                <span class="c1"># Rather than generate an error (which will provide a</span>
+                <span class="c1"># terrible user experience), fall back to generating a</span>
+                <span class="c1"># default page-type feed, which should be cheap to fetch.</span>
+                <span class="n">identifier</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
+                    <span class="n">identifier</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">id</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">):</span>
+                    <span class="n">identifier</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">display_name</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Could not generate a groups feed for </span><span class="si">%s</span><span class="s2">, falling back to a page feed.&quot;</span><span class="p">,</span>
+                    <span class="n">identifier</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
+                    <span class="n">_db</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">PAGE_TYPE</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span>
+                    <span class="n">annotator</span><span class="p">,</span> <span class="n">force_refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This feed is cheap enough to generate on the fly.</span>
+            <span class="n">cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="n">max_age</span>
+            <span class="n">fresh</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">feed</span><span class="o">.</span><span class="n">timestamp</span> <span class="ow">and</span> <span class="n">feed</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">feed</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&gt;=</span> <span class="n">cutoff</span><span class="p">:</span>
+                    <span class="n">fresh</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="n">feed</span><span class="p">,</span> <span class="n">fresh</span>
+
+        <span class="c1"># Either there is no cached feed or it&#39;s time to update it.</span>
+        <span class="k">return</span> <span class="n">feed</span><span class="p">,</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="CachedFeed.calculate_max_age"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed.calculate_max_age">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">calculate_max_age</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper method to calculate the proper cache time for</span>
+<span class="sd">        a WorkList.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">..lane</span> <span class="k">import</span> <span class="n">Lane</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">type</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">GROUPS_TYPE</span><span class="p">:</span>
+            <span class="c1"># It&#39;s too expensive to generate grouped feeds for</span>
+            <span class="c1"># Lanes on the fly. To generate these you will</span>
+            <span class="c1"># need to pass in force_refresh=True</span>
+            <span class="k">return</span> <span class="n">lane</span><span class="o">.</span><span class="n">CACHE_FOREVER</span>
+        <span class="k">if</span> <span class="n">lane</span><span class="o">.</span><span class="n">MAX_CACHE_AGE</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Assume the feed should not be cached at all.</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">lane</span><span class="o">.</span><span class="n">MAX_CACHE_AGE</span></div>
+
+<div class="viewcode-block" id="CachedFeed.update"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">flush</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="s2">&quot;No content&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;CachedFeed #</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> &gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lane_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">facets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">length</span>
+        <span class="p">)</span></div>
+
+
+<span class="n">Index</span><span class="p">(</span>
+    <span class="s2">&quot;ix_cachedfeeds_library_id_lane_id_type_facets_pagination&quot;</span><span class="p">,</span>
+    <span class="n">CachedFeed</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">lane_id</span><span class="p">,</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+    <span class="n">CachedFeed</span><span class="o">.</span><span class="n">facets</span><span class="p">,</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">pagination</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="WillNotGenerateExpensiveFeed"><a class="viewcode-back" href="../../../core.model.html#core.monitor.WillNotGenerateExpensiveFeed">[docs]</a><span class="k">class</span> <span class="nc">WillNotGenerateExpensiveFeed</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This exception is raised when a feed is not cached, but it&#39;s too</span>
+<span class="sd">    expensive to generate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="CachedMARCFile"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedMARCFile">[docs]</a><span class="k">class</span> <span class="nc">CachedMARCFile</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record that a MARC file has been created and cached for a particular lane.&quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;cachedmarcfiles&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Every MARC file is associated with a library and a lane. If the</span>
+    <span class="c1"># lane is null, the file is for the top-level WorkList.</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span>
+        <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">lane_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;lanes.id&#39;</span><span class="p">),</span>
+        <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The representation for this file stores the URL where it was mirrored.</span>
+    <span class="n">representation_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;representations.id&#39;</span><span class="p">),</span>
+        <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">end_time</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

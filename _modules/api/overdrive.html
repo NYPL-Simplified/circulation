@@ -1,0 +1,1311 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.overdrive &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.overdrive</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">dateutil</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">pytz</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">import</span> <span class="nn">urlparse</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">contains_eager</span>
+
+<span class="kn">from</span> <span class="nn">circulation</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">DeliveryMechanismInfo</span><span class="p">,</span>
+    <span class="n">LoanInfo</span><span class="p">,</span>
+    <span class="n">HoldInfo</span><span class="p">,</span>
+    <span class="n">FulfillmentInfo</span><span class="p">,</span>
+    <span class="n">BaseCirculationAPI</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">HasSelfTests</span><span class="p">,</span>
+    <span class="n">SelfTestResult</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.overdrive</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">OverdriveAPI</span> <span class="k">as</span> <span class="n">BaseOverdriveAPI</span><span class="p">,</span>
+    <span class="n">OverdriveRepresentationExtractor</span><span class="p">,</span>
+    <span class="n">OverdriveBibliographicCoverageProvider</span><span class="p">,</span>
+    <span class="n">MockOverdriveAPI</span> <span class="k">as</span> <span class="n">BaseMockOverdriveAPI</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CirculationEvent</span><span class="p">,</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">Credential</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Hold</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">Loan</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+    <span class="n">Session</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CollectionMonitor</span><span class="p">,</span>
+    <span class="n">IdentifierSweepMonitor</span><span class="p">,</span>
+    <span class="n">TimelineMonitor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="n">ReplacementPolicy</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="k">import</span> <span class="n">Script</span>
+
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="k">import</span> <span class="n">Analytics</span>
+
+<div class="viewcode-block" id="OverdriveAPI"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI">[docs]</a><span class="k">class</span> <span class="nc">OverdriveAPI</span><span class="p">(</span><span class="n">BaseOverdriveAPI</span><span class="p">,</span> <span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Integrate an Overdrive collection. For an Overdrive Advantage collection, select the consortium&#39;s Overdrive collection as the parent.&quot;</span><span class="p">)</span>
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">EXTERNAL_ACCOUNT_ID_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library ID&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">BaseOverdriveAPI</span><span class="o">.</span><span class="n">WEBSITE_ID</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Website ID&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Client Key&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Client Secret&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+    <span class="p">]</span> <span class="o">+</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">SETTINGS</span>
+
+    <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">LIBRARY_SETTINGS</span> <span class="o">+</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">BaseOverdriveAPI</span><span class="o">.</span><span class="n">ILS_NAME_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;ILS Name&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">BaseOverdriveAPI</span><span class="o">.</span><span class="n">ILS_NAME_DEFAULT</span><span class="p">,</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;When multiple libraries share an Overdrive account, Overdrive uses a setting called &#39;ILS Name&#39; to determine which ILS to check when validating a given patron.&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">DEFAULT_LOAN_DURATION_SETTING</span>
+    <span class="p">]</span>
+
+    <span class="c1"># An Overdrive Advantage collection inherits everything except the library id</span>
+    <span class="c1"># from its parent.</span>
+    <span class="n">CHILD_SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">EXTERNAL_ACCOUNT_ID_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library ID&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">FULFILL_STEP</span>
+
+    <span class="c1"># Create a lookup table between common DeliveryMechanism identifiers</span>
+    <span class="c1"># and Overdrive format types.</span>
+    <span class="n">epub</span> <span class="o">=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span>
+    <span class="n">pdf</span> <span class="o">=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">PDF_MEDIA_TYPE</span>
+    <span class="n">adobe_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span>
+    <span class="n">no_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span>
+    <span class="n">streaming_text</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_TEXT_CONTENT_TYPE</span>
+    <span class="n">overdrive_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">OVERDRIVE_DRM</span>
+
+    <span class="n">delivery_mechanism_to_internal_format</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">(</span><span class="n">epub</span><span class="p">,</span> <span class="n">no_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-epub-open&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">epub</span><span class="p">,</span> <span class="n">adobe_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-epub-adobe&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">no_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-pdf-open&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">adobe_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-pdf-adobe&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">streaming_text</span><span class="p">,</span> <span class="n">overdrive_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-overdrive&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">STREAMING_FORMATS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s1">&#39;ebook-overdrive&#39;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># TODO: This is a terrible choice but this URL should never be</span>
+    <span class="c1"># displayed to a patron, so it doesn&#39;t matter much.</span>
+    <span class="n">DEFAULT_ERROR_URL</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">overdrive_bibliographic_coverage_provider</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">OverdriveBibliographicCoverageProvider</span><span class="p">(</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="bp">self</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="OverdriveAPI.external_integration"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.external_integration">[docs]</a>    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span></div>
+
+    <span class="k">def</span> <span class="nf">_run_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+            <span class="s2">&quot;Checking global Client Authentication privileges&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">check_creds</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">yield</span> <span class="n">result</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="c1"># There is no point in running the other tests if we</span>
+            <span class="c1"># can&#39;t even get a token.</span>
+            <span class="k">return</span>
+
+        <span class="k">def</span> <span class="nf">_count_advantage</span><span class="p">():</span>
+            <span class="sd">&quot;&quot;&quot;Count the Overdrive Advantage accounts&quot;&quot;&quot;</span>
+            <span class="n">accounts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_advantage_accounts</span><span class="p">())</span>
+            <span class="k">return</span> <span class="s2">&quot;Found </span><span class="si">%d</span><span class="s2"> Overdrive Advantage account(s).&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">accounts</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+            <span class="s2">&quot;Looking up Overdrive Advantage accounts&quot;</span><span class="p">,</span>
+            <span class="n">_count_advantage</span>
+        <span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">_count_books</span><span class="p">():</span>
+            <span class="sd">&quot;&quot;&quot;Count the titles in the collection.&quot;&quot;&quot;</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_products_link</span>
+            <span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> item(s) in collection&quot;</span> <span class="o">%</span> <span class="n">body</span><span class="p">[</span><span class="s1">&#39;totalItems&#39;</span><span class="p">]</span>
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+            <span class="s2">&quot;Counting size of collection&quot;</span><span class="p">,</span> <span class="n">_count_books</span>
+        <span class="p">)</span>
+
+        <span class="n">default_patrons</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_patrons</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">SelfTestResult</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">result</span>
+                <span class="k">continue</span>
+            <span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span> <span class="o">=</span> <span class="n">result</span>
+            <span class="n">task</span> <span class="o">=</span> <span class="s2">&quot;Checking Patron Authentication privileges, using test patron for library </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">library</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+                <span class="n">task</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="OverdriveAPI.patron_request"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.patron_request">[docs]</a>    <span class="k">def</span> <span class="nf">patron_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                       <span class="n">exception_on_401</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make an HTTP request on behalf of a patron.</span>
+
+<span class="sd">        The results are never cached.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">patron_credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_credential</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">Authorization</span><span class="o">=</span><span class="s2">&quot;Bearer </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">patron_credential</span><span class="o">.</span><span class="n">credential</span><span class="p">)</span>
+        <span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_headers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">and</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;get&#39;</span><span class="p">,</span> <span class="s1">&#39;post&#39;</span><span class="p">,</span> <span class="s1">&#39;put&#39;</span><span class="p">,</span> <span class="s1">&#39;delete&#39;</span><span class="p">):</span>
+            <span class="n">method</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+                <span class="n">method</span> <span class="o">=</span> <span class="s1">&#39;post&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">method</span> <span class="o">=</span> <span class="s1">&#39;get&#39;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">request_with_timeout</span><span class="p">(</span>
+            <span class="n">method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">401</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">exception_on_401</span><span class="p">:</span>
+                <span class="c1"># This is our second try. Give up.</span>
+                <span class="k">raise</span> <span class="n">IntegrationException</span><span class="p">(</span>
+                    <span class="s2">&quot;Something&#39;s wrong with the patron OAuth Bearer Token!&quot;</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Refresh the token and try again.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">refresh_patron_access_token</span><span class="p">(</span>
+                    <span class="n">patron_credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">extra_headers</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This is commented out because it may expose patron</span>
+            <span class="c1"># information.</span>
+            <span class="c1">#</span>
+            <span class="c1"># self.log.debug(&quot;%s: %s&quot;, url, response.status_code)</span>
+            <span class="k">return</span> <span class="n">response</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.get_patron_credential"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_patron_credential">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_credential</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an OAuth token for the given patron.&quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="n">credential</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">refresh_patron_access_token</span><span class="p">(</span>
+                <span class="n">credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="s2">&quot;OAuth Token&quot;</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">refresh</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.refresh_patron_access_token"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.refresh_patron_access_token">[docs]</a>    <span class="k">def</span> <span class="nf">refresh_patron_access_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Request an OAuth bearer token that allows us to act on</span>
+<span class="sd">        behalf of a specific patron.</span>
+
+<span class="sd">        Documentation: https://developer.overdrive.com/apis/patron-auth</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">grant_type</span><span class="o">=</span><span class="s2">&quot;password&quot;</span><span class="p">,</span>
+            <span class="n">username</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
+            <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;websiteid:</span><span class="si">%s</span><span class="s2"> authorizationname:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">website_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ils_name</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">pin</span><span class="p">:</span>
+            <span class="c1"># A PIN was provided.</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pin</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># No PIN was provided. Depending on the library,</span>
+            <span class="c1"># this might be fine. If it&#39;s not fine, Overdrive will</span>
+            <span class="c1"># refuse to issue a token.</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s1">&#39;password_required&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;false&#39;</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;[ignore]&#39;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">token_post</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PATRON_TOKEN_ENDPOINT</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_credential</span><span class="p">(</span><span class="n">credential</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;error_description&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">message</span> <span class="o">+=</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> <span class="n">error</span>
+            <span class="n">diagnostic</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">debug</span> <span class="o">=</span> <span class="n">message</span>
+            <span class="k">if</span> <span class="n">error</span> <span class="o">==</span> <span class="s1">&#39;Requested record not found&#39;</span><span class="p">:</span>
+                <span class="n">debug</span> <span class="o">=</span> <span class="s2">&quot;The patron failed Overdrive&#39;s cross-check against the library&#39;s ILS.&quot;</span>
+            <span class="k">raise</span> <span class="n">PatronAuthorizationFailedException</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">debug</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">credential</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.checkout"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.checkout">[docs]</a>    <span class="k">def</span> <span class="nf">checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check out a book on behalf of a patron.</span>
+
+<span class="sd">        :param patron: a Patron object for the patron who wants</span>
+<span class="sd">            to check out the book.</span>
+
+<span class="sd">        :param pin: The patron&#39;s alleged password.</span>
+
+<span class="sd">        :param licensepool: Identifier of the book to be checked out is</span>
+<span class="sd">            attached to this licensepool.</span>
+
+<span class="sd">        :param internal_format: Represents the patron&#39;s desired book format.</span>
+
+<span class="sd">        :return: a LoanInfo object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">identifier</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">overdrive_id</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">}</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;reserveId&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">overdrive_id</span><span class="p">)])</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKOUTS_ENDPOINT</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="n">code</span> <span class="o">=</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;errorCode&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;NoCopiesAvailable&#39;</span><span class="p">:</span>
+                <span class="c1"># Clearly our info is out of date.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">update_licensepool</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">NoAvailableCopies</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;TitleAlreadyCheckedOut&#39;</span><span class="p">:</span>
+                <span class="c1"># Client should have used a fulfill link instead, but</span>
+                <span class="c1"># we can handle it.</span>
+                <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+                <span class="n">expires</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_expiration_date</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">LoanInfo</span><span class="p">(</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">expires</span><span class="p">,</span>
+                    <span class="kc">None</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;PatronHasExceededCheckoutLimit&#39;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PatronLoanLimitReached</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Try to extract the expiration date from the response.</span>
+            <span class="n">expires</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_expiration_date</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+
+        <span class="c1"># Create the loan info. We don&#39;t know the expiration</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">,</span>
+            <span class="n">expires</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">loan</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.checkin"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.checkin">[docs]</a>    <span class="k">def</span> <span class="nf">checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+
+        <span class="c1"># Get the loan for this patron to see whether or not they</span>
+        <span class="c1"># have a delivery mechanism recorded.</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">loans</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">patron</span><span class="o">.</span><span class="n">loans</span> <span class="k">if</span> <span class="n">l</span><span class="o">.</span><span class="n">license_pool</span> <span class="o">==</span> <span class="n">licensepool</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">loans</span><span class="p">:</span>
+            <span class="n">loan</span> <span class="o">=</span> <span class="n">loans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">loan</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span>
+            <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">delivery_mechanism</span>
+            <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">drm_scheme</span>
+            <span class="o">==</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span><span class="p">):</span>
+            <span class="c1"># This patron fulfilled this loan without DRM. That means we</span>
+            <span class="c1"># should be able to find a loanEarlyReturnURL and hit it.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">perform_early_return</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">loan</span><span class="p">):</span>
+                <span class="c1"># No need for the fallback strategy.</span>
+                <span class="k">return</span>
+
+        <span class="c1"># Our fallback strategy is to DELETE the checkout endpoint.</span>
+        <span class="c1"># We do this if no loan can be found, no delivery mechanism is</span>
+        <span class="c1"># recorded, the delivery mechanism uses DRM, we are unable to</span>
+        <span class="c1"># locate the return URL, or we encounter a problem using the</span>
+        <span class="c1"># return URL.</span>
+        <span class="c1">#</span>
+        <span class="c1"># The only case where this is likely to work is when the</span>
+        <span class="c1"># loan exists but has not been locked to a delivery mechanism.</span>
+        <span class="n">overdrive_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKOUT_ENDPOINT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">overdrive_id</span><span class="o">=</span><span class="n">overdrive_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;DELETE&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.perform_early_return"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.perform_early_return">[docs]</a>    <span class="k">def</span> <span class="nf">perform_early_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">http_get</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Ask Overdrive for a loanEarlyReturnURL for the given loan</span>
+<span class="sd">        and try to hit that URL.</span>
+
+<span class="sd">        :param patron: A Patron</span>
+<span class="sd">        :param pin: Authorization PIN for the patron</span>
+<span class="sd">        :param loan: A Loan object corresponding to the title on loan.</span>
+<span class="sd">        :param http_get: You may pass in a mock of HTTP.get_with_timeout</span>
+<span class="sd">            for use in tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mechanism</span> <span class="o">=</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">delivery_mechanism</span>
+        <span class="n">internal_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delivery_mechanism_to_internal_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">mechanism</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span> <span class="n">mechanism</span><span class="o">.</span><span class="n">drm_scheme</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">internal_format</span><span class="p">:</span>
+            <span class="c1"># Something&#39;s wrong in general, but in particular we don&#39;t know</span>
+            <span class="c1"># which fulfillment link to ask for. Bail out.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Ask Overdrive for a link that can be used to fulfill the book</span>
+        <span class="c1"># (but which may also contain an early return URL).</span>
+        <span class="n">url</span><span class="p">,</span> <span class="n">media_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fulfillment_link</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">internal_format</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Make a regular, non-authenticated request to the fulfillment link.</span>
+        <span class="n">http_get</span> <span class="o">=</span> <span class="n">http_get</span> <span class="ow">or</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">get_with_timeout</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">http_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">allow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">location</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;location&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Try to find an early return URL in the Location header</span>
+        <span class="c1"># sent from the fulfillment request.</span>
+        <span class="n">early_return_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_early_return_url</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">early_return_url</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">http_get</span><span class="p">(</span><span class="n">early_return_url</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_extract_early_return_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">location</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract an early return URL from the URL Overdrive sends to</span>
+<span class="sd">        fulfill a non-DRMed book.</span>
+
+<span class="sd">        :param location: A URL found in a Location header.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">location</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">parse_qs</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">urls</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;loanEarlyReturnUrl&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">urls</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">urls</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<div class="viewcode-block" id="OverdriveAPI.fill_out_form"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.fill_out_form">[docs]</a>    <span class="k">def</span> <span class="nf">fill_out_form</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">values</span><span class="p">):</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">v</span><span class="p">))</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json; charset=utf-8&quot;</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">headers</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">fields</span><span class="o">=</span><span class="n">fields</span><span class="p">))</span></div>
+
+    <span class="n">error_to_exception</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;TitleNotCheckedOut&quot;</span> <span class="p">:</span> <span class="n">NoActiveLoan</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="OverdriveAPI.raise_exception_on_error"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.raise_exception_on_error">[docs]</a>    <span class="k">def</span> <span class="nf">raise_exception_on_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">custom_error_to_exception</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;errorCode&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;errorCode&#39;</span><span class="p">]</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">custom_error_to_exception</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_to_exception</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">error</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">d</span><span class="p">[</span><span class="n">error</span><span class="p">](</span><span class="n">message</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.get_loan"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_loan">[docs]</a>    <span class="k">def</span> <span class="nf">get_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKOUTS_ENDPOINT</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">overdrive_id</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.get_hold"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_hold">[docs]</a>    <span class="k">def</span> <span class="nf">get_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOLD_ENDPOINT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">product_id</span><span class="o">=</span><span class="n">overdrive_id</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.get_loans"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_loans">[docs]</a>    <span class="k">def</span> <span class="nf">get_loans</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get a JSON structure describing all of a patron&#39;s outstanding</span>
+<span class="sd">        loans.&quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKOUTS_ENDPOINT</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.fulfill"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the actual resource file to the patron.</span>
+
+<span class="sd">        :param kwargs: A container for arguments to fulfill()</span>
+<span class="sd">           which are not relevant to this vendor.</span>
+
+<span class="sd">        :return: a FulfillmentInfo object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">media_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fulfillment_link</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">internal_format</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STREAMING_FORMATS</span><span class="p">:</span>
+                <span class="n">media_type</span> <span class="o">+=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_PROFILE</span>
+        <span class="k">except</span> <span class="n">FormatNotAvailable</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+
+            <span class="c1"># It&#39;s possible the available formats for this book have changed and we</span>
+            <span class="c1"># have an inaccurate delivery mechanism. Try to update the formats, but</span>
+            <span class="c1"># reraise the error regardless.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Overdrive id </span><span class="si">%s</span><span class="s2"> was not available as </span><span class="si">%s</span><span class="s2">, getting updated formats&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">))</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">update_formats</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e2</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Could not update formats for Overdrive ID </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="n">e</span>
+
+        <span class="k">return</span> <span class="n">FulfillmentInfo</span><span class="p">(</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">content_link</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">media_type</span><span class="p">,</span>
+            <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OverdriveAPI.get_fulfillment_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_fulfillment_link">[docs]</a>    <span class="k">def</span> <span class="nf">get_fulfillment_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the link to the ACSM file corresponding to an existing loan.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NoActiveLoan</span><span class="p">(</span><span class="s2">&quot;Could not find active loan for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">overdrive_id</span><span class="p">)</span>
+        <span class="n">download_link</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span><span class="p">[</span><span class="s1">&#39;isFormatLockedIn&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">format_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STREAMING_FORMATS</span><span class="p">:</span>
+            <span class="c1"># The format is not locked in. Lock it in.</span>
+            <span class="c1"># This will happen the first time someone tries to fulfill</span>
+            <span class="c1"># a loan.</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock_in_format</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">201</span><span class="p">,</span> <span class="mi">200</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
+                    <span class="n">message</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">message</span> <span class="o">==</span> <span class="s2">&quot;The selected format may not be available for this title.&quot;</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">FormatNotAvailable</span><span class="p">(</span><span class="s2">&quot;This book is not available in the format you requested.&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span><span class="s2">&quot;Could not lock in format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">download_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_download_link</span><span class="p">(</span>
+                    <span class="n">response</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_ERROR_URL</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">IOError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># Get the loan fresh and see if that solves the problem.</span>
+                <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">)</span>
+
+        <span class="c1"># TODO: Verify that the asked-for format type is the same as the</span>
+        <span class="c1"># one in the loan.</span>
+
+        <span class="k">if</span> <span class="n">format_type</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">download_link</span><span class="p">:</span>
+            <span class="n">download_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_download_link</span><span class="p">(</span>
+                <span class="n">loan</span><span class="p">,</span> <span class="n">format_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_ERROR_URL</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">download_link</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span>
+                    <span class="s2">&quot;No download link for </span><span class="si">%s</span><span class="s2">, format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                        <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">download_link</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fulfillment_link_from_download_link</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">download_link</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span><span class="s2">&quot;Cannot obtain a download link for patron[</span><span class="si">%r</span><span class="s2">], overdrive_id[</span><span class="si">%s</span><span class="s2">], format_type[</span><span class="si">%s</span><span class="s2">].&quot;</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OverdriveAPI.get_fulfillment_link_from_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_fulfillment_link_from_download_link">[docs]</a>    <span class="k">def</span> <span class="nf">get_fulfillment_link_from_download_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">download_link</span><span class="p">,</span> <span class="n">fulfill_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># If this for Overdrive&#39;s streaming reader, and the link expires,</span>
+        <span class="c1"># the patron can go back to the circulation manager fulfill url</span>
+        <span class="c1"># again to get a new one.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">fulfill_url</span> <span class="ow">and</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">:</span>
+            <span class="n">fulfill_url</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">url</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fulfill_url</span><span class="o">=</span><span class="s2">&quot;&quot;</span>
+        <span class="n">download_link</span> <span class="o">=</span> <span class="n">download_link</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{odreadauthurl}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fulfill_url</span><span class="p">)</span>
+
+        <span class="n">download_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">download_link</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_content_link</span><span class="p">(</span><span class="n">download_response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.extract_content_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.extract_content_link">[docs]</a>    <span class="k">def</span> <span class="nf">extract_content_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content_link_gateway_json</span><span class="p">):</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="n">content_link_gateway_json</span><span class="p">[</span><span class="s1">&#39;links&#39;</span><span class="p">][</span><span class="s1">&#39;contentlink&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">link</span><span class="p">[</span><span class="s1">&#39;href&#39;</span><span class="p">],</span> <span class="n">link</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.lock_in_format"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.lock_in_format">[docs]</a>    <span class="k">def</span> <span class="nf">lock_in_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">):</span>
+
+        <span class="n">overdrive_id</span> <span class="o">=</span> <span class="n">overdrive_id</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="n">headers</span><span class="p">,</span> <span class="n">document</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fill_out_form</span><span class="p">(</span>
+            <span class="n">reserveId</span><span class="o">=</span><span class="n">overdrive_id</span><span class="p">,</span> <span class="n">formatType</span><span class="o">=</span><span class="n">format_type</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORMATS_ENDPOINT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">overdrive_id</span><span class="o">=</span><span class="n">overdrive_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">document</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.extract_data_from_checkout_response"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.extract_data_from_checkout_response">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">extract_data_from_checkout_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">checkout_response_json</span><span class="p">,</span>
+                                            <span class="n">format_type</span><span class="p">,</span> <span class="n">error_url</span><span class="p">):</span>
+
+        <span class="n">expires</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">extract_expiration_date</span><span class="p">(</span><span class="n">checkout_response_json</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">expires</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_download_link</span><span class="p">(</span>
+            <span class="n">checkout_response_json</span><span class="p">,</span> <span class="n">format_type</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.extract_data_from_hold_response"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.extract_data_from_hold_response">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">extract_data_from_hold_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">hold_response_json</span><span class="p">):</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="n">hold_response_json</span><span class="p">[</span><span class="s1">&#39;holdListPosition&#39;</span><span class="p">]</span>
+        <span class="n">placed</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_extract_date</span><span class="p">(</span><span class="n">hold_response_json</span><span class="p">,</span> <span class="s1">&#39;holdPlacedDate&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">position</span><span class="p">,</span> <span class="n">placed</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.extract_expiration_date"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.extract_expiration_date">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">extract_expiration_date</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_extract_date</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s1">&#39;expires&#39;</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_extract_date</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
+                <span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">],</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d</span>
+
+<div class="viewcode-block" id="OverdriveAPI.get_patron_information"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_patron_information">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ME_ENDPOINT</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.get_patron_checkouts"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_patron_checkouts">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_checkouts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKOUTS_ENDPOINT</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.get_patron_holds"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_patron_holds">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_holds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOLDS_ENDPOINT</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_pd</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Stupid method to parse a date.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">d</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">d</span>
+        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OverdriveAPI.patron_activity"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_checkouts</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+            <span class="n">holds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_holds</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">PatronAuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># This frequently happens because Overdrive performs</span>
+            <span class="c1"># checks for blocked or expired accounts upon initial</span>
+            <span class="c1"># authorization, where the circulation manager would let</span>
+            <span class="c1"># the &#39;authorization&#39; part succeed and block the patron&#39;s</span>
+            <span class="c1"># access afterwards.</span>
+            <span class="c1">#</span>
+            <span class="c1"># It&#39;s common enough that it&#39;s hardly worth mentioning, but it</span>
+            <span class="c1"># could theoretically be the sign of a larger problem.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Overdrive authentication failed, assuming no loans.&quot;</span><span class="p">,</span>
+                <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+            <span class="p">)</span>
+            <span class="n">loans</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">holds</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">checkout</span> <span class="ow">in</span> <span class="n">loans</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;checkouts&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">loan_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_checkout_data</span><span class="p">(</span><span class="n">checkout</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">loan_info</span>
+
+        <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">holds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;holds&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">overdrive_identifier</span> <span class="o">=</span> <span class="n">hold</span><span class="p">[</span><span class="s1">&#39;reserveId&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pd</span><span class="p">(</span><span class="n">hold</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;holdPlacedDate&#39;</span><span class="p">))</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pd</span><span class="p">(</span><span class="n">hold</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;holdExpires&#39;</span><span class="p">))</span>
+            <span class="n">position</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;holdListPosition&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">position</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">position</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">position</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s1">&#39;checkout&#39;</span> <span class="ow">in</span> <span class="n">hold</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;actions&#39;</span><span class="p">,</span> <span class="p">{}):</span>
+                <span class="c1"># This patron needs to decide whether to check the</span>
+                <span class="c1"># book out. By our reckoning, the patron&#39;s position is</span>
+                <span class="c1"># 0, not whatever position Overdrive had for them.</span>
+                <span class="n">position</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">yield</span> <span class="n">HoldInfo</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span>
+                <span class="n">overdrive_identifier</span><span class="p">,</span>
+                <span class="n">start_date</span><span class="o">=</span><span class="n">start</span><span class="p">,</span>
+                <span class="n">end_date</span><span class="o">=</span><span class="n">end</span><span class="p">,</span>
+                <span class="n">hold_position</span><span class="o">=</span><span class="n">position</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.process_checkout_data"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.process_checkout_data">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">process_checkout_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">checkout</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert one checkout from Overdrive&#39;s list of checkouts</span>
+<span class="sd">        into a LoanInfo object.</span>
+
+<span class="sd">        :return: A LoanInfo object if the book can be fulfilled</span>
+<span class="sd">            by the default Library Simplified client, and None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">overdrive_identifier</span> <span class="o">=</span> <span class="n">checkout</span><span class="p">[</span><span class="s1">&#39;reserveId&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_pd</span><span class="p">(</span><span class="n">checkout</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;checkoutDate&#39;</span><span class="p">))</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_pd</span><span class="p">(</span><span class="n">checkout</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;expires&#39;</span><span class="p">))</span>
+
+        <span class="n">usable_formats</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># If a format is already locked in, it will be in formats.</span>
+        <span class="k">for</span> <span class="nb">format</span> <span class="ow">in</span> <span class="n">checkout</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formats&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">format_type</span> <span class="o">=</span> <span class="nb">format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formatType&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">FORMATS</span><span class="p">:</span>
+                <span class="n">usable_formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">format_type</span><span class="p">)</span>
+
+
+        <span class="c1"># If a format hasn&#39;t been selected yet, available formats are in actions.</span>
+        <span class="n">actions</span> <span class="o">=</span> <span class="n">checkout</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;actions&#39;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">format_action</span> <span class="o">=</span> <span class="n">actions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;format&#39;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">format_fields</span> <span class="o">=</span> <span class="n">format_action</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fields&#39;</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">format_fields</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;formatType&quot;</span><span class="p">:</span>
+                <span class="n">format_options</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;options&quot;</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="k">for</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="n">format_options</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">FORMATS</span><span class="p">:</span>
+                        <span class="n">usable_formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">format_type</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">usable_formats</span><span class="p">:</span>
+            <span class="c1"># Either this book is not available in any format readable</span>
+            <span class="c1"># by the default client, or the patron previously chose to</span>
+            <span class="c1"># fulfill it in a format not readable by the default</span>
+            <span class="c1"># client. Either way, we cannot fulfill this loan and we</span>
+            <span class="c1"># shouldn&#39;t show it in the list.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">locked_to</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">usable_formats</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Either the book has been locked into a specific format,</span>
+            <span class="c1"># or only one usable format is available. We don&#39;t know</span>
+            <span class="c1"># which case we&#39;re looking at, but for our purposes the</span>
+            <span class="c1"># book is locked.</span>
+            <span class="p">[</span><span class="nb">format</span><span class="p">]</span> <span class="o">=</span> <span class="n">usable_formats</span>
+            <span class="n">media_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">format_data_for_overdrive_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="nb">format</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">media_type</span><span class="p">:</span>
+                <span class="c1"># Make it clear that Overdrive will only deliver the content</span>
+                <span class="c1"># in one specific media type.</span>
+                <span class="n">locked_to</span> <span class="o">=</span> <span class="n">DeliveryMechanismInfo</span><span class="p">(</span>
+                    <span class="n">content_type</span><span class="o">=</span><span class="n">media_type</span><span class="p">,</span>
+                    <span class="n">drm_scheme</span><span class="o">=</span><span class="n">drm_scheme</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">LoanInfo</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span>
+            <span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span>
+            <span class="n">overdrive_identifier</span><span class="p">,</span>
+            <span class="n">start_date</span><span class="o">=</span><span class="n">start</span><span class="p">,</span>
+            <span class="n">end_date</span><span class="o">=</span><span class="n">end</span><span class="p">,</span>
+            <span class="n">locked_to</span><span class="o">=</span><span class="n">locked_to</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.default_notification_email_address"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.default_notification_email_address">[docs]</a>    <span class="k">def</span> <span class="nf">default_notification_email_address</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="n">site_default</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">default_notification_email_address</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span>
+        <span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PATRON_INFORMATION_ENDPOINT</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Unable to get patron information for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+            <span class="p">)</span>
+            <span class="c1"># Use the site-wide default rather than allow a hold to fail.</span>
+            <span class="k">return</span> <span class="n">site_default</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lastHoldEmail&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">site_default</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.place_hold"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.place_hold">[docs]</a>    <span class="k">def</span> <span class="nf">place_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">notification_email_address</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Place a book on hold.</span>
+
+<span class="sd">        :return: A HoldInfo object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">notification_email_address</span><span class="p">:</span>
+            <span class="n">notification_email_address</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_notification_email_address</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span>
+            <span class="p">)</span>
+
+        <span class="n">overdrive_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">headers</span><span class="p">,</span> <span class="n">document</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fill_out_form</span><span class="p">(</span>
+            <span class="n">reserveId</span><span class="o">=</span><span class="n">overdrive_id</span><span class="p">,</span> <span class="n">emailAddress</span><span class="o">=</span><span class="n">notification_email_address</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOLDS_ENDPOINT</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span>
+            <span class="n">document</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">error</span> <span class="ow">or</span> <span class="ow">not</span> <span class="s1">&#39;errorCode&#39;</span> <span class="ow">in</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">()</span>
+            <span class="n">code</span> <span class="o">=</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;errorCode&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;AlreadyOnWaitList&#39;</span><span class="p">:</span>
+                <span class="c1"># There&#39;s nothing we can do but refresh the queue info.</span>
+                <span class="n">hold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hold</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">)</span>
+                <span class="n">position</span><span class="p">,</span> <span class="n">start_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_data_from_hold_response</span><span class="p">(</span>
+                    <span class="n">hold</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">HoldInfo</span><span class="p">(</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="n">start_date</span><span class="o">=</span><span class="n">start_date</span><span class="p">,</span>
+                    <span class="n">end_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">hold_position</span><span class="o">=</span><span class="n">position</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;NotWithinRenewalWindow&#39;</span><span class="p">:</span>
+                <span class="c1"># The patron has this book checked out and cannot yet</span>
+                <span class="c1"># renew their loan.</span>
+                <span class="k">raise</span> <span class="n">CannotRenew</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;PatronExceededHoldLimit&#39;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PatronHoldLimitReached</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The book was placed on hold.</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="n">position</span><span class="p">,</span> <span class="n">start_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_data_from_hold_response</span><span class="p">(</span>
+                <span class="n">data</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">HoldInfo</span><span class="p">(</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">start_date</span><span class="o">=</span><span class="n">start_date</span><span class="p">,</span>
+                <span class="n">end_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">hold_position</span><span class="o">=</span><span class="n">position</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.release_hold"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Release a patron&#39;s hold on a book.</span>
+
+<span class="sd">        :raises CannotReleaseHold: If there is an error communicating</span>
+<span class="sd">            with Overdrive, or Overdrive refuses to release the hold for</span>
+<span class="sd">            any reason.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOLD_ENDPOINT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">product_id</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;DELETE&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">/</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotReleaseHold</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;errorCode&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotReleaseHold</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;errorCode&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;PatronDoesntHaveTitleOnHold&#39;</span><span class="p">:</span>
+            <span class="c1"># There was never a hold to begin with, so we&#39;re fine.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">raise</span> <span class="n">CannotReleaseHold</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.circulation_lookup"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.circulation_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">circulation_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">book</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">book</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">book_id</span> <span class="o">=</span> <span class="n">book</span>
+            <span class="n">circulation_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABILITY_ENDPOINT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">collection_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_token</span><span class="p">,</span>
+                <span class="n">product_id</span><span class="o">=</span><span class="n">book_id</span>
+            <span class="p">)</span>
+            <span class="n">book</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">book_id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">book_id</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+            <span class="n">circulation_link</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;availability_link&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">book</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">circulation_link</span><span class="p">,</span> <span class="p">{})</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.update_formats"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.update_formats">[docs]</a>    <span class="k">def</span> <span class="nf">update_formats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update the format information for a single book.</span>
+
+<span class="sd">        Incidentally updates the metadata, just in case Overdrive has</span>
+<span class="sd">        changed it.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_lookup</span><span class="p">(</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">book_info_to_metadata</span><span class="p">(</span>
+            <span class="n">info</span><span class="p">,</span> <span class="n">include_bibliographic</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include_formats</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="c1"># No work to be done.</span>
+            <span class="k">return</span>
+
+        <span class="n">edition</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edition</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+
+        <span class="n">replace</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="o">.</span><span class="n">from_license_source</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="n">replace</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.update_licensepool"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.update_licensepool">[docs]</a>    <span class="k">def</span> <span class="nf">update_licensepool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">book_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update availability information for a single book.</span>
+
+<span class="sd">        If the book has never been seen before, a new LicensePool</span>
+<span class="sd">        will be created for the book.</span>
+
+<span class="sd">        The book&#39;s LicensePool will be updated with current</span>
+<span class="sd">        circulation information. Bibliographic coverage will be</span>
+<span class="sd">        ensured for the Overdrive Identifier, and a Work will be</span>
+<span class="sd">        created for the LicensePool and set as presentation-ready.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Retrieve current circulation information about this book</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">book</span><span class="p">,</span> <span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">circulation_lookup</span><span class="p">(</span>
+                <span class="n">book_id</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">status_code</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;HTTP exception communicating with Overdrive&quot;</span><span class="p">,</span>
+                <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Could not get availability for </span><span class="si">%s</span><span class="s2">: status code </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">book_id</span><span class="p">,</span> <span class="n">status_code</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">book</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+        <span class="c1"># Update book_id now that we know we have new data.</span>
+        <span class="n">book_id</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+        <span class="n">license_pool</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span> <span class="n">book_id</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_new</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+            <span class="c1"># Either this is the first time we&#39;ve seen this book or its doesn&#39;t</span>
+            <span class="c1"># have an associated work. Make sure its identifier has bibliographic coverage.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">overdrive_bibliographic_coverage_provider</span><span class="o">.</span><span class="n">ensure_coverage</span><span class="p">(</span>
+                <span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">force</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_licensepool_with_book_info</span><span class="p">(</span>
+            <span class="n">book</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">is_new</span>
+        <span class="p">)</span></div>
+
+    <span class="c1"># Alias for the CirculationAPI interface</span>
+<div class="viewcode-block" id="OverdriveAPI.update_availability"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.update_availability">[docs]</a>    <span class="k">def</span> <span class="nf">update_availability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_licensepool</span><span class="p">(</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create the Edition that would be used to contain</span>
+<span class="sd">        Overdrive metadata for the given LicensePool.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Edition</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="OverdriveAPI.update_licensepool_with_book_info"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.update_licensepool_with_book_info">[docs]</a>    <span class="k">def</span> <span class="nf">update_licensepool_with_book_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">book</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">is_new_pool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update a book&#39;s LicensePool with information from a JSON</span>
+<span class="sd">        representation of its circulation info.</span>
+
+<span class="sd">        Then, create an Edition and make sure it has bibliographic</span>
+<span class="sd">        coverage. If the new Edition is the only candidate for the</span>
+<span class="sd">        pool&#39;s presentation_edition, promote it to presentation</span>
+<span class="sd">        status.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">circulation</span> <span class="o">=</span> <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">book_info_to_circulation</span><span class="p">(</span>
+            <span class="n">book</span>
+        <span class="p">)</span>
+        <span class="n">license_pool</span><span class="p">,</span> <span class="n">circulation_changed</span> <span class="o">=</span> <span class="n">circulation</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">collection</span>
+        <span class="p">)</span>
+
+        <span class="n">edition</span><span class="p">,</span> <span class="n">is_new_edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edition</span><span class="p">(</span><span class="n">license_pool</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">is_new_pool</span><span class="p">:</span>
+            <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;New Overdrive book discovered: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">is_new_pool</span><span class="p">,</span> <span class="n">circulation_changed</span></div>
+
+
+<div class="viewcode-block" id="OverdriveAPI.get_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_download_link">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_download_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkout_response</span><span class="p">,</span> <span class="n">format_type</span><span class="p">,</span> <span class="n">error_url</span><span class="p">):</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">available_formats</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">checkout_response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formats&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">this_type</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s1">&#39;formatType&#39;</span><span class="p">]</span>
+            <span class="n">available_formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">this_type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">this_type</span> <span class="o">==</span> <span class="n">format_type</span><span class="p">:</span>
+                <span class="nb">format</span> <span class="o">=</span> <span class="n">f</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">format</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">available_formats</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">INCOMPATIBLE_PLATFORM_FORMATS</span><span class="p">):</span>
+                <span class="c1"># The most likely explanation is that the patron</span>
+                <span class="c1"># already had this book delivered to their Kindle.</span>
+                <span class="k">raise</span> <span class="n">FulfilledOnIncompatiblePlatform</span><span class="p">(</span>
+                    <span class="s2">&quot;It looks like this loan was already fulfilled on another platform, most likely Amazon Kindle. We&#39;re not allowed to also send it to you as an EPUB.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># We don&#39;t know what happened -- most likely our</span>
+                <span class="c1"># format data is bad.</span>
+                <span class="n">format_list</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available_formats</span><span class="p">)</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Could not find specified format </span><span class="si">%s</span><span class="s2">. Available formats: </span><span class="si">%s</span><span class="s2">&quot;</span>
+                <span class="k">raise</span> <span class="n">NoAcceptableFormat</span><span class="p">(</span>
+                    <span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">format_type</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available_formats</span><span class="p">))</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_download_link</span><span class="p">(</span><span class="nb">format</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.extract_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.extract_download_link">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">extract_download_link</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">format</span><span class="p">,</span> <span class="n">error_url</span><span class="p">):</span>
+        <span class="n">format_type</span> <span class="o">=</span> <span class="nb">format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formatType&#39;</span><span class="p">,</span> <span class="s1">&#39;(unknown)&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;linkTemplates&#39;</span> <span class="ow">in</span> <span class="nb">format</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No linkTemplates for format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
+        <span class="n">templates</span> <span class="o">=</span> <span class="nb">format</span><span class="p">[</span><span class="s1">&#39;linkTemplates&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;downloadLink&#39;</span> <span class="ow">in</span> <span class="n">templates</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No downloadLink for format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
+        <span class="n">download_link</span> <span class="o">=</span> <span class="n">templates</span><span class="p">[</span><span class="s1">&#39;downloadLink&#39;</span><span class="p">][</span><span class="s1">&#39;href&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">download_link</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">download_link</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{errorpageurl}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span></div></div>
+
+
+<div class="viewcode-block" id="MockOverdriveResponse"><a class="viewcode-back" href="../../api.html#api.overdrive.MockOverdriveResponse">[docs]</a><span class="k">class</span> <span class="nc">MockOverdriveResponse</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="n">headers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+
+<div class="viewcode-block" id="MockOverdriveResponse.json"><a class="viewcode-back" href="../../api.html#api.overdrive.MockOverdriveResponse.json">[docs]</a>    <span class="k">def</span> <span class="nf">json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="MockOverdriveAPI"><a class="viewcode-back" href="../../api.html#api.overdrive.MockOverdriveAPI">[docs]</a><span class="k">class</span> <span class="nc">MockOverdriveAPI</span><span class="p">(</span><span class="n">BaseMockOverdriveAPI</span><span class="p">,</span> <span class="n">OverdriveAPI</span><span class="p">):</span>
+
+    <span class="n">library_data</span> <span class="o">=</span> <span class="s1">&#39;{&quot;id&quot;:1810,&quot;name&quot;:&quot;My Public Library (MA)&quot;,&quot;type&quot;:&quot;Library&quot;,&quot;collectionToken&quot;:&quot;1a09d9203&quot;,&quot;links&quot;:{&quot;self&quot;:{&quot;href&quot;:&quot;http://api.overdrive.com/v1/libraries/1810&quot;,&quot;type&quot;:&quot;application/vnd.overdrive.api+json&quot;},&quot;products&quot;:{&quot;href&quot;:&quot;http://api.overdrive.com/v1/collections/1a09d9203/products&quot;,&quot;type&quot;:&quot;application/vnd.overdrive.api+json&quot;},&quot;dlrHomepage&quot;:{&quot;href&quot;:&quot;http://ebooks.nypl.org&quot;,&quot;type&quot;:&quot;text/html&quot;}},&quot;formats&quot;:[{&quot;id&quot;:&quot;audiobook-wma&quot;,&quot;name&quot;:&quot;OverDrive WMA Audiobook&quot;},{&quot;id&quot;:&quot;ebook-pdf-adobe&quot;,&quot;name&quot;:&quot;Adobe PDF eBook&quot;},{&quot;id&quot;:&quot;ebook-mediado&quot;,&quot;name&quot;:&quot;MediaDo eBook&quot;},{&quot;id&quot;:&quot;ebook-epub-adobe&quot;,&quot;name&quot;:&quot;Adobe EPUB eBook&quot;},{&quot;id&quot;:&quot;ebook-kindle&quot;,&quot;name&quot;:&quot;Kindle Book&quot;},{&quot;id&quot;:&quot;audiobook-mp3&quot;,&quot;name&quot;:&quot;OverDrive MP3 Audiobook&quot;},{&quot;id&quot;:&quot;ebook-pdf-open&quot;,&quot;name&quot;:&quot;Open PDF eBook&quot;},{&quot;id&quot;:&quot;ebook-overdrive&quot;,&quot;name&quot;:&quot;OverDrive Read&quot;},{&quot;id&quot;:&quot;video-streaming&quot;,&quot;name&quot;:&quot;Streaming Video&quot;},{&quot;id&quot;:&quot;ebook-epub-open&quot;,&quot;name&quot;:&quot;Open EPUB eBook&quot;}]}&#39;</span>
+
+    <span class="n">token_data</span> <span class="o">=</span> <span class="s1">&#39;{&quot;access_token&quot;:&quot;foo&quot;,&quot;token_type&quot;:&quot;bearer&quot;,&quot;expires_in&quot;:3600,&quot;scope&quot;:&quot;LIB META AVAIL SRCH&quot;}&#39;</span>
+
+    <span class="n">collection_token</span> <span class="o">=</span> <span class="s1">&#39;fake token&#39;</span>
+
+<div class="viewcode-block" id="MockOverdriveAPI.patron_request"><a class="viewcode-back" href="../../api.html#api.overdrive.MockOverdriveAPI.patron_request">[docs]</a>    <span class="k">def</span> <span class="nf">patron_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Modify the record of the request to include the patron information.</span>
+        <span class="n">original_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># The last item in the record of the request is keyword arguments.</span>
+        <span class="c1"># Stick this information in there to minimize confusion.</span>
+        <span class="n">original_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;_patron&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">patron</span>
+        <span class="n">original_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;_pin&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">patron</span>
+        <span class="k">return</span> <span class="n">response</span></div></div>
+
+
+<div class="viewcode-block" id="OverdriveCirculationMonitor"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveCirculationMonitor">[docs]</a><span class="k">class</span> <span class="nc">OverdriveCirculationMonitor</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">,</span> <span class="n">TimelineMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Maintain LicensePools for recently changed Overdrive titles. Create</span>
+<span class="sd">    basic Editions for any new LicensePools that show up.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Overdrive Circulation Monitor&quot;</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+    <span class="n">OVERLAP</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">OverdriveAPI</span><span class="p">,</span> <span class="n">analytics_class</span><span class="o">=</span><span class="n">Analytics</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveCirculationMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics_class</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OverdriveCirculationMonitor.recently_changed_ids"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveCirculationMonitor.recently_changed_ids">[docs]</a>    <span class="k">def</span> <span class="nf">recently_changed_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">recently_changed_ids</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveCirculationMonitor.catch_up_from"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveCirculationMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find Overdrive books that changed recently.</span>
+
+<span class="sd">        :progress: A TimestampData representing the time previously</span>
+<span class="sd">            covered by this Monitor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">overdrive_data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Ask for changes between the last time covered by the Monitor</span>
+        <span class="c1"># and the current time.</span>
+        <span class="n">total_books</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">book</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">recently_changed_ids</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">):</span>
+            <span class="n">total_books</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">total_books</span> <span class="o">%</span> <span class="mi">100</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> books processed&quot;</span><span class="p">,</span> <span class="n">total_books</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">book</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">license_pool</span><span class="p">,</span> <span class="n">is_new</span><span class="p">,</span> <span class="n">is_changed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">update_licensepool</span><span class="p">(</span><span class="n">book</span><span class="p">)</span>
+            <span class="c1"># Log a circulation event for this work.</span>
+            <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
+                        <span class="n">library</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">DISTRIBUTOR_TITLE_ADD</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">last_checked</span>
+                    <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">book</span><span class="p">,</span> <span class="n">is_changed</span><span class="p">):</span>
+                <span class="k">break</span>
+
+        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Books processed: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">total_books</span></div></div>
+
+
+<div class="viewcode-block" id="NewTitlesOverdriveCollectionMonitor"><a class="viewcode-back" href="../../api.html#api.overdrive.NewTitlesOverdriveCollectionMonitor">[docs]</a><span class="k">class</span> <span class="nc">NewTitlesOverdriveCollectionMonitor</span><span class="p">(</span><span class="n">OverdriveCirculationMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Monitor the Overdrive collection for newly added titles.</span>
+
+<span class="sd">    This catches any new titles that slipped through the cracks of the</span>
+<span class="sd">    RecentOverdriveCollectionMonitor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Overdrive New Title Monitor&quot;</span>
+    <span class="n">OVERLAP</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">OverdriveCirculationMonitor</span><span class="o">.</span><span class="n">NEVER</span>
+
+<div class="viewcode-block" id="NewTitlesOverdriveCollectionMonitor.recently_changed_ids"><a class="viewcode-back" href="../../api.html#api.overdrive.NewTitlesOverdriveCollectionMonitor.recently_changed_ids">[docs]</a>    <span class="k">def</span> <span class="nf">recently_changed_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Ignore the dates and return all IDs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">all_ids</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="NewTitlesOverdriveCollectionMonitor.should_stop"><a class="viewcode-back" href="../../api.html#api.overdrive.NewTitlesOverdriveCollectionMonitor.should_stop">[docs]</a>    <span class="k">def</span> <span class="nf">should_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">api_description</span><span class="p">,</span> <span class="n">is_changed</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">start</span> <span class="ow">or</span> <span class="n">start</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">NEVER</span><span class="p">:</span>
+            <span class="c1"># This monitor has never run before. It should ask about</span>
+            <span class="c1"># every single book.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># We should stop if this book was added before our start time.</span>
+        <span class="n">date_added</span> <span class="o">=</span> <span class="n">api_description</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;date_added&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">date_added</span><span class="p">:</span>
+            <span class="c1"># We don&#39;t know when this book was added -- shouldn&#39;t happen.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">date_added</span> <span class="o">=</span> <span class="n">dateutil</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">date_added</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># The date format is unparseable -- shouldn&#39;t happen.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Got invalid date: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">date_added</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># The time stored in the database is UTC, but it&#39;s stored</span>
+        <span class="c1"># without any time zone information. Add that information so</span>
+        <span class="c1"># we can compare it against the date we got from Overdrive.</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">pytz</span><span class="o">.</span><span class="n">utc</span><span class="o">.</span><span class="n">localize</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Date added: </span><span class="si">%s</span><span class="s2">, start time: </span><span class="si">%s</span><span class="s2">, result </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">date_added</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">date_added</span> <span class="o">&lt;</span> <span class="n">start</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">date_added</span> <span class="o">&lt;</span> <span class="n">start</span></div></div>
+
+
+<div class="viewcode-block" id="OverdriveCollectionReaper"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveCollectionReaper">[docs]</a><span class="k">class</span> <span class="nc">OverdriveCollectionReaper</span><span class="p">(</span><span class="n">IdentifierSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check for books that are in the local collection but have left our</span>
+<span class="sd">    Overdrive collection.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Overdrive Collection Reaper&quot;</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">OverdriveAPI</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveCollectionReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OverdriveCollectionReaper.process_item"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveCollectionReaper.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">update_licensepool</span><span class="p">(</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="RecentOverdriveCollectionMonitor"><a class="viewcode-back" href="../../api.html#api.overdrive.RecentOverdriveCollectionMonitor">[docs]</a><span class="k">class</span> <span class="nc">RecentOverdriveCollectionMonitor</span><span class="p">(</span><span class="n">OverdriveCirculationMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Monitor recently changed books in the Overdrive collection.&quot;&quot;&quot;</span>
+
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Reverse Chronological Overdrive Collection Monitor&quot;</span>
+
+    <span class="c1"># Report successful completion upon finding this number of</span>
+    <span class="c1"># consecutive books in the Overdrive results whose LicensePools</span>
+    <span class="c1"># haven&#39;t changed since last time. Overdrive results are not in</span>
+    <span class="c1"># strict chronological order, but if you see 100 consecutive books</span>
+    <span class="c1"># that haven&#39;t changed, you&#39;re probably done.</span>
+    <span class="n">MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS</span><span class="o">=</span><span class="mi">100</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RecentOverdriveCollectionMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">consecutive_unchanged_books</span> <span class="o">=</span> <span class="mi">0</span>
+
+<div class="viewcode-block" id="RecentOverdriveCollectionMonitor.should_stop"><a class="viewcode-back" href="../../api.html#api.overdrive.RecentOverdriveCollectionMonitor.should_stop">[docs]</a>    <span class="k">def</span> <span class="nf">should_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">api_description</span><span class="p">,</span> <span class="n">is_changed</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">is_changed</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">consecutive_unchanged_books</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">consecutive_unchanged_books</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">consecutive_unchanged_books</span> <span class="o">&gt;=</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS</span><span class="p">):</span>
+                <span class="c1"># We&#39;re supposed to stop this run after finding a</span>
+                <span class="c1"># run of books that have not changed, and we have</span>
+                <span class="c1"># in fact seen that many consecutive unchanged</span>
+                <span class="c1"># books.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Stopping at </span><span class="si">%d</span><span class="s2"> unchanged books.&quot;</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">consecutive_unchanged_books</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div></div>
+
+
+<div class="viewcode-block" id="OverdriveFormatSweep"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveFormatSweep">[docs]</a><span class="k">class</span> <span class="nc">OverdriveFormatSweep</span><span class="p">(</span><span class="n">IdentifierSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check the current formats of every Overdrive book</span>
+<span class="sd">    in our collection.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Overdrive Format Sweep&quot;</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">25</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">OverdriveAPI</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveFormatSweep</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OverdriveFormatSweep.process_item"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveFormatSweep.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="n">pools</span> <span class="o">=</span> <span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span>
+        <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="n">pools</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">update_formats</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="OverdriveAdvantageAccountListScript"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAdvantageAccountListScript">[docs]</a><span class="k">class</span> <span class="nc">OverdriveAdvantageAccountListScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
+
+<div class="viewcode-block" id="OverdriveAdvantageAccountListScript.run"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAdvantageAccountListScript.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Explain every Overdrive collection and, for each one, all of its</span>
+<span class="sd">        Advantage collections.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">collections</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">explain_main_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+            <span class="nb">print</span></div>
+
+<div class="viewcode-block" id="OverdriveAdvantageAccountListScript.explain_main_collection"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAdvantageAccountListScript.explain_main_collection">[docs]</a>    <span class="k">def</span> <span class="nf">explain_main_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Explain an Overdrive collection and all of its Advantage</span>
+<span class="sd">        collections.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="n">OverdriveAPI</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="s2">&quot;Main Overdrive collection: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">collection</span><span class="o">.</span><span class="n">name</span>
+        <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">explain</span><span class="p">())</span>
+        <span class="nb">print</span> <span class="s2">&quot;A few of the titles in the main collection:&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">book</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">all_ids</span><span class="p">()):</span>
+            <span class="nb">print</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="n">advantage_accounts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">get_advantage_accounts</span><span class="p">())</span>
+        <span class="nb">print</span> <span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> associated Overdrive Advantage account(s).&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span>
+            <span class="n">advantage_accounts</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">advantage_collection</span> <span class="ow">in</span> <span class="n">advantage_accounts</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">explain_advantage_collection</span><span class="p">(</span><span class="n">advantage_collection</span><span class="p">)</span>
+            <span class="nb">print</span></div>
+
+<div class="viewcode-block" id="OverdriveAdvantageAccountListScript.explain_advantage_collection"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAdvantageAccountListScript.explain_advantage_collection">[docs]</a>    <span class="k">def</span> <span class="nf">explain_advantage_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Explain a single Overdrive Advantage collection.&quot;&quot;&quot;</span>
+        <span class="n">parent_collection</span><span class="p">,</span> <span class="n">child</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">to_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="s2">&quot; Overdrive Advantage collection: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">child</span><span class="o">.</span><span class="n">name</span>
+        <span class="nb">print</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">child</span><span class="o">.</span><span class="n">explain</span><span class="p">()))</span>
+        <span class="nb">print</span> <span class="s2">&quot; A few of the titles in this Advantage collection:&quot;</span>
+        <span class="n">child_api</span> <span class="o">=</span> <span class="n">OverdriveAPI</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">child</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">book</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">child_api</span><span class="o">.</span><span class="n">all_ids</span><span class="p">()):</span>
+            <span class="nb">print</span> <span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+                <span class="k">break</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

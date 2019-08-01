@@ -1,0 +1,337 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.util.opds_writer &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.opds_writer</h1><div class="highlight"><pre>
+<span></span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">builder</span><span class="p">,</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<div class="viewcode-block" id="ElementMaker"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.ElementMaker">[docs]</a><span class="k">class</span> <span class="nc">ElementMaker</span><span class="p">(</span><span class="n">builder</span><span class="o">.</span><span class="n">ElementMaker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A helper object for creating etree elements.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__dict__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Remove default_typemap from the dictionary -- it contains functions</span>
+        <span class="c1"># that can&#39;t be pickled.</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">ElementMaker</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__dict__</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s1">&#39;default_typemap&#39;</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AtomFeed"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed">[docs]</a><span class="k">class</span> <span class="nc">AtomFeed</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="n">ATOM_TYPE</span> <span class="o">=</span> <span class="s1">&#39;application/atom+xml&#39;</span>
+
+    <span class="n">ATOM_LIKE_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">ATOM_TYPE</span><span class="p">,</span> <span class="s1">&#39;application/xml&#39;</span><span class="p">]</span>
+
+    <span class="n">TIME_FORMAT</span> <span class="o">=</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">T%H:%M:%SZ%z&#39;</span>
+
+    <span class="n">ATOM_NS</span> <span class="o">=</span> <span class="s1">&#39;http://www.w3.org/2005/Atom&#39;</span>
+    <span class="n">APP_NS</span> <span class="o">=</span> <span class="s1">&#39;http://www.w3.org/2007/app&#39;</span>
+    <span class="c1">#xhtml_ns = &#39;http://www.w3.org/1999/xhtml&#39;</span>
+    <span class="n">DCTERMS_NS</span> <span class="o">=</span> <span class="s1">&#39;http://purl.org/dc/terms/&#39;</span>
+    <span class="n">OPDS_NS</span> <span class="o">=</span> <span class="s1">&#39;http://opds-spec.org/2010/catalog&#39;</span>
+    <span class="n">SCHEMA_NS</span> <span class="o">=</span> <span class="s1">&#39;http://schema.org/&#39;</span>
+    <span class="n">DRM_NS</span> <span class="o">=</span> <span class="s1">&#39;http://librarysimplified.org/terms/drm&#39;</span>
+    <span class="n">OPF_NS</span> <span class="o">=</span> <span class="s1">&#39;http://www.idpf.org/2007/opf&#39;</span>
+
+    <span class="n">SIMPLIFIED_NS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/&quot;</span>
+    <span class="n">BIBFRAME_NS</span> <span class="o">=</span> <span class="s2">&quot;http://bibframe.org/vocab/&quot;</span>
+    <span class="n">BIB_SCHEMA_NS</span> <span class="o">=</span> <span class="s2">&quot;http://bib.schema.org/&quot;</span>
+
+    <span class="n">nsmap</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="kc">None</span><span class="p">:</span> <span class="n">ATOM_NS</span><span class="p">,</span>
+        <span class="s1">&#39;app&#39;</span><span class="p">:</span> <span class="n">APP_NS</span><span class="p">,</span>
+        <span class="s1">&#39;dcterms&#39;</span> <span class="p">:</span> <span class="n">DCTERMS_NS</span><span class="p">,</span>
+        <span class="s1">&#39;opds&#39;</span> <span class="p">:</span> <span class="n">OPDS_NS</span><span class="p">,</span>
+        <span class="s1">&#39;opf&#39;</span> <span class="p">:</span> <span class="n">OPF_NS</span><span class="p">,</span>
+        <span class="s1">&#39;drm&#39;</span> <span class="p">:</span> <span class="n">DRM_NS</span><span class="p">,</span>
+        <span class="s1">&#39;schema&#39;</span> <span class="p">:</span> <span class="n">SCHEMA_NS</span><span class="p">,</span>
+        <span class="s1">&#39;simplified&#39;</span> <span class="p">:</span> <span class="n">SIMPLIFIED_NS</span><span class="p">,</span>
+        <span class="s1">&#39;bibframe&#39;</span> <span class="p">:</span> <span class="n">BIBFRAME_NS</span><span class="p">,</span>
+        <span class="s1">&#39;bib&#39;</span><span class="p">:</span> <span class="n">BIB_SCHEMA_NS</span>
+    <span class="p">}</span>
+
+    <span class="n">default_typemap</span> <span class="o">=</span> <span class="p">{</span><span class="n">datetime</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">e</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">_strftime</span><span class="p">(</span><span class="n">v</span><span class="p">)}</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">ElementMaker</span><span class="p">(</span><span class="n">typemap</span><span class="o">=</span><span class="n">default_typemap</span><span class="p">,</span> <span class="n">nsmap</span><span class="o">=</span><span class="n">nsmap</span><span class="p">)</span>
+    <span class="n">SIMPLIFIED</span> <span class="o">=</span> <span class="n">ElementMaker</span><span class="p">(</span><span class="n">typemap</span><span class="o">=</span><span class="n">default_typemap</span><span class="p">,</span> <span class="n">nsmap</span><span class="o">=</span><span class="n">nsmap</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="n">SIMPLIFIED_NS</span><span class="p">)</span>
+    <span class="n">SCHEMA</span> <span class="o">=</span> <span class="n">ElementMaker</span><span class="p">(</span><span class="n">typemap</span><span class="o">=</span><span class="n">default_typemap</span><span class="p">,</span> <span class="n">nsmap</span><span class="o">=</span><span class="n">nsmap</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="n">SCHEMA_NS</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_strftime</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Format a date the way Atom likes it (RFC3339?)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="AtomFeed.add_link_to_feed"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.add_link_to_feed">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_link_to_feed</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">feed</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">feed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">children</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
+                <span class="n">link</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.add_link_to_entry"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.add_link_to_entry">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_link_to_entry</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">entry</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s1">&#39;title&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">])</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">entry</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">children</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
+                <span class="n">link</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AtomFeed.author"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.author">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">author</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">author</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AtomFeed.contributor"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.contributor">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">contributor</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">contributor</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AtomFeed.category"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.category">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">category</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">category</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.entry"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.entry">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">entry</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">entry</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.id"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.id">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">id</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.link"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.link">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">link</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.makeelement"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.makeelement">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">makeelement</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">_makeelement</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.name"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.name">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.schema_"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.schema_">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">schema_</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;{</span><span class="si">%s</span><span class="s2">}</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA_NS</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AtomFeed.summary"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.summary">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.title"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.title">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">title</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.update"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.update">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomFeed.updated"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.AtomFeed.updated">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">updated</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">updated</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">id</span><span class="p">(</span><span class="n">url</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">title</span><span class="p">)),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">updated</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_strftime</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">())),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">href</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;self&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">__unicode__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">string_tree</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">pretty_print</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">string_tree</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="OPDSFeed"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.OPDSFeed">[docs]</a><span class="k">class</span> <span class="nc">OPDSFeed</span><span class="p">(</span><span class="n">AtomFeed</span><span class="p">):</span>
+
+    <span class="n">ACQUISITION_FEED_TYPE</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">ATOM_TYPE</span> <span class="o">+</span> <span class="s2">&quot;;profile=opds-catalog;kind=acquisition&quot;</span>
+    <span class="n">NAVIGATION_FEED_TYPE</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">ATOM_TYPE</span> <span class="o">+</span> <span class="s2">&quot;;profile=opds-catalog;kind=navigation&quot;</span>
+    <span class="n">ENTRY_TYPE</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">ATOM_TYPE</span> <span class="o">+</span> <span class="s2">&quot;;type=entry;profile=opds-catalog&quot;</span>
+
+    <span class="n">GROUP_REL</span> <span class="o">=</span> <span class="s2">&quot;collection&quot;</span>
+    <span class="n">FEATURED_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/featured&quot;</span>
+    <span class="n">RECOMMENDED_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/recommended&quot;</span>
+    <span class="n">POPULAR_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/sort/popular&quot;</span>
+    <span class="n">OPEN_ACCESS_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/acquisition/open-access&quot;</span>
+    <span class="n">ACQUISITION_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/acquisition&quot;</span>
+    <span class="n">BORROW_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/acquisition/borrow&quot;</span>
+    <span class="n">FULL_IMAGE_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/image&quot;</span>
+    <span class="n">EPUB_MEDIA_TYPE</span> <span class="o">=</span> <span class="s2">&quot;application/epub+zip&quot;</span>
+
+    <span class="n">REVOKE_LOAN_REL</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/revoke&quot;</span>
+    <span class="n">NO_TITLE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/problem/no-title&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OPDSMessage"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.OPDSMessage">[docs]</a><span class="k">class</span> <span class="nc">OPDSMessage</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An indication that an &lt;entry&gt; could not be created for an</span>
+<span class="sd">    identifier.</span>
+
+<span class="sd">    Inserted into an OPDS feed as an extension tag.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">urn</span> <span class="o">=</span> <span class="n">urn</span>
+        <span class="k">if</span> <span class="n">status_code</span><span class="p">:</span>
+            <span class="n">status_code</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">status_code</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">OPDSMessage</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">urn</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">urn</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">status_code</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">message</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">tag</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">message_tag</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">SIMPLIFIED</span><span class="o">.</span><span class="n">message</span><span class="p">()</span>
+        <span class="n">identifier_tag</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">id</span><span class="p">()</span>
+        <span class="n">identifier_tag</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">urn</span>
+        <span class="n">message_tag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">identifier_tag</span><span class="p">)</span>
+
+        <span class="n">status_tag</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">SIMPLIFIED</span><span class="o">.</span><span class="n">status_code</span><span class="p">()</span>
+        <span class="n">status_tag</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">status_code</span><span class="p">)</span>
+        <span class="n">message_tag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">status_tag</span><span class="p">)</span>
+
+        <span class="n">description_tag</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">description</span><span class="p">()</span>
+        <span class="n">description_tag</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="n">message_tag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">description_tag</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">message_tag</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

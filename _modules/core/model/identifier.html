@@ -1,0 +1,955 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.identifier &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.identifier</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Identifier, Equivalency</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">create</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">PresentationCalculationPolicy</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="n">CoverageRecord</span>
+<span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Classification</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">IdentifierConstants</span><span class="p">,</span>
+    <span class="n">LinkRelations</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
+    <span class="n">RightsStatus</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">measurement</span> <span class="k">import</span> <span class="n">Measurement</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">isbnlib</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">Float</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">func</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">String</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">joinedload</span><span class="p">,</span>
+    <span class="n">relationship</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">select</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">and_</span><span class="p">,</span>
+    <span class="n">or_</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">..util.summary</span> <span class="k">import</span> <span class="n">SummaryEvaluator</span>
+
+<div class="viewcode-block" id="Identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier">[docs]</a><span class="k">class</span> <span class="nc">Identifier</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">IdentifierConstants</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A way of uniquely referring to a particular edition.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;identifiers&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">type</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">equivalencies</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Equivalency&quot;</span><span class="p">,</span>
+        <span class="n">primaryjoin</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Identifier.id==Equivalency.input_id&quot;</span><span class="p">),</span>
+        <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;input_identifiers&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">inbound_equivalencies</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Equivalency&quot;</span><span class="p">,</span>
+        <span class="n">primaryjoin</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Identifier.id==Equivalency.output_id&quot;</span><span class="p">),</span>
+        <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;output_identifiers&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># One Identifier may have many associated CoverageRecords.</span>
+    <span class="n">coverage_records</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;CoverageRecord&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primarily_identifies</span>
+        <span class="k">if</span> <span class="n">records</span> <span class="ow">and</span> <span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">title</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; prim_ed=</span><span class="si">%d</span><span class="s1"> (&quot;</span><span class="si">%s</span><span class="s1">&quot;)&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> ID=</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                                    <span class="n">title</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+
+    <span class="c1"># One Identifier may serve as the primary identifier for</span>
+    <span class="c1"># several Editions.</span>
+    <span class="n">primarily_identifies</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Edition&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;primary_identifier&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># One Identifier may serve as the identifier for many</span>
+    <span class="c1"># LicensePools, through different Collections.</span>
+    <span class="n">licensed_through</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;LicensePool&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="s1">&#39;joined&#39;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># One Identifier may have many Links.</span>
+    <span class="n">links</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Hyperlink&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># One Identifier may be the subject of many Measurements.</span>
+    <span class="n">measurements</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Measurement&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># One Identifier may participate in many Classifications.</span>
+    <span class="n">classifications</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Classification&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># One identifier may participate in many Annotations.</span>
+    <span class="n">annotations</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Annotation&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># One Identifier can have have many LicensePoolDeliveryMechanisms.</span>
+    <span class="n">delivery_mechanisms</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;LicensePoolDeliveryMechanism&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span><span class="p">,</span>
+        <span class="n">foreign_keys</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="n">LicensePoolDeliveryMechanism</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Type + identifier is unique.</span>
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="s1">&#39;identifier&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="Identifier.from_asin"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.from_asin">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_asin</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">asin</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn an ASIN-like string into an Identifier.</span>
+<span class="sd">        If the string is an ISBN10 or ISBN13, the Identifier will be</span>
+<span class="sd">        of type ISBN and the value will be the equivalent ISBN13.</span>
+<span class="sd">        Otherwise the Identifier will be of type ASIN and the value will</span>
+<span class="sd">        be the value of `asin`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">asin</span> <span class="o">=</span> <span class="n">asin</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">isbnlib</span><span class="o">.</span><span class="n">is_isbn10</span><span class="p">(</span><span class="n">asin</span><span class="p">):</span>
+            <span class="n">asin</span> <span class="o">=</span> <span class="n">isbnlib</span><span class="o">.</span><span class="n">to_isbn13</span><span class="p">(</span><span class="n">asin</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">isbnlib</span><span class="o">.</span><span class="n">is_isbn13</span><span class="p">(</span><span class="n">asin</span><span class="p">):</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ISBN</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ASIN</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">asin</span><span class="p">,</span> <span class="n">autocreate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Identifier.for_foreign_id"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.for_foreign_id">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_foreign_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">foreign_identifier_type</span><span class="p">,</span> <span class="n">foreign_id</span><span class="p">,</span>
+                       <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a foreign ID into an Identifier.&quot;&quot;&quot;</span>
+        <span class="n">foreign_identifier_type</span><span class="p">,</span> <span class="n">foreign_id</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">prepare_foreign_type_and_identifier</span><span class="p">(</span>
+            <span class="n">foreign_identifier_type</span><span class="p">,</span> <span class="n">foreign_id</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">foreign_identifier_type</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">foreign_id</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">autocreate</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">get_one_or_create</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">get_one</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">m</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">foreign_identifier_type</span><span class="p">,</span>
+                   <span class="n">identifier</span><span class="o">=</span><span class="n">foreign_id</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Identifier.prepare_foreign_type_and_identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.prepare_foreign_type_and_identifier">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">prepare_foreign_type_and_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">foreign_type</span><span class="p">,</span> <span class="n">foreign_identifier</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">foreign_type</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">foreign_identifier</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># Turn a deprecated identifier type (e.g. &quot;3M ID&quot; into the</span>
+        <span class="c1"># current type (e.g. &quot;Bibliotheca ID&quot;).</span>
+        <span class="n">foreign_type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEPRECATED_NAMES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">foreign_type</span><span class="p">,</span> <span class="n">foreign_type</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">foreign_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">BIBLIOTHECA_ID</span><span class="p">):</span>
+            <span class="n">foreign_identifier</span> <span class="o">=</span> <span class="n">foreign_identifier</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">valid_as_foreign_identifier</span><span class="p">(</span><span class="n">foreign_type</span><span class="p">,</span> <span class="n">foreign_identifier</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%s</span><span class="s1">&quot; is not a valid </span><span class="si">%s</span><span class="s1">.&#39;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">foreign_identifier</span><span class="p">,</span> <span class="n">foreign_type</span>
+            <span class="p">))</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">foreign_type</span><span class="p">,</span> <span class="n">foreign_identifier</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Identifier.valid_as_foreign_identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.valid_as_foreign_identifier">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">valid_as_foreign_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return True if the given `id` can be an Identifier of the given</span>
+<span class="sd">        `type`.</span>
+<span class="sd">        This is not a complete implementation; we will add to it as</span>
+<span class="sd">        necessary.</span>
+<span class="sd">        In general we err on the side of allowing IDs that look</span>
+<span class="sd">        invalid (e.g. all Overdrive IDs look like UUIDs, but we</span>
+<span class="sd">        currently don&#39;t enforce that). We only reject an ID out of</span>
+<span class="sd">        hand if it will cause problems with a third-party API.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">forbidden_characters</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">BIBLIOTHECA_ID</span><span class="p">:</span>
+            <span class="c1"># IDs are joined with commas and provided as a URL path</span>
+            <span class="c1"># element.  Embedded commas or slashes will confuse the</span>
+            <span class="c1"># Bibliotheca API.</span>
+            <span class="n">forbidden_characters</span> <span class="o">=</span> <span class="s1">&#39;,/&#39;</span>
+        <span class="k">elif</span> <span class="nb">type</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">AXIS_360_ID</span><span class="p">:</span>
+            <span class="c1"># IDs are joined with commas during a lookup. Embedded</span>
+            <span class="c1"># commas will confuse the Axis 360 API.</span>
+            <span class="n">forbidden_characters</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span> <span class="ow">in</span> <span class="nb">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">forbidden_characters</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">urn</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">identifier_text</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ISBN_URN_SCHEME_PREFIX</span> <span class="o">+</span> <span class="n">identifier_text</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">URI</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">GUTENBERG_ID</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">GUTENBERG_URN_SCHEME_PREFIX</span> <span class="o">+</span> <span class="n">identifier_text</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">identifier_type</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">URN_SCHEME_PREFIX</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier_text</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the Work, if any, associated with this Identifier.</span>
+<span class="sd">        Although one Identifier may be associated with multiple LicensePools,</span>
+<span class="sd">        all of them must share a Work.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">lp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">lp</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">lp</span><span class="o">.</span><span class="n">work</span>
+
+<div class="viewcode-block" id="Identifier.UnresolvableIdentifierException"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.UnresolvableIdentifierException">[docs]</a>    <span class="k">class</span> <span class="nc">UnresolvableIdentifierException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+        <span class="c1"># Raised when an identifier that can&#39;t be resolved into a LicensePool</span>
+        <span class="c1"># is provided in a context that requires a resolvable identifier</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Identifier.type_and_identifier_for_urn"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.type_and_identifier_for_urn">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">type_and_identifier_for_urn</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier_string</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">GUTENBERG_URN_SCHEME_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">GUTENBERG_ID</span>
+            <span class="n">identifier_string</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">identifier_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;http:&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">identifier_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;https:&quot;</span><span class="p">):</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">URI</span>
+        <span class="k">elif</span> <span class="n">identifier_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">URN_SCHEME_PREFIX</span><span class="p">):</span>
+            <span class="n">identifier_string</span> <span class="o">=</span> <span class="n">identifier_string</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">URN_SCHEME_PREFIX</span><span class="p">):]</span>
+            <span class="nb">type</span><span class="p">,</span> <span class="n">identifier_string</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span>
+                <span class="n">urllib</span><span class="o">.</span><span class="n">unquote</span><span class="p">,</span> <span class="n">identifier_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">identifier_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN_URN_SCHEME_PREFIX</span><span class="p">):</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span>
+            <span class="n">identifier_string</span> <span class="o">=</span> <span class="n">identifier_string</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN_URN_SCHEME_PREFIX</span><span class="p">):]</span>
+            <span class="n">identifier_string</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">unquote</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span>
+            <span class="c1"># Make sure this is a valid ISBN, and convert it to an ISBN-13.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">isbnlib</span><span class="o">.</span><span class="n">is_isbn10</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span> <span class="ow">or</span>
+                    <span class="n">isbnlib</span><span class="o">.</span><span class="n">is_isbn13</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is not a valid ISBN.&quot;</span> <span class="o">%</span> <span class="n">identifier_string</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">isbnlib</span><span class="o">.</span><span class="n">is_isbn10</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">):</span>
+                <span class="n">identifier_string</span> <span class="o">=</span> <span class="n">isbnlib</span><span class="o">.</span><span class="n">to_isbn13</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">identifier_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">OTHER_URN_SCHEME_PREFIX</span><span class="p">):</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">URI</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not turn </span><span class="si">%s</span><span class="s2"> into a recognized identifier.&quot;</span> <span class="o">%</span>
+                <span class="n">identifier_string</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Identifier.parse_urns"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.parse_urns">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_urns</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_strings</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                   <span class="n">allowed_types</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Converts a batch of URNs into Identifier objects.</span>
+
+<span class="sd">        :param _db: A database connection</span>
+<span class="sd">        :param identifier_strings: A list of strings, each a URN</span>
+<span class="sd">            identifying some identifier.</span>
+<span class="sd">        :param autocreate: Create an Identifier for a URN if none</span>
+<span class="sd">            presently exists.</span>
+<span class="sd">        :param allowed_types: If this is a list of Identifier</span>
+<span class="sd">            types, only identifiers of those types may be looked</span>
+<span class="sd">            up. All other identifier types will be treated as though</span>
+<span class="sd">            they did not exist.</span>
+<span class="sd">        :return: A 2-tuple (identifiers, failures). `identifiers` is a</span>
+<span class="sd">            list of Identifiers. `failures` is a list of URNs that</span>
+<span class="sd">            did not become Identifiers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">allowed_types</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">allowed_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">allowed_types</span><span class="p">)</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">identifier_details</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">urn</span> <span class="ow">in</span> <span class="n">identifier_strings</span><span class="p">:</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="n">identifier</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">prepare_foreign_type_and_identifier</span><span class="p">(</span>
+                    <span class="o">*</span><span class="bp">cls</span><span class="o">.</span><span class="n">type_and_identifier_for_urn</span><span class="p">(</span><span class="n">urn</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="nb">type</span> <span class="ow">and</span> <span class="n">identifier</span> <span class="ow">and</span>
+                    <span class="p">(</span><span class="n">allowed_types</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">allowed_types</span><span class="p">)):</span>
+                    <span class="n">identifier_details</span><span class="p">[</span><span class="n">urn</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">urn</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">urn</span><span class="p">)</span>
+
+        <span class="n">identifiers_by_urn</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">find_existing_identifiers</span><span class="p">(</span><span class="n">identifier_details</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier_details</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">and_clauses</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+            <span class="k">for</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">identifier_details</span><span class="p">:</span>
+                <span class="n">and_clauses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">and_</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="nb">type</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="n">identifier</span><span class="p">)</span>
+                <span class="p">)</span>
+
+            <span class="n">identifiers</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">or_</span><span class="p">(</span><span class="o">*</span><span class="n">and_clauses</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">:</span>
+                <span class="n">identifiers_by_urn</span><span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">]</span> <span class="o">=</span> <span class="n">identifier</span>
+
+        <span class="c1"># Find identifiers that are already in the database.</span>
+        <span class="n">find_existing_identifiers</span><span class="p">(</span><span class="n">identifier_details</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+        <span class="c1"># Remove the existing identifiers from the identifier_details list,</span>
+        <span class="c1"># regardless of whether the provided URN was accurate.</span>
+        <span class="n">existing_details</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">identifiers_by_urn</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+        <span class="n">identifier_details</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">identifier_details</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing_details</span> <span class="ow">and</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">identifiers_by_urn</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">autocreate</span><span class="p">:</span>
+            <span class="c1"># Don&#39;t make new identifiers. Send back unfound urns as failures.</span>
+            <span class="n">failures</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">identifier_details</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="k">return</span> <span class="n">identifiers_by_urn</span><span class="p">,</span> <span class="n">failures</span>
+
+        <span class="c1"># Find any identifier details that don&#39;t correspond to an existing</span>
+        <span class="c1"># identifier. Try to create them.</span>
+        <span class="n">new_identifiers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">new_identifiers_details</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+        <span class="k">for</span> <span class="n">urn</span><span class="p">,</span> <span class="n">details</span> <span class="ow">in</span> <span class="n">identifier_details</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">details</span> <span class="ow">in</span> <span class="n">new_identifiers_details</span><span class="p">:</span>
+                <span class="c1"># For some reason, this identifier is here twice.</span>
+                <span class="c1"># Don&#39;t try to insert it twice.</span>
+                <span class="k">continue</span>
+            <span class="n">new_identifiers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">identifier</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="n">new_identifiers_details</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">details</span><span class="p">)</span>
+
+        <span class="c1"># Insert new identifiers into the database, then add them to the</span>
+        <span class="c1"># results.</span>
+        <span class="k">if</span> <span class="n">new_identifiers</span><span class="p">:</span>
+            <span class="n">_db</span><span class="o">.</span><span class="n">bulk_insert_mappings</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">new_identifiers</span><span class="p">)</span>
+            <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="n">find_existing_identifiers</span><span class="p">(</span><span class="n">identifier_details</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">identifiers_by_urn</span><span class="p">,</span> <span class="n">failures</span></div>
+
+<div class="viewcode-block" id="Identifier.parse_urn"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.parse_urn">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_urn</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">,</span> <span class="n">must_support_license_pools</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="nb">type</span><span class="p">,</span> <span class="n">identifier_string</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">type_and_identifier_for_urn</span><span class="p">(</span><span class="n">identifier_string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">must_support_license_pools</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ls</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">license_source_for</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">UnresolvableIdentifierException</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">MultipleResultsFound</span><span class="p">:</span>
+                 <span class="c1"># This is fine.</span>
+                <span class="k">pass</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier_string</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Identifier.equivalent_to"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.equivalent_to">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">strength</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make one Identifier equivalent to another.</span>
+<span class="sd">        `data_source` is the DataSource that believes the two</span>
+<span class="sd">        identifiers are equivalent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="c1"># That an identifier is equivalent to itself is tautological.</span>
+            <span class="c1"># Do nothing.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">eq</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Equivalency</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="nb">input</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">output</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+        <span class="n">eq</span><span class="o">.</span><span class="n">strength</span><span class="o">=</span><span class="n">strength</span>
+        <span class="k">if</span> <span class="n">new</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Identifier equivalency: </span><span class="si">%r</span><span class="s2">==</span><span class="si">%r</span><span class="s2"> p=</span><span class="si">%.2f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span>
+                <span class="n">strength</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">eq</span></div>
+
+<div class="viewcode-block" id="Identifier.recursively_equivalent_identifier_ids_query"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.recursively_equivalent_identifier_ids_query">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">identifier_id_column</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get a SQL statement that will return all Identifier IDs</span>
+<span class="sd">        equivalent to a given ID at the given confidence threshold.</span>
+<span class="sd">        `identifier_id_column` can be a single Identifier ID, or a column</span>
+<span class="sd">        like `Edition.primary_identifier_id` if the query will be used as</span>
+<span class="sd">        a subquery.</span>
+<span class="sd">        This uses the function defined in files/recursive_equivalents.sql.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
+            <span class="n">identifier_id_column</span><span class="p">,</span> <span class="n">policy</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">select</span><span class="p">([</span><span class="n">fn</span><span class="p">])</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">identifier_id_column</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">policy</span> <span class="o">=</span> <span class="n">policy</span> <span class="ow">or</span> <span class="n">PresentationCalculationPolicy</span><span class="p">()</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">equivalent_identifier_levels</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">equivalent_identifier_threshold</span>
+        <span class="n">cutoff</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">equivalent_identifier_cutoff</span>
+
+        <span class="k">return</span> <span class="n">func</span><span class="o">.</span><span class="n">fn_recursive_equivalents</span><span class="p">(</span>
+            <span class="n">identifier_id_column</span><span class="p">,</span> <span class="n">levels</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">cutoff</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Identifier.recursively_equivalent_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.recursively_equivalent_identifier_ids">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">recursively_equivalent_identifier_ids</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;All Identifier IDs equivalent to the given set of Identifier</span>
+<span class="sd">        IDs at the given confidence threshold.</span>
+<span class="sd">        This uses the function defined in files/recursive_equivalents.sql.</span>
+<span class="sd">        Four levels is enough to go from a Gutenberg text to an ISBN.</span>
+<span class="sd">        Gutenberg ID -&gt; OCLC Work IS -&gt; OCLC Number -&gt; ISBN</span>
+<span class="sd">        Returns a dictionary mapping each ID in the original to a</span>
+<span class="sd">        list of equivalent IDs.</span>
+
+<span class="sd">        :param policy: A PresentationCalculationPolicy that explains</span>
+<span class="sd">           how you&#39;ve chosen to make the tradeoff between performance,</span>
+<span class="sd">           data quality, and sheer number of equivalent identifiers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">policy</span>
+        <span class="p">)</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">select</span><span class="p">([</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">fn</span><span class="p">],</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">))</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">equivalents</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">original</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">equivalent</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">equivalents</span><span class="p">[</span><span class="n">original</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">equivalent</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">equivalents</span></div>
+
+<div class="viewcode-block" id="Identifier.equivalent_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.equivalent_identifier_ids">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_identifier_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">recursively_equivalent_identifier_ids</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">],</span> <span class="n">policy</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Identifier.licensed_through_collection"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.licensed_through_collection">[docs]</a>    <span class="k">def</span> <span class="nf">licensed_through_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the LicensePool, if any, for this Identifier</span>
+<span class="sd">        in the given Collection.</span>
+<span class="sd">        :return: At most one LicensePool.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">lp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">lp</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="n">collection</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">lp</span></div>
+
+<div class="viewcode-block" id="Identifier.add_link"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.add_link">[docs]</a>    <span class="k">def</span> <span class="nf">add_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">href</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">content_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rights_status_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rights_explanation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">original_resource</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transformation_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a link between this Identifier and a (potentially new)</span>
+<span class="sd">        Resource.</span>
+<span class="sd">        TODO: There&#39;s some code in metadata_layer for automatically</span>
+<span class="sd">        fetching, mirroring and scaling Representations as links are</span>
+<span class="sd">        created. It might be good to move that code into here.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+            <span class="n">Resource</span><span class="p">,</span>
+            <span class="n">Hyperlink</span><span class="p">,</span>
+            <span class="n">Representation</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Find or create the Resource.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">href</span><span class="p">:</span>
+            <span class="n">href</span> <span class="o">=</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">generic_uri</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
+        <span class="n">rights_status</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">rights_status_uri</span><span class="p">:</span>
+            <span class="n">rights_status</span> <span class="o">=</span> <span class="n">RightsStatus</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">rights_status_uri</span><span class="p">)</span>
+        <span class="n">resource</span><span class="p">,</span> <span class="n">new_resource</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Resource</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">href</span><span class="p">,</span>
+            <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+                                      <span class="n">rights_status</span><span class="o">=</span><span class="n">rights_status</span><span class="p">,</span>
+                                      <span class="n">rights_explanation</span><span class="o">=</span><span class="n">rights_explanation</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Find or create the Hyperlink.</span>
+        <span class="n">link</span><span class="p">,</span> <span class="n">new_link</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Hyperlink</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="n">rel</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">content</span> <span class="ow">or</span> <span class="n">content_path</span><span class="p">:</span>
+            <span class="c1"># We have content for this resource.</span>
+            <span class="n">resource</span><span class="o">.</span><span class="n">set_fetched_content</span><span class="p">(</span><span class="n">media_type</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">content_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">media_type</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="p">):</span>
+            <span class="c1"># We know the type of the resource, so make a</span>
+            <span class="c1"># Representation for it.</span>
+            <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">resource</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">media_type</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">original_resource</span><span class="p">:</span>
+            <span class="n">original_resource</span><span class="o">.</span><span class="n">add_derivative</span><span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">resource</span><span class="p">,</span> <span class="n">transformation_settings</span><span class="p">)</span>
+
+        <span class="c1"># TODO: This is where we would mirror the resource if we</span>
+        <span class="c1"># wanted to.</span>
+        <span class="k">return</span> <span class="n">link</span><span class="p">,</span> <span class="n">new_link</span></div>
+
+<div class="viewcode-block" id="Identifier.add_measurement"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.add_measurement">[docs]</a>    <span class="k">def</span> <span class="nf">add_measurement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">quantity_measured</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span>
+                        <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">taken_at</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Associate a new Measurement with this Identifier.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;MEASUREMENT: </span><span class="si">%s</span><span class="s2"> on </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2"> == </span><span class="si">%s</span><span class="s2"> (wt=</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">quantity_measured</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
+
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">taken_at</span> <span class="o">=</span> <span class="n">taken_at</span> <span class="ow">or</span> <span class="n">now</span>
+        <span class="c1"># Is there an existing most recent measurement?</span>
+        <span class="n">most_recent</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Measurement</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">quantity_measured</span><span class="o">=</span><span class="n">quantity_measured</span><span class="p">,</span>
+            <span class="n">is_most_recent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">most_recent</span> <span class="ow">and</span> <span class="n">most_recent</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">taken_at</span> <span class="o">==</span> <span class="n">now</span><span class="p">:</span>
+            <span class="c1"># The value hasn&#39;t changed since last time. Just update</span>
+            <span class="c1"># the timestamp of the existing measurement.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">taken_at</span> <span class="o">=</span> <span class="n">taken_at</span>
+
+        <span class="k">if</span> <span class="n">most_recent</span> <span class="ow">and</span> <span class="n">most_recent</span><span class="o">.</span><span class="n">taken_at</span> <span class="o">&lt;</span> <span class="n">taken_at</span><span class="p">:</span>
+            <span class="n">most_recent</span><span class="o">.</span><span class="n">is_most_recent</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="n">create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Measurement</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">quantity_measured</span><span class="o">=</span><span class="n">quantity_measured</span><span class="p">,</span> <span class="n">taken_at</span><span class="o">=</span><span class="n">taken_at</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span> <span class="n">is_most_recent</span><span class="o">=</span><span class="kc">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Identifier.classify"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.classify">[docs]</a>    <span class="k">def</span> <span class="nf">classify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">subject_type</span><span class="p">,</span> <span class="n">subject_identifier</span><span class="p">,</span>
+                 <span class="n">subject_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Classify this Identifier under a Subject.</span>
+
+<span class="sd">        :param type: Classification scheme; one of the constants from Subject.</span>
+<span class="sd">        :param subject_identifier: Internal ID of the subject according to that classification scheme.</span>
+<span class="sd">        :param value: Human-readable description of the subject, if different</span>
+<span class="sd">            from the ID.</span>
+<span class="sd">        :param weight: How confident the data source is in classifying a</span>
+<span class="sd">            book under this subject. The meaning of this</span>
+<span class="sd">            number depends entirely on the source of the</span>
+<span class="sd">            information.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># Turn the subject type and identifier into a Subject.</span>
+        <span class="n">classifications</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">subject</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">Subject</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">subject_type</span><span class="p">,</span> <span class="n">subject_identifier</span><span class="p">,</span> <span class="n">subject_name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;CLASSIFICATION: </span><span class="si">%s</span><span class="s2"> on </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> (wt=</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">subject</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">subject</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">subject</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">weight</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Use a Classification to connect the Identifier to the</span>
+        <span class="c1"># Subject.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">classification</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">Classification</span><span class="p">,</span>
+                <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">subject</span><span class="o">=</span><span class="n">subject</span><span class="p">,</span>
+                <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">MultipleResultsFound</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># TODO: This is a hack.</span>
+            <span class="n">all_classifications</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Classification</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Classification</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">Classification</span><span class="o">.</span><span class="n">subject</span><span class="o">==</span><span class="n">subject</span><span class="p">,</span>
+                <span class="n">Classification</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="n">data_source</span><span class="p">)</span>
+            <span class="n">all_classifications</span> <span class="o">=</span> <span class="n">all_classifications</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+            <span class="n">classification</span> <span class="o">=</span> <span class="n">all_classifications</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">all_classifications</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+                <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="n">classification</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span>
+        <span class="k">return</span> <span class="n">classification</span></div>
+
+<div class="viewcode-block" id="Identifier.resources_for_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.resources_for_identifier_ids">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">resources_for_identifier_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                     <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+            <span class="n">Resource</span><span class="p">,</span>
+            <span class="n">Hyperlink</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Resource</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Resource</span><span class="o">.</span><span class="n">links</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Hyperlink</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">data_source</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
+                <span class="n">data_source</span> <span class="o">=</span> <span class="p">[</span><span class="n">data_source</span><span class="p">]</span>
+            <span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">.</span><span class="n">in_</span><span class="p">([</span><span class="n">d</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data_source</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="n">rel</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rel</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">rel</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">rel</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">rel</span><span class="o">==</span><span class="n">rel</span><span class="p">)</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">joinedload</span><span class="p">(</span><span class="s1">&#39;representation&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">resources</span></div>
+
+<div class="viewcode-block" id="Identifier.classifications_for_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.classifications_for_identifier_ids">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">classifications_for_identifier_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">):</span>
+        <span class="n">classifications</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Classification</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Classification</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">classifications</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">joinedload</span><span class="p">(</span><span class="s1">&#39;subject&#39;</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Identifier.best_cover_for"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.best_cover_for">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">best_cover_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># Find all image resources associated with any of</span>
+        <span class="c1"># these identifiers.</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+            <span class="n">Resource</span><span class="p">,</span>
+            <span class="n">Hyperlink</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">rel</span> <span class="o">=</span> <span class="n">rel</span> <span class="ow">or</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">resources_for_identifier_ids</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="p">)</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Resource</span><span class="o">.</span><span class="n">representation</span><span class="p">)</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+        <span class="n">champions</span> <span class="o">=</span> <span class="n">Resource</span><span class="o">.</span><span class="n">best_covers_among</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">champions</span><span class="p">:</span>
+            <span class="n">champion</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">champions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">champion</span><span class="p">]</span> <span class="o">=</span> <span class="n">champions</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">champion</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">champions</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">champion</span><span class="p">,</span> <span class="n">images</span></div>
+
+<div class="viewcode-block" id="Identifier.evaluate_summary_quality"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.evaluate_summary_quality">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">evaluate_summary_quality</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span>
+                                 <span class="n">privileged_data_sources</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate the summaries for the given group of Identifier IDs.</span>
+<span class="sd">        This is an automatic evaluation based solely on the content of</span>
+<span class="sd">        the summaries. It will be combined with human-entered ratings</span>
+<span class="sd">        to form an overall quality score.</span>
+<span class="sd">        We need to evaluate summaries from a set of Identifiers</span>
+<span class="sd">        (typically those associated with a single work) because we</span>
+<span class="sd">        need to see which noun phrases are most frequently used to</span>
+<span class="sd">        describe the underlying work.</span>
+<span class="sd">        :param privileged_data_sources: If present, a summary from one</span>
+<span class="sd">        of these data source will be instantly chosen, short-circuiting the</span>
+<span class="sd">        decision process. Data sources are in order of priority.</span>
+<span class="sd">        :return: The single highest-rated summary Resource.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="n">SummaryEvaluator</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">privileged_data_sources</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">privileged_data_sources</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">privileged_data_source</span> <span class="o">=</span> <span class="n">privileged_data_sources</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">privileged_data_source</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Find all rel=&quot;description&quot; resources associated with any of</span>
+        <span class="c1"># these records.</span>
+        <span class="n">rels</span> <span class="o">=</span> <span class="p">[</span><span class="n">LinkRelations</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="p">,</span> <span class="n">LinkRelations</span><span class="o">.</span><span class="n">SHORT_DESCRIPTION</span><span class="p">]</span>
+        <span class="n">descriptions</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">resources_for_identifier_ids</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rels</span><span class="p">,</span> <span class="n">privileged_data_source</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+        <span class="n">champion</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Add each resource&#39;s content to the evaluator&#39;s corpus.</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">descriptions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">representation</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+                <span class="n">evaluator</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">evaluator</span><span class="o">.</span><span class="n">ready</span><span class="p">()</span>
+
+        <span class="c1"># Then have the evaluator rank each resource.</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">descriptions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">representation</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">content</span>
+                <span class="n">quality</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+                <span class="n">r</span><span class="o">.</span><span class="n">set_estimated_quality</span><span class="p">(</span><span class="n">quality</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">champion</span> <span class="ow">or</span> <span class="n">r</span><span class="o">.</span><span class="n">quality</span> <span class="o">&gt;</span> <span class="n">champion</span><span class="o">.</span><span class="n">quality</span><span class="p">:</span>
+                <span class="n">champion</span> <span class="o">=</span> <span class="n">r</span>
+
+        <span class="k">if</span> <span class="n">privileged_data_source</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">champion</span><span class="p">:</span>
+            <span class="c1"># We could not find any descriptions from the privileged</span>
+            <span class="c1"># data source. Try relaxing that restriction.</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">evaluate_summary_quality</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">privileged_data_sources</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="k">return</span> <span class="n">champion</span><span class="p">,</span> <span class="n">descriptions</span></div>
+
+<div class="viewcode-block" id="Identifier.missing_coverage_from"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.missing_coverage_from">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">missing_coverage_from</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_types</span><span class="p">,</span> <span class="n">coverage_data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">count_as_covered</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">count_as_missing_before</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find identifiers of the given types which have no CoverageRecord</span>
+<span class="sd">        from `coverage_data_source`.</span>
+<span class="sd">        :param count_as_covered: Identifiers will be counted as</span>
+<span class="sd">        covered if their CoverageRecords have a status in this list.</span>
+<span class="sd">        :param identifiers: Restrict search to a specific set of identifier objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">collection</span><span class="p">:</span>
+            <span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">collection_id</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">data_source_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">coverage_data_source</span><span class="p">:</span>
+            <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">coverage_data_source</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="n">clause</span> <span class="o">=</span> <span class="n">and_</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">,</span>
+                      <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="n">data_source_id</span><span class="p">,</span>
+                      <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">operation</span><span class="p">,</span>
+                      <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="n">collection_id</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="p">,</span> <span class="n">clause</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">identifier_types</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_types</span><span class="p">))</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">not_covered</span><span class="p">(</span>
+            <span class="n">count_as_covered</span><span class="p">,</span> <span class="n">count_as_missing_before</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">identifiers</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="Identifier.opds_entry"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.opds_entry">[docs]</a>    <span class="k">def</span> <span class="nf">opds_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an OPDS entry using only resources directly</span>
+<span class="sd">        associated with this Identifier.</span>
+<span class="sd">        This makes it possible to create an OPDS entry even when there</span>
+<span class="sd">        is no Edition.</span>
+<span class="sd">        Currently the only things in this OPDS entry will be description,</span>
+<span class="sd">        cover image, and popularity.</span>
+<span class="sd">        NOTE: The timestamp doesn&#39;t take into consideration when the</span>
+<span class="sd">        description was added. Rather than fixing this it&#39;s probably</span>
+<span class="sd">        better to get rid of this hack and create real Works where we</span>
+<span class="sd">        would be using this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">urn</span>
+        <span class="n">cover_image</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">description</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">most_recent_update</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">timestamps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">links</span><span class="p">:</span>
+            <span class="n">resource</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">resource</span>
+            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">LinkRelations</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">cover_image</span> <span class="ow">or</span> <span class="p">(</span>
+                        <span class="ow">not</span> <span class="n">cover_image</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">thumbnails</span> <span class="ow">and</span>
+                        <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">thumbnails</span><span class="p">):</span>
+                    <span class="n">cover_image</span> <span class="o">=</span> <span class="n">resource</span>
+                    <span class="k">if</span> <span class="n">cover_image</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
+                        <span class="c1"># This is technically redundant because</span>
+                        <span class="c1"># minimal_opds_entry will redo this work,</span>
+                        <span class="c1"># but just to be safe.</span>
+                        <span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">cover_image</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirrored_at</span>
+                        <span class="k">if</span> <span class="n">mirrored_at</span><span class="p">:</span>
+                            <span class="n">timestamps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mirrored_at</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">LinkRelations</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">description</span> <span class="ow">or</span> <span class="n">resource</span><span class="o">.</span><span class="n">quality</span> <span class="o">&gt;</span> <span class="n">description</span><span class="o">.</span><span class="n">quality</span><span class="p">:</span>
+                    <span class="n">description</span> <span class="o">=</span> <span class="n">resource</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">:</span>
+            <span class="n">timestamps</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">timestamp</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">coverage_records</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">timestamp</span>
+            <span class="p">])</span>
+        <span class="k">if</span> <span class="n">timestamps</span><span class="p">:</span>
+            <span class="n">most_recent_update</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span>
+
+        <span class="n">quality</span> <span class="o">=</span> <span class="n">Measurement</span><span class="o">.</span><span class="n">overall_quality</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">measurements</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">..opds</span> <span class="k">import</span> <span class="n">AcquisitionFeed</span>
+        <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">minimal_opds_entry</span><span class="p">(</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">cover</span><span class="o">=</span><span class="n">cover_image</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">quality</span><span class="o">=</span><span class="n">quality</span><span class="p">,</span> <span class="n">most_recent_update</span><span class="o">=</span><span class="n">most_recent_update</span>
+        <span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="Equivalency"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Equivalency">[docs]</a><span class="k">class</span> <span class="nc">Equivalency</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An assertion that two Identifiers identify the same work.</span>
+<span class="sd">    This assertion comes with a &#39;strength&#39; which represents how confident</span>
+<span class="sd">    the data source is in the assertion.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;equivalents&#39;</span>
+
+    <span class="c1"># &#39;input&#39; is the ID that was used as input to the datasource.</span>
+    <span class="c1"># &#39;output&#39; is the output</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">input_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">input</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Identifier&quot;</span><span class="p">,</span> <span class="n">foreign_keys</span><span class="o">=</span><span class="n">input_id</span><span class="p">)</span>
+    <span class="n">output_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Identifier&quot;</span><span class="p">,</span> <span class="n">foreign_keys</span><span class="o">=</span><span class="n">output_id</span><span class="p">)</span>
+
+    <span class="c1"># Who says?</span>
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># How many distinct votes went into this assertion? This will let</span>
+    <span class="c1"># us scale the change to the strength when additional votes come</span>
+    <span class="c1"># in.</span>
+    <span class="n">votes</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># How strong is this assertion (-1..1)? A negative number is an</span>
+    <span class="c1"># assertion that the two Identifiers do *not* identify the</span>
+    <span class="c1"># same work.</span>
+    <span class="n">strength</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Should this equivalency actually be used in calculations? This</span>
+    <span class="c1"># is not manipulated directly, but it gives us the ability to use</span>
+    <span class="c1"># manual intervention to defuse large chunks of problematic code</span>
+    <span class="c1"># without actually deleting the data.</span>
+    <span class="n">enabled</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2"> -&gt;</span><span class="se">\n</span><span class="s2"> </span><span class="si">%s</span><span class="se">\n</span><span class="s2"> source=</span><span class="si">%s</span><span class="s2"> strength=</span><span class="si">%.2f</span><span class="s2"> votes=</span><span class="si">%d</span><span class="s2">)]&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">),</span>
+            <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">strength</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">votes</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Equivalency.for_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Equivalency.for_identifiers">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">,</span> <span class="n">exclude_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all Equivalencies for the given Identifiers.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifiers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">identifiers</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">identifiers</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Identifier</span><span class="p">):</span>
+            <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Equivalency</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">()</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">or_</span><span class="p">(</span><span class="n">Equivalency</span><span class="o">.</span><span class="n">input_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifiers</span><span class="p">),</span>
+                <span class="n">Equivalency</span><span class="o">.</span><span class="n">output_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifiers</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">exclude_ids</span><span class="p">:</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="o">~</span><span class="n">Equivalency</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">exclude_ids</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">q</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

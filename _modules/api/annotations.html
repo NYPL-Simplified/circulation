@@ -1,0 +1,303 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.annotations &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.annotations</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">pyld</span> <span class="k">import</span> <span class="n">jsonld</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Annotation</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">url_for</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="load_document"><a class="viewcode-back" href="../../api.html#api.annotations.load_document">[docs]</a><span class="k">def</span> <span class="nf">load_document</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves JSON-LD for the given URL from a local</span>
+<span class="sd">    file if available, and falls back to the network.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">AnnotationWriter</span><span class="o">.</span><span class="n">JSONLD_CONTEXT</span><span class="p">:</span> <span class="s2">&quot;anno.jsonld&quot;</span><span class="p">,</span>
+        <span class="n">AnnotationWriter</span><span class="o">.</span><span class="n">LDP_CONTEXT</span><span class="p">:</span> <span class="s2">&quot;ldp.jsonld&quot;</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+        <span class="n">base_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;jsonld&#39;</span><span class="p">)</span>
+        <span class="n">jsonld_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">files</span><span class="p">[</span><span class="n">url</span><span class="p">])</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">jsonld_file</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">doc</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;contextUrl&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;documentUrl&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">,</span>
+            <span class="s2">&quot;document&quot;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">doc</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jsonld</span><span class="o">.</span><span class="n">load_document</span><span class="p">(</span><span class="n">url</span><span class="p">)</span></div>
+
+<span class="n">jsonld</span><span class="o">.</span><span class="n">set_document_loader</span><span class="p">(</span><span class="n">load_document</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AnnotationWriter"><a class="viewcode-back" href="../../api.html#api.annotations.AnnotationWriter">[docs]</a><span class="k">class</span> <span class="nc">AnnotationWriter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="n">CONTENT_TYPE</span> <span class="o">=</span> <span class="s1">&#39;application/ld+json; profile=&quot;http://www.w3.org/ns/anno.jsonld&quot;&#39;</span>
+
+    <span class="n">JSONLD_CONTEXT</span> <span class="o">=</span> <span class="s2">&quot;http://www.w3.org/ns/anno.jsonld&quot;</span>
+    <span class="n">LDP_CONTEXT</span> <span class="o">=</span> <span class="s2">&quot;http://www.w3.org/ns/ldp.jsonld&quot;</span>
+
+<div class="viewcode-block" id="AnnotationWriter.annotations_for"><a class="viewcode-back" href="../../api.html#api.annotations.AnnotationWriter.annotations_for">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">annotations_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">annotations</span> <span class="o">=</span> <span class="p">[</span><span class="n">annotation</span> <span class="k">for</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="n">patron</span><span class="o">.</span><span class="n">annotations</span> <span class="k">if</span> <span class="n">annotation</span><span class="o">.</span><span class="n">active</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="n">annotations</span> <span class="o">=</span> <span class="p">[</span><span class="n">annotation</span> <span class="k">for</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="n">annotations</span> <span class="k">if</span> <span class="n">annotation</span><span class="o">.</span><span class="n">identifier</span> <span class="o">==</span> <span class="n">identifier</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">annotations</span></div>
+
+<div class="viewcode-block" id="AnnotationWriter.annotation_container_for"><a class="viewcode-back" href="../../api.html#api.annotations.AnnotationWriter.annotation_container_for">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">annotation_container_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;annotations_for_work&#39;</span><span class="p">,</span>
+                          <span class="n">identifier_type</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                          <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                          <span class="n">library_short_name</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+                          <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;annotations&quot;</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">annotations</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">annotations_for</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">)</span>
+
+        <span class="n">latest_timestamp</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">annotations</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># patron.annotations is already sorted by timestamp, so the first</span>
+            <span class="c1"># annotation is the most recent.</span>
+            <span class="n">latest_timestamp</span> <span class="o">=</span> <span class="n">annotations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">timestamp</span>
+
+        <span class="n">container</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">container</span><span class="p">[</span><span class="s2">&quot;@context&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">JSONLD_CONTEXT</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">LDP_CONTEXT</span><span class="p">]</span>
+        <span class="n">container</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">url</span>
+        <span class="n">container</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;BasicContainer&quot;</span><span class="p">,</span> <span class="s2">&quot;AnnotationCollection&quot;</span><span class="p">]</span>
+        <span class="n">container</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">annotations</span><span class="p">)</span>
+        <span class="n">container</span><span class="p">[</span><span class="s2">&quot;first&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">annotation_page_for</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span> <span class="n">with_context</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">container</span><span class="p">,</span> <span class="n">latest_timestamp</span></div>
+
+
+<div class="viewcode-block" id="AnnotationWriter.annotation_page_for"><a class="viewcode-back" href="../../api.html#api.annotations.AnnotationWriter.annotation_page_for">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">annotation_page_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">with_context</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;annotations_for_work&#39;</span><span class="p">,</span>
+                          <span class="n">identifier_type</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                          <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                          <span class="n">library_short_name</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+                          <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;annotations&quot;</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">annotations</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">annotations_for</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="n">details</span> <span class="o">=</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">detail</span><span class="p">(</span><span class="n">annotation</span><span class="p">,</span> <span class="n">with_context</span><span class="o">=</span><span class="n">with_context</span><span class="p">)</span> <span class="k">for</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="n">annotations</span><span class="p">]</span>
+
+        <span class="n">page</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">with_context</span><span class="p">:</span>
+            <span class="n">page</span><span class="p">[</span><span class="s2">&quot;@context&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">JSONLD_CONTEXT</span>
+        <span class="n">page</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">url</span>
+        <span class="n">page</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;AnnotationPage&quot;</span>
+        <span class="n">page</span><span class="p">[</span><span class="s2">&quot;items&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">details</span>
+        <span class="k">return</span> <span class="n">page</span></div>
+
+<div class="viewcode-block" id="AnnotationWriter.detail"><a class="viewcode-back" href="../../api.html#api.annotations.AnnotationWriter.detail">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">detail</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">annotation</span><span class="p">,</span> <span class="n">with_context</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">with_context</span><span class="p">:</span>
+            <span class="n">item</span><span class="p">[</span><span class="s2">&quot;@context&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">JSONLD_CONTEXT</span>
+        <span class="n">item</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;annotation_detail&quot;</span><span class="p">,</span> <span class="n">annotation_id</span><span class="o">=</span><span class="n">annotation</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                             <span class="n">library_short_name</span><span class="o">=</span><span class="n">annotation</span><span class="o">.</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+                             <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">item</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Annotation&quot;</span>
+        <span class="n">item</span><span class="p">[</span><span class="s2">&quot;motivation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annotation</span><span class="o">.</span><span class="n">motivation</span>
+        <span class="n">item</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">annotation</span><span class="o">.</span><span class="n">content</span>
+        <span class="k">if</span> <span class="n">annotation</span><span class="o">.</span><span class="n">target</span><span class="p">:</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">annotation</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+            <span class="n">compacted</span> <span class="o">=</span> <span class="n">jsonld</span><span class="o">.</span><span class="n">compact</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">JSONLD_CONTEXT</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">compacted</span><span class="p">[</span><span class="s2">&quot;@context&quot;</span><span class="p">]</span>
+            <span class="n">item</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">compacted</span>
+        <span class="k">if</span> <span class="n">annotation</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">annotation</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">compacted</span> <span class="o">=</span> <span class="n">jsonld</span><span class="o">.</span><span class="n">compact</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">JSONLD_CONTEXT</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">compacted</span><span class="p">[</span><span class="s2">&quot;@context&quot;</span><span class="p">]</span>
+            <span class="n">item</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">compacted</span>
+
+        <span class="k">return</span> <span class="n">item</span></div></div>
+
+<div class="viewcode-block" id="AnnotationParser"><a class="viewcode-back" href="../../api.html#api.annotations.AnnotationParser">[docs]</a><span class="k">class</span> <span class="nc">AnnotationParser</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+<div class="viewcode-block" id="AnnotationParser.parse"><a class="viewcode-back" href="../../api.html#api.annotations.AnnotationParser.parse">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">patron</span><span class="o">.</span><span class="n">synchronize_annotations</span> <span class="o">!=</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">PATRON_NOT_OPTED_IN_TO_ANNOTATION_SYNC</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s1">&#39;id&#39;</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">and</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">jsonld</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_FORMAT</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_TARGET</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">target</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;http://www.w3.org/ns/oa#hasTarget&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">target</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">target</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_TARGET</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">source</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;http://www.w3.org/ns/oa#hasSource&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_TARGET</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;@id&#39;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urn</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_TARGET</span>
+
+        <span class="n">motivation</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;http://www.w3.org/ns/oa#motivatedBy&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">motivation</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">motivation</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_MOTIVATION</span>
+        <span class="n">motivation</span> <span class="o">=</span> <span class="n">motivation</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;@id&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">motivation</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">Annotation</span><span class="o">.</span><span class="n">MOTIVATIONS</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_MOTIVATION</span>
+
+        <span class="n">loans</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">loans</span>
+        <span class="n">loan_identifiers</span> <span class="o">=</span> <span class="p">[</span><span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span> <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">loans</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">identifier</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">loan_identifiers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_ANNOTATION_TARGET</span>
+
+        <span class="n">content</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;http://www.w3.org/ns/oa#hasBody&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">content</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">target</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+        <span class="n">extra_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">motivation</span> <span class="o">==</span> <span class="n">Annotation</span><span class="o">.</span><span class="n">IDLING</span><span class="p">:</span>
+            <span class="c1"># A given book can only have one &#39;idling&#39; annotation.</span>
+            <span class="k">pass</span>
+        <span class="k">elif</span> <span class="n">motivation</span> <span class="o">==</span> <span class="n">Annotation</span><span class="o">.</span><span class="n">BOOKMARKING</span><span class="p">:</span>
+            <span class="c1"># A given book can only have one &#39;bookmarking&#39; annotation</span>
+            <span class="c1"># per target.</span>
+            <span class="n">extra_kwargs</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">target</span>
+
+        <span class="n">annotation</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Annotation</span><span class="o">.</span><span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">motivation</span><span class="o">=</span><span class="n">motivation</span><span class="p">,</span> <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">extra_kwargs</span>
+        <span class="p">)</span>
+        <span class="n">annotation</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">target</span>
+        <span class="k">if</span> <span class="n">content</span><span class="p">:</span>
+            <span class="n">annotation</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">annotation</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">annotation</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">annotation</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

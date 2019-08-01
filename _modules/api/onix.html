@@ -1,0 +1,359 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.onix &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.onix</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Metadata</span><span class="p">,</span>
+    <span class="n">IdentifierData</span><span class="p">,</span>
+    <span class="n">SubjectData</span><span class="p">,</span>
+    <span class="n">ContributorData</span><span class="p">,</span>
+    <span class="n">LinkData</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">Contributor</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">Hyperlink</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="k">import</span> <span class="n">XMLParser</span>
+
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<div class="viewcode-block" id="ONIXExtractor"><a class="viewcode-back" href="../../api.html#api.onix.ONIXExtractor">[docs]</a><span class="k">class</span> <span class="nc">ONIXExtractor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Transform an ONIX file into a list of Metadata objects.&quot;&quot;&quot;</span>
+
+    <span class="c1"># TODO: &#39;20&#39; indicates a semicolon-separated list of freeform tags,</span>
+    <span class="c1"># which could also be useful.</span>
+    <span class="n">SUBJECT_TYPES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;01&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">DDC</span><span class="p">,</span>
+        <span class="s1">&#39;03&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">LCC</span><span class="p">,</span>
+        <span class="s1">&#39;04&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">LCSH</span><span class="p">,</span>
+        <span class="s1">&#39;10&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">BISAC</span><span class="p">,</span>
+        <span class="s1">&#39;12&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">BIC</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">AUDIENCE_TYPES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;01&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="c1"># General/trade for adult audience</span>
+        <span class="s1">&#39;02&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="c1"># (not for educational purpose)</span>
+        <span class="s1">&#39;03&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span> <span class="c1"># (not for educational purpose)</span>
+        <span class="s1">&#39;04&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="c1"># Primary and secondary/elementary and high school</span>
+        <span class="s1">&#39;05&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="c1"># College/higher education</span>
+        <span class="s1">&#39;06&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="c1"># Professional and scholarly</span>
+        <span class="s1">&#39;07&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="c1"># ESL</span>
+        <span class="s1">&#39;08&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="c1"># Adult education</span>
+        <span class="s1">&#39;09&#39;</span><span class="p">:</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="c1"># Second language teaching other than English</span>
+    <span class="p">}</span>
+
+    <span class="n">CONTRIBUTOR_TYPES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;A01&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A02&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;With or as told to&#39;</span>
+        <span class="s1">&#39;A03&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">,</span> <span class="c1"># Screenplay author</span>
+        <span class="s1">&#39;A04&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">LYRICIST_ROLE</span><span class="p">,</span> <span class="c1"># Libretto author for an opera</span>
+        <span class="s1">&#39;A05&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">LYRICIST_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A06&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">COMPOSER_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A07&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ILLUSTRATOR_ROLE</span><span class="p">,</span> <span class="c1"># Visual artist who is the primary creator of the work</span>
+        <span class="s1">&#39;A08&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PHOTOGRAPHER_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A09&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Created by&#39;</span>
+        <span class="s1">&#39;A10&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;From an idea by&#39;</span>
+        <span class="s1">&#39;A11&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">DESIGNER_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A12&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ILLUSTRATOR_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A13&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PHOTOGRAPHER_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A14&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">,</span> <span class="c1"># Author of the text for a work that is primarily photos or illustrations</span>
+        <span class="s1">&#39;A15&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">INTRODUCTION_ROLE</span><span class="p">,</span> <span class="c1"># Preface author</span>
+        <span class="s1">&#39;A16&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Prologue author</span>
+        <span class="s1">&#39;A17&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Summary author</span>
+        <span class="s1">&#39;A18&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Supplement author</span>
+        <span class="s1">&#39;A19&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AFTERWORD_ROLE</span><span class="p">,</span> <span class="c1"># Afterword author</span>
+        <span class="s1">&#39;A20&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Author of notes or annotations</span>
+        <span class="s1">&#39;A21&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Author of commentary on main text</span>
+        <span class="s1">&#39;A22&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Epilogue author</span>
+        <span class="s1">&#39;A23&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">FOREWORD_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A24&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">INTRODUCTION_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;A25&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Author/compiler of footnotes</span>
+        <span class="s1">&#39;A26&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Author of memoir accompanying main text</span>
+        <span class="s1">&#39;A27&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Person who carried out experiments reported in the text</span>
+        <span class="s1">&#39;A29&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">INTRODUCTION_ROLE</span><span class="p">,</span> <span class="c1"># Author of introduction and notes</span>
+        <span class="s1">&#39;A30&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Writer of computer programs ancillary to the text</span>
+        <span class="s1">&#39;A31&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">LYRICIST_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Book and lyrics by&#39;</span>
+        <span class="s1">&#39;A32&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">CONTRIBUTOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Contributions by&#39;</span>
+        <span class="s1">&#39;A33&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Appendix author</span>
+        <span class="s1">&#39;A34&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Compiler of index</span>
+        <span class="s1">&#39;A35&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ARTIST_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Drawings by&#39;</span>
+        <span class="s1">&#39;A36&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ARTIST_ROLE</span><span class="p">,</span> <span class="c1"># Cover artist</span>
+        <span class="s1">&#39;A37&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Responsible for preliminary work on which the work is based</span>
+        <span class="s1">&#39;A38&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Author of the first edition who is not an author of the current edition</span>
+        <span class="s1">&#39;A39&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Maps by&#39;</span>
+        <span class="s1">&#39;A40&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ARTIST_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Inked or colored by&#39;</span>
+        <span class="s1">&#39;A41&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Paper engineering by&#39;</span>
+        <span class="s1">&#39;A42&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Continued by&#39;</span>
+        <span class="s1">&#39;A43&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Interviewer</span>
+        <span class="s1">&#39;A44&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Interviewee</span>
+        <span class="s1">&#39;A45&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">,</span> <span class="c1"># Writer of dialogue, captions in a comic book</span>
+        <span class="s1">&#39;A46&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ARTIST_ROLE</span><span class="p">,</span> <span class="c1"># Inker</span>
+        <span class="s1">&#39;A47&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ARTIST_ROLE</span><span class="p">,</span> <span class="c1"># Colorist</span>
+        <span class="s1">&#39;A48&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ARTIST_ROLE</span><span class="p">,</span> <span class="c1"># Letterer</span>
+        <span class="s1">&#39;A51&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Research by&#39;</span>
+        <span class="s1">&#39;A99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Other primary creator&#39;</span>
+        <span class="s1">&#39;B01&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;B02&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Revised by&#39;</span>
+        <span class="s1">&#39;B03&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Retold by&#39;</span>
+        <span class="s1">&#39;B04&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Abridged by&#39;</span>
+        <span class="s1">&#39;B05&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ADAPTER_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;B06&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">TRANSLATOR_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;B07&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;As told by&#39;</span>
+        <span class="s1">&#39;B08&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">TRANSLATOR_ROLE</span><span class="p">,</span> <span class="c1"># With commentary on the translation</span>
+        <span class="s1">&#39;B09&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Series editor</span>
+        <span class="s1">&#39;B10&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">TRANSLATOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Edited and translated by&#39;</span>
+        <span class="s1">&#39;B11&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Editor-in-chief</span>
+        <span class="s1">&#39;B12&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Guest editor</span>
+        <span class="s1">&#39;B13&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Volume editor</span>
+        <span class="s1">&#39;B14&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Editorial board member</span>
+        <span class="s1">&#39;B15&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Editorial coordination by&#39;</span>
+        <span class="s1">&#39;B16&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Managing editor</span>
+        <span class="s1">&#39;B17&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Founding editor of a serial publication</span>
+        <span class="s1">&#39;B18&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Prepared for publication by&#39;</span>
+        <span class="s1">&#39;B19&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Associate editor</span>
+        <span class="s1">&#39;B20&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Consultant editor</span>
+        <span class="s1">&#39;B21&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># General editor</span>
+        <span class="s1">&#39;B22&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Dramatized by&#39;</span>
+        <span class="s1">&#39;B23&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;General rapporteur&#39;</span>
+        <span class="s1">&#39;B24&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Literary editor</span>
+        <span class="s1">&#39;B25&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">COMPOSER_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Arranged by (music)&#39;</span>
+        <span class="s1">&#39;B26&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Technical editor</span>
+        <span class="s1">&#39;B27&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Thesis advisor</span>
+        <span class="s1">&#39;B28&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Thesis examiner</span>
+        <span class="s1">&#39;B29&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Scientific editor</span>
+        <span class="s1">&#39;B30&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Historical advisor</span>
+        <span class="s1">&#39;B31&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Editor of the first edition who is not an editor of the current edition</span>
+        <span class="s1">&#39;B99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># Other type of adaptation or editing</span>
+        <span class="s1">&#39;C01&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Compiled by&#39;</span>
+        <span class="s1">&#39;C02&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Selected by&#39;</span>
+        <span class="s1">&#39;C03&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Non-text material selected by&#39;</span>
+        <span class="s1">&#39;C04&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Curated by&#39;</span>
+        <span class="s1">&#39;C99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Other type of compilation</span>
+        <span class="s1">&#39;D01&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PRODUCER_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;D02&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">DIRECTOR_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;D03&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">MUSICIAN_ROLE</span><span class="p">,</span> <span class="c1"># Conductor</span>
+        <span class="s1">&#39;D04&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Choreographer</span>
+        <span class="s1">&#39;D05&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">DIRECTOR_ROLE</span><span class="p">,</span> <span class="c1"># Other type of direction</span>
+        <span class="s1">&#39;E01&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ACTOR_ROLE</span><span class="p">,</span>
+        <span class="s1">&#39;E02&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLE</span><span class="p">,</span> <span class="c1"># Dancer</span>
+        <span class="s1">&#39;E03&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">NARRATOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Narrator&#39;</span>
+        <span class="s1">&#39;E04&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Commentator</span>
+        <span class="s1">&#39;E05&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLE</span><span class="p">,</span> <span class="c1"># Vocal soloist</span>
+        <span class="s1">&#39;E06&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLE</span><span class="p">,</span> <span class="c1"># Instrumental soloist</span>
+        <span class="s1">&#39;E07&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">NARRATOR_ROLE</span><span class="p">,</span> <span class="c1"># Reader of recorded text, as in an audiobook</span>
+        <span class="s1">&#39;E08&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLE</span><span class="p">,</span> <span class="c1"># Name of a musical group in a performing role</span>
+        <span class="s1">&#39;E09&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLE</span><span class="p">,</span> <span class="c1"># Speaker</span>
+        <span class="s1">&#39;E10&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Presenter</span>
+        <span class="s1">&#39;E99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLE</span><span class="p">,</span> <span class="c1"># Other type of performer</span>
+        <span class="s1">&#39;F01&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PHOTOGRAPHER_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Filmed/photographed by&#39;</span>
+        <span class="s1">&#39;F02&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">EDITOR_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Editor (film or video)&#39;</span>
+        <span class="s1">&#39;F99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Other type of recording</span>
+        <span class="s1">&#39;Z01&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Assisted by&#39;</span>
+        <span class="s1">&#39;Z02&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># &#39;Honored/dedicated to&#39;</span>
+        <span class="s1">&#39;Z99&#39;</span><span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">UNKNOWN_ROLE</span><span class="p">,</span> <span class="c1"># Other creative responsibility</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="ONIXExtractor.parse"><a class="viewcode-back" href="../../api.html#api.onix.ONIXExtractor.parse">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
+        <span class="n">metadata_records</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># TODO: ONIX has plain language &#39;reference names&#39; and short tags that</span>
+        <span class="c1"># may be used interchangably. This code currently only handles short tags,</span>
+        <span class="c1"># and it&#39;s not comprehensive.</span>
+
+        <span class="n">parser</span> <span class="o">=</span> <span class="n">XMLParser</span><span class="p">()</span>
+        <span class="n">tree</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s1">&#39;product&#39;</span><span class="p">):</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/titledetail/titleelement/b203&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">title</span><span class="p">:</span>
+                <span class="n">title_prefix</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/titledetail/titleelement/b030&#39;</span><span class="p">)</span>
+                <span class="n">title_without_prefix</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/titledetail/titleelement/b031&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">title_prefix</span> <span class="ow">and</span> <span class="n">title_without_prefix</span><span class="p">:</span>
+                    <span class="n">title</span> <span class="o">=</span> <span class="n">title_prefix</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">title_without_prefix</span>
+
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/titledetail/titleelement/b029&#39;</span><span class="p">)</span>
+            <span class="n">language</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/language/b252&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;eng&quot;</span>
+            <span class="n">publisher</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;publishingdetail/publisher/b081&#39;</span><span class="p">)</span>
+            <span class="n">imprint</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;publishingdetail/imprint/b079&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">imprint</span> <span class="o">==</span> <span class="n">publisher</span><span class="p">:</span>
+                <span class="n">imprint</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="n">publishing_date</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;publishingdetail/publishingdate/b306&#39;</span><span class="p">)</span>
+            <span class="n">issued</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">publishing_date</span><span class="p">:</span>
+                <span class="n">issued</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">publishing_date</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">identifier_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;productidentifier&#39;</span><span class="p">)</span>
+            <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">primary_identifier</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">identifier_tags</span><span class="p">:</span>
+                <span class="nb">type</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s2">&quot;b221&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;02&#39;</span> <span class="ow">or</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;15&#39;</span><span class="p">:</span>
+                    <span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">,</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b244&#39;</span><span class="p">))</span>
+                    <span class="n">identifiers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">primary_identifier</span><span class="p">)</span>
+
+            <span class="n">subject_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/subject&#39;</span><span class="p">)</span>
+            <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">subject_tags</span><span class="p">:</span>
+                <span class="nb">type</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b067&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUBJECT_TYPES</span><span class="p">:</span>
+                    <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SUBJECT_TYPES</span><span class="p">[</span><span class="nb">type</span><span class="p">],</span>
+                                                <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b069&#39;</span><span class="p">)))</span>
+
+            <span class="n">audience_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/audience/b204&#39;</span><span class="p">)</span>
+            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">audience_tags</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">tag</span><span class="o">.</span><span class="n">text</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_TYPES</span><span class="p">:</span>
+                    <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">FREEFORM_AUDIENCE</span><span class="p">,</span>
+                                                <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_TYPES</span><span class="p">[</span><span class="n">tag</span><span class="o">.</span><span class="n">text</span><span class="p">]))</span>
+
+            <span class="n">contributor_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/contributor&#39;</span><span class="p">)</span>
+            <span class="n">contributors</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">contributor_tags</span><span class="p">:</span>
+                <span class="nb">type</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b035&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">CONTRIBUTOR_TYPES</span><span class="p">:</span>
+                    <span class="n">display_name</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b036&#39;</span><span class="p">)</span>
+                    <span class="n">sort_name</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b037&#39;</span><span class="p">)</span>
+                    <span class="n">family_name</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b040&#39;</span><span class="p">)</span>
+                    <span class="n">bio</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b044&#39;</span><span class="p">)</span>
+                    <span class="n">contributors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ContributorData</span><span class="p">(</span><span class="n">sort_name</span><span class="o">=</span><span class="n">sort_name</span><span class="p">,</span>
+                                                        <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span>
+                                                        <span class="n">family_name</span><span class="o">=</span><span class="n">family_name</span><span class="p">,</span>
+                                                        <span class="n">roles</span><span class="o">=</span><span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">CONTRIBUTOR_TYPES</span><span class="p">[</span><span class="nb">type</span><span class="p">]],</span>
+                                                        <span class="n">biography</span><span class="o">=</span><span class="n">bio</span><span class="p">))</span>
+
+            <span class="n">collateral_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;collateraldetail/textcontent&#39;</span><span class="p">)</span>
+            <span class="n">links</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">collateral_tags</span><span class="p">:</span>
+                <span class="nb">type</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;x426&#39;</span><span class="p">)</span>
+                <span class="c1"># TODO: &#39;03&#39; is the summary in the example I&#39;m testing, but that</span>
+                <span class="c1"># might not be generally true.</span>
+                <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s1">&#39;03&#39;</span><span class="p">:</span>
+                    <span class="n">text</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;d104&#39;</span><span class="p">)</span>
+                    <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LinkData</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="p">,</span>
+                                          <span class="n">media_type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span>
+                                          <span class="n">content</span><span class="o">=</span><span class="n">text</span><span class="p">))</span>
+
+            <span class="n">metadata_records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Metadata</span><span class="p">(</span>
+                <span class="n">data_source</span><span class="o">=</span><span class="n">data_source_name</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                <span class="n">subtitle</span><span class="o">=</span><span class="n">subtitle</span><span class="p">,</span>
+                <span class="n">language</span><span class="o">=</span><span class="n">language</span><span class="p">,</span>
+                <span class="n">medium</span><span class="o">=</span><span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span>
+                <span class="n">publisher</span><span class="o">=</span><span class="n">publisher</span><span class="p">,</span>
+                <span class="n">imprint</span><span class="o">=</span><span class="n">imprint</span><span class="p">,</span>
+                <span class="n">issued</span><span class="o">=</span><span class="n">issued</span><span class="p">,</span>
+                <span class="n">primary_identifier</span><span class="o">=</span><span class="n">primary_identifier</span><span class="p">,</span>
+                <span class="n">identifiers</span><span class="o">=</span><span class="n">identifiers</span><span class="p">,</span>
+                <span class="n">subjects</span><span class="o">=</span><span class="n">subjects</span><span class="p">,</span>
+                <span class="n">contributors</span><span class="o">=</span><span class="n">contributors</span><span class="p">,</span>
+                <span class="n">links</span><span class="o">=</span><span class="n">links</span>
+            <span class="p">))</span>
+        <span class="k">return</span> <span class="n">metadata_records</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

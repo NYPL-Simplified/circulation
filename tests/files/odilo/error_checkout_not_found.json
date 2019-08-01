@@ -1,8 +1,0 @@
-{
-  "errors": [
-    {
-      "id": "CHECKOUT_NOT_FOUND",
-      "description": "Checkout not found '331234'"
-    }
-  ]
-}

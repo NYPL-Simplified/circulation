@@ -1,2 +1,0 @@
-{"result":{"success":true,"message":"The title was checked out to you successfully.","checkedOutItems":[{"id":"2","recordId":"econtentRecord2","title":"Art of War","author":"Sunzi\r\nLionel Giles, M.A.","duedate":"1505331118","checkoutdate":"1503516718","daysUntilDue":21,"holdQueueLength":0,"links":[{"url":"http:\/\/cccl.enkilibrary.org\/API\/UserAPI?method=downloadEContentFile&username=21901000008080&password=deng&lib=1&recordId=2","text":"Download","item_type":"epub"}]}],"recordid":"2"}}
-

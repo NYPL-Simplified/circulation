@@ -1,0 +1,404 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.listeners &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.listeners</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">event</span><span class="p">,</span>
+    <span class="n">text</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.base</span> <span class="k">import</span> <span class="n">NO_VALUE</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">admin</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Admin</span><span class="p">,</span>
+    <span class="n">AdminRole</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="n">Genre</span>
+<span class="kn">from</span> <span class="nn">collection</span> <span class="k">import</span> <span class="n">Collection</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">configuration</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">library</span> <span class="k">import</span> <span class="n">Library</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+
+<span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="n">RLock</span>
+
+<span class="n">site_configuration_has_changed_lock</span> <span class="o">=</span> <span class="n">RLock</span><span class="p">()</span>
+<div class="viewcode-block" id="site_configuration_has_changed"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.site_configuration_has_changed">[docs]</a><span class="k">def</span> <span class="nf">site_configuration_has_changed</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Call this whenever you want to indicate that the site configuration</span>
+<span class="sd">    has changed and needs to be reloaded.</span>
+
+<span class="sd">    This is automatically triggered on relevant changes to the data</span>
+<span class="sd">    model, but you also should call it whenever you change an aspect</span>
+<span class="sd">    of what you consider &quot;site configuration&quot;, just to be safe.</span>
+
+<span class="sd">    :param _db: Either a Session or (to save time in a common case) an</span>
+<span class="sd">        ORM object that can turned into a Session.</span>
+
+<span class="sd">    :param timeout: Nothing will happen if it&#39;s been fewer than this</span>
+<span class="sd">        number of seconds since the last site configuration change was</span>
+<span class="sd">        recorded.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">has_lock</span> <span class="o">=</span> <span class="n">site_configuration_has_changed_lock</span><span class="o">.</span><span class="n">acquire</span><span class="p">(</span><span class="n">blocking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_lock</span><span class="p">:</span>
+        <span class="c1"># Another thread is updating site configuration right now.</span>
+        <span class="c1"># There is no need to do anything--the timestamp will still be</span>
+        <span class="c1"># accurate.</span>
+        <span class="k">return</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">_site_configuration_has_changed</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">site_configuration_has_changed_lock</span><span class="o">.</span><span class="n">release</span><span class="p">()</span></div>
+
+<span class="k">def</span> <span class="nf">_site_configuration_has_changed</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Actually changes the timestamp on the site configuration.&quot;&quot;&quot;</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+    <span class="n">last_update</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">_site_configuration_last_update</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">last_update</span> <span class="ow">or</span> <span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">last_update</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">timeout</span><span class="p">:</span>
+        <span class="c1"># The configuration last changed more than `timeout` ago, which</span>
+        <span class="c1"># means it&#39;s time to reset the Timestamp that says when the</span>
+        <span class="c1"># configuration last changed.</span>
+
+        <span class="c1"># Convert something that might not be a Connection object into</span>
+        <span class="c1"># a Connection object.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Base</span><span class="p">):</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+
+        <span class="c1"># Update the timestamp.</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">earlier</span> <span class="o">=</span> <span class="n">now</span><span class="o">-</span><span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="s2">&quot;UPDATE timestamps SET finish=:finish WHERE service=:service AND collection_id IS NULL AND finish&lt;=:earlier;&quot;</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+            <span class="n">text</span><span class="p">(</span><span class="n">sql</span><span class="p">),</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="n">service</span><span class="o">=</span><span class="n">Configuration</span><span class="o">.</span><span class="n">SITE_CONFIGURATION_CHANGED</span><span class="p">,</span>
+                 <span class="n">finish</span><span class="o">=</span><span class="n">now</span><span class="p">,</span> <span class="n">earlier</span><span class="o">=</span><span class="n">earlier</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Update the Configuration&#39;s record of when the configuration</span>
+        <span class="c1"># was updated. This will update our local record immediately</span>
+        <span class="c1"># without requiring a trip to the database.</span>
+        <span class="n">Configuration</span><span class="o">.</span><span class="n">site_configuration_last_update</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">known_value</span><span class="o">=</span><span class="n">now</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="directly_modified"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.directly_modified">[docs]</a><span class="k">def</span> <span class="nf">directly_modified</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return True only if `obj` has itself been modified, as opposed to</span>
+<span class="sd">    having an object added or removed to one of its associated</span>
+<span class="sd">    collections.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="n">is_modified</span><span class="p">(</span>
+        <span class="n">obj</span><span class="p">,</span> <span class="n">include_collections</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span></div>
+
+<span class="c1"># Most of the time, we can know whether a change to the database is</span>
+<span class="c1"># likely to require that the application reload the portion of the</span>
+<span class="c1"># configuration it gets from the database. These hooks will call</span>
+<span class="c1"># site_configuration_has_changed() whenever such a change happens.</span>
+<span class="c1">#</span>
+<span class="c1"># This is not supposed to be a comprehensive list of changes that</span>
+<span class="c1"># should trigger a ConfigurationSetting reload -- that needs to be</span>
+<span class="c1"># handled on the application level -- but it should be good enough to</span>
+<span class="c1"># catch most that slip through the cracks.</span>
+<div class="viewcode-block" id="configuration_relevant_collection_change"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.configuration_relevant_collection_change">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="o">.</span><span class="n">children</span><span class="p">,</span> <span class="s1">&#39;append&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="o">.</span><span class="n">children</span><span class="p">,</span> <span class="s1">&#39;remove&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="o">.</span><span class="n">libraries</span><span class="p">,</span> <span class="s1">&#39;append&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="o">.</span><span class="n">libraries</span><span class="p">,</span> <span class="s1">&#39;remove&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span> <span class="s1">&#39;append&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span> <span class="s1">&#39;remove&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">integrations</span><span class="p">,</span> <span class="s1">&#39;append&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">integrations</span><span class="p">,</span> <span class="s1">&#39;remove&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span> <span class="s1">&#39;append&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span> <span class="s1">&#39;remove&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">configuration_relevant_collection_change</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">initiator</span><span class="p">):</span>
+    <span class="n">site_configuration_has_changed</span><span class="p">(</span><span class="n">target</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="configuration_relevant_lifecycle_event"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.configuration_relevant_lifecycle_event">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">configuration_relevant_lifecycle_event</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="n">site_configuration_has_changed</span><span class="p">(</span><span class="n">target</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="configuration_relevant_update"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.configuration_relevant_update">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">configuration_relevant_update</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">directly_modified</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
+        <span class="n">site_configuration_has_changed</span><span class="p">(</span><span class="n">target</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="refresh_admin_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.refresh_admin_cache">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Admin</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Admin</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Admin</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_admin_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access an Admin,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">Admin</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="refresh_admin_role_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.refresh_admin_role_cache">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">AdminRole</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">AdminRole</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">AdminRole</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_admin_role_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access an AdminRole,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">AdminRole</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="refresh_collection_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.refresh_collection_cache">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Collection</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_collection_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access a Collection,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">Collection</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="refresh_configuration_settings"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.refresh_configuration_settings">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_configuration_settings</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access a configuration setting,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span></div>
+
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">DataSource</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">DataSource</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">DataSource</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_datasource_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access a DataSource,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">DataSource</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span>
+
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">DeliveryMechanism</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">DeliveryMechanism</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">DeliveryMechanism</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_datasource_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access a DeliveryMechanism,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span>
+
+<div class="viewcode-block" id="refresh_datasource_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.refresh_datasource_cache">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_datasource_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access an ExternalIntegration,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="refresh_genre_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.refresh_genre_cache">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Genre</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Genre</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Genre</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_genre_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access a genre,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="c1">#</span>
+    <span class="c1"># The only time this should really happen is the very first time a</span>
+    <span class="c1"># site is brought up, but just in case.</span>
+    <span class="n">Genre</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="refresh_library_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.refresh_library_cache">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="p">,</span> <span class="s1">&#39;after_insert&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Library</span><span class="p">,</span> <span class="s1">&#39;after_update&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">refresh_library_cache</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># The next time someone tries to access a library,</span>
+    <span class="c1"># the cache will be repopulated.</span>
+    <span class="n">Library</span><span class="o">.</span><span class="n">reset_cache</span><span class="p">()</span></div>
+
+<span class="c1"># When a pool gets a work and a presentation edition for the first time,</span>
+<span class="c1"># the work should be added to any custom lists associated with the pool&#39;s</span>
+<span class="c1"># collection.</span>
+<span class="c1"># In some cases, the work may be generated before the presentation edition.</span>
+<span class="c1"># Then we need to add it when the work gets a presentation edition.</span>
+<div class="viewcode-block" id="add_work_to_customlists_for_collection"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.add_work_to_customlists_for_collection">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition_id</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">add_work_to_customlists_for_collection</span><span class="p">(</span><span class="n">pool_or_work</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">oldvalue</span><span class="p">,</span> <span class="n">initiator</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pool_or_work</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">):</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="n">pool_or_work</span><span class="o">.</span><span class="n">work</span>
+        <span class="n">pools</span> <span class="o">=</span> <span class="p">[</span><span class="n">pool_or_work</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="n">pool_or_work</span>
+        <span class="n">pools</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">license_pools</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">oldvalue</span> <span class="ow">or</span> <span class="n">oldvalue</span> <span class="ow">is</span> <span class="n">NO_VALUE</span><span class="p">)</span> <span class="ow">and</span> <span class="n">value</span> <span class="ow">and</span> <span class="n">work</span> <span class="ow">and</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="n">pools</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">pool</span><span class="o">.</span><span class="n">collection</span><span class="p">:</span>
+                <span class="c1"># This shouldn&#39;t happen, but don&#39;t crash if it does --</span>
+                <span class="c1"># the correct behavior is that the work not be added to</span>
+                <span class="c1"># any CustomLists.</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="nb">list</span> <span class="ow">in</span> <span class="n">pool</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">customlists</span><span class="p">:</span>
+                <span class="c1"># Since the work was just created, we can assume that</span>
+                <span class="c1"># there&#39;s already a pending registration for updating the</span>
+                <span class="c1"># work&#39;s internal index, and decide not to create a</span>
+                <span class="c1"># second one.</span>
+                <span class="nb">list</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">featured</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">update_external_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+<span class="c1"># Certain ORM events, however they occur, indicate that a work&#39;s</span>
+<span class="c1"># external index needs updating.</span>
+
+<div class="viewcode-block" id="licensepool_removed_from_work"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.licensepool_removed_from_work">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">,</span> <span class="s1">&#39;append&#39;</span><span class="p">)</span>
+<span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">,</span> <span class="s1">&#39;remove&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">licensepool_removed_from_work</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">initiator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;When a Work gains or loses a LicensePool, it needs to be reindexed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">target</span><span class="p">:</span>
+        <span class="n">target</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="licensepool_deleted"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.licensepool_deleted">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">,</span> <span class="s1">&#39;after_delete&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">licensepool_deleted</span><span class="p">(</span><span class="n">mapper</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A LicensePool is deleted only when its collection is deleted.</span>
+<span class="sd">    If this happens, we need to keep the Work&#39;s index up to date.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">work</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">work</span>
+    <span class="k">if</span> <span class="n">work</span><span class="p">:</span>
+        <span class="n">record</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="licensepool_collection_change"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.licensepool_collection_change">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">licensepool_collection_change</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">oldvalue</span><span class="p">,</span> <span class="n">initiator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A LicensePool should never change collections, but if it is,</span>
+<span class="sd">    we need to keep the search index up to date.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">work</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">work</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">work</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="n">oldvalue</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="licensepool_open_access_change"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.licensepool_open_access_change">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">licensepool_open_access_change</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">oldvalue</span><span class="p">,</span> <span class="n">initiator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Work may need to have its search document re-indexed if one of</span>
+<span class="sd">    its LicensePools changes its open-access status.</span>
+
+<span class="sd">    This shouldn&#39;t ever happen.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">work</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">work</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">work</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="n">oldvalue</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="last_update_time_change"><a class="viewcode-back" href="../../../core.model.html#core.model.listeners.last_update_time_change">[docs]</a><span class="nd">@event</span><span class="o">.</span><span class="n">listens_for</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">last_update_time</span><span class="p">,</span> <span class="s1">&#39;set&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">last_update_time_change</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">oldvalue</span><span class="p">,</span> <span class="n">initator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Work needs to have its search document re-indexed whenever its</span>
+<span class="sd">    last_update_time changes.</span>
+
+<span class="sd">    Among other things, this happens whenever the LicensePool&#39;s availability</span>
+<span class="sd">    information changes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">target</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

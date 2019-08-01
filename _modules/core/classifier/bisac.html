@@ -1,0 +1,803 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.classifier.bisac &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.classifier.bisac</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">keyword</span> <span class="k">import</span> <span class="n">KeywordBasedClassifier</span>
+
+<div class="viewcode-block" id="CustomMatchToken"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.CustomMatchToken">[docs]</a><span class="k">class</span> <span class="nc">CustomMatchToken</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A custom token used in matching rules.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="CustomMatchToken.matches"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.CustomMatchToken.matches">[docs]</a>    <span class="k">def</span> <span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject_token</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does the given token match this one?&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+<div class="viewcode-block" id="Something"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.Something">[docs]</a><span class="k">class</span> <span class="nc">Something</span><span class="p">(</span><span class="n">CustomMatchToken</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A CustomMatchToken that will match any single token.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Something.matches"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.Something.matches">[docs]</a>    <span class="k">def</span> <span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject_token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+<div class="viewcode-block" id="RE"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.RE">[docs]</a><span class="k">class</span> <span class="nc">RE</span><span class="p">(</span><span class="n">CustomMatchToken</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A CustomMatchToken that performs a regular expression search.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RE.matches"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.RE.matches">[docs]</a>    <span class="k">def</span> <span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject_token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">subject_token</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="Interchangeable"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.Interchangeable">[docs]</a><span class="k">class</span> <span class="nc">Interchangeable</span><span class="p">(</span><span class="n">CustomMatchToken</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A token that matches a list of strings.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">choices</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;All of these strings are interchangeable for matching purposes.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">choices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">Lowercased</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">choices</span><span class="p">])</span>
+
+<div class="viewcode-block" id="Interchangeable.matches"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.Interchangeable.matches">[docs]</a>    <span class="k">def</span> <span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">subject_token</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Lowercased</span><span class="p">(</span><span class="n">subject_token</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">choices</span></div></div>
+
+<span class="c1"># Special tokens for use in matching rules.</span>
+<span class="n">something</span> <span class="o">=</span> <span class="n">Something</span><span class="p">()</span>
+<span class="n">fiction</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span><span class="s2">&quot;Juvenile Fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;Young Adult Fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;Fiction&quot;</span><span class="p">)</span>
+<span class="n">juvenile</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span><span class="s2">&quot;Juvenile Fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;Juvenile Nonfiction&quot;</span><span class="p">)</span>
+<span class="n">ya</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span><span class="s2">&quot;Young Adult Fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;Young Adult Nonfiction&quot;</span><span class="p">)</span>
+
+<span class="c1"># These need special code because they can modify the token stack.</span>
+<span class="n">anything</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+<span class="n">nonfiction</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+<span class="c1"># These are BISAC categories that changed their names. We want to treat both</span>
+<span class="c1"># names as equivalent. In most cases, the name change is cosmetic.</span>
+<span class="n">body_mind_spirit</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span><span class="s2">&quot;Body, Mind &amp; Spirit&quot;</span><span class="p">,</span> <span class="s2">&quot;Mind &amp; Spirit&quot;</span><span class="p">)</span>
+<span class="n">psychology</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span><span class="s2">&quot;Psychology&quot;</span><span class="p">,</span> <span class="s2">&quot;Psychology &amp; Psychiatry&quot;</span><span class="p">)</span>
+<span class="n">technology</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span><span class="s2">&quot;Technology &amp; Engineering&quot;</span><span class="p">,</span> <span class="s2">&quot;Technology&quot;</span><span class="p">)</span>
+<span class="n">social_topics</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span><span class="s2">&quot;Social Situations&quot;</span><span class="p">,</span> <span class="s2">&quot;Social Topics&quot;</span><span class="p">)</span>
+
+<span class="c1"># This name change is _not_ cosmetic. The category was split into</span>
+<span class="c1"># two, and we&#39;re putting everything that was in the old category into</span>
+<span class="c1"># one of the two.</span>
+<span class="n">literary_criticism</span> <span class="o">=</span> <span class="n">Interchangeable</span><span class="p">(</span>
+    <span class="s2">&quot;Literary Criticism&quot;</span><span class="p">,</span> <span class="s2">&quot;Literary Criticism &amp; Collections&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># If these variables are used in a rule, they must be the first token in</span>
+<span class="c1"># that rule.</span>
+<span class="n">special_variables</span> <span class="o">=</span> <span class="p">{</span> <span class="n">nonfiction</span> <span class="p">:</span> <span class="s2">&quot;nonfiction&quot;</span><span class="p">,</span>
+                      <span class="n">fiction</span> <span class="p">:</span> <span class="s2">&quot;fiction&quot;</span><span class="p">,</span>
+                      <span class="n">juvenile</span> <span class="p">:</span> <span class="s2">&quot;juvenile&quot;</span><span class="p">,</span>
+                      <span class="n">ya</span> <span class="p">:</span> <span class="s2">&quot;ya&quot;</span><span class="p">,}</span>
+
+<div class="viewcode-block" id="MatchingRule"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.MatchingRule">[docs]</a><span class="k">class</span> <span class="nc">MatchingRule</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A rule that takes a list of subject parts and returns</span>
+<span class="sd">    an appropriate classification.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="o">*</span><span class="n">ruleset</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;MatchingRule returns None on a non-match, it can&#39;t also return None on a match.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">result</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ruleset</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Track the subjects that were &#39;caught&#39; by this rule,</span>
+        <span class="c1"># for debugging purposes.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">caught</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rule</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ruleset</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">special_variables</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Special token &#39;</span><span class="si">%s</span><span class="s2">&#39; must be the first in a ruleset.&quot;</span>
+                    <span class="o">%</span> <span class="n">special_variables</span><span class="p">[</span><span class="n">rule</span><span class="p">]</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+                <span class="c1"># It&#39;s a string. We do case-insensitive comparisons,</span>
+                <span class="c1"># so lowercase it.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ruleset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Lowercased</span><span class="p">(</span><span class="n">rule</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># It&#39;s a special object. Add it to the ruleset as-is.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ruleset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rule</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MatchingRule.match"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.MatchingRule.match">[docs]</a>    <span class="k">def</span> <span class="nf">match</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If `subject` matches this ruleset, return the appropriate</span>
+<span class="sd">        result. Otherwise, return None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Create parallel lists of the subject and the things it has to</span>
+        <span class="c1"># match.</span>
+        <span class="n">must_match</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ruleset</span><span class="p">)</span>
+        <span class="n">remaining_subject</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
+
+        <span class="c1"># Consume tokens from both lists until we&#39;ve confirmed no</span>
+        <span class="c1"># match or there is nothing left to match.</span>
+        <span class="n">match_so_far</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">while</span> <span class="n">match_so_far</span> <span class="ow">and</span> <span class="n">must_match</span><span class="p">:</span>
+            <span class="n">match_so_far</span><span class="p">,</span> <span class="n">must_match</span><span class="p">,</span> <span class="n">remaining_subject</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consume</span><span class="p">(</span>
+                <span class="n">must_match</span><span class="p">,</span> <span class="n">remaining_subject</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">match_so_far</span><span class="p">:</span>
+            <span class="c1"># Everything that had to match, did.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">caught</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span>
+
+        <span class="c1"># Something that had to match, didn&#39;t.</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+    <span class="k">def</span> <span class="nf">_consume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The first token (and possibly more) of the rules must match the</span>
+<span class="sd">        first token (and possibly more) of the subject.</span>
+
+<span class="sd">        All matched rule and subject tokens are consumed.</span>
+
+<span class="sd">        :return: A 3-tuple (could_match, new_rules, new_subject)</span>
+
+<span class="sd">        could_match is a boolean that is False if we now know that the</span>
+<span class="sd">        subject does not match the rule, and True if it might still</span>
+<span class="sd">        match the rule.</span>
+
+<span class="sd">        new_rules contains the tokens in the ruleset that have yet to</span>
+<span class="sd">        be activated.</span>
+
+<span class="sd">        new_subject contains the tokens in the subject that have yet</span>
+<span class="sd">        to be checked.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">rules</span><span class="p">:</span>
+            <span class="c1"># An empty ruleset matches everything.</span>
+            <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">subject</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">subject</span> <span class="ow">and</span> <span class="n">rules</span> <span class="o">!=</span> <span class="p">[</span><span class="n">anything</span><span class="p">]:</span>
+            <span class="c1"># Apart from [anything], no non-empty ruleset matches an</span>
+            <span class="c1"># empty subject.</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">subject</span>
+
+        <span class="c1"># Figure out which rule we&#39;ll be applying. We won&#39;t need it</span>
+        <span class="c1"># again, so we can remove it from the ruleset.</span>
+        <span class="n">rule_token</span> <span class="o">=</span> <span class="n">rules</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rule_token</span> <span class="o">==</span> <span class="n">anything</span><span class="p">:</span>
+            <span class="c1"># This is the complicated one.</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">rules</span><span class="p">:</span>
+                <span class="c1"># If the final rule is &#39;anything&#39;, then that&#39;s redundant,</span>
+                <span class="c1"># but we can declare success and stop.</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">subject</span>
+
+            <span class="c1"># At this point we know that &#39;anything&#39; is followed by some</span>
+            <span class="c1"># other rule token.</span>
+            <span class="n">next_rule</span> <span class="o">=</span> <span class="n">rules</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># We can consume as many subject tokens as necessary, but</span>
+            <span class="c1"># eventually a subject token must match this subsequent</span>
+            <span class="c1"># rule token.</span>
+            <span class="k">while</span> <span class="n">subject</span><span class="p">:</span>
+                <span class="n">subject_token</span> <span class="o">=</span> <span class="n">subject</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">submatch</span><span class="p">,</span> <span class="n">ignore1</span><span class="p">,</span> <span class="n">ignore2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_consume</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">next_rule</span><span class="p">],</span> <span class="p">[</span><span class="n">subject_token</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">submatch</span><span class="p">:</span>
+                    <span class="c1"># We had to remove some number of subject tokens,</span>
+                    <span class="c1"># but we found one that matches the next rule.</span>
+                    <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">subject</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># That token didn&#39;t match, but maybe the next one will.</span>
+                    <span class="k">pass</span>
+
+            <span class="c1"># We went through the entire remaining subject and didn&#39;t</span>
+            <span class="c1"># find a match for the rule token that follows &#39;anything&#39;.</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">subject</span>
+
+        <span class="c1"># We&#39;re comparing two individual tokens.</span>
+        <span class="n">subject_token</span> <span class="o">=</span> <span class="n">subject</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rule_token</span><span class="p">,</span> <span class="n">CustomMatchToken</span><span class="p">):</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">rule_token</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="n">subject_token</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">rule_token</span> <span class="o">==</span> <span class="n">nonfiction</span><span class="p">:</span>
+            <span class="c1"># This is too complex to be a CustomMatchToken because</span>
+            <span class="c1"># we may be modifying the subject token list.</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">subject_token</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="s1">&#39;juvenile fiction&#39;</span><span class="p">,</span> <span class="s1">&#39;young adult fiction&#39;</span><span class="p">,</span> <span class="s1">&#39;fiction&#39;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span> <span class="ow">and</span> <span class="n">subject_token</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span>
+                    <span class="s1">&#39;juvenile nonfiction&#39;</span><span class="p">,</span> <span class="s1">&#39;young adult nonfiction&#39;</span>
+            <span class="p">):</span>
+                <span class="c1"># The implicit top-level lane is &#39;nonfiction&#39;,</span>
+                <span class="c1"># which means we popped a token like &#39;History&#39; that</span>
+                <span class="c1"># needs to go back on the stack.</span>
+                <span class="n">subject</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">subject_token</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The strings must match exactly.</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">rule_token</span> <span class="o">==</span> <span class="n">subject_token</span>
+        <span class="k">return</span> <span class="n">match</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">subject</span></div>
+
+
+<div class="viewcode-block" id="m"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.m">[docs]</a><span class="k">def</span> <span class="nf">m</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="o">*</span><span class="n">ruleset</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Alias for the MatchingRule constructor with a short name.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MatchingRule</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="o">*</span><span class="n">ruleset</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BISACClassifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.BISACClassifier">[docs]</a><span class="k">class</span> <span class="nc">BISACClassifier</span><span class="p">(</span><span class="n">Classifier</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Handle real, genuine, according-to-Hoyle BISAC classifications.</span>
+
+<span class="sd">    Subclasses of this method can use the same basic classification logic</span>
+<span class="sd">    to classify classifications that are based on BISAC but have cosmetic</span>
+<span class="sd">    differences.</span>
+
+<span class="sd">    First, a BISAC code is mapped to its human-readable name.</span>
+
+<span class="sd">    Second, the name is split into parts (e.g. [&quot;Fiction&quot;, &quot;War &amp;</span>
+<span class="sd">    Military&quot;]).</span>
+
+<span class="sd">    To determine fiction status, audience, target age, or genre, the</span>
+<span class="sd">    list of name parts is compared against each of a list of matching</span>
+<span class="sd">    rules.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Map identifiers to human-readable names.</span>
+    <span class="n">NAMES</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="nb">map</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">strip</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">resource_dir</span><span class="p">,</span> <span class="s2">&quot;bisac.csv&quot;</span><span class="p">)))</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Indicates that even though this rule doesn&#39;t match a subject, no</span>
+    <span class="c1"># further rules in the same category should be run on it, because they</span>
+    <span class="c1"># will lead to inaccurate information.</span>
+    <span class="n">stop</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+    <span class="c1"># If none of these rules match, a lane&#39;s fiction status depends on the</span>
+    <span class="c1"># genre assigned to it.</span>
+    <span class="n">FICTION</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;Fiction&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;Juvenile Fiction&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;Juvenile Nonfiction&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;Young Adult Fiction&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;Young Adult Nonfiction&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Essays&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Letters&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;Literary Collections&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">stop</span><span class="p">,</span> <span class="s2">&quot;Humor&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">stop</span><span class="p">,</span> <span class="s2">&quot;Drama&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">stop</span><span class="p">,</span> <span class="s2">&quot;Poetry&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="n">anything</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="c1"># In BISAC, juvenile fiction and YA fiction are kept in separate</span>
+    <span class="c1"># spaces. Nearly everything outside that space can be presumed to</span>
+    <span class="c1"># have AUDIENCE_ADULT.</span>
+    <span class="n">AUDIENCE</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="s2">&quot;Bibles&quot;</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Children&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">juvenile</span><span class="p">,</span> <span class="n">anything</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span> <span class="n">ya</span><span class="p">,</span> <span class="n">anything</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span> <span class="s2">&quot;Bibles&quot;</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Youth &amp; Teen&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Erotica&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="s2">&quot;Humor&quot;</span><span class="p">,</span> <span class="s2">&quot;Topic&quot;</span><span class="p">,</span> <span class="s2">&quot;Adult&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">anything</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="n">TARGET_AGE</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">m</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span> <span class="n">juvenile</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Readers&quot;</span><span class="p">,</span> <span class="s2">&quot;Beginner&quot;</span><span class="p">)</span> <span class="p">,</span>
+        <span class="n">m</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span> <span class="n">juvenile</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Readers&quot;</span><span class="p">,</span> <span class="s2">&quot;Intermediate&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span> <span class="n">juvenile</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Early Readers&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span><span class="mi">13</span><span class="p">),</span> <span class="n">juvenile</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s2">&quot;Chapter Books&quot;</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="n">GENRE</span> <span class="o">=</span> <span class="p">[</span>
+
+        <span class="c1"># Put all erotica in Erotica, to keep the other lanes at</span>
+        <span class="c1"># &quot;Adult&quot; level or lower.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Erotica</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s1">&#39;Erotica&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Put all non-erotica comics into the same bucket, regardless</span>
+        <span class="c1"># of their content.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Comics_Graphic_Novels</span><span class="p">,</span> <span class="s1">&#39;Comics &amp; Graphic Novels&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Comics_Graphic_Novels</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Comics &amp; Graphic Novels&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Comics_Graphic_Novels</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Comics &amp; Graphic Novels&#39;</span><span class="p">),</span>
+
+        <span class="c1"># &quot;Literary Criticism / Foo&quot; implies Literary Criticism, not Foo.</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Literary_Criticism</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="n">literary_criticism</span><span class="p">),</span>
+
+        <span class="c1"># &quot;Fiction / Christian / Foo&quot; implies Religious Fiction</span>
+        <span class="c1"># more strongly than it implies Foo.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Religious_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s1">&#39;Christian&#39;</span><span class="p">),</span>
+
+        <span class="c1"># &quot;Fiction / Foo / Short Stories&quot; implies Short Stories more</span>
+        <span class="c1"># strongly than it implies Foo. This assumes that a short</span>
+        <span class="c1"># story collection within a genre will also be classified</span>
+        <span class="c1"># separately under that genre. This could definitely be</span>
+        <span class="c1"># improved but would require a Subject to map to multiple</span>
+        <span class="c1"># Genres.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Short_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^Anthologies&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Short_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^Short Stories&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Short_Stories</span><span class="p">,</span> <span class="s1">&#39;Literary Collections&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Short_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s1">&#39;Collections &amp; Anthologies&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Classify top-level fiction categories into fiction genres.</span>
+        <span class="c1">#</span>
+        <span class="c1"># First, handle large overarching genres that have subgenres</span>
+        <span class="c1"># and adjacent genres.</span>
+        <span class="c1">#</span>
+
+        <span class="c1"># Fantasy</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Epic_Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Fantasy&#39;</span><span class="p">,</span> <span class="s1">&#39;Epic&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Historical_Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Fantasy&#39;</span><span class="p">,</span> <span class="s1">&#39;Historical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Urban_Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Fantasy&#39;</span><span class="p">,</span> <span class="s1">&#39;Urban&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Fantasy&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Fantasy&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Sagas&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Mystery</span>
+        <span class="c1"># n.b. no BISAC for Paranormal_Mystery</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Crime_Detective_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Mystery &amp; Detective&#39;</span><span class="p">,</span> <span class="s1">&#39;Private Investigators&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Crime_Detective_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Crime&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Crime_Detective_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Crime&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Hard_Boiled_Mystery</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Mystery &amp; Detective&#39;</span><span class="p">,</span> <span class="s1">&#39;Hard-Boiled&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Police_Procedural</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Mystery &amp; Detective&#39;</span><span class="p">,</span> <span class="s1">&#39;Police Procedural&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Cozy_Mystery</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Mystery &amp; Detective&#39;</span><span class="p">,</span> <span class="s1">&#39;Cozy&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Historical_Mystery</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Mystery &amp; Detective&#39;</span><span class="p">,</span> <span class="s1">&#39;Historical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Women_Detectives</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Mystery &amp; Detective&#39;</span><span class="p">,</span> <span class="s1">&#39;Women Sleuths&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Mystery</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s1">&#39;Mystery &amp; Detective&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Horror</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Ghost_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Ghost&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Occult_Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Occult &amp; Supernatural&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Gothic_Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Gothic&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Horror&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Romance</span>
+        <span class="c1"># n.b. no BISAC for Gothic Romance</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Contemporary_Romance</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Contemporary&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Historical_Romance</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Historical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Paranormal_Romance</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Paranormal&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Western_Romance</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Western&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Romantic_Suspense</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Suspense&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Romantic_SF</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Time Travel&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Romantic_SF</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">,</span> <span class="s1">&#39;Science Fiction&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Romance</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Romance&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Science fiction</span>
+        <span class="c1"># n.b. no BISAC for Cyberpunk</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Dystopian_SF</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Dystopian&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Space_Opera</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Science Fiction&#39;</span><span class="p">,</span> <span class="s1">&#39;Space Opera&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Military_SF</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Science Fiction&#39;</span><span class="p">,</span> <span class="s1">&#39;Military&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Alternative_History</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Alternative History&#39;</span><span class="p">),</span>
+        <span class="c1"># Juvenile steampunk is classified directly beneath &#39;fiction&#39;.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Steampunk</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s1">&#39;Steampunk&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Science Fiction&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Thrillers</span>
+        <span class="c1"># n.b. no BISAC for Supernatural_Thriller</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Historical_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Historical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Espionage</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Espionage&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Medical_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Medical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Political_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Political&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Legal_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Legal&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Technothriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Technological&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Military_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">,</span> <span class="s1">&#39;Military&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Suspense_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Then handle the less complicated genres of fiction.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Adventure</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Action &amp; Adventure&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Adventure</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Sea Stories&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Adventure</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;War &amp; Military&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Classics</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Classics&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Folklore</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Fairy Tales, Folk Tales, Legends &amp; Mythology&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Historical_Fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s1">&#39;Historical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Humorous_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Humorous&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Humorous_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Satire&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Literary_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Literary&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">LGBTQ_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Gay&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">LGBTQ_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Lesbian&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">LGBTQ_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Gay &amp; Lesbian&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Religious_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Religious&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Religious_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Jewish&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Religious_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Visionary &amp; Metaphysical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Womens_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">anything</span><span class="p">,</span> <span class="s1">&#39;Contemporary Women&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Westerns</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Westerns&#39;</span><span class="p">),</span>
+
+        <span class="c1"># n.b. BISAC &quot;Fiction / Urban&quot; is distinct from &quot;Fiction /</span>
+        <span class="c1"># African-American / Urban&quot;, and does not map to any of our</span>
+        <span class="c1"># genres.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Urban_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;African American&#39;</span><span class="p">,</span> <span class="s1">&#39;Urban&#39;</span><span class="p">),</span>
+
+        <span class="c1"># BISAC classifies these genres at the top level, which we</span>
+        <span class="c1"># treat as &#39;nonfiction&#39;, but we classify them as fiction. It</span>
+        <span class="c1"># doesn&#39;t matter because they&#39;re neither, really.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Drama</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Drama&#39;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Poetry</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Poetry&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Now on to nonfiction.</span>
+
+        <span class="c1"># Classify top-level nonfiction categories into fiction genres.</span>
+        <span class="c1">#</span>
+        <span class="c1"># First, handle large overarching genres that have subgenres</span>
+        <span class="c1"># and adjacent genres.</span>
+        <span class="c1">#</span>
+
+        <span class="c1"># Art &amp; Design</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Architecture</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Architecture&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Art_Criticism_Theory</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Art&#39;</span><span class="p">,</span> <span class="s1">&#39;Criticism &amp; Theory&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Art_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Art&#39;</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fashion</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Design&#39;</span><span class="p">,</span> <span class="s1">&#39;Fashion&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Design</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Design&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Art_Design</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Art&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Photography</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Photography&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Personal Finance &amp; Business</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Business</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^Business.*&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Business</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Accounting&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Economics</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Economics&#39;</span><span class="p">),</span>
+
+        <span class="n">m</span><span class="p">(</span><span class="n">Economics</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Environmental Economics&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Economics</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^Econo.*&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Management_Leadership</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Management&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Management_Leadership</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Management Science&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Management_Leadership</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Leadership&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Personal_Finance_Investing</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Personal Finance&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Personal_Finance_Investing</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Personal Success&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Personal_Finance_Investing</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Investments &amp; Securities&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Real_Estate</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">,</span> <span class="s1">&#39;Real Estate&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Personal_Finance_Business</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Business &amp; Economics&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Parenting &amp; Family</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Parenting</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Family &amp; Relationships&#39;</span><span class="p">,</span> <span class="s1">&#39;Parenting&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Family_Relationships</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Family &amp; Relationships&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Food &amp; Health</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Bartending_Cocktails</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Cooking&#39;</span><span class="p">,</span> <span class="s1">&#39;Beverages&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Health_Diet</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Cooking&#39;</span><span class="p">,</span> <span class="s1">&#39;Health &amp; Healing&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Health_Diet</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Health &amp; Fitness&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Vegetarian_Vegan</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Cooking&#39;</span><span class="p">,</span> <span class="s1">&#39;Vegetarian &amp; Vegan&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Cooking</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Cooking&#39;</span><span class="p">),</span>
+
+        <span class="c1"># History</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">African_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Africa&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Ancient_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Ancient&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Asian_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Asia&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Civil_War_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;United States&#39;</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^Civil War&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">European_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Europe&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Latin_American_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Latin America&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Medieval_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Medieval&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Military_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Military&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Renaissance_Early_Modern_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Renaissance&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Renaissance_Early_Modern_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Modern&#39;</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^1[678]th Century&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Modern_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Modern&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">United_States_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Native American&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">United_States_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;United States&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">World_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;World&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">World_History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">,</span> <span class="s1">&#39;Civilization&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">History</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;History&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Hobbies &amp; Home</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Antiques_Collectibles</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Antiques &amp; Collectibles&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Crafts_Hobbies</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Crafts &amp; Hobbies&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Gardening</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Gardening&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Games</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Games&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">House_Home</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;House &amp; Home&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Pets</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Pets&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Entertainment</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Film_TV</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Performing Arts&#39;</span><span class="p">,</span> <span class="s1">&#39;Film &amp; Video&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Film_TV</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Performing Arts&#39;</span><span class="p">,</span> <span class="s1">&#39;Television&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Music</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Music&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Performing_Arts</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Performing Arts&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Reference &amp; Study Aids</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Dictionaries</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Reference&#39;</span><span class="p">,</span> <span class="s1">&#39;Dictionaries&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Foreign_Language_Study</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Foreign Language Study&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Law</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Law&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Study_Aids</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Study Aids&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Reference_Study_Aids</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Reference&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Reference_Study_Aids</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Language Arts &amp; Disciplines&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Religion &amp; Spirituality</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Body_Mind_Spirit</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="n">body_mind_spirit</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Buddhism</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Religion&#39;</span><span class="p">,</span> <span class="s1">&#39;Buddhism&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Christianity</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Religion&#39;</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^Biblical&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Christianity</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Religion&#39;</span><span class="p">,</span> <span class="n">RE</span><span class="p">(</span><span class="s1">&#39;^Christian&#39;</span><span class="p">)),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Christianity</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Bibles&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Hinduism</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Religion&#39;</span><span class="p">,</span> <span class="s1">&#39;Hinduism&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Islam</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Religion&#39;</span><span class="p">,</span> <span class="s1">&#39;Islam&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Judaism</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Religion&#39;</span><span class="p">,</span> <span class="s1">&#39;Judaism&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Religion_Spirituality</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Religion&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Science &amp; Technology</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Computers</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Computers&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Mathematics</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Mathematics&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Medical</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Medical&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Nature</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Nature&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Psychology</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="n">psychology</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Political_Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Social Science&#39;</span><span class="p">,</span> <span class="s1">&#39;Politics &amp; Government&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Social_Sciences</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Social Science&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Technology</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="n">technology</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Technology</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Transportation&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Then handle the less complicated genres of nonfiction.</span>
+        <span class="c1"># n.b. no BISAC for Periodicals.</span>
+        <span class="c1"># n.b. no BISAC for Humorous Nonfiction per se.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Music</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Biography &amp; Autobiography&#39;</span><span class="p">,</span> <span class="s1">&#39;Composers &amp; Musicians&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Entertainment</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Biography &amp; Autobiography&#39;</span><span class="p">,</span> <span class="s1">&#39;Entertainment &amp; Performing Arts&#39;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Biography_Memoir</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Biography &amp; Autobiography&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Education</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Education&quot;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Philosophy</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Philosophy&#39;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Political_Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Political Science&#39;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Self_Help</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Self-Help&#39;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Sports</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Sports &amp; Recreation&#39;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">Travel</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Travel&#39;</span><span class="p">),</span>
+	<span class="n">m</span><span class="p">(</span><span class="n">True_Crime</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;True Crime&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Handle cases where Juvenile/YA uses different terms than</span>
+        <span class="c1"># would be used for the same books for adults.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Business</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Careers&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Christianity</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Religious&quot;</span><span class="p">,</span> <span class="s2">&quot;Christian&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Cooking</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Cooking &amp; Food&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Education</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;School &amp; Education&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Family_Relationships</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Family&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Fantasy &amp; Magic&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Ghost_Stories</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Ghost Stories&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Magical Realism&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fantasy</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Mermaids&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Fashion</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Fashion&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Folklore</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Fairy Tales &amp; Folklore&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Folklore</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Legends, Myths, Fables&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Games</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Games &amp; Activities&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Health_Diet</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Health &amp; Daily Living&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Horror &amp; Ghost Stories&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Monsters&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Paranormal&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Paranormal, Occult &amp; Supernatural&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Vampires&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Werewolves &amp; Shifters&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Horror</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Zombies&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Humorous_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Humorous Stories&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Humorous_Nonfiction</span><span class="p">,</span> <span class="s2">&quot;Young Adult Nonfiction&quot;</span><span class="p">,</span> <span class="s2">&quot;Humor&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">LGBTQ_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;LGBT&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Law</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Law &amp; Crime&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Mystery</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Mysteries &amp; Detective Stories&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Nature</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Animals&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Personal_Finance_Investing</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Personal Finance&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Poetry</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Nursery Rhymes&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Poetry</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Stories in Verse&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Poetry</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Novels in Verse&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Poetry</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Poetry&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Reference_Study_Aids</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Language Arts&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Romance</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Love &amp; Romance&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Robots&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science_Fiction</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;Time Travel&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Social_Sciences</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;Media Studies&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Suspense_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Superheroes&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Suspense_Thriller</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s1">&#39;Thrillers &amp; Suspense&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Most of the subcategories of &#39;Science &amp; Nature&#39; go into Nature,</span>
+        <span class="c1"># but these go into Science.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science &amp; Nature&#39;</span><span class="p">,</span> <span class="s1">&#39;Discoveries&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science &amp; Nature&#39;</span><span class="p">,</span> <span class="s1">&#39;Experiments &amp; Projects&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science &amp; Nature&#39;</span><span class="p">,</span> <span class="s1">&#39;History of Science&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science &amp; Nature&#39;</span><span class="p">,</span> <span class="s1">&#39;Physics&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science &amp; Nature&#39;</span><span class="p">,</span> <span class="s1">&#39;Weights &amp; Measures&#39;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Science</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science &amp; Nature&#39;</span><span class="p">,</span> <span class="s1">&#39;General&#39;</span><span class="p">),</span>
+
+        <span class="c1"># Any other subcategory of &#39;Science &amp; Nature&#39; goes under Nature</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Nature</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s1">&#39;Science &amp; Nature&#39;</span><span class="p">,</span> <span class="n">something</span><span class="p">),</span>
+
+        <span class="c1"># Life Strategies is juvenile/YA-specific, and contains both</span>
+        <span class="c1"># fiction and nonfiction. It&#39;s called &quot;Social Issues&quot; for</span>
+        <span class="c1"># juvenile fiction/nonfiction, and &quot;Social Topics&quot; for YA</span>
+        <span class="c1"># nonfiction. &quot;Social Themes&quot; in YA fiction is _not_</span>
+        <span class="c1"># classified as Life Strategies.</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Life_Strategies</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="s2">&quot;social issues&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Life_Strategies</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="s2">&quot;social issues&quot;</span><span class="p">),</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">Life_Strategies</span><span class="p">,</span> <span class="n">nonfiction</span><span class="p">,</span> <span class="n">social_topics</span><span class="p">),</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="BISACClassifier.is_fiction"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.BISACClassifier.is_fiction">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_fiction</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">ruleset</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">FICTION</span><span class="p">:</span>
+            <span class="n">fiction</span> <span class="o">=</span> <span class="n">ruleset</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="o">*</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">fiction</span> <span class="ow">is</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stop</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">fiction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">fiction</span>
+        <span class="n">keyword</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">KeywordBasedClassifier</span><span class="o">.</span><span class="n">is_fiction</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">keyword</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BISACClassifier.audience"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.BISACClassifier.audience">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">ruleset</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE</span><span class="p">:</span>
+            <span class="n">audience</span> <span class="o">=</span> <span class="n">ruleset</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="o">*</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">audience</span> <span class="ow">is</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stop</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">audience</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">audience</span>
+        <span class="n">keyword</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">KeywordBasedClassifier</span><span class="o">.</span><span class="n">audience</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">keyword</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BISACClassifier.target_age"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.BISACClassifier.target_age">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">target_age</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">ruleset</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TARGET_AGE</span><span class="p">:</span>
+            <span class="n">target_age</span> <span class="o">=</span> <span class="n">ruleset</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="o">*</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">target_age</span> <span class="ow">is</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stop</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">target_age</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">target_age</span>
+
+        <span class="c1"># If all else fails, try the keyword-based classifier.</span>
+        <span class="n">keyword</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">KeywordBasedClassifier</span><span class="o">.</span><span class="n">target_age</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">keyword</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BISACClassifier.genre"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.BISACClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">audience</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">ruleset</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">GENRE</span><span class="p">:</span>
+            <span class="n">genre</span> <span class="o">=</span> <span class="n">ruleset</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="o">*</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">genre</span> <span class="ow">is</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stop</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">genre</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">genre</span>
+
+        <span class="c1"># If all else fails, try a keyword-based classifier.</span>
+        <span class="n">keyword</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">KeywordBasedClassifier</span><span class="o">.</span><span class="n">genre</span><span class="p">(</span>
+            <span class="n">identifier</span><span class="p">,</span> <span class="n">keyword</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">audience</span>
+        <span class="p">)</span></div>
+
+    <span class="c1"># A BISAC name copied from the BISAC website may end with this</span>
+    <span class="c1"># human-readable note, which is not part of the official name.</span>
+    <span class="n">see_also</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s1">&#39;\(see also .*&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BISACClassifier.scrub_identifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.BISACClassifier.scrub_identifier">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">scrub_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">identifier</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;FB&#39;</span><span class="p">):</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">identifier</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NAMES</span><span class="p">:</span>
+            <span class="c1"># We know the canonical name for this BISAC identifier,</span>
+            <span class="c1"># and we are better equipped to classify the canonical</span>
+            <span class="c1"># names, so use the canonical name in preference to</span>
+            <span class="c1"># whatever name the distributor provided.</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NAMES</span><span class="p">[</span><span class="n">identifier</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">identifier</span></div>
+
+<div class="viewcode-block" id="BISACClassifier.scrub_name"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.bisac.BISACClassifier.scrub_name">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">scrub_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Split the name into a list of lowercase keywords.&quot;&quot;&quot;</span>
+
+        <span class="c1"># All of our comparisons are case-insensitive.</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">Lowercased</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># Take corrective action to finame a number of common problems</span>
+        <span class="c1"># seen in the wild.</span>
+        <span class="c1">#</span>
+
+        <span class="c1"># A comma may have been replaced with a space.</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;  &quot;</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="p">)</span>
+
+        <span class="c1"># The name may be enclosed in an extra set of quotes.</span>
+        <span class="k">for</span> <span class="n">quote</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;&#39;</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">quote</span><span class="p">):</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">quote</span><span class="p">):</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># The name may end with an extraneous marker character or</span>
+        <span class="c1"># (if it was copied from the BISAC website) an asterisk.</span>
+        <span class="k">for</span> <span class="n">separator</span> <span class="ow">in</span> <span class="s1">&#39;|/*&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">separator</span><span class="p">):</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># A name copied from the BISAC website may end with a</span>
+        <span class="c1"># human-readable cross-reference.</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">see_also</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># The canonical separator character is a slash, but a pipe</span>
+        <span class="c1"># has also been used.</span>
+        <span class="k">for</span> <span class="n">separator</span> <span class="ow">in</span> <span class="s1">&#39;|/&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">separator</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">separator</span><span class="p">)</span>
+                         <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">parts</span></div></div>
+
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">BISAC</span><span class="p">]</span> <span class="o">=</span> <span class="n">BISACClassifier</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../classifier.html">core.classifier</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

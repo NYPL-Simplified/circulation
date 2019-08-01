@@ -1,0 +1,202 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.classifier.rbdigital &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.classifier.rbdigital</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">keyword</span> <span class="k">import</span> <span class="n">KeywordBasedClassifier</span>
+
+<div class="viewcode-block" id="RBDigitalAudienceClassifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalAudienceClassifier">[docs]</a><span class="k">class</span> <span class="nc">RBDigitalAudienceClassifier</span><span class="p">(</span><span class="n">FreeformAudienceClassifier</span><span class="p">):</span>
+
+<div class="viewcode-block" id="RBDigitalAudienceClassifier.target_age"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalAudienceClassifier.target_age">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">target_age</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="c1"># RBdigital uses &#39;beginning reader&#39; to refer to books</span>
+        <span class="c1"># suitable from birth to age 8, rather than (as is more common)</span>
+        <span class="c1"># ages 5 to 8.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Rather than covering the entire early lifespan of a child,</span>
+        <span class="c1"># the normally vague &#39;childrens&#39; is used here to cover the</span>
+        <span class="c1"># time in between &#39;beginning reader&#39; and &#39;young adult&#39;</span>
+        <span class="k">if</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;beginning reader&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">8</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;childrens&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">13</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FreeformAudienceClassifier</span><span class="o">.</span><span class="n">target_age</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="RBDigitalSubjectClassifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier">[docs]</a><span class="k">class</span> <span class="nc">RBDigitalSubjectClassifier</span><span class="p">(</span><span class="n">KeywordBasedClassifier</span><span class="p">):</span>
+
+    <span class="c1"># We have subgenres for fiction in these categories but not for</span>
+    <span class="c1"># nonfiction in these categories (thus the None mapping in</span>
+    <span class="c1"># &#39;genres&#39; below).</span>
+    <span class="n">fiction_genres</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;lgbt interest&#39;</span> <span class="p">:</span> <span class="n">LGBTQ_Fiction</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">genres</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c1"># This isn&#39;t true in general but because RBdigital is heavy on</span>
+        <span class="c1"># audio content, &#39;arts and entertainment&#39; is more likely to be</span>
+        <span class="c1"># entertainment (e.g. music) than arts.</span>
+        <span class="s1">&#39;arts entertainment&#39;</span> <span class="p">:</span> <span class="n">Entertainment</span><span class="p">,</span>
+        <span class="s1">&#39;business economics&#39;</span> <span class="p">:</span> <span class="n">Business</span><span class="p">,</span>
+        <span class="s1">&#39;comics graphic novels&#39;</span> <span class="p">:</span> <span class="n">Comics_Graphic_Novels</span><span class="p">,</span>
+        <span class="s1">&#39;home garden&#39;</span> <span class="p">:</span> <span class="n">Hobbies_Home</span><span class="p">,</span>
+        <span class="s1">&#39;humorous fiction&#39;</span> <span class="p">:</span> <span class="n">Humorous_Fiction</span><span class="p">,</span>
+        <span class="c1"># Determined by looking at a sample collection.</span>
+        <span class="s1">&#39;humor&#39;</span> <span class="p">:</span> <span class="n">Humorous_Nonfiction</span><span class="p">,</span>
+
+        <span class="c1"># We don&#39;t check this in KeywordBasedClassifier to avoid</span>
+        <span class="c1"># confusion with e.g. &#39;western civ&#39;.</span>
+        <span class="s1">&#39;western&#39;</span> <span class="p">:</span> <span class="n">Westerns</span><span class="p">,</span>
+
+        <span class="c1"># If we go to this point we know it&#39;s not fiction so we have</span>
+        <span class="c1"># nothing to say about the genre -- it could be anything.</span>
+        <span class="s1">&#39;lgbt interest&#39;</span> <span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="RBDigitalSubjectClassifier.scrub_identifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier.scrub_identifier">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">scrub_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">identifier</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="s1">&#39; &#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RBDigitalSubjectClassifier.genre"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">fiction</span> <span class="ow">and</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">fiction_genres</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">fiction_genres</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">genres</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">genres</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">KeywordBasedClassifier</span><span class="o">.</span><span class="n">genre</span><span class="p">(</span>
+            <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RBDigitalSubjectClassifier.audience"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier.audience">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The two subjects here that imply an audience, juvenile-fiction and</span>
+<span class="sd">        juvenile-nonfiction, could be either Childrens or YA, and</span>
+<span class="sd">        RBdigital always provides a more specific audience</span>
+<span class="sd">        classification, so we don&#39;t try to derive audience information</span>
+<span class="sd">        from an RBDigital Subject.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;erotica&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="RBDigitalSubjectClassifier.target_age"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier.target_age">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">target_age</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;RBdigital&#39;s audience classification is much more useful for this</span>
+<span class="sd">        purpose, so we don&#39;t try to derive target age from an RBDigital</span>
+<span class="sd">        Subject.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="RBDigitalSubjectClassifier.is_fiction"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.rbdigital.RBDigitalSubjectClassifier.is_fiction">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_fiction</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="c1"># In general, the fiction status of a RBdigital subject</span>
+        <span class="c1"># is the default fiction status of its genre.</span>
+        <span class="n">genre</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">genre</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">genre</span> <span class="ow">and</span> <span class="n">genre</span><span class="o">.</span><span class="n">is_fiction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">genre</span><span class="o">.</span><span class="n">is_fiction</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39; fiction&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39; nonfiction&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">RBDIGITAL_AUDIENCE</span><span class="p">]</span> <span class="o">=</span> <span class="n">RBDigitalAudienceClassifier</span>
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">RBDIGITAL</span><span class="p">]</span> <span class="o">=</span> <span class="n">RBDigitalSubjectClassifier</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../classifier.html">core.classifier</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,1479 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.classifier.keyword &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.classifier.keyword</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="match_kw"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.match_kw">[docs]</a><span class="k">def</span> <span class="nf">match_kw</span><span class="p">(</span><span class="o">*</span><span class="n">l</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Turn a list of strings into a function which uses a regular expression</span>
+<span class="sd">    to match any of those strings, so long as there&#39;s a word boundary on both ends.</span>
+<span class="sd">    The function will match all the strings by default, or can exclude the strings</span>
+<span class="sd">    that are examples of the classification.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">match_term</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">l</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">exclude_examples</span><span class="p">:</span>
+            <span class="n">keywords</span> <span class="o">=</span> <span class="p">[</span><span class="n">keyword</span> <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">l</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">keyword</span><span class="p">,</span> <span class="n">Eg</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">keywords</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span> <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keywords</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">any_keyword</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">keywords</span><span class="p">)</span>
+        <span class="n">with_boundaries</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;\b(</span><span class="si">%s</span><span class="s1">)\b&#39;</span> <span class="o">%</span> <span class="n">any_keyword</span>
+        <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">with_boundaries</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
+
+
+    <span class="c1"># This is a dictionary so it can be used as a class variable</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;search&quot;</span><span class="p">:</span> <span class="n">match_term</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="Eg"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.Eg">[docs]</a><span class="k">class</span> <span class="nc">Eg</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mark this string as an example of a classification, rather than</span>
+<span class="sd">    an exact identifier for that classification. For example, basketball</span>
+<span class="sd">    is an an example of a sport, but athletics is an identifier for the sports</span>
+<span class="sd">    classification.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">term</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">term</span> <span class="o">=</span> <span class="n">term</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">term</span></div>
+
+<div class="viewcode-block" id="KeywordBasedClassifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.KeywordBasedClassifier">[docs]</a><span class="k">class</span> <span class="nc">KeywordBasedClassifier</span><span class="p">(</span><span class="n">AgeOrGradeClassifier</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Classify a book based on keywords.&quot;&quot;&quot;</span>
+
+    <span class="c1"># We have to handle these first because otherwise &#39;\bfiction\b&#39;</span>
+    <span class="c1"># will match it.</span>
+    <span class="n">LEVEL_1_NONFICTION_INDICATORS</span> <span class="o">=</span> <span class="n">match_kw</span><span class="p">(</span>
+        <span class="s2">&quot;non-fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;non fiction&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">LEVEL_2_FICTION_INDICATORS</span> <span class="o">=</span> <span class="n">match_kw</span><span class="p">(</span>
+        <span class="s2">&quot;fiction&quot;</span><span class="p">,</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;stories&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;tales&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;literature&quot;</span><span class="p">),</span>
+        <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;bildungsromans&quot;</span><span class="p">),</span> <span class="s2">&quot;fictitious&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">LEVEL_2_NONFICTION_INDICATORS</span> <span class="o">=</span> <span class="n">match_kw</span><span class="p">(</span>
+        <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;history&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;biography&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;histories&quot;</span><span class="p">),</span>
+        <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;biographies&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;autobiography&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;autobiographies&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;nonfiction&quot;</span><span class="p">,</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;essays&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;letters&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;true story&quot;</span><span class="p">),</span>
+        <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;personal memoirs&quot;</span><span class="p">))</span>
+    <span class="n">JUVENILE_INDICATORS</span> <span class="o">=</span> <span class="n">match_kw</span><span class="p">(</span>
+        <span class="s2">&quot;for children&quot;</span><span class="p">,</span> <span class="s2">&quot;children&#39;s&quot;</span><span class="p">,</span> <span class="s2">&quot;juvenile&quot;</span><span class="p">,</span>
+        <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;nursery rhymes&quot;</span><span class="p">),</span> <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;9-12&quot;</span><span class="p">))</span>
+    <span class="n">YOUNG_ADULT_INDICATORS</span> <span class="o">=</span> <span class="n">match_kw</span><span class="p">(</span>
+        <span class="s2">&quot;young adult&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ya&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;12-Up&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;teenage .*fiction&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;teens .*fiction&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;teen books&quot;</span><span class="p">,</span>
+        <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;teenage romance&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Children&#39;s books don&#39;t generally deal with romance, so although</span>
+    <span class="c1"># &quot;Juvenile Fiction&quot; generally refers to children&#39;s fiction,</span>
+    <span class="c1"># &quot;Juvenile Fiction / Love &amp; Romance&quot; is almost certainly YA.</span>
+    <span class="n">JUVENILE_TERMS_THAT_IMPLY_YOUNG_ADULT</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+        <span class="s2">&quot;love &amp; romance&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;romance&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;romantic&quot;</span><span class="p">,</span>
+    <span class="p">])</span>
+
+    <span class="c1"># These identifiers indicate that the string &quot;children&quot; or</span>
+    <span class="c1"># &quot;juvenile&quot; in the identifier does not actually mean the work is</span>
+    <span class="c1"># _for_ children.</span>
+    <span class="n">JUVENILE_BLACKLIST</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+        <span class="s2">&quot;military participation&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;services&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;children&#39;s accidents&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;children&#39;s voices&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;juvenile delinquency&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;children&#39;s television workshop&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;missing children&quot;</span><span class="p">,</span>
+    <span class="p">])</span>
+
+    <span class="n">CATCHALL_KEYWORDS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Adventure</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;adventure&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;adventurers&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;adventure stories&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;adventure fiction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;adventurers&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sea stories&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;war stories&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;men&#39;s adventure&quot;</span><span class="p">),</span>
+        <span class="p">),</span>
+
+        <span class="n">African_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;african history&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;history.*africa&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Ancient_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;ancient.*history&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;history.*ancient&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;civilization, classical&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Antiques_Collectibles</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;antiques&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;collectibles&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;collectors&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;collecting&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Architecture</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;architecture&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;architectural&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;architect&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;architects&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Art</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;art&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;arts&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;artist&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;artists&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;artistic&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Art_Criticism_Theory</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;art criticism&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;art / criticism &amp; theory&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Art_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;art.*history&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Asian_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;asian history&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;history.*asia&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;australasian &amp; pacific history&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Bartending_Cocktails</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;cocktail&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cocktails&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;bartending&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;beer&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;alcoholic beverages&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;wine&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;wine &amp; spirits&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;spirits &amp; cocktails&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+               <span class="n">Biography_Memoir</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;autobiographies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;autobiography&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;biographies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;biography&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;biographical&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;personal memoirs&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Body_Mind_Spirit</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;body, mind &amp; spirit&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Buddhism</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;buddhism&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;buddhist&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;buddha&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Business</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;business&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;businesspeople&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;businesswomen&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;businessmen&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;business &amp; economics&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;business &amp; financial&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;commerce&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;sales&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;selling&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;sales &amp; selling&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;nonprofit&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Christianity</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;schema:creativework:bible&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;baptist&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;bible&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sermons&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;devotional&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;theological&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;theology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;biblical&#39;</span><span class="p">),</span>
+                   <span class="s2">&quot;christian&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;christianity&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;catholic&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;protestant&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;catholicism&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;protestantism&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;church&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;christmas &amp; advent&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Civil_War_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;american civil war&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;1861-1865&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;civil war period&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Classics</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s1">&#39;classics&#39;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Computers</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;computer&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;computer science&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;computational&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;computers&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;computing&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;hardware&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;software&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;software development&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;information technology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;web&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;world wide web&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Contemporary_Romance</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;contemporary romance&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romance--contemporary&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romance / contemporary&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romance - contemporary&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Cooking</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;non-alcoholic&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;baking&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;cookbook&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;cooking&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;food&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;health &amp; healing&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;home economics&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;cuisine&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Crafts_Hobbies</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;arts &amp; crafts&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;arts, crafts&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;beadwork&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;candle crafts&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;candle making&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;carving&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ceramics&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;crafts &amp; hobbies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;crafts&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;crochet&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;crocheting&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;cross-stitch&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;decorative arts&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;flower arranging&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;folkcrafts&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;handicrafts&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;hobbies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;hobby&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;hobbyist&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;hobbyists&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;jewelry&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;knitting&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;metal work&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;needlework&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;origami&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;paper crafts&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;pottery&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;quilting&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;quilts&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;scrapbooking&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sewing&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;soap making&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;stamping&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;stenciling&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;textile crafts&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;toymaking&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;weaving&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;woodwork&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Design</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;design&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;designer&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;designers&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;graphic design&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;typography&quot;</span><span class="p">)</span>
+               <span class="p">),</span>
+
+               <span class="n">Dictionaries</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;dictionaries&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;dictionary&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Drama</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;comedies&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;drama&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;dramatist&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;dramatists&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;operas&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;plays&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;shakespeare&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;tragedies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;tragedy&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Economics</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;banking&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;economy&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;economies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;economic&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;economics&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Education</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="c1"># TODO: a lot of these don&#39;t work well because of</span>
+                   <span class="c1"># the huge amount of fiction about students. This</span>
+                   <span class="c1"># will be fixed when we institute the</span>
+                   <span class="c1"># fiction/nonfiction split.</span>
+                   <span class="s2">&quot;education&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;educational&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;educator&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;educators&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;principals&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;teacher&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;teachers&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;teaching&quot;</span><span class="p">,</span>
+                   <span class="c1">#&quot;schools&quot;,</span>
+                   <span class="c1">#&quot;high school&quot;,</span>
+                   <span class="s2">&quot;schooling&quot;</span><span class="p">,</span>
+                   <span class="c1">#&quot;student&quot;,</span>
+                   <span class="c1">#&quot;students&quot;,</span>
+                   <span class="c1">#&quot;college&quot;,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;university&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;universities&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Epic_Fantasy</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;epic fantasy&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fantasy - epic&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fantasy / epic&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fantasy--epic&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fantasy/epic&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Espionage</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;espionage&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;intrigue&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;spies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;spy stories&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;spy novels&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;spy fiction&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;spy thriller&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Erotica</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s1">&#39;erotic&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;erotica&#39;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="c1"># TODO: history _plus_ a place</span>
+        <span class="n">European_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;europe.*history&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;history.*europe&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;france.*history&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;history.*france&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;england.*history&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;history.*england&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ireland.*history&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;history.*ireland&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;germany.*history&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;history.*germany&quot;</span><span class="p">),</span>
+            <span class="c1"># etc. etc. etc.</span>
+        <span class="p">),</span>
+
+               <span class="n">Family_Relationships</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;family &amp; relationships&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;relationships&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;family relationships&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;human sexuality&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;sexuality&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Fantasy</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;fantasy&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;magic&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;wizards&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;fairies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;witches&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;dragons&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sorcery&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;witchcraft&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;wizardry&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;unicorns&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Fashion</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;fashion&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fashion design&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fashion designers&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Film_TV</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;director&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;directors&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;film&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;films&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;movies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;movie&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;motion picture&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;motion pictures&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;moviemaker&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;moviemakers&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;producer&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;producers&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;television&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;tv&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;video&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Foreign_Language_Study</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;english as a foreign language&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;english as a second language&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;esl&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;foreign language study&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;multi-language dictionaries&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Games</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;games&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;video games&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;gaming&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;gambling&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Gardening</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;gardening&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;horticulture&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Comics_Graphic_Novels</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;comics&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;comic strip&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;comic strips&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;comic book&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;comic books&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;graphic novel&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;graphic novels&quot;</span><span class="p">,</span>
+
+                   <span class="c1"># Formerly in &#39;Superhero&#39;</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;superhero&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;superheroes&quot;</span><span class="p">),</span>
+
+                   <span class="c1"># Formerly in &#39;Manga&#39;</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;japanese comic books&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;japanese comics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;manga&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;yaoi&quot;</span><span class="p">),</span>
+
+               <span class="p">),</span>
+
+               <span class="n">Hard_Boiled_Mystery</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;hard-boiled&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;noir&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Health_Diet</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="c1"># ! &quot;health services&quot; ?</span>
+                   <span class="s2">&quot;fitness&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;health&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;health aspects&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;health &amp; fitness&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;hygiene&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;nutrition&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;diet&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;diets&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;weight loss&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Hinduism</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;hinduism&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;hindu&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;hindus&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Historical_Fiction</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;historical fiction&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fiction.*historical&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;^historical$&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Historical_Romance</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;historical romance&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;regency romance&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;romance.*regency&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">History</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;histories&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;historiography&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;historical period&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;pre-confederation&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Horror</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;horror&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;occult&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ghost&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ghost stories&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;vampires&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;paranormal fiction&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;occult fiction&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;supernatural&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;scary&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">House_Home</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;house and home&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;house &amp; home&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;remodeling&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;renovation&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;caretaking&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;interior decorating&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+        <span class="n">Humorous_Fiction</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;comedy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;funny&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humor&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humorous&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humourous&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humour&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;satire&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;wit&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">Humorous_Nonfiction</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;comedy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;funny&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humor&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humorous&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humour&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;humourous&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;wit&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+               <span class="n">Entertainment</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="c1"># Almost a pure top-level category</span>
+                   <span class="s2">&quot;entertainment&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="c1"># These might be a problem because they might pick up</span>
+        <span class="c1"># hateful books. Not sure if this will be a problem.</span>
+        <span class="n">Islam</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s1">&#39;islam&#39;</span><span class="p">,</span> <span class="s1">&#39;islamic&#39;</span><span class="p">,</span> <span class="s1">&#39;muslim&#39;</span><span class="p">,</span> <span class="s1">&#39;muslims&#39;</span><span class="p">,</span> <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;halal&#39;</span><span class="p">),</span>
+            <span class="s1">&#39;islamic studies&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+               <span class="n">Judaism</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s1">&#39;judaism&#39;</span><span class="p">,</span> <span class="s1">&#39;jewish&#39;</span><span class="p">,</span> <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;kosher&#39;</span><span class="p">),</span> <span class="s1">&#39;jews&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;jewish studies&#39;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">LGBTQ_Fiction</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s1">&#39;lgbt&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;lgbtq&#39;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;lesbian&#39;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;lesbians&#39;</span><span class="p">),</span>
+                   <span class="s1">&#39;gay&#39;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;bisexual&#39;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;transgender&#39;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;transsexual&#39;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;transsexuals&#39;</span><span class="p">),</span>
+                   <span class="s1">&#39;homosexual&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;homosexuals&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;homosexuality&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;queer&#39;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Latin_American_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+               <span class="p">),</span>
+
+               <span class="n">Law</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;court&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;judicial&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;law&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;laws&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;legislation&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;legal&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Legal_Thriller</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;legal thriller&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;legal thrillers&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Literary_Criticism</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;criticism, interpretation&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Literary_Fiction</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;literary&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;literary fiction&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;general fiction&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fiction[^a-z]+general&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fiction[^a-z]+literary&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Management_Leadership</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;management&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;business &amp; economics / leadership&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;business &amp; economics -- leadership&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;management science&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Mathematics</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;algebra&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;arithmetic&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;calculus&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;chaos theory&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;game theory&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;group theory&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;logic&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;math&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;mathematical&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;mathematician&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;mathematicians&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;mathematics&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;probability&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;statistical&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;statistics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;trigonometry&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Medical</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;anatomy&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;disease&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;diseases&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;disorders&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;epidemiology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;illness&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;illnesses&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;medical&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;medicine&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;neuroscience&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ophthalmology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;physiology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;vaccines&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;virus&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Medieval_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;civilization, medieval&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;medieval period&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history.*medieval&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Middle_East_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;middle east.*history&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history.*middle east&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+
+               <span class="n">Military_History</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;military science&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;warfare&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;military&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;1914-1918&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;1939-1945&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;world war&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Modern_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;1900 - 1999&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;2000-2099&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;modern history&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history, modern&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history (modern)&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history--modern&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;history.*20th century&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;history.*21st century&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="c1"># This is SF movie tie-ins, not movies &amp; gaming per se.</span>
+        <span class="c1"># This one is difficult because it takes effect if book</span>
+        <span class="c1"># has subject &quot;media tie-in&quot; *and* &quot;science fiction&quot; or</span>
+        <span class="c1"># &quot;fantasy&quot;</span>
+        <span class="n">Media_Tie_in_SF</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;science fiction &amp; fantasy gaming&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;star trek&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;star wars&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;jedi&quot;</span><span class="p">),</span>
+        <span class="p">),</span>
+
+               <span class="n">Music</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;music&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;musician&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;musicians&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;musical&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;genres &amp; styles&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;blues&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;jazz&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;rap&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;hip-hop&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;rock.*roll&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;rock music&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;punk rock&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Mystery</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;crime&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;detective&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;murder&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;mystery&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;mysteries&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;private investigators&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;holmes, sherlock&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;poirot, hercule&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;schema:person:holmes, sherlock&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Nature</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="c1"># TODO: not sure about this one</span>
+                   <span class="s2">&quot;nature&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Body_Mind_Spirit</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;new age&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Paranormal_Romance</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;paranormal romance&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romance.*paranormal&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Parenting</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="c1"># &quot;children&quot; isn&#39;t here because the vast majority of</span>
+                   <span class="c1"># &quot;children&quot; tags indicate books _for_ children.</span>
+
+                   <span class="c1"># &quot;family&quot; isn&#39;t here because the vast majority</span>
+                   <span class="c1"># of &quot;family&quot; tags deal with specific families, e.g.</span>
+                   <span class="c1"># the Kennedys.</span>
+
+                   <span class="s2">&quot;parenting&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;parent&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;parents&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;motherhood&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;fatherhood&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Parenting_Family</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="c1"># Pure top-level category</span>
+               <span class="p">),</span>
+
+               <span class="n">Performing_Arts</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;theatre&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;theatrical&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;performing arts&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;entertainers&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;farce&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;tragicomedy&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Periodicals</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;periodicals&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;periodical&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Personal_Finance_Investing</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;personal finance&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;financial planning&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;investing&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;retirement planning&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;money management&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Pets</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;pets&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;dogs&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;cats&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Philosophy</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;philosophy&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;philosophical&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;philosopher&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;philosophers&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;epistemology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;metaphysics&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Photography</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;photography&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;photographer&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;photographers&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;photographic&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Police_Procedural</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;police[^a-z]+procedural&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;police[^a-z]+procedurals&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Poetry</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;poetry&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;poet&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;poets&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;poem&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;poems&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sonnet&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sonnets&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Political_Science</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;american government&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;anarchism&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;censorship&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;citizenship&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;civics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;communism&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;corruption&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;corrupt practices&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;democracy&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;geopolitics&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;government&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;human rights&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;international relations&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;political economy&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;political ideologies&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;political process&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;political science&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;public affairs&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;public policy&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;politics&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;political&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;current events&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Psychology</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;psychology&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;psychiatry&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;psychological aspects&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;psychiatric&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;psychoanalysis&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Real_Estate</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;real estate&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Reference_Study_Aids</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;catalogs&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;handbooks&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;manuals&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;reference&quot;</span><span class="p">),</span>
+
+                   <span class="c1"># Formerly in &#39;Encyclopedias&#39;</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;encyclopaedias&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;encyclopaedia&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;encyclopedias&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;encyclopedia&quot;</span><span class="p">),</span>
+
+                   <span class="c1"># Formerly in &#39;Language Arts &amp; Disciplines&#39;</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;alphabets&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;communication studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;composition&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;creative writing&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;grammar&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;handwriting&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;information sciences&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;journalism&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;library &amp; information sciences&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;linguistics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;literacy&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;public speaking&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;rhetoric&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sign language&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;speech&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;spelling&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;style manuals&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;syntax&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;vocabulary&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;writing systems&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Religion_Spirituality</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;religion&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;religious&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;taoism&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;taoist&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;confucianism&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;inspirational nonfiction&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Renaissance_Early_Modern_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;early modern period&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;early modern history&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;early modern, 1500-1700&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history.*early modern&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;renaissance.*history&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history.*renaissance&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Romance</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;love stories&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romance&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;love &amp; romance&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romances&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Science</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;aeronautics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;astronomy&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;biology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;biophysics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;biochemistry&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;botany&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;chemistry&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;earth sciences&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ecology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;entomology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;evolution&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;geology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;genetics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;genetic engineering&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;genomics&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ichthyology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;herpetology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;life sciences&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;microbiology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;microscopy&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;mycology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ornithology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;natural history&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;natural history&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;physics&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;science&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;scientist&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;scientists&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;zoology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;virology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;cytology&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Science_Fiction</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;speculative fiction&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;sci-fi&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;sci fi&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;time travel&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="c1">#Science_Fiction_Fantasy: match_kw(</span>
+        <span class="c1">#    &quot;science fiction.*fantasy&quot;,</span>
+        <span class="c1">#),</span>
+
+               <span class="n">Self_Help</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;self help&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;self-help&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;self improvement&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;self-improvement&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+               <span class="n">Folklore</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;fables&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;folklore&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;folktales&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;folk tales&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;myth&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;legends&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+                <span class="n">Short_Stories</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                    <span class="s2">&quot;short stories&quot;</span><span class="p">,</span>
+                    <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;literary collections&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+
+               <span class="n">Social_Sciences</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;anthropology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;archaeology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sociology&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ethnic studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;feminism &amp; feminist theory&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;gender studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;media studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;minority studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;men&#39;s studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;regional studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;women&#39;s studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;demography&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;lesbian studies&#39;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s1">&#39;gay studies&#39;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;black studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;african-american studies&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;customs &amp; traditions&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;criminology&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Sports</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="c1"># Ton of specific sports here since &#39;players&#39;</span>
+                   <span class="c1"># doesn&#39;t work. TODO: Why? I don&#39;t remember.</span>
+                   <span class="s2">&quot;sports&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;baseball&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;football&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;hockey&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;soccer&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;skating&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Study_Aids</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;act&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;advanced placement&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;bar exam&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;clep&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;college entrance&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;college guides&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;financial aid&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;certification&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ged&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;gmat&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;gre&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;lsat&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;mat&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;mcat&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;nmsqt&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;nte&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;psat&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;sat&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;school guides&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;study guide&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;study guides&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;study aids&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;toefl&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;workbooks&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Romantic_Suspense</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;romantic.*suspense&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;suspense.*romance&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romance.*suspense&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romantic.*thriller&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;romance.*thriller&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;thriller.*romance&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Technology</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;technology&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;engineering&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;bioengineering&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;mechanics&quot;</span><span class="p">),</span>
+
+                   <span class="c1"># Formerly in &#39;Transportation&#39;</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;transportation&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;railroads&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;trains&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;automotive&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;ships &amp; shipbuilding&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;cars &amp; trucks&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Suspense_Thriller</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;thriller&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;thrillers&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;suspense&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Technothriller</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;techno-thriller&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;technothriller&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;technothrillers&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Travel</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;discovery&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;exploration&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;travel&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;travels.*voyages&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;voyage.*travels&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;voyages&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;travelers&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;description.*travel&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">United_States_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;united states history&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;u.s. history&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;american revolution&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;1775-1783&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;revolutionary period&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Urban_Fantasy</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;urban fantasy&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;fantasy.*urban&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Urban_Fiction</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;urban fiction&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;fiction.*african american.*urban&quot;</span><span class="p">),</span>
+               <span class="p">),</span>
+
+               <span class="n">Vegetarian_Vegan</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;vegetarian&quot;</span><span class="p">,</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;vegan&quot;</span><span class="p">),</span>
+                   <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;veganism&quot;</span><span class="p">),</span>
+                   <span class="s2">&quot;vegetarianism&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Westerns</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;western stories&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;westerns&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Women_Detectives</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;women detectives&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;women detective&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;women private investigators&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;women private investigator&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;women sleuths&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;women sleuth&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">Womens_Fiction</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;contemporary women&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;chick lit&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;womens fiction&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;women&#39;s fiction&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+
+               <span class="n">World_History</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+                   <span class="s2">&quot;world history&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;history[^a-z]*world&quot;</span><span class="p">,</span>
+               <span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="n">LEVEL_2_KEYWORDS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Reference_Study_Aids</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="c1"># Formerly in &#39;Language Arts &amp; Disciplines&#39;</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;language arts &amp; disciplines&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;language arts and disciplines&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;language arts&quot;</span><span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">Design</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;arts and crafts movement&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">Drama</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;opera&quot;</span><span class="p">),</span>
+        <span class="p">),</span>
+
+        <span class="n">Erotica</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;erotic poetry&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;gay erotica&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;lesbian erotica&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;erotic photography&quot;</span><span class="p">),</span>
+        <span class="p">),</span>
+
+        <span class="n">Games</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;games.*fantasy&quot;</span><span class="p">)</span>
+        <span class="p">),</span>
+
+        <span class="n">Historical_Fiction</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;arthurian romance.*&quot;</span><span class="p">),</span> <span class="c1"># This is &quot;romance&quot; in the old</span>
+                                       <span class="c1"># sense of a story.</span>
+        <span class="p">),</span>
+
+        <span class="n">Literary_Criticism</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;literary history&quot;</span><span class="p">),</span> <span class="c1"># Not History</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;romance language&quot;</span><span class="p">),</span> <span class="c1"># Not Romance</span>
+        <span class="p">),</span>
+
+        <span class="n">Media_Tie_in_SF</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s1">&#39;tv, movie, video game adaptations&#39;</span> <span class="c1"># Not Film &amp; TV</span>
+        <span class="p">),</span>
+
+        <span class="c1"># We need to match these first so that the &#39;military&#39;/&#39;warfare&#39;</span>
+        <span class="c1"># part doesn&#39;t match Military History.</span>
+        <span class="n">Military_SF</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;science fiction.*military&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;military.*science fiction&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;space warfare&quot;</span><span class="p">),</span>            <span class="c1"># Thankfully</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;interstellar warfare&quot;</span><span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">Military_Thriller</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;military thrillers&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;thrillers.*military&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">Pets</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;human-animal relationships&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">Political_Science</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;health care reform&quot;</span><span class="p">),</span>
+        <span class="p">),</span>
+
+        <span class="c1"># Stop the &#39;religious&#39; from matching Religion/Spirituality.</span>
+        <span class="n">Religious_Fiction</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;christian fiction&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;inspirational fiction&quot;</span><span class="p">),</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;fiction.*christian&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;religious fiction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fiction.*religious&quot;</span><span class="p">,</span>
+            <span class="n">Eg</span><span class="p">(</span><span class="s2">&quot;Oriental religions and wisdom&quot;</span><span class="p">)</span>
+        <span class="p">),</span>
+
+        <span class="n">Romantic_Suspense</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;romantic.*suspense&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;suspense.*romance&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;romance.*suspense&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;romantic.*thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;romance.*thriller&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;thriller.*romance&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="c1"># Stop from showing up as &#39;science&#39;</span>
+        <span class="n">Social_Sciences</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;social sciences&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;social science&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;human science&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Science_Fiction</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;science fiction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;science fiction.*general&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="n">Supernatural_Thriller</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;thriller.*supernatural&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;supernatural.*thriller&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="c1"># Stop from going into Mystery due to &#39;crime&#39;</span>
+        <span class="n">True_Crime</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;true crime&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="c1"># Otherwise fiction.*urban turns Urban Fantasy into Urban Fiction</span>
+        <span class="n">Urban_Fantasy</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;fiction.*fantasy.*urban&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+
+        <span class="c1"># Stop the &#39;children&#39; in &#39;children of&#39; from matching Parenting.</span>
+        <span class="kc">None</span> <span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;children of&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">LEVEL_3_KEYWORDS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Space_Opera</span><span class="p">:</span> <span class="n">match_kw</span><span class="p">(</span>
+            <span class="s2">&quot;space opera&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">}</span>
+
+
+<div class="viewcode-block" id="KeywordBasedClassifier.is_fiction"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.is_fiction">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_fiction</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">LEVEL_1_NONFICTION_INDICATORS</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">LEVEL_2_FICTION_INDICATORS</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">LEVEL_2_NONFICTION_INDICATORS</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="KeywordBasedClassifier.audience"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.audience">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">YOUNG_ADULT_INDICATORS</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="p">):</span>
+            <span class="n">use</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>
+        <span class="k">elif</span> <span class="bp">cls</span><span class="o">.</span><span class="n">JUVENILE_INDICATORS</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="p">):</span>
+            <span class="n">use</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">use</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">JUVENILE_TERMS_THAT_IMPLY_YOUNG_ADULT</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="n">use</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>
+
+        <span class="c1"># It may be for kids, or it may be about kids, e.g. &quot;juvenile</span>
+        <span class="c1"># delinquency&quot;.</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">JUVENILE_BLACKLIST</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">use</span></div>
+
+<div class="viewcode-block" id="KeywordBasedClassifier.audience_match"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.audience_match">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">audience_match</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
+        <span class="n">audience</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">audience_words</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">audience</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">audience</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">audience</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">audience_keywords</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">JUVENILE_INDICATORS</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">YOUNG_ADULT_INDICATORS</span><span class="p">]:</span>
+                <span class="n">match</span> <span class="o">=</span> <span class="n">audience_keywords</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">query</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                    <span class="n">audience_words</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
+                    <span class="k">break</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">audience</span><span class="p">,</span> <span class="n">audience_words</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="KeywordBasedClassifier.genre"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="n">match_against</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">LEVEL_3_KEYWORDS</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">LEVEL_2_KEYWORDS</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">CATCHALL_KEYWORDS</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">genre</span><span class="p">,</span> <span class="n">keywords</span> <span class="ow">in</span> <span class="n">l</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">genre</span> <span class="ow">and</span> <span class="n">fiction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">genre</span><span class="o">.</span><span class="n">is_fiction</span> <span class="o">!=</span> <span class="n">fiction</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">genre</span> <span class="ow">and</span> <span class="n">audience</span> <span class="ow">and</span> <span class="n">genre</span><span class="o">.</span><span class="n">audience_restriction</span>
+                    <span class="ow">and</span> <span class="n">audience</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">genre</span><span class="o">.</span><span class="n">audience_restriction</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">keywords</span> <span class="ow">and</span> <span class="n">keywords</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">name</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="p">):</span>
+                    <span class="n">matches</span><span class="p">[</span><span class="n">genre</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">most_specific_genre</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">most_specific_count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="c1"># The genre with the most regex matches wins.</span>
+            <span class="c1">#</span>
+            <span class="c1"># If a genre and a subgenre are tied, then the subgenre wins</span>
+            <span class="c1"># because it&#39;s more specific.</span>
+            <span class="k">for</span> <span class="n">genre</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">matches</span><span class="o">.</span><span class="n">most_common</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">most_specific_genre</span> <span class="ow">or</span> <span class="p">(</span>
+                        <span class="n">most_specific_genre</span><span class="o">.</span><span class="n">has_subgenre</span><span class="p">(</span><span class="n">genre</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">count</span> <span class="o">&gt;=</span> <span class="n">most_specific_count</span><span class="p">):</span>
+                    <span class="n">most_specific_genre</span> <span class="o">=</span> <span class="n">genre</span>
+                    <span class="n">most_specific_count</span> <span class="o">=</span> <span class="n">count</span>
+            <span class="k">if</span> <span class="n">most_specific_genre</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">return</span> <span class="n">most_specific_genre</span></div>
+
+<div class="viewcode-block" id="KeywordBasedClassifier.genre_match"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.KeywordBasedClassifier.genre_match">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">genre_match</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
+        <span class="n">genre</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">genre_words</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">genre</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">genre</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">genre</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">kwlist</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">LEVEL_3_KEYWORDS</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">LEVEL_2_KEYWORDS</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">CATCHALL_KEYWORDS</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">genre</span> <span class="ow">in</span> <span class="n">kwlist</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">genre_keywords</span> <span class="o">=</span> <span class="n">kwlist</span><span class="p">[</span><span class="n">genre</span><span class="p">]</span>
+                    <span class="n">match</span> <span class="o">=</span> <span class="n">genre_keywords</span><span class="p">[</span><span class="s2">&quot;search&quot;</span><span class="p">](</span><span class="n">query</span><span class="p">,</span> <span class="n">exclude_examples</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                        <span class="n">genre_words</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
+                        <span class="k">break</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="n">genre_words</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="LCSHClassifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.LCSHClassifier">[docs]</a><span class="k">class</span> <span class="nc">LCSHClassifier</span><span class="p">(</span><span class="n">KeywordBasedClassifier</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="FASTClassifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.FASTClassifier">[docs]</a><span class="k">class</span> <span class="nc">FASTClassifier</span><span class="p">(</span><span class="n">KeywordBasedClassifier</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="TAGClassifier"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.keyword.TAGClassifier">[docs]</a><span class="k">class</span> <span class="nc">TAGClassifier</span><span class="p">(</span><span class="n">KeywordBasedClassifier</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">FAST</span><span class="p">]</span> <span class="o">=</span> <span class="n">FASTClassifier</span>
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">LCSH</span><span class="p">]</span> <span class="o">=</span> <span class="n">LCSHClassifier</span>
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">TAG</span><span class="p">]</span> <span class="o">=</span> <span class="n">TAGClassifier</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../classifier.html">core.classifier</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

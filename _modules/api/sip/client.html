@@ -1,0 +1,972 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.sip.client &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.sip.client</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="sd">&quot;&quot;&quot;A simple SIP2 client.</span>
+
+<span class="sd">Implementation is guided by the SIP2 specification:</span>
+<span class="sd"> http://multimedia.3m.com/mws/media/355361O/sip2-protocol.pdf</span>
+
+<span class="sd">This client implements a very small part of SIP2 but is easily extensible.</span>
+
+<span class="sd">This client is based on sip2talk.py. Here is the original licensing</span>
+<span class="sd">information for sip2talk.py:</span>
+
+<span class="sd">Copyright [2010] [Eli Fulkerson]</span>
+
+<span class="sd">Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="sd">you may not use this file except in compliance with the License.</span>
+<span class="sd">You may obtain a copy of the License at</span>
+
+<span class="sd">    http://www.apache.org/licenses/LICENSE-2.0</span>
+
+<span class="sd">Unless required by applicable law or agreed to in writing, software</span>
+<span class="sd">distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="sd">WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="sd">See the License for the specific language governing permissions and</span>
+<span class="sd">limitations under the License.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">import</span> <span class="nn">ssl</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="c1"># SIP2 defines a large number of fields which are used in request and</span>
+<span class="c1"># response messages. This library focuses on defining the response</span>
+<span class="c1"># fields in a way that makes it easy to reliably parse response</span>
+<span class="c1"># documents.</span>
+
+<div class="viewcode-block" id="fixed"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.fixed">[docs]</a><span class="k">class</span> <span class="nc">fixed</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A fixed-width field in a SIP2 response.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span> <span class="o">=</span> <span class="n">internal_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
+
+<div class="viewcode-block" id="fixed.consume"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.fixed.consume">[docs]</a>    <span class="k">def</span> <span class="nf">consume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">in_progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove the value of this field from the beginning of the</span>
+<span class="sd">        input string, and store it in the given dictionary.</span>
+
+<span class="sd">        :param in_progress: A dictionary mapping field names to</span>
+<span class="sd">            values. The value of this field will be stored in this</span>
+<span class="sd">            dictionary.</span>
+
+<span class="sd">        :return: The original input string, after the value of this</span>
+<span class="sd">            field has been removed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">]</span>
+        <span class="n">in_progress</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:]</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_add</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">internal_name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span></div>
+
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;patron_status&#39;</span><span class="p">,</span> <span class="mi">14</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;language&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;transaction_date&#39;</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;hold_items_count&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;overdue_items_count&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;charged_items_count&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;fine_items_count&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;recall_items_count&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;unavailable_holds_count&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;login_ok&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">fixed</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;end_session&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="named"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.named">[docs]</a><span class="k">class</span> <span class="nc">named</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A variable-length field in a SIP2 response.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">sip_code</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sip_code</span> <span class="o">=</span> <span class="n">sip_code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span> <span class="o">=</span> <span class="n">internal_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">req</span><span class="o">=</span><span class="n">required</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">allow_multiple</span> <span class="o">=</span> <span class="n">allow_multiple</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">required</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a variant of this field which is required.</span>
+
+<span class="sd">        Most variable-length fields are not required, but certain</span>
+<span class="sd">        fields may be required in the responses to specific types of</span>
+<span class="sd">        requests.</span>
+
+<span class="sd">        To check whether a specific field actually is required, check</span>
+<span class="sd">        `field.req`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">named</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sip_code</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span>
+                     <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow_multiple</span><span class="p">)</span>
+
+<div class="viewcode-block" id="named.consume"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.named.consume">[docs]</a>    <span class="k">def</span> <span class="nf">consume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">in_progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Process the given value for this field.</span>
+
+<span class="sd">        Unlike fixed.consume, this does not modify the value -- it&#39;s</span>
+<span class="sd">        assumed that this particular field value has already been</span>
+<span class="sd">        isolated from the response string.</span>
+
+<span class="sd">        :param in_progress: A dictionary mapping field names to</span>
+<span class="sd">            values. The value of this field will be stored in this</span>
+<span class="sd">            dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Expected string of length </span><span class="si">%d</span><span class="s2"> for field </span><span class="si">%s</span><span class="s2">, but got </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sip_code</span><span class="p">,</span> <span class="n">value</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow_multiple</span><span class="p">:</span>
+            <span class="n">in_progress</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span><span class="p">,[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">in_progress</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_add</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">internal_name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span></div>
+
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;institution_id&quot;</span><span class="p">,</span> <span class="s2">&quot;AO&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;patron_identifier&quot;</span><span class="p">,</span> <span class="s2">&quot;AA&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;personal_name&quot;</span><span class="p">,</span> <span class="s2">&quot;AE&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;hold_items_limit&quot;</span><span class="p">,</span> <span class="s2">&quot;BZ&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;overdue_items_limit&quot;</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;charged_items_limit&quot;</span><span class="p">,</span> <span class="s2">&quot;CB&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;valid_patron&quot;</span><span class="p">,</span> <span class="s2">&quot;BL&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;valid_patron_password&quot;</span><span class="p">,</span> <span class="s2">&quot;CQ&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;currency_type&quot;</span><span class="p">,</span> <span class="s2">&quot;BH&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;fee_amount&quot;</span><span class="p">,</span> <span class="s2">&quot;BV&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;fee_limit&quot;</span><span class="p">,</span> <span class="s2">&quot;CC&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;hold_items&quot;</span><span class="p">,</span> <span class="s2">&quot;AS&quot;</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;overdue_items&quot;</span><span class="p">,</span> <span class="s2">&quot;AT&quot;</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;charged_items&quot;</span><span class="p">,</span> <span class="s2">&quot;AU&quot;</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;fine_items&quot;</span><span class="p">,</span> <span class="s2">&quot;AV&quot;</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;recall_items&quot;</span><span class="p">,</span> <span class="s2">&quot;BU&quot;</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;unavailable_hold_items&quot;</span><span class="p">,</span> <span class="s2">&quot;CD&quot;</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;home_address&quot;</span><span class="p">,</span> <span class="s2">&quot;BD&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;email_address&quot;</span><span class="p">,</span> <span class="s2">&quot;BE&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;phone_number&quot;</span><span class="p">,</span> <span class="s2">&quot;BF&quot;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;sequence_number&quot;</span><span class="p">,</span> <span class="s2">&quot;AY&quot;</span><span class="p">)</span>
+
+<span class="c1"># The spec doesn&#39;t say there can be more than one screen message,</span>
+<span class="c1"># but I have seen it happen.</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;screen_message&quot;</span><span class="p">,</span> <span class="s2">&quot;AF&quot;</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s2">&quot;print_line&quot;</span><span class="p">,</span> <span class="s2">&quot;AG&quot;</span><span class="p">)</span>
+
+<span class="c1"># SIP extensions defined by Georgia Public Library Service&#39;s SIP</span>
+<span class="c1"># server, used by Evergreen and Koha.</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;sipserver_patron_expiration&#39;</span><span class="p">,</span> <span class="s1">&#39;PA&#39;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;sipserver_patron_class&#39;</span><span class="p">,</span> <span class="s1">&#39;PC&#39;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;sipserver_internet_privileges&#39;</span><span class="p">,</span> <span class="s1">&#39;PI&#39;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;sipserver_internal_id&#39;</span><span class="p">,</span> <span class="s1">&#39;XI&#39;</span><span class="p">)</span>
+
+<span class="c1"># SIP extensions defined by Polaris.</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;polaris_patron_birthdate&#39;</span><span class="p">,</span> <span class="s1">&#39;BC&#39;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;polaris_postal_code&#39;</span><span class="p">,</span> <span class="s1">&#39;PZ&#39;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;polaris_patron_expiration&#39;</span><span class="p">,</span> <span class="s1">&#39;PX&#39;</span><span class="p">)</span>
+<span class="n">named</span><span class="o">.</span><span class="n">_add</span><span class="p">(</span><span class="s1">&#39;polaris_patron_expired&#39;</span><span class="p">,</span> <span class="s1">&#39;PY&#39;</span><span class="p">)</span>
+
+<span class="c1"># A potential problem: Polaris defines PA to refer to something else.</span>
+
+<div class="viewcode-block" id="RequestResend"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.RequestResend">[docs]</a><span class="k">class</span> <span class="nc">RequestResend</span><span class="p">(</span><span class="ne">IOError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;There was an error transmitting a message and the server has requested</span>
+<span class="sd">    that it be resent.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="Constants"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.Constants">[docs]</a><span class="k">class</span> <span class="nc">Constants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="n">UNKNOWN_LANGUAGE</span> <span class="o">=</span> <span class="s2">&quot;000&quot;</span>
+    <span class="n">ENGLISH</span> <span class="o">=</span> <span class="s2">&quot;001&quot;</span></div>
+
+
+<div class="viewcode-block" id="SIPClient"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient">[docs]</a><span class="k">class</span> <span class="nc">SIPClient</span><span class="p">(</span><span class="n">Constants</span><span class="p">):</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;SIPClient&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Maximum retries of a SIP message before failing.</span>
+    <span class="n">MAXIMUM_RETRIES</span> <span class="o">=</span> <span class="mi">5</span>
+
+    <span class="c1"># These are the subfield names associated with the &#39;patron status&#39;</span>
+    <span class="c1"># field as specified in the SIP2 spec.</span>
+    <span class="n">CHARGE_PRIVILEGES_DENIED</span> <span class="o">=</span> <span class="s1">&#39;charge privileges denied&#39;</span>
+    <span class="n">RENEWAL_PRIVILEGES_DENIED</span> <span class="o">=</span> <span class="s1">&#39;renewal privileges denied&#39;</span>
+    <span class="n">RECALL_PRIVILEGES_DENIED</span> <span class="o">=</span> <span class="s1">&#39;recall privileges denied&#39;</span>
+    <span class="n">HOLD_PRIVILEGES_DENIED</span> <span class="o">=</span> <span class="s1">&#39;hold privileges denied&#39;</span>
+    <span class="n">CARD_REPORTED_LOST</span> <span class="o">=</span> <span class="s1">&#39;card reported lost&#39;</span>
+    <span class="n">TOO_MANY_ITEMS_CHARGED</span> <span class="o">=</span> <span class="s1">&#39;too many items charged&#39;</span>
+    <span class="n">TOO_MANY_ITEMS_OVERDUE</span> <span class="o">=</span> <span class="s1">&#39;too many items overdue&#39;</span>
+    <span class="n">TOO_MANY_RENEWALS</span> <span class="o">=</span> <span class="s1">&#39;too many renewals&#39;</span>
+    <span class="n">TOO_MANY_RETURN_CLAIMS</span> <span class="o">=</span> <span class="s1">&#39;too many claims of items returned&#39;</span>
+    <span class="n">TOO_MANY_LOST</span><span class="o">=</span> <span class="s1">&#39;too many items lost&#39;</span>
+    <span class="n">EXCESSIVE_FINES</span> <span class="o">=</span> <span class="s1">&#39;excessive outstanding fines&#39;</span>
+    <span class="n">EXCESSIVE_FEES</span> <span class="o">=</span> <span class="s1">&#39;excessive outstanding fees&#39;</span>
+    <span class="n">RECALL_OVERDUE</span> <span class="o">=</span> <span class="s1">&#39;recall overdue&#39;</span>
+    <span class="n">TOO_MANY_ITEMS_BILLED</span> <span class="o">=</span> <span class="s1">&#39;too many items billed&#39;</span>
+
+    <span class="c1"># All the flags, in the order they&#39;re used in the &#39;patron status&#39;</span>
+    <span class="c1"># field.</span>
+    <span class="n">PATRON_STATUS_FIELDS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">CHARGE_PRIVILEGES_DENIED</span><span class="p">,</span>
+        <span class="n">RENEWAL_PRIVILEGES_DENIED</span><span class="p">,</span>
+        <span class="n">RECALL_PRIVILEGES_DENIED</span><span class="p">,</span>
+        <span class="n">HOLD_PRIVILEGES_DENIED</span><span class="p">,</span>
+        <span class="n">CARD_REPORTED_LOST</span><span class="p">,</span>
+        <span class="n">TOO_MANY_ITEMS_CHARGED</span><span class="p">,</span>
+        <span class="n">TOO_MANY_ITEMS_OVERDUE</span><span class="p">,</span>
+        <span class="n">TOO_MANY_RENEWALS</span><span class="p">,</span>
+        <span class="n">TOO_MANY_RETURN_CLAIMS</span><span class="p">,</span>
+        <span class="n">TOO_MANY_LOST</span><span class="p">,</span>
+        <span class="n">EXCESSIVE_FINES</span><span class="p">,</span>
+        <span class="n">EXCESSIVE_FEES</span><span class="p">,</span>
+        <span class="n">RECALL_OVERDUE</span><span class="p">,</span>
+        <span class="n">TOO_MANY_ITEMS_BILLED</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Some, but not all, of these fields, imply that a patron has lost</span>
+    <span class="c1"># borrowing privileges.</span>
+    <span class="n">PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">CHARGE_PRIVILEGES_DENIED</span><span class="p">,</span>
+        <span class="n">CARD_REPORTED_LOST</span><span class="p">,</span>
+        <span class="n">TOO_MANY_ITEMS_CHARGED</span><span class="p">,</span>
+        <span class="n">TOO_MANY_ITEMS_OVERDUE</span><span class="p">,</span>
+        <span class="n">TOO_MANY_LOST</span><span class="p">,</span>
+        <span class="n">EXCESSIVE_FINES</span><span class="p">,</span>
+        <span class="n">EXCESSIVE_FEES</span><span class="p">,</span>
+        <span class="n">RECALL_OVERDUE</span><span class="p">,</span>
+        <span class="n">TOO_MANY_ITEMS_BILLED</span>
+    <span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_server</span><span class="p">,</span> <span class="n">target_port</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">use_ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a client for (but do not connect to) a SIP2 server.</span>
+
+<span class="sd">        :param use_ssl: If this is True, all socket connections to the SIP2</span>
+<span class="sd">            server will be wrapped with SSL.</span>
+<span class="sd">        :param ssl_cert: A string containing an SSL certificate to use when</span>
+<span class="sd">            connecting to the SIP server.</span>
+<span class="sd">        :param ssl_key: A string containing an SSL certificate to use when</span>
+<span class="sd">            connecting to the SIP server.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_server</span> <span class="o">=</span> <span class="n">target_server</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">target_port</span><span class="p">:</span>
+            <span class="n">target_port</span> <span class="o">=</span> <span class="mi">6001</span>
+        <span class="k">if</span> <span class="n">target_port</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">target_port</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">location_code</span> <span class="o">=</span> <span class="n">location_code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">=</span> <span class="n">separator</span> <span class="ow">or</span> <span class="s1">&#39;|&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span> <span class="o">=</span> <span class="n">use_ssl</span> <span class="ow">or</span> <span class="n">ssl_cert</span> <span class="ow">or</span> <span class="n">ssl_key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span> <span class="o">=</span> <span class="n">ssl_cert</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span> <span class="o">=</span> <span class="n">ssl_key</span>
+
+        <span class="c1"># Turn the separator string into a regular expression that splits</span>
+        <span class="c1"># field name/field value pairs on the separator string.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="ow">in</span> <span class="s1">&#39;|.^$*+?</span><span class="si">{}</span><span class="s1">()[]</span><span class="se">\\</span><span class="s1">&#39;</span><span class="p">:</span>
+            <span class="n">escaped</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\\</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">escaped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">separator_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">escaped</span> <span class="o">+</span> <span class="s2">&quot;([A-Z][A-Z])&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sequence_number</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span> <span class="o">=</span> <span class="n">login_user_id</span>
+        <span class="k">if</span> <span class="n">login_user_id</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">login_password</span><span class="p">:</span>
+                <span class="n">login_password</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+            <span class="c1"># We need to log in before using this server.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">must_log_in</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We&#39;re implicitly logged in.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">must_log_in</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">login_password</span> <span class="o">=</span> <span class="n">login_password</span>
+
+<div class="viewcode-block" id="SIPClient.login"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.login">[docs]</a>    <span class="k">def</span> <span class="nf">login</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Log in to the SIP server if required.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">must_log_in</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_request</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">login_message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">login_response_parser</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">login_user_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">login_password</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">location_code</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">response</span><span class="p">[</span><span class="s1">&#39;login_ok&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;1&#39;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Error logging in: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">response</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">response</span></div>
+
+<div class="viewcode-block" id="SIPClient.patron_information"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.patron_information">[docs]</a>    <span class="k">def</span> <span class="nf">patron_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get information about a patron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_request</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">patron_information_request</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_information_parser</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.end_session"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.end_session">[docs]</a>    <span class="k">def</span> <span class="nf">end_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Send end session message.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_request</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">end_session_message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_session_response_parser</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.connect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.connect">[docs]</a>    <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a socket connection to a SIP server.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">:</span>
+                <span class="c1"># If we are still connected then disconnect.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_secure_connection</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_insecure_connection</span><span class="p">()</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">settimeout</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">connect</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">target_server</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_port</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">message</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not connect to </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2"> - </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">target_server</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_port</span><span class="p">,</span> <span class="n">message</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        
+        <span class="c1"># Since this is a new socket connection, reset the message count</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset_connection_state</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SIPClient.make_insecure_connection"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.make_insecure_connection">[docs]</a>    <span class="k">def</span> <span class="nf">make_insecure_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Actually set up a socket connection.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.make_secure_connection"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.make_secure_connection">[docs]</a>    <span class="k">def</span> <span class="nf">make_secure_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an SSL-enabled socket connection.&quot;&quot;&quot;</span>
+
+        <span class="c1"># If a certificate and/or key were provided, write them to</span>
+        <span class="c1"># temporary files so OpenSSL can find them.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Unfortunately there&#39;s no way to get OpenSSL to read a</span>
+        <span class="c1"># certificate or key from a string. Alternatives suggested</span>
+        <span class="c1"># online include M2Crypt, a pure Python SSL implementation.</span>
+        <span class="c1"># M2Crypt seems like it will work, but I couldn&#39;t find the</span>
+        <span class="c1"># documentation I needed, so for the time being... temporary</span>
+        <span class="c1"># files.</span>
+        <span class="n">tmp_ssl_cert_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">tmp_ssl_key_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">:</span>
+            <span class="n">fd</span><span class="p">,</span> <span class="n">tmp_ssl_cert_path</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">()</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssl_cert</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span><span class="p">:</span>
+            <span class="n">fd</span><span class="p">,</span> <span class="n">tmp_ssl_key_path</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">()</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
+        <span class="n">connection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_insecure_connection</span><span class="p">()</span>
+        <span class="n">connection</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">wrap_socket</span><span class="p">(</span>
+            <span class="n">connection</span><span class="p">,</span> <span class="n">certfile</span><span class="o">=</span><span class="n">tmp_ssl_cert_path</span><span class="p">,</span>
+            <span class="n">keyfile</span><span class="o">=</span><span class="n">tmp_ssl_key_path</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Now that the connection has been established, the temporary</span>
+        <span class="c1"># files are no longer needed. Remove them.</span>
+        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">tmp_ssl_cert_path</span><span class="p">,</span> <span class="n">tmp_ssl_key_path</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">path</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">connection</span></div>
+
+<div class="viewcode-block" id="SIPClient.reset_connection_state"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.reset_connection_state">[docs]</a>    <span class="k">def</span> <span class="nf">reset_connection_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reset connection-specific state.</span>
+<span class="sd">        Specifically, the sequence number.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sequence_number</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="SIPClient.disconnect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.disconnect">[docs]</a>    <span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Close the connection to the SIP server.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="SIPClient.make_request"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.make_request">[docs]</a>    <span class="k">def</span> <span class="nf">make_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message_creator</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Send a request to a SIP server and parse the response.</span>
+
+<span class="sd">        :param connection: Socket to send data over.</span>
+<span class="sd">        :param message_creator: A function that creates the message to send.</span>
+<span class="sd">        :param parser: A function that parses the response message.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">original_message</span> <span class="o">=</span> <span class="n">message_creator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">message_with_checksum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">append_checksum</span><span class="p">(</span><span class="n">original_message</span><span class="p">)</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">retries</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">parsed</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">retries</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAXIMUM_RETRIES</span><span class="p">:</span>
+                <span class="c1"># Only retry MAXIMUM_RETRIES times in case we we are sending</span>
+                <span class="c1"># a message the ILS doesn&#39;t like, so we don&#39;t retry forever</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s1">&#39;Maximum SIP retries reached&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">message_with_checksum</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_message</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">parsed</span> <span class="o">=</span> <span class="n">parser</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">RequestResend</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># Instead of a response, we got a request to resend the data.</span>
+                <span class="c1"># Generate a new checksum but do not include or increment</span>
+                <span class="c1"># the sequence number.</span>
+                <span class="n">message_with_checksum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">append_checksum</span><span class="p">(</span>
+                    <span class="n">original_message</span><span class="p">,</span> <span class="n">include_sequence_number</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+            <span class="n">retries</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">parsed</span></div>
+
+<div class="viewcode-block" id="SIPClient.login_message"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.login_message">[docs]</a>    <span class="k">def</span> <span class="nf">login_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">login_user_id</span><span class="p">,</span> <span class="n">login_password</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+                      <span class="n">uid_algorithm</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">,</span>
+                      <span class="n">pwd_algorithm</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate a message for logging in to a SIP server.&quot;&quot;&quot;</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;93&quot;</span> <span class="o">+</span> <span class="n">uid_algorithm</span> <span class="o">+</span> <span class="n">pwd_algorithm</span>
+                   <span class="o">+</span> <span class="s2">&quot;CN&quot;</span> <span class="o">+</span> <span class="n">login_user_id</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span>
+                   <span class="o">+</span> <span class="s2">&quot;CO&quot;</span> <span class="o">+</span> <span class="n">login_password</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">location_code</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">message</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span> <span class="s2">&quot;CP&quot;</span> <span class="o">+</span> <span class="n">location_code</span>
+        <span class="k">return</span> <span class="n">message</span></div>
+
+<div class="viewcode-block" id="SIPClient.login_response_parser"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.login_response_parser">[docs]</a>    <span class="k">def</span> <span class="nf">login_response_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse the response from a login message.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_response</span><span class="p">(</span>
+            <span class="n">message</span><span class="p">,</span>
+            <span class="mi">94</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">login_ok</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.end_session_message"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.end_session_message">[docs]</a>    <span class="k">def</span> <span class="nf">end_session_message</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">patron_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">terminal_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This message will be sent when a patron has completed all of their</span>
+<span class="sd">        transactions. The ACS may, upon receipt of this command, close any</span>
+<span class="sd">        open files or deallocate data structures pertaining to that patron.</span>
+<span class="sd">        The ACS should respond with an End Session Response message.</span>
+
+<span class="sd">        Format of message to send to ILS:</span>
+<span class="sd">        35&lt;transaction date&gt;&lt;institution id&gt;&lt;patron identifier&gt;</span>
+<span class="sd">        &lt;terminal password&gt;&lt;patron password&gt;</span>
+<span class="sd">        transaction date: 18-char, YYYYMMDDZZZZHHMMSS, required</span>
+<span class="sd">        institution id: AO, variable length, required</span>
+<span class="sd">        patron identifier: AA, variable length, required</span>
+<span class="sd">        terminal password: AC, variable length, optional</span>
+<span class="sd">        patron password: AD, variable length, optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;35&quot;</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+
+        <span class="n">message</span> <span class="o">=</span> <span class="p">(</span><span class="n">code</span> <span class="o">+</span> <span class="n">timestamp</span> <span class="o">+</span>
+                   <span class="s2">&quot;AO&quot;</span> <span class="o">+</span> <span class="n">institution_id</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
+                   <span class="s2">&quot;AA&quot;</span> <span class="o">+</span> <span class="n">patron_identifier</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
+                   <span class="s2">&quot;AC&quot;</span> <span class="o">+</span> <span class="n">terminal_password</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">patron_password</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span> <span class="s2">&quot;AD&quot;</span> <span class="o">+</span> <span class="n">patron_password</span>
+        <span class="k">return</span> <span class="n">message</span></div>
+
+<div class="viewcode-block" id="SIPClient.end_session_response_parser"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.end_session_response_parser">[docs]</a>    <span class="k">def</span> <span class="nf">end_session_response_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse the response from a end session message.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_response</span><span class="p">(</span>
+            <span class="n">message</span><span class="p">,</span>
+            <span class="mi">36</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">end_session</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">transaction_date</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">institution_id</span><span class="o">.</span><span class="n">required</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">patron_identifier</span><span class="o">.</span><span class="n">required</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">screen_message</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">print_line</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.patron_information_request"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.patron_information_request">[docs]</a>    <span class="k">def</span> <span class="nf">patron_information_request</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">patron_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">terminal_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">language</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A superset of patron status request.</span>
+
+<span class="sd">        Format of message to send to ILS:</span>
+<span class="sd">        63&lt;language&gt;&lt;transaction date&gt;&lt;summary&gt;&lt;institution id&gt;&lt;patron identifier&gt;</span>
+<span class="sd">        &lt;terminal password&gt;&lt;patron password&gt;&lt;start item&gt;&lt;end item&gt;</span>
+<span class="sd">        language: 3-char, required</span>
+<span class="sd">        transaction date: 18-char, YYYYMMDDZZZZHHMMSS, required</span>
+<span class="sd">        summary: 10-char, required</span>
+<span class="sd">        institution id: AO, variable length, required</span>
+<span class="sd">        patron identifier: AA, variable length, required</span>
+<span class="sd">        terminal password: AC, variable length, optional</span>
+<span class="sd">        patron password: AD, variable length, optional</span>
+<span class="sd">        start item: BP, variable length, optional</span>
+<span class="sd">        end item: BQ, variable length, optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;63&quot;</span>
+        <span class="n">language</span> <span class="o">=</span> <span class="n">language</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNKNOWN_LANGUAGE</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">summary</span> <span class="o">=</span> <span class="n">summary</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+
+        <span class="n">message</span> <span class="o">=</span> <span class="p">(</span><span class="n">code</span> <span class="o">+</span> <span class="n">language</span> <span class="o">+</span> <span class="n">timestamp</span> <span class="o">+</span> <span class="n">summary</span>
+                   <span class="o">+</span> <span class="s2">&quot;AO&quot;</span> <span class="o">+</span> <span class="n">institution_id</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
+                   <span class="s2">&quot;AA&quot;</span> <span class="o">+</span> <span class="n">patron_identifier</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
+                   <span class="s2">&quot;AC&quot;</span> <span class="o">+</span> <span class="n">terminal_password</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">patron_password</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span> <span class="s2">&quot;AD&quot;</span> <span class="o">+</span> <span class="n">patron_password</span>
+        <span class="k">return</span> <span class="n">message</span></div>
+
+<div class="viewcode-block" id="SIPClient.patron_information_parser"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.patron_information_parser">[docs]</a>    <span class="k">def</span> <span class="nf">patron_information_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse the message sent in response to a patron information request.</span>
+
+<span class="sd">        Format of message expected from ILS:</span>
+<span class="sd">        64&lt;patron status&gt;&lt;language&gt;&lt;transaction date&gt;&lt;hold items count&gt;&lt;overdue items count&gt;</span>
+<span class="sd">        &lt;charged items count&gt;&lt;fine items count&gt;&lt;recall items count&gt;&lt;unavailable holds count&gt;</span>
+<span class="sd">        &lt;institution id&gt;&lt;patron identifier&gt;&lt;personal name&gt;&lt;hold items limit&gt;&lt;overdue items limit&gt;</span>
+<span class="sd">        &lt;charged items limit&gt;&lt;valid patron&gt;&lt;valid patron password&gt;&lt;currency type&gt;&lt;fee amount&gt;</span>
+<span class="sd">        &lt;fee limit&gt;&lt;items&gt;&lt;home address&gt;&lt;e-mail address&gt;&lt;home phone number&gt;&lt;screen message&gt;&lt;print line&gt;</span>
+
+<span class="sd">        patron status: 14-char, required</span>
+<span class="sd">        language: 3-char, req</span>
+<span class="sd">        transaction date: 18-char, YYYYMMDDZZZZHHMMSS, required</span>
+<span class="sd">        hold items count: 4-char, required</span>
+<span class="sd">        overdue items count: 4-char, required</span>
+<span class="sd">        charged items count: 4-char, required</span>
+<span class="sd">        fine items count: 4-char, required</span>
+<span class="sd">        recall items count: 4-char, required</span>
+<span class="sd">        unavailable holds count: 4-char, required</span>
+<span class="sd">        institution id: AO, variable-length, required</span>
+<span class="sd">        patron identifier: AA, var-length, req</span>
+<span class="sd">        personal name: AE, var-length, req</span>
+<span class="sd">        hold items limit: BZ, 4-char, optional</span>
+<span class="sd">        overdue items limit: CA, 4-char, optional</span>
+<span class="sd">        charged items limit: CB, 4-char, optional</span>
+<span class="sd">        valid patron: BL, 1-char, Y/N, optional</span>
+<span class="sd">        valid patron password: CQ, 1-char, Y/N, optional</span>
+<span class="sd">        currency type: BH, 3-char, optional</span>
+<span class="sd">        fee amount: BV, var-length.  The amount of fees owed by this patron.</span>
+<span class="sd">        fee limit: CC, variable-length, optional</span>
+<span class="sd">        items: 0 or more instances of one of the following, based on &quot;summary&quot; field of patron information message</span>
+<span class="sd">        hold items: AS, var-length opt (should be sent for each hold item)</span>
+<span class="sd">        overdue items: AT, var-length opt (should be sent for each overdue item)</span>
+<span class="sd">        charged items: AU, var-length opt (should be sent for each charged item)</span>
+<span class="sd">        fine items: AV, var-length opt (should be sent for each fine item)</span>
+<span class="sd">        recall items: BU, var-length opt (should be sent for each recall item)</span>
+<span class="sd">        unavailable hold items: CD, var-length opt (should be sent for each unavailable hold item)</span>
+<span class="sd">        home address: BD, variable-length, optional</span>
+<span class="sd">        email address: VE, variable-length, optional</span>
+<span class="sd">        home phone number: BF, variable-length optional</span>
+
+<span class="sd">        screen message: AF, var-length, optional</span>
+<span class="sd">        print line: AG, var-length, optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_response</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span>
+            <span class="mi">64</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">patron_status</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">transaction_date</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">hold_items_count</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">overdue_items_count</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">charged_items_count</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">fine_items_count</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">recall_items_count</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">.</span><span class="n">unavailable_holds_count</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">institution_id</span><span class="o">.</span><span class="n">required</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">patron_identifier</span><span class="o">.</span><span class="n">required</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">personal_name</span><span class="o">.</span><span class="n">required</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">hold_items_limit</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">overdue_items_limit</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">charged_items_limit</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">valid_patron</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">valid_patron_password</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">currency_type</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">fee_amount</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">fee_limit</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">hold_items</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">overdue_items</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">charged_items</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">fine_items</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">recall_items</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">unavailable_hold_items</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">home_address</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">email_address</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">phone_number</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">screen_message</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">print_line</span><span class="p">,</span>
+
+            <span class="c1"># Add common extension fields.</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">sipserver_patron_expiration</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">polaris_patron_expiration</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">sipserver_patron_class</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">sipserver_internet_privileges</span><span class="p">,</span>
+            <span class="n">named</span><span class="o">.</span><span class="n">sipserver_internal_id</span>
+        <span class="p">)</span>
+
+        <span class="c1"># As a convenience, parse the patron_status field from a</span>
+        <span class="c1"># 14-character string into a dictionary of booleans.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">parsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_patron_status</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;patron_status&#39;</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">parsed</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">response</span><span class="p">[</span><span class="s1">&#39;patron_status_parsed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parsed</span>
+        <span class="k">return</span> <span class="n">response</span></div>
+
+<div class="viewcode-block" id="SIPClient.parse_response"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.parse_response">[docs]</a>    <span class="k">def</span> <span class="nf">parse_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">expect_status_code</span><span class="p">,</span> <span class="o">*</span><span class="n">fields</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Verify that the given response string starts with the expected</span>
+<span class="sd">        status code. Then extract the values of both fixed-width and</span>
+<span class="sd">        named fields.</span>
+
+<span class="sd">        :param return: A dictionary containing the parsed-out information.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">consume_status_code</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">expect_status_code</span><span class="p">),</span> <span class="n">parsed</span><span class="p">)</span>
+
+        <span class="n">fields_by_sip_code</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="n">required_fields_not_seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="c1"># We&#39;ve been given a list of unnamed fixed-width fields (which</span>
+        <span class="c1"># must appear at the front) followed by a list of named</span>
+        <span class="c1"># fields. Named fields must appear after the fixed-width</span>
+        <span class="c1"># fields but otherwise may appear in any order, some of them</span>
+        <span class="c1"># multiple times. Some named fields may themselves have a</span>
+        <span class="c1"># fixed-width requirement.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Go through the list once, consume all the unnamed</span>
+        <span class="c1"># fixed-width fields, and build a dictionary of named fields</span>
+        <span class="c1"># to use later.</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">fixed</span><span class="p">):</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">consume</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">fields_by_sip_code</span><span class="p">[</span><span class="n">field</span><span class="o">.</span><span class="n">sip_code</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span>
+                <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">req</span><span class="p">:</span>
+                    <span class="n">required_fields_not_seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+
+        <span class="c1"># We now have a list of named fields separated by</span>
+        <span class="c1"># self.separator.  Use separator_re to split the data in a way</span>
+        <span class="c1"># that minimizes the chances that embedded separators (which</span>
+        <span class="c1"># shouldn&#39;t happen, but do) don&#39;t ruin the data.</span>
+        <span class="n">split</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator_re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="c1"># We now have alternating field name/value pairs, except for</span>
+        <span class="c1"># the first field, which wasn&#39;t split because it didn&#39;t start with</span>
+        <span class="c1"># the separator. Fix that.</span>
+        <span class="n">first_field</span> <span class="o">=</span> <span class="n">split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">first_field</span> <span class="o">=</span> <span class="p">[</span><span class="n">first_field</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">first_field</span><span class="p">[</span><span class="mi">2</span><span class="p">:]]</span>
+        <span class="n">split</span> <span class="o">=</span> <span class="n">first_field</span> <span class="o">+</span> <span class="n">split</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Now go through each name/value pair, find the corresponding</span>
+        <span class="c1"># field object, and process it.</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">split</span><span class="p">):</span>
+            <span class="n">sip_code</span> <span class="o">=</span> <span class="n">split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">split</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">sip_code</span> <span class="o">==</span> <span class="n">named</span><span class="o">.</span><span class="n">sequence_number</span><span class="o">.</span><span class="n">sip_code</span><span class="p">:</span>
+                <span class="c1"># Sequence number is special in two ways. First, it</span>
+                <span class="c1"># indicates the end of the message. Second, it doesn&#39;t</span>
+                <span class="c1"># have to be explicitly mentioned in the list of</span>
+                <span class="c1"># fields -- we always expect it.</span>
+                <span class="n">named</span><span class="o">.</span><span class="n">sequence_number</span><span class="o">.</span><span class="n">consume</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">field</span> <span class="o">=</span> <span class="n">fields_by_sip_code</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sip_code</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">sip_code</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">field</span><span class="p">:</span>
+                    <span class="c1"># This is an extension field. Do the best we can.</span>
+                    <span class="c1"># This basically means storing it in the dictionary</span>
+                    <span class="c1"># under its SIP code.</span>
+                    <span class="n">field</span> <span class="o">=</span> <span class="n">named</span><span class="p">(</span><span class="n">sip_code</span><span class="p">,</span> <span class="n">sip_code</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">field</span><span class="p">:</span>
+                    <span class="n">field</span><span class="o">.</span><span class="n">consume</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">parsed</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">required</span> <span class="ow">and</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">required_fields_not_seen</span><span class="p">:</span>
+                        <span class="n">required_fields_not_seen</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">2</span>
+
+        <span class="c1"># If a named field is required and never showed up, sound the alarm.</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">required_fields_not_seen</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Expected required field </span><span class="si">%s</span><span class="s2"> but did not find it.&quot;</span><span class="p">,</span>
+                <span class="n">field</span><span class="o">.</span><span class="n">sip_code</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">parsed</span></div>
+
+<div class="viewcode-block" id="SIPClient.consume_status_code"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.consume_status_code">[docs]</a>    <span class="k">def</span> <span class="nf">consume_status_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">expected</span><span class="p">,</span> <span class="n">in_progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Pull the status code (the first two characters) off the</span>
+<span class="sd">        given response string, and verify that it&#39;s as expected.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">status_code</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">in_progress</span><span class="p">[</span><span class="s1">&#39;_status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">status_code</span>
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">status_code</span> <span class="o">==</span> <span class="s1">&#39;96&#39;</span><span class="p">:</span> <span class="c1"># Request SC Resend</span>
+                <span class="k">raise</span> <span class="n">RequestResend</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span>
+                    <span class="s2">&quot;Unexpected status code </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span></div>
+
+<div class="viewcode-block" id="SIPClient.parse_patron_status"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.parse_patron_status">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_patron_status</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">status_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse the raw 14-character patron_status string.</span>
+
+<span class="sd">        :return: A 14-element dictionary mapping flag names to boolean values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">status_string</span><span class="p">,</span> <span class="n">basestring</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">status_string</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">14</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Patron status must be a 14-character string.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">PATRON_STATUS_FIELDS</span><span class="p">):</span>
+            <span class="c1"># &#39; &#39; means false, &#39;Y&#39; means true.</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">status_string</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39; &#39;</span>
+            <span class="n">status</span><span class="p">[</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">status</span></div>
+
+<div class="viewcode-block" id="SIPClient.now"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.now">[docs]</a>    <span class="k">def</span> <span class="nf">now</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the current time, formatted as SIP expects it.&quot;&quot;&quot;</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">now</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">0000%H%M%S&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.summary"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.summary">[docs]</a>    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hold_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">overdue_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">charged_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fine_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">recall_items</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">unavailable_holds</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate the SIP summary field: a 10-character query string for</span>
+<span class="sd">        requesting detailed information about a patron&#39;s relationship</span>
+<span class="sd">        with items.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">summary</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">hold_items</span><span class="p">,</span> <span class="n">overdue_items</span><span class="p">,</span>
+                <span class="n">charged_items</span><span class="p">,</span> <span class="n">fine_items</span><span class="p">,</span> <span class="n">recall_items</span><span class="p">,</span>
+                <span class="n">unavailable_holds</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">item</span><span class="p">:</span>
+                <span class="n">summary</span> <span class="o">+=</span> <span class="s2">&quot;Y&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">summary</span> <span class="o">+=</span> <span class="s2">&quot; &quot;</span>
+        <span class="c1"># The last four spaces are always empty.</span>
+        <span class="n">summary</span> <span class="o">+=</span> <span class="s1">&#39;    &#39;</span>
+        <span class="k">if</span> <span class="n">summary</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s1">&#39;Y&#39;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># This violates the spec but in my tests it seemed to</span>
+            <span class="c1"># work, so we&#39;ll allow it.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s1">&#39;Summary requested too many kinds of detailed information: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                <span class="n">summary</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">summary</span></div>
+
+<div class="viewcode-block" id="SIPClient.send"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.send">[docs]</a>    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Send a message over the socket and update the sequence index.&quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\r</span><span class="s1">&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_send</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.do_send"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.do_send">[docs]</a>    <span class="k">def</span> <span class="nf">do_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Actually send data over the socket.</span>
+
+<span class="sd">        This method exists only to be subclassed by MockSIPClient.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SIPClient.read_message"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.read_message">[docs]</a>    <span class="k">def</span> <span class="nf">read_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Read a SIP2 message from the socket connection.</span>
+
+<span class="sd">        A SIP2 message ends with a \\r character.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">done</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">done</span><span class="p">:</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">4096</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">+</span> <span class="n">tmp</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">tmp</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No data read from socket.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">ord</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">13</span> <span class="ow">or</span> <span class="nb">ord</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">10</span><span class="p">:</span>
+                <span class="n">done</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_size</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;SIP2 response too large.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="SIPClient.append_checksum"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.append_checksum">[docs]</a>    <span class="k">def</span> <span class="nf">append_checksum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">include_sequence_number</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculates checksum for passed-in message, and returns the message</span>
+<span class="sd">        with the checksum appended.</span>
+
+<span class="sd">        :param include_sequence_number: If this is true, include the</span>
+<span class="sd">            current sequence number in the message, just before the</span>
+<span class="sd">            checksum, and increment the sequence number. If this is false,</span>
+<span class="sd">            do not include or increment the sequence number.</span>
+
+<span class="sd">        When error checking is enabled between the ACS and the SC,</span>
+<span class="sd">        each SC-&gt;ACS message is labeled with a sequence number (0, 1, 2, ...).</span>
+<span class="sd">        When responding, the ACS tells the SC which sequence message it&#39;s</span>
+<span class="sd">        responding to.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">text</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span>
+
+        <span class="k">if</span> <span class="n">include_sequence_number</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">+=</span> <span class="s2">&quot;AY&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sequence_number</span><span class="p">)</span>
+            <span class="c1"># Sequence numbers range from 0-9 and wrap around.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sequence_number</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sequence_number</span> <span class="o">&gt;</span> <span class="mi">9</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sequence_number</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Finally, add the checksum.</span>
+        <span class="n">text</span> <span class="o">+=</span> <span class="s2">&quot;AZ&quot;</span>
+
+        <span class="n">check</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">each</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+            <span class="n">check</span> <span class="o">=</span> <span class="n">check</span> <span class="o">+</span> <span class="nb">ord</span><span class="p">(</span><span class="n">each</span><span class="p">)</span>
+        <span class="n">check</span> <span class="o">=</span> <span class="n">check</span> <span class="o">+</span> <span class="nb">ord</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\0</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">check</span> <span class="o">=</span> <span class="p">(</span><span class="n">check</span> <span class="o">^</span> <span class="mh">0xFFFF</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="n">checksum</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%4.4X</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">check</span><span class="p">)</span>
+
+        <span class="c1"># Note that the checksum doesn&#39;t have the pipe character</span>
+        <span class="c1"># before its AZ tag.  This is as should be.</span>
+        <span class="n">text</span> <span class="o">+=</span> <span class="n">checksum</span>
+
+        <span class="k">return</span> <span class="n">text</span></div></div>
+
+
+<div class="viewcode-block" id="MockSIPClient"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient">[docs]</a><span class="k">class</span> <span class="nc">MockSIPClient</span><span class="p">(</span><span class="n">SIPClient</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A SIP client that relies on canned responses rather than a socket</span>
+<span class="sd">    connection.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="s2">&quot;|&quot;</span><span class="p">,</span>
+                 <span class="n">target_server</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MockSIPClient</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="n">login_user_id</span><span class="p">,</span>
+            <span class="n">login_password</span><span class="o">=</span><span class="n">login_password</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="MockSIPClient.queue_response"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.queue_response">[docs]</a>    <span class="k">def</span> <span class="nf">queue_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">response</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSIPClient.connect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.connect">[docs]</a>    <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Since there is no socket, do nothing but reset the local</span>
+        <span class="c1"># connection-specific variables.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Creating new socket connection.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset_connection_state</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="MockSIPClient.do_send"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.do_send">[docs]</a>    <span class="k">def</span> <span class="nf">do_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockSIPClient.read_message"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.read_message">[docs]</a>    <span class="k">def</span> <span class="nf">read_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Read a response message off the queue.&quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="n">response</span></div>
+
+<div class="viewcode-block" id="MockSIPClient.end_session"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.end_session">[docs]</a>    <span class="k">def</span> <span class="nf">end_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="MockSIPClient.disconnect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.disconnect">[docs]</a>    <span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../sip.html">api.sip</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

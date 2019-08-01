@@ -1,0 +1,225 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.web_publication_manifest &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.web_publication_manifest</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Vendor-specific variants of the standard Web Publication Manifest classes.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="n">Representation</span>
+<span class="kn">from</span> <span class="nn">core.util.web_publication_manifest</span> <span class="k">import</span> <span class="n">AudiobookManifest</span>
+
+<div class="viewcode-block" id="SpineItem"><a class="viewcode-back" href="../../api.html#api.web_publication_manifest.SpineItem">[docs]</a><span class="k">class</span> <span class="nc">SpineItem</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Metadata about a piece of playable audio from an audiobook.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">sequence</span><span class="p">,</span>
+                 <span class="n">media_type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">MP3_MEDIA_TYPE</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param title: The title of this spine item.</span>
+<span class="sd">        :param duration: The duration of this spine item, in milliseconds.</span>
+<span class="sd">        :param part: The part number of this spine item, roughly equivalent</span>
+<span class="sd">           to &#39;Part X&#39; in a book.</span>
+<span class="sd">        :param sequence: The sequence number of this spine item within its</span>
+<span class="sd">           part, roughly equivalent to a chapter number.</span>
+<span class="sd">        :param media_type: The media type of this spine item.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">duration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">part</span> <span class="o">=</span> <span class="n">part</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sequence</span> <span class="o">=</span> <span class="n">sequence</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span> <span class="o">=</span> <span class="n">media_type</span>
+
+<div class="viewcode-block" id="SpineItem.sort_key"><a class="viewcode-back" href="../../api.html#api.web_publication_manifest.SpineItem.sort_key">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">sort_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Used to sort a list of SpineItem objects in reading</span>
+<span class="sd">        order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">part</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="FindawayManifest"><a class="viewcode-back" href="../../api.html#api.web_publication_manifest.FindawayManifest">[docs]</a><span class="k">class</span> <span class="nc">FindawayManifest</span><span class="p">(</span><span class="n">AudiobookManifest</span><span class="p">):</span>
+
+    <span class="c1"># This URI prefix makes it clear when we are using a term coined</span>
+    <span class="c1"># by Findaway in a JSON-LD document.</span>
+    <span class="n">FINDAWAY_EXTENSION_CONTEXT</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/third-parties/findaway.com/&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">accountId</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">checkoutId</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">fulfillmentId</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">licenseId</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sessionKey</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">spine_items</span><span class="o">=</span><span class="p">[]</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a FindawayManifest object from raw data.</span>
+
+<span class="sd">        :param license_pool: A LicensePool for the title being fulfilled.</span>
+<span class="sd">        This will be used to fill in basic bibliographic information.</span>
+
+<span class="sd">        :param accountId: An opaque string that Findaway calls the</span>
+<span class="sd">        &#39;account ID&#39;. Apparently this is no longer used.</span>
+
+<span class="sd">        :param checkoutId: An opaque string that Findaway calls the</span>
+<span class="sd">        &#39;checkout transaction ID&#39;. Apparently this is no longer used.</span>
+
+<span class="sd">        :param fulfillmentId: An opaque string that Findaway calls the</span>
+<span class="sd">        &#39;title identifier&#39; or &#39;content ID&#39;.</span>
+
+<span class="sd">        :param licenseId: An opaque string that Findaway calls the</span>
+<span class="sd">        &#39;license ID&#39;</span>
+
+<span class="sd">        :param sessionId: An opaque string that Findaway calls the</span>
+<span class="sd">        &#39;session key&#39;.</span>
+
+<span class="sd">        :param spine_items: A list of SpineItem objects representing</span>
+<span class="sd">        the chapters or other sections of the audiobook.</span>
+
+<span class="sd">        The PEP8-incompatible variable names are for compatibility</span>
+<span class="sd">        with the names of these variables in the JSON-LD documents.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">context_with_extension</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;http://readium.org/webpub/default.jsonld&quot;</span><span class="p">,</span>
+            <span class="p">{</span><span class="s2">&quot;findaway&quot;</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FINDAWAY_EXTENSION_CONTEXT</span><span class="p">},</span>
+        <span class="p">]</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FindawayManifest</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">context_with_extension</span><span class="p">)</span>
+
+        <span class="c1"># Add basic bibliographic information (identifier, title,</span>
+        <span class="c1"># cover link) to the manifest based on our existing knowledge</span>
+        <span class="c1"># of the LicensePool and its Work.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_bibliographic_metadata</span><span class="p">(</span><span class="n">license_pool</span><span class="p">)</span>
+
+        <span class="c1"># Add Findaway-specific DRM information as an &#39;encrypted&#39; object</span>
+        <span class="c1"># within the metadata object.</span>
+        <span class="n">encrypted</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">scheme</span><span class="o">=</span><span class="s1">&#39;http://librarysimplified.org/terms/drm/scheme/FAE&#39;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;encrypted&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">encrypted</span>
+        <span class="k">for</span> <span class="n">findaway_extension</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="p">(</span><span class="s1">&#39;accountId&#39;</span><span class="p">,</span> <span class="n">accountId</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;checkoutId&#39;</span><span class="p">,</span> <span class="n">checkoutId</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;fulfillmentId&#39;</span><span class="p">,</span> <span class="n">fulfillmentId</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;licenseId&#39;</span><span class="p">,</span> <span class="n">licenseId</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;sessionKey&#39;</span><span class="p">,</span> <span class="n">sessionKey</span><span class="p">)</span>
+        <span class="p">]:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">output_key</span> <span class="o">=</span> <span class="s1">&#39;findaway:&#39;</span> <span class="o">+</span> <span class="n">findaway_extension</span>
+            <span class="n">encrypted</span><span class="p">[</span><span class="n">output_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="c1"># Add the SpineItems as reading order items. None of them will</span>
+        <span class="c1"># have working &#39;href&#39; fields -- it&#39;s just to give the client a</span>
+        <span class="c1"># picture of the structure of the timeline.</span>
+        <span class="n">part_key</span> <span class="o">=</span> <span class="s1">&#39;findaway:part&#39;</span>
+        <span class="n">sequence_key</span> <span class="o">=</span> <span class="s1">&#39;findaway:sequence&#39;</span>
+        <span class="n">total_duration</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">spine_items</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">SpineItem</span><span class="o">.</span><span class="n">sort_key</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">spine_items</span><span class="p">:</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">part_key</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">part</span><span class="p">,</span>
+                <span class="n">sequence_key</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">sequence</span>
+            <span class="p">}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_reading_order</span><span class="p">(</span>
+                <span class="n">href</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span>
+                <span class="nb">type</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">media_type</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+            <span class="n">total_duration</span> <span class="o">+=</span> <span class="n">item</span><span class="o">.</span><span class="n">duration</span>
+
+        <span class="k">if</span> <span class="n">spine_items</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;duration&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_duration</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,184 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.util.problem_detail &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.util.problem_detail</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Simple helper library for generating problem detail documents.</span>
+
+<span class="sd">As per http://datatracker.ietf.org/doc/draft-ietf-appsawg-http-problem/</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">json</span> <span class="k">as</span> <span class="nn">j</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">LazyString</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="n">JSON_MEDIA_TYPE</span> <span class="o">=</span> <span class="s2">&quot;application/api-problem+json&quot;</span>
+
+
+<div class="viewcode-block" id="json"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.json">[docs]</a><span class="k">def</span> <span class="nf">json</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">title</span><span class="p">),</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">detail</span><span class="p">:</span>
+        <span class="n">d</span><span class="p">[</span><span class="s1">&#39;detail&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">detail</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">instance</span><span class="p">:</span>
+        <span class="n">d</span><span class="p">[</span><span class="s1">&#39;instance&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">instance</span>
+    <span class="k">if</span> <span class="n">debug_message</span><span class="p">:</span>
+        <span class="n">d</span><span class="p">[</span><span class="s1">&#39;debug_message&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">debug_message</span>
+    <span class="k">return</span> <span class="n">j</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">d</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ProblemDetail"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.ProblemDetail">[docs]</a><span class="k">class</span> <span class="nc">ProblemDetail</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;A common type of problem.&quot;&quot;&quot;</span>
+
+    <span class="n">JSON_MEDIA_TYPE</span> <span class="o">=</span> <span class="n">JSON_MEDIA_TYPE</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uri</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uri</span> <span class="o">=</span> <span class="n">uri</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">detail</span> <span class="o">=</span> <span class="n">detail</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instance</span> <span class="o">=</span> <span class="n">instance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">=</span> <span class="n">debug_message</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">response</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a Flask-style response.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">json</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">uri</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">instance</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span>
+            <span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">or</span> <span class="mi">400</span><span class="p">,</span>
+            <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="n">JSON_MEDIA_TYPE</span><span class="p">}</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="ProblemDetail.detailed"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.ProblemDetail.detailed">[docs]</a>    <span class="k">def</span> <span class="nf">detailed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a ProblemDetail for a more specific occurance of an existing</span>
+<span class="sd">        ProblemDetail.</span>
+
+<span class="sd">        The detailed error message will be shown to patrons.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Title and detail must be LazyStrings from Flask-Babel that are</span>
+        <span class="c1"># localized when they are first used as strings.</span>
+        <span class="k">if</span> <span class="n">title</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">LazyString</span><span class="p">):</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2"> has not been internationalized&quot;</span> <span class="o">%</span> <span class="n">title</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">detail</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">detail</span><span class="p">,</span> <span class="n">LazyString</span><span class="p">):</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2"> has not been internationalized&quot;</span> <span class="o">%</span> <span class="n">detail</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ProblemDetail</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uri</span><span class="p">,</span> <span class="n">status_code</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">title</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">detail</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">debug_message</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ProblemDetail.with_debug"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.ProblemDetail.with_debug">[docs]</a>    <span class="k">def</span> <span class="nf">with_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug_message</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Insert debugging information into a ProblemDetail.</span>
+
+<span class="sd">        The original ProblemDetail&#39;s error message will be shown to</span>
+<span class="sd">        patrons, but a more specific error message will be visible to</span>
+<span class="sd">        those who inspect the problem document.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ProblemDetail</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uri</span><span class="p">,</span> <span class="n">status_code</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">title</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">detail</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">detail</span><span class="p">,</span> <span class="n">instance</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">instance</span><span class="p">,</span> <span class="n">debug_message</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../util.html">core.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

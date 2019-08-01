@@ -1,0 +1,510 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.app_server &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.app_server</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Implement logic common to more than one of the Simplified applications.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">psycopg2</span> <span class="k">import</span> <span class="n">DatabaseError</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">url_for</span><span class="p">,</span> <span class="n">make_response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">util.flask_util</span> <span class="k">import</span> <span class="n">problem</span>
+<span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="k">import</span> <span class="n">EntryPoint</span>
+<span class="kn">from</span> <span class="nn">opds</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">AcquisitionFeed</span><span class="p">,</span>
+    <span class="n">LookupAcquisitionFeed</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">OPDSFeed</span><span class="p">,</span>
+    <span class="n">OPDSMessage</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="k">import</span> <span class="n">SQLAlchemyError</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">NoResultFound</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">log</span> <span class="k">import</span> <span class="n">LogConfiguration</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">Complaint</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">Patron</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">cdn</span> <span class="k">import</span> <span class="n">cdnify</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Facets</span><span class="p">,</span>
+    <span class="n">Pagination</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="cdn_url_for"><a class="viewcode-back" href="../../core.html#core.app_server.cdn_url_for">[docs]</a><span class="k">def</span> <span class="nf">cdn_url_for</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">base_url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cdnify</span><span class="p">(</span><span class="n">base_url</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="load_lending_policy"><a class="viewcode-back" href="../../core.html#core.app_server.load_lending_policy">[docs]</a><span class="k">def</span> <span class="nf">load_lending_policy</span><span class="p">(</span><span class="n">policy</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">policy</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Lending policy: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span>
+        <span class="n">policy</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">policy</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">external_type</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">policy</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">Patron</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">p</span><span class="p">[</span><span class="n">Patron</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Unrecognized audience in lending policy: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
+                        <span class="n">audience</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+<div class="viewcode-block" id="feed_response"><a class="viewcode-back" href="../../core.html#core.app_server.feed_response">[docs]</a><span class="k">def</span> <span class="nf">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">acquisition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cache_for</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">FEED_CACHE_TIME</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">acquisition</span><span class="p">:</span>
+        <span class="n">content_type</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">content_type</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">NAVIGATION_FEED_TYPE</span>
+    <span class="k">return</span> <span class="n">_make_response</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">cache_for</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="entry_response"><a class="viewcode-back" href="../../core.html#core.app_server.entry_response">[docs]</a><span class="k">def</span> <span class="nf">entry_response</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">cache_for</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">FEED_CACHE_TIME</span><span class="p">):</span>
+    <span class="n">content_type</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ENTRY_TYPE</span>
+    <span class="k">return</span> <span class="n">_make_response</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">cache_for</span><span class="p">)</span></div>
+
+<span class="k">def</span> <span class="nf">_make_response</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">cache_for</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">etree</span><span class="o">.</span><span class="n">_Element</span><span class="p">):</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cache_for</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="c1"># A CDN should hold on to the cached representation only half</span>
+        <span class="c1"># as long as the end-user.</span>
+        <span class="n">client_cache</span> <span class="o">=</span> <span class="n">cache_for</span>
+        <span class="n">cdn_cache</span> <span class="o">=</span> <span class="n">cache_for</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">cache_control</span> <span class="o">=</span> <span class="s2">&quot;public, no-transform, max-age=</span><span class="si">%d</span><span class="s2">, s-maxage=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">client_cache</span><span class="p">,</span> <span class="n">cdn_cache</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cache_control</span> <span class="o">=</span> <span class="s2">&quot;private, no-cache&quot;</span>
+
+    <span class="k">return</span> <span class="n">make_response</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="n">content_type</span><span class="p">,</span>
+                                        <span class="s2">&quot;Cache-Control&quot;</span><span class="p">:</span> <span class="n">cache_control</span><span class="p">})</span>
+
+<div class="viewcode-block" id="load_facets_from_request"><a class="viewcode-back" href="../../core.html#core.app_server.load_facets_from_request">[docs]</a><span class="k">def</span> <span class="nf">load_facets_from_request</span><span class="p">(</span>
+        <span class="n">facet_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">Facets</span><span class="p">,</span>
+        <span class="n">base_class_constructor_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">default_entrypoint</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Figure out which faceting object this request is asking for.</span>
+
+<span class="sd">    The active request must have the `library` member set to a Library</span>
+<span class="sd">    object.</span>
+
+<span class="sd">    :param worklist: The WorkList, if any, associated with the request.</span>
+<span class="sd">    :param facet_config: An object containing the currently configured</span>
+<span class="sd">        facet groups, if different from the request library.</span>
+<span class="sd">    :param base_class: The faceting class to instantiate.</span>
+<span class="sd">    :param base_class_constructor_kwargs: Keyword arguments to pass into</span>
+<span class="sd">        the faceting class constructor, other than those obtained from</span>
+<span class="sd">        the request.</span>
+<span class="sd">    :return: A faceting object if possible; otherwise a ProblemDetail.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="n">base_class_constructor_kwargs</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">get_arg</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span>
+    <span class="n">get_header</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span>
+    <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
+    <span class="n">facet_config</span> <span class="o">=</span> <span class="n">facet_config</span> <span class="ow">or</span> <span class="n">library</span>
+    <span class="k">return</span> <span class="n">base_class</span><span class="o">.</span><span class="n">from_request</span><span class="p">(</span>
+        <span class="n">library</span><span class="p">,</span> <span class="n">facet_config</span><span class="p">,</span> <span class="n">get_arg</span><span class="p">,</span> <span class="n">get_header</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
+        <span class="n">default_entrypoint</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_pagination_from_request"><a class="viewcode-back" href="../../core.html#core.app_server.load_pagination_from_request">[docs]</a><span class="k">def</span> <span class="nf">load_pagination_from_request</span><span class="p">(</span>
+    <span class="n">base_class</span><span class="o">=</span><span class="n">Pagination</span><span class="p">,</span> <span class="n">base_class_constructor_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">default_size</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Figure out which Pagination object this request is asking for.</span>
+
+<span class="sd">    :param base_class: A subclass of Pagination to instantiate.</span>
+<span class="sd">    :param base_class_constructor_kwargs: Extra keyword arguments to use</span>
+<span class="sd">        when instantiating the Pagination subclass.</span>
+<span class="sd">    :param default_size: The default page size.</span>
+<span class="sd">    :return: An instance of `base_class`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="n">base_class_constructor_kwargs</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="n">get_arg</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span>
+    <span class="k">return</span> <span class="n">base_class</span><span class="o">.</span><span class="n">from_request</span><span class="p">(</span><span class="n">get_arg</span><span class="p">,</span> <span class="n">default_size</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="returns_problem_detail"><a class="viewcode-back" href="../../core.html#core.app_server.returns_problem_detail">[docs]</a><span class="k">def</span> <span class="nf">returns_problem_detail</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">decorated</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">v</span><span class="o">.</span><span class="n">response</span>
+        <span class="k">return</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">decorated</span></div>
+
+
+<div class="viewcode-block" id="ErrorHandler"><a class="viewcode-back" href="../../core.html#core.app_server.ErrorHandler">[docs]</a><span class="k">class</span> <span class="nc">ErrorHandler</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param app: A flask.app object.</span>
+<span class="sd">        :param debug: Set this to True to give detailed debugging</span>
+<span class="sd">           information on errors, even if the site is not configured</span>
+<span class="sd">           to do so.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
+
+<div class="viewcode-block" id="ErrorHandler.handle"><a class="viewcode-back" href="../../core.html#core.app_server.ErrorHandler.handle">[docs]</a>    <span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exception</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Something very bad has happened. Notify the client.&quot;&quot;&quot;</span>
+        <span class="c1"># By default, when reporting errors, err on the side of</span>
+        <span class="c1"># terseness, to avoid leaking sensitive information.</span>
+        <span class="n">debug</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;DEBUG&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">,</span> <span class="s1">&#39;manager&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="p">,</span> <span class="s1">&#39;_db&#39;</span><span class="p">):</span>
+            <span class="c1"># There is an active database session.</span>
+
+            <span class="c1"># Use it to determine whether we are in debug mode, in</span>
+            <span class="c1"># which case we _should_ provide the client with a lot of</span>
+            <span class="c1"># information about the problem, without worrying</span>
+            <span class="c1"># whether it contains sensitive information.</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">_db</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">from_configuration</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+                <span class="p">(</span><span class="n">log_level</span><span class="p">,</span> <span class="n">database_log_level</span><span class="p">,</span> <span class="n">handlers</span><span class="p">,</span>
+                 <span class="n">errors</span><span class="p">)</span> <span class="o">=</span> <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">from_configuration</span><span class="p">(</span>
+                     <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">_db</span>
+                 <span class="p">)</span>
+                <span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span> <span class="ow">or</span> <span class="p">(</span>
+                    <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">DEBUG</span> <span class="ow">in</span> <span class="p">(</span><span class="n">log_level</span><span class="p">,</span> <span class="n">database_log_level</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="n">SQLAlchemyError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># The database session could not be used, possibly due to</span>
+                <span class="c1"># the very error under consideration. Go with the</span>
+                <span class="c1"># preexisting value for `debug`.</span>
+                <span class="k">pass</span>
+
+            <span class="c1"># Then roll the session back.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+        <span class="n">tb</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exception</span><span class="p">,</span> <span class="n">DatabaseError</span><span class="p">):</span>
+            <span class="c1"># The database session may have become tainted. For now</span>
+            <span class="c1"># the simplest thing to do is to kill the entire process</span>
+            <span class="c1"># and let uwsgi restart it.</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Database error: </span><span class="si">%s</span><span class="s2"> Treating as fatal to avoid holding on to a tainted session!&quot;</span><span class="p">,</span>
+                <span class="n">exception</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">exception</span>
+            <span class="p">)</span>
+            <span class="n">shutdown</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;werkzeug.server.shutdown&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">shutdown</span><span class="p">:</span>
+                <span class="n">shutdown</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+
+        <span class="c1"># By default, the error will be logged at log level ERROR.</span>
+        <span class="n">log_method</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">error</span>
+
+        <span class="c1"># Okay, it&#39;s not a database error. Turn it into a useful HTTP error</span>
+        <span class="c1"># response.</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">exception</span><span class="p">,</span> <span class="s1">&#39;as_problem_detail_document&#39;</span><span class="p">):</span>
+            <span class="c1"># This exception can be turned directly into a problem</span>
+            <span class="c1"># detail document.</span>
+            <span class="n">document</span> <span class="o">=</span> <span class="n">exception</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">debug</span><span class="p">:</span>
+                <span class="n">document</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">document</span><span class="o">.</span><span class="n">debug_message</span><span class="p">:</span>
+                    <span class="n">document</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">tb</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">document</span><span class="o">.</span><span class="n">debug_message</span> <span class="o">=</span> <span class="n">tb</span>
+            <span class="k">if</span> <span class="n">document</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">502</span><span class="p">:</span>
+                <span class="c1"># This is an error in integrating with some upstream</span>
+                <span class="c1"># service. It&#39;s a serious problem, but probably not</span>
+                <span class="c1"># indicative of a bug in our software. Log it at log level</span>
+                <span class="c1"># WARN.</span>
+                <span class="n">log_method</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">warn</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">make_response</span><span class="p">(</span><span class="n">document</span><span class="o">.</span><span class="n">response</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># There&#39;s no way to turn this exception into a problem</span>
+            <span class="c1"># document. This is probably indicative of a bug in our</span>
+            <span class="c1"># software.</span>
+            <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+                <span class="n">body</span> <span class="o">=</span> <span class="n">tb</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">body</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;An internal error occured&#39;</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">make_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">body</span><span class="p">),</span> <span class="mi">500</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;text/plain&quot;</span><span class="p">})</span>
+
+        <span class="n">log_method</span><span class="p">(</span><span class="s2">&quot;Exception in web app: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exception</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">exception</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span></div></div>
+
+
+<div class="viewcode-block" id="HeartbeatController"><a class="viewcode-back" href="../../core.html#core.app_server.HeartbeatController">[docs]</a><span class="k">class</span> <span class="nc">HeartbeatController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="n">HEALTH_CHECK_TYPE</span> <span class="o">=</span> <span class="s1">&#39;application/vnd.health+json&#39;</span>
+    <span class="n">VERSION_FILENAME</span> <span class="o">=</span> <span class="s1">&#39;.version&#39;</span>
+
+<div class="viewcode-block" id="HeartbeatController.heartbeat"><a class="viewcode-back" href="../../core.html#core.app_server.HeartbeatController.heartbeat">[docs]</a>    <span class="k">def</span> <span class="nf">heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">health_check_object</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="s1">&#39;pass&#39;</span><span class="p">)</span>
+
+        <span class="n">Conf</span> <span class="o">=</span> <span class="n">conf_class</span> <span class="ow">or</span> <span class="n">Configuration</span>
+        <span class="n">app_version</span> <span class="o">=</span> <span class="n">Conf</span><span class="o">.</span><span class="n">app_version</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">app_version</span> <span class="ow">and</span> <span class="n">app_version</span> <span class="o">!=</span> <span class="n">Conf</span><span class="o">.</span><span class="n">NO_APP_VERSION_FOUND</span><span class="p">:</span>
+            <span class="n">health_check_object</span><span class="p">[</span><span class="s1">&#39;releaseID&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_version</span>
+            <span class="n">health_check_object</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">health_check_object</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">make_response</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">HEALTH_CHECK_TYPE</span><span class="p">})</span></div></div>
+
+
+<div class="viewcode-block" id="URNLookupController"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController">[docs]</a><span class="k">class</span> <span class="nc">URNLookupController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A generic controller that takes URNs as input and looks up their</span>
+<span class="sd">    OPDS entries.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">UNRECOGNIZED_IDENTIFIER</span> <span class="o">=</span> <span class="s2">&quot;This work is not in the collection.&quot;</span>
+    <span class="n">WORK_NOT_PRESENTATION_READY</span> <span class="o">=</span> <span class="s2">&quot;Work created but not yet presentation-ready.&quot;</span>
+    <span class="n">WORK_NOT_CREATED</span> <span class="o">=</span> <span class="s2">&quot;Identifier resolved but work not yet created.&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">works</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">precomposed_entries</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unresolved_identifiers</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="URNLookupController.work_lookup"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.work_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">work_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">route_name</span><span class="o">=</span><span class="s1">&#39;lookup&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">process_urn_kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate an OPDS feed describing works identified by identifier.&quot;&quot;&quot;</span>
+        <span class="n">urns</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">getlist</span><span class="p">(</span><span class="s1">&#39;urn&#39;</span><span class="p">)</span>
+
+        <span class="n">this_url</span> <span class="o">=</span> <span class="n">cdn_url_for</span><span class="p">(</span><span class="n">route_name</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">urn</span><span class="o">=</span><span class="n">urns</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_urns</span><span class="p">(</span><span class="n">urns</span><span class="p">,</span> <span class="o">**</span><span class="n">process_urn_kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">post_lookup_hook</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">response</span><span class="p">:</span>
+            <span class="c1"># In a subclass, self.process_urns may return a ProblemDetail</span>
+            <span class="k">return</span> <span class="n">response</span>
+
+        <span class="n">opds_feed</span> <span class="o">=</span> <span class="n">LookupAcquisitionFeed</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="s2">&quot;Lookup results&quot;</span><span class="p">,</span> <span class="n">this_url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+            <span class="n">precomposed_entries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">precomposed_entries</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="URNLookupController.permalink"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.permalink">[docs]</a>    <span class="k">def</span> <span class="nf">permalink</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">route_name</span><span class="o">=</span><span class="s1">&#39;work&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up a single identifier and generate an OPDS feed.&quot;&quot;&quot;</span>
+        <span class="n">this_url</span> <span class="o">=</span> <span class="n">cdn_url_for</span><span class="p">(</span><span class="n">route_name</span><span class="p">,</span> <span class="n">_external</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">urn</span><span class="o">=</span><span class="n">urn</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">process_urns</span><span class="p">([</span><span class="n">urn</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">post_lookup_hook</span><span class="p">()</span>
+
+        <span class="c1"># A LookupAcquisitionFeed&#39;s .works is a list of (identifier,</span>
+        <span class="c1"># work) tuples, but an AcquisitionFeed&#39;s .works is just a</span>
+        <span class="c1"># list of works.</span>
+        <span class="n">works</span> <span class="o">=</span> <span class="p">[</span><span class="n">work</span> <span class="k">for</span> <span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">work</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">works</span><span class="p">]</span>
+        <span class="n">opds_feed</span> <span class="o">=</span> <span class="n">AcquisitionFeed</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="n">this_url</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+            <span class="n">precomposed_entries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">precomposed_entries</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="URNLookupController.process_urns"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.process_urns">[docs]</a>    <span class="k">def</span> <span class="nf">process_urns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">urns</span><span class="p">,</span> <span class="o">**</span><span class="n">process_urn_kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Processes a list of URNs for a lookup request.</span>
+
+<span class="sd">        :return: None or, to override default feed behavior, a ProblemDetail</span>
+<span class="sd">            or Response.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">identifiers_by_urn</span><span class="p">,</span> <span class="n">failures</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">urns</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_urn_failure_messages</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">urn</span><span class="p">,</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">identifiers_by_urn</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">process_identifier</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="o">**</span><span class="n">process_urn_kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="URNLookupController.add_urn_failure_messages"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.add_urn_failure_messages">[docs]</a>    <span class="k">def</span> <span class="nf">add_urn_failure_messages</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">failures</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">urn</span> <span class="ow">in</span> <span class="n">failures</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_message</span><span class="p">(</span><span class="n">urn</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="n">INVALID_URN</span><span class="o">.</span><span class="n">detail</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="URNLookupController.process_identifier"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.process_identifier">[docs]</a>    <span class="k">def</span> <span class="nf">process_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a URN into a Work suitable for use in an OPDS feed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">:</span>
+            <span class="c1"># The default URNLookupController cannot look up an</span>
+            <span class="c1"># Identifier that has no associated LicensePool.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_message</span><span class="p">(</span><span class="n">urn</span><span class="p">,</span> <span class="mi">404</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNRECOGNIZED_IDENTIFIER</span><span class="p">)</span>
+
+        <span class="c1"># If we get to this point, there is at least one LicensePool</span>
+        <span class="c1"># for this identifier.</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="n">identifier</span><span class="o">.</span><span class="n">work</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">work</span><span class="p">:</span>
+            <span class="c1"># There are LicensePools but no Work.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_message</span><span class="p">(</span><span class="n">urn</span><span class="p">,</span> <span class="mi">202</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">WORK_NOT_CREATED</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="p">:</span>
+            <span class="c1"># There is a work but it&#39;s not presentation ready.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_message</span><span class="p">(</span><span class="n">urn</span><span class="p">,</span> <span class="mi">202</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">WORK_NOT_PRESENTATION_READY</span><span class="p">)</span>
+
+        <span class="c1"># The work is ready for use in an OPDS feed!</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_work</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">work</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="URNLookupController.add_work"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.add_work">[docs]</a>    <span class="k">def</span> <span class="nf">add_work</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;An identifier lookup succeeded in finding a Work.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">works</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">identifier</span><span class="p">,</span> <span class="n">work</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="URNLookupController.add_entry"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.add_entry">[docs]</a>    <span class="k">def</span> <span class="nf">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;An identifier lookup succeeded in creating an OPDS entry.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">precomposed_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="URNLookupController.add_message"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.add_message">[docs]</a>    <span class="k">def</span> <span class="nf">add_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;An identifier lookup resulted in the creation of a message.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">precomposed_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">OPDSMessage</span><span class="p">(</span><span class="n">urn</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="URNLookupController.post_lookup_hook"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.post_lookup_hook">[docs]</a>    <span class="k">def</span> <span class="nf">post_lookup_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run after looking up a number of Identifiers.</span>
+
+<span class="sd">        By default, does nothing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="ComplaintController"><a class="viewcode-back" href="../../core.html#core.app_server.ComplaintController">[docs]</a><span class="k">class</span> <span class="nc">ComplaintController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A controller to register complaints against objects.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ComplaintController.register"><a class="viewcode-back" href="../../core.html#core.app_server.ComplaintController.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">license_pool</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No license pool specified&quot;</span><span class="p">))</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">license_pool</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw_data</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Invalid problem detail document&quot;</span><span class="p">))</span>
+
+        <span class="nb">type</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;source&#39;</span><span class="p">)</span>
+        <span class="n">detail</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;detail&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No problem type specified.&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">Complaint</span><span class="o">.</span><span class="n">VALID_TYPES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Unrecognized problem type: </span><span class="si">%(type)s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">))</span>
+
+        <span class="n">complaint</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">complaint</span> <span class="o">=</span> <span class="n">Complaint</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">license_pool</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">detail</span><span class="p">)</span>
+            <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">problem</span><span class="p">(</span>
+                <span class="kc">None</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Error registering complaint: </span><span class="si">%(error)s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">make_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)),</span> <span class="mi">201</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;text/plain&quot;</span><span class="p">})</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

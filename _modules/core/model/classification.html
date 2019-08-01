@@ -1,0 +1,649 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.classification &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.classification</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Subject, Classification, Genre</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">numericrange_to_string</span><span class="p">,</span>
+    <span class="n">numericrange_to_tuple</span><span class="p">,</span>
+    <span class="n">tuple_to_numericrange</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="n">DataSourceConstants</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
+
+<span class="kn">from</span> <span class="nn">..</span> <span class="k">import</span> <span class="n">classifier</span>
+<span class="kn">from</span> <span class="nn">..classifier</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Classifier</span><span class="p">,</span>
+    <span class="n">COMICS_AND_GRAPHIC_NOVELS</span><span class="p">,</span>
+    <span class="n">Erotica</span><span class="p">,</span>
+    <span class="n">GenreData</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">Enum</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">func</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="n">INT4RANGE</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.associationproxy</span> <span class="k">import</span> <span class="n">association_proxy</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
+
+<div class="viewcode-block" id="Subject"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Subject">[docs]</a><span class="k">class</span> <span class="nc">Subject</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A subject under which books might be classified.&quot;&quot;&quot;</span>
+
+    <span class="c1"># Types of subjects.</span>
+    <span class="n">LCC</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">LCC</span>              <span class="c1"># Library of Congress Classification</span>
+    <span class="n">LCSH</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">LCSH</span>            <span class="c1"># Library of Congress Subject Headings</span>
+    <span class="n">FAST</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">FAST</span>
+    <span class="n">DDC</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">DDC</span>              <span class="c1"># Dewey Decimal Classification</span>
+    <span class="n">OVERDRIVE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">OVERDRIVE</span>  <span class="c1"># Overdrive&#39;s classification system</span>
+    <span class="n">RBDIGITAL</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">RBDIGITAL</span>  <span class="c1"># RBdigital&#39;s genre system</span>
+    <span class="n">BISAC</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">BISAC</span>
+    <span class="n">BIC</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">BIC</span>              <span class="c1"># BIC Subject Categories</span>
+    <span class="n">TAG</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">TAG</span>              <span class="c1"># Folksonomic tags.</span>
+    <span class="n">FREEFORM_AUDIENCE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">FREEFORM_AUDIENCE</span>
+    <span class="n">NYPL_APPEAL</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">NYPL_APPEAL</span>
+
+    <span class="c1"># Types with terms that are suitable for search.</span>
+    <span class="n">TYPES_FOR_SEARCH</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">FAST</span><span class="p">,</span> <span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">BISAC</span><span class="p">,</span> <span class="n">TAG</span>
+    <span class="p">]</span>
+
+    <span class="n">AXIS_360_AUDIENCE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AXIS_360_AUDIENCE</span>
+    <span class="n">RBDIGITAL_AUDIENCE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">RBDIGITAL_AUDIENCE</span>
+    <span class="n">GRADE_LEVEL</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">GRADE_LEVEL</span>
+    <span class="n">AGE_RANGE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AGE_RANGE</span>
+    <span class="n">LEXILE_SCORE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">LEXILE_SCORE</span>
+    <span class="n">ATOS_SCORE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">ATOS_SCORE</span>
+    <span class="n">INTEREST_LEVEL</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">INTEREST_LEVEL</span>
+
+    <span class="n">GUTENBERG_BOOKSHELF</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">GUTENBERG_BOOKSHELF</span>
+    <span class="n">TOPIC</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">TOPIC</span>
+    <span class="n">PLACE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">PLACE</span>
+    <span class="n">PERSON</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">PERSON</span>
+    <span class="n">ORGANIZATION</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">ORGANIZATION</span>
+    <span class="n">SIMPLIFIED_GENRE</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">SIMPLIFIED_GENRE</span>
+    <span class="n">SIMPLIFIED_FICTION_STATUS</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">SIMPLIFIED_FICTION_STATUS</span>
+
+    <span class="n">by_uri</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">SIMPLIFIED_GENRE</span> <span class="p">:</span> <span class="n">SIMPLIFIED_GENRE</span><span class="p">,</span>
+        <span class="n">SIMPLIFIED_FICTION_STATUS</span> <span class="p">:</span> <span class="n">SIMPLIFIED_FICTION_STATUS</span><span class="p">,</span>
+        <span class="s2">&quot;http://librarysimplified.org/terms/genres/Overdrive/&quot;</span> <span class="p">:</span> <span class="n">OVERDRIVE</span><span class="p">,</span>
+        <span class="s2">&quot;http://librarysimplified.org/terms/genres/3M/&quot;</span> <span class="p">:</span> <span class="n">BISAC</span><span class="p">,</span>
+        <span class="s2">&quot;http://id.worldcat.org/fast/&quot;</span> <span class="p">:</span> <span class="n">FAST</span><span class="p">,</span> <span class="c1"># I don&#39;t think this is official.</span>
+        <span class="s2">&quot;http://purl.org/dc/terms/LCC&quot;</span> <span class="p">:</span> <span class="n">LCC</span><span class="p">,</span>
+        <span class="s2">&quot;http://purl.org/dc/terms/LCSH&quot;</span> <span class="p">:</span> <span class="n">LCSH</span><span class="p">,</span>
+        <span class="s2">&quot;http://purl.org/dc/terms/DDC&quot;</span> <span class="p">:</span> <span class="n">DDC</span><span class="p">,</span>
+        <span class="s2">&quot;http://schema.org/typicalAgeRange&quot;</span> <span class="p">:</span> <span class="n">AGE_RANGE</span><span class="p">,</span>
+        <span class="s2">&quot;http://schema.org/audience&quot;</span> <span class="p">:</span> <span class="n">FREEFORM_AUDIENCE</span><span class="p">,</span>
+        <span class="s2">&quot;http://www.bisg.org/standards/bisac_subject/&quot;</span> <span class="p">:</span> <span class="n">BISAC</span><span class="p">,</span>
+        <span class="c1"># Feedbooks uses a modified BISAC which we know how to handle.</span>
+        <span class="s2">&quot;http://www.feedbooks.com/categories&quot;</span> <span class="p">:</span> <span class="n">BISAC</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">uri_lookup</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">by_uri</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">uri_lookup</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;subjects&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Type should be one of the constants in this class.</span>
+    <span class="nb">type</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Formal identifier for the subject (e.g. &quot;300&quot; for Dewey Decimal</span>
+    <span class="c1"># System&#39;s Social Sciences subject.)</span>
+    <span class="n">identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Human-readable name, if different from the</span>
+    <span class="c1"># identifier. (e.g. &quot;Social Sciences&quot; for DDC 300)</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Whether classification under this subject implies anything about</span>
+    <span class="c1"># the fiction/nonfiction status of a book.</span>
+    <span class="n">fiction</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># Whether classification under this subject implies anything about</span>
+    <span class="c1"># the book&#39;s audience.</span>
+    <span class="n">audience</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Enum</span><span class="p">(</span><span class="s2">&quot;Adult&quot;</span><span class="p">,</span> <span class="s2">&quot;Young Adult&quot;</span><span class="p">,</span> <span class="s2">&quot;Children&quot;</span><span class="p">,</span> <span class="s2">&quot;Adults Only&quot;</span><span class="p">,</span>
+             <span class="n">name</span><span class="o">=</span><span class="s2">&quot;audience&quot;</span><span class="p">),</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># For children&#39;s books, the target age implied by this subject.</span>
+    <span class="n">target_age</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">INT4RANGE</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Each Subject may claim affinity with one Genre.</span>
+    <span class="n">genre_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;genres.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A locked Subject has been reviewed by a human and software will</span>
+    <span class="c1"># not mess with it without permission.</span>
+    <span class="n">locked</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A checked Subject has been reviewed by software and will</span>
+    <span class="c1"># not be checked again unless forced.</span>
+    <span class="n">checked</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># One Subject may participate in many Classifications.</span>
+    <span class="n">classifications</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Classification&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;subject&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Type + identifier must be unique.</span>
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="s1">&#39;identifier&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; (&quot;</span><span class="si">%s</span><span class="s1">&quot;)&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience</span><span class="p">:</span>
+            <span class="n">audience</span> <span class="o">=</span> <span class="s2">&quot; audience=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">audience</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fiction</span><span class="p">:</span>
+            <span class="n">fiction</span> <span class="o">=</span> <span class="s2">&quot; (Fiction)&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">fiction</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">fiction</span> <span class="o">=</span> <span class="s2">&quot; (Nonfiction)&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fiction</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="p">:</span>
+            <span class="n">genre</span> <span class="o">=</span> <span class="s1">&#39; genre=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">genre</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_age</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="o">.</span><span class="n">lower</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="o">.</span><span class="n">upper</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">age_range</span><span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age_string</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">age_range</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;[</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s%s%s%s%s%s</span><span class="s1">]&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span> <span class="n">genre</span><span class="p">,</span> <span class="n">age_range</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">target_age_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">numericrange_to_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">describes_format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does this Subject describe a format of book rather than</span>
+<span class="sd">        subject matter, audience, etc?</span>
+<span class="sd">        If so, there are limitations on when we believe this Subject</span>
+<span class="sd">        actually applies to a given book--it may describe a very</span>
+<span class="sd">        different adaptation of the same underlying work.</span>
+<span class="sd">        TODO: See note in assign_genres about the hacky way this is used.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">genre</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="n">COMICS_AND_GRAPHIC_NOVELS</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="Subject.lookup"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Subject.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a subject type and identifier into a Subject.&quot;&quot;&quot;</span>
+        <span class="n">classifier</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="nb">type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot look up Subject with no type.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot look up Subject when neither identifier nor name is provided.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># An identifier is more reliable than a name, so we would rather</span>
+        <span class="c1"># search based on identifier. But if we only have a name, we&#39;ll</span>
+        <span class="c1"># search based on name.</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="n">find_with</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="n">create_with</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Type + identifier is unique, but type + name is not</span>
+            <span class="c1"># (though maybe it should be). So we need to provide</span>
+            <span class="c1"># on_multiple.</span>
+            <span class="n">find_with</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">)</span>
+            <span class="n">create_with</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">autocreate</span><span class="p">:</span>
+            <span class="n">subject</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">Subject</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span>
+                <span class="n">create_method_kwargs</span><span class="o">=</span><span class="n">create_with</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">find_with</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">subject</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Subject</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="o">**</span><span class="n">find_with</span><span class="p">)</span>
+            <span class="n">new</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">subject</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="c1"># We just discovered the name of a subject that previously</span>
+            <span class="c1"># had only an ID.</span>
+            <span class="n">subject</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">return</span> <span class="n">subject</span><span class="p">,</span> <span class="n">new</span></div>
+
+<div class="viewcode-block" id="Subject.common_but_not_assigned_to_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Subject.common_but_not_assigned_to_genre">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">common_but_not_assigned_to_genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">min_occurances</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+                                         <span class="n">type_restriction</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Subject</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Classification</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">genre</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">type_restriction</span><span class="p">:</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">type_restriction</span><span class="p">)</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">having</span><span class="p">(</span>
+            <span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">min_occurances</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+            <span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">q</span></div>
+
+<div class="viewcode-block" id="Subject.assign_to_genres"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Subject.assign_to_genres">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">assign_to_genres</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">type_restriction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                         <span class="n">batch_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find subjects that have not been checked yet, assign each a</span>
+<span class="sd">        genre/audience/fiction status if possible, and mark each as checked.</span>
+
+<span class="sd">        :param type_restriction: Only consider subjects of the given type.</span>
+<span class="sd">        :param force: Assign a genre to all subjects not just the ones that</span>
+<span class="sd">            have been checked.</span>
+<span class="sd">        :param batch_size: Perform a database commit every time this many</span>
+<span class="sd">            subjects have been checked.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Subject</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">locked</span><span class="o">==</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">type_restriction</span><span class="p">:</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">type_restriction</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">checked</span><span class="o">==</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="n">q</span><span class="p">:</span>
+            <span class="n">subject</span><span class="o">.</span><span class="n">assign_to_genre</span><span class="p">()</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">counter</span> <span class="o">%</span> <span class="n">batch_size</span><span class="p">:</span>
+                <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Subject.assign_to_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Subject.assign_to_genre">[docs]</a>    <span class="k">def</span> <span class="nf">assign_to_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Assign this subject to a genre.&quot;&quot;&quot;</span>
+        <span class="n">classifier</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">classifier</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">checked</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Subject-genre assignment&quot;</span><span class="p">)</span>
+
+        <span class="n">genredata</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span> <span class="n">target_age</span><span class="p">,</span> <span class="n">fiction</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">classify</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># If the genre is erotica, the audience will always be ADULTS_ONLY,</span>
+        <span class="c1"># no matter what the classifier says.</span>
+        <span class="k">if</span> <span class="n">genredata</span> <span class="o">==</span> <span class="n">Erotica</span><span class="p">:</span>
+            <span class="n">audience</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span>
+
+        <span class="k">if</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_ADULT</span><span class="p">:</span>
+            <span class="n">target_age</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">default_target_age_for_audience</span><span class="p">(</span><span class="n">audience</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">audience</span><span class="p">:</span>
+            <span class="c1"># We have no audience but some target age information.</span>
+            <span class="c1"># Try to determine an audience based on that.</span>
+            <span class="n">audience</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">default_audience_for_target_age</span><span class="p">(</span><span class="n">target_age</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">genredata</span><span class="p">:</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="n">genre</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">genredata</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">genre</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Create a shorthand way of referring to this Subject in log</span>
+        <span class="c1"># messages.</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">shorthand</span> <span class="o">=</span> <span class="s2">&quot;:&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">parts</span> <span class="k">if</span> <span class="n">x</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">genre</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> genre </span><span class="si">%r</span><span class="s2">=&gt;</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">shorthand</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="p">,</span> <span class="n">genre</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">genre</span> <span class="o">=</span> <span class="n">genre</span>
+
+        <span class="k">if</span> <span class="n">audience</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience</span> <span class="o">!=</span> <span class="n">audience</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> audience </span><span class="si">%s</span><span class="s2">=&gt;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">shorthand</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span> <span class="n">audience</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">audience</span> <span class="o">=</span> <span class="n">audience</span>
+
+        <span class="k">if</span> <span class="n">fiction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fiction</span> <span class="o">!=</span> <span class="n">fiction</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> fiction </span><span class="si">%s</span><span class="s2">=&gt;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">shorthand</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fiction</span><span class="p">,</span> <span class="n">fiction</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fiction</span> <span class="o">=</span> <span class="n">fiction</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">numericrange_to_tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span> <span class="o">!=</span> <span class="n">target_age</span> <span class="ow">and</span>
+            <span class="ow">not</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">target_age</span><span class="p">)):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> target_age </span><span class="si">%r</span><span class="s2">=&gt;</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">shorthand</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">,</span> <span class="n">tuple_to_numericrange</span><span class="p">(</span><span class="n">target_age</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span> <span class="o">=</span> <span class="n">tuple_to_numericrange</span><span class="p">(</span><span class="n">target_age</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Classification"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Classification">[docs]</a><span class="k">class</span> <span class="nc">Classification</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The assignment of a Identifier to a Subject.&quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;classifications&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">identifier_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">subject_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;subjects.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># How much weight the data source gives to this classification.</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">scaled_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OCLC_LINKED_DATA</span><span class="p">:</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span> <span class="o">/</span> <span class="mf">10.0</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">:</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span> <span class="o">*</span> <span class="mi">50</span>
+        <span class="k">return</span> <span class="n">weight</span>
+
+    <span class="c1"># These subject types are known to be problematic in that their</span>
+    <span class="c1"># &quot;Juvenile&quot; classifications are applied indiscriminately to both</span>
+    <span class="c1"># YA books and Children&#39;s books. As such, we need to split the</span>
+    <span class="c1"># difference when weighing a classification whose subject is of</span>
+    <span class="c1"># this type.</span>
+    <span class="c1">#</span>
+    <span class="c1"># This goes into Classification rather than Subject because it&#39;s</span>
+    <span class="c1"># possible that one particular data source could use a certain</span>
+    <span class="c1"># subject type in an unreliable way.</span>
+    <span class="n">_juvenile_subject_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+        <span class="n">Subject</span><span class="o">.</span><span class="n">LCC</span>
+    <span class="p">])</span>
+
+    <span class="n">_quality_as_indicator_of_target_age</span> <span class="o">=</span> <span class="p">{</span>
+
+        <span class="c1"># Not all classifications are equally reliable as indicators</span>
+        <span class="c1"># of a target age. This dictionary contains the coefficients</span>
+        <span class="c1"># we multiply against the weights of incoming classifications</span>
+        <span class="c1"># to reflect the overall reliability of that type of</span>
+        <span class="c1"># classification.</span>
+        <span class="c1">#</span>
+        <span class="c1"># If we had a ton of information about target age this might</span>
+        <span class="c1"># not be necessary--it doesn&#39;t seem necessary for genre</span>
+        <span class="c1"># classifications. But we sometimes have very little</span>
+        <span class="c1"># information about target age, so being careful about how</span>
+        <span class="c1"># much we trust different data sources can become important.</span>
+
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">MANUAL</span> <span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">LIBRARY_STAFF</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">METADATA_WRANGLER</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">AGE_RANGE</span><span class="p">)</span> <span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+
+        <span class="n">Subject</span><span class="o">.</span><span class="n">AXIS_360_AUDIENCE</span> <span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">INTEREST_LEVEL</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span> <span class="c1"># But see below</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">AMAZON</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">AGE_RANGE</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.85</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">AMAZON</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.85</span><span class="p">,</span>
+
+        <span class="c1"># Although Overdrive usually reserves Fiction and Nonfiction</span>
+        <span class="c1"># for books for adults, it&#39;s not as reliable an indicator as</span>
+        <span class="c1"># other Overdrive classifications.</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="s2">&quot;Fiction&quot;</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="s2">&quot;Nonfiction&quot;</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
+
+        <span class="n">Subject</span><span class="o">.</span><span class="n">AGE_RANGE</span> <span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span>
+        <span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span> <span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span>
+
+        <span class="c1"># There&#39;s no real way to know what this measures, since it</span>
+        <span class="c1"># could be anything. If a tag mentions a target age or a grade</span>
+        <span class="c1"># level, the accuracy seems to be... not terrible.</span>
+        <span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span> <span class="p">:</span> <span class="mf">0.45</span><span class="p">,</span>
+
+        <span class="c1"># Tags that come from OCLC Linked Data are of lower quality</span>
+        <span class="c1"># because they sometimes talk about completely the wrong book.</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OCLC_LINKED_DATA</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
+
+        <span class="c1"># These measure reading level, not age appropriateness.</span>
+        <span class="c1"># However, if the book is a remedial work for adults we won&#39;t</span>
+        <span class="c1"># be calculating a target age in the first place, so it&#39;s okay</span>
+        <span class="c1"># to use reading level as a proxy for age appropriateness in a</span>
+        <span class="c1"># pinch. (But not outside of a pinch.)</span>
+        <span class="p">(</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span><span class="p">)</span> <span class="p">:</span> <span class="mf">0.35</span><span class="p">,</span>
+        <span class="n">Subject</span><span class="o">.</span><span class="n">LEXILE_SCORE</span> <span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">Subject</span><span class="o">.</span><span class="n">ATOS_SCORE</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">generic_juvenile_audience</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Is this a classification that mentions (e.g.) a Children&#39;s audience</span>
+<span class="sd">        but is actually a generic &#39;Juvenile&#39; classification?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="o">.</span><span class="n">audience</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_JUVENILE</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_juvenile_subject_types</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">quality_as_indicator_of_target_age</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="o">.</span><span class="n">target_age</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">subject_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="o">.</span><span class="n">type</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quality_as_indicator_of_target_age</span>
+
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">subject_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="o">.</span><span class="n">identifier</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">subject_type</span><span class="p">),</span>
+            <span class="n">data_source</span><span class="p">,</span>
+            <span class="n">subject_type</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">q</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">q</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">return</span> <span class="mf">0.1</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">weight_as_indicator_of_target_age</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">quality_as_indicator_of_target_age</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">comes_from_license_source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does this Classification come from a data source that also</span>
+<span class="sd">        provided a license for this book?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span> <span class="o">==</span> <span class="n">pool</span><span class="o">.</span><span class="n">data_source</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="Genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Genre">[docs]</a><span class="k">class</span> <span class="nc">Genre</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A subject-matter classification for a book.</span>
+<span class="sd">    Much, much more general than Classification.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;genres&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># One Genre may have affinity with many Subjects.</span>
+    <span class="n">subjects</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Subject&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;genre&quot;</span><span class="p">)</span>
+
+    <span class="c1"># One Genre may participate in many WorkGenre assignments.</span>
+    <span class="n">works</span> <span class="o">=</span> <span class="n">association_proxy</span><span class="p">(</span><span class="s1">&#39;work_genres&#39;</span><span class="p">,</span> <span class="s1">&#39;work&#39;</span><span class="p">)</span>
+
+    <span class="n">work_genres</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;WorkGenre&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;genre&quot;</span><span class="p">,</span>
+                               <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">)</span>
+
+    <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+    <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">classifier</span><span class="o">.</span><span class="n">genres</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">genres</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">subgenres</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;Genre </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%d</span><span class="s2"> subjects, </span><span class="si">%d</span><span class="s2"> works, </span><span class="si">%d</span><span class="s2"> subcategories)&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">works</span><span class="p">),</span> <span class="n">length</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Genre.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Genre.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span></div>
+
+<div class="viewcode-block" id="Genre.lookup"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Genre.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">GenreData</span><span class="p">):</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="k">def</span> <span class="nf">create</span><span class="p">():</span>
+            <span class="sd">&quot;&quot;&quot;Function called when a Genre is not found in cache and must be</span>
+<span class="sd">            created.&quot;&quot;&quot;</span>
+            <span class="n">new</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Genre</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">autocreate</span><span class="p">:</span>
+                <span class="n">genre</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">genre</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">genre</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%s</span><span class="s1">&quot; is not a recognized genre.&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="n">genre</span><span class="p">,</span> <span class="n">new</span>
+
+        <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">create</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">create</span><span class="p">()</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">genredata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">classifier</span><span class="o">.</span><span class="n">genres</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">classifier</span><span class="o">.</span><span class="n">genres</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">GenreData</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">subgenres</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">genre</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_and_subgenres</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">genre</span> <span class="o">!=</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">genre</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">self_and_subgenres</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">genres</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">genre_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">genredata</span><span class="o">.</span><span class="n">self_and_subgenres</span><span class="p">:</span>
+            <span class="n">genres</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">genre_data</span><span class="o">.</span><span class="n">name</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">genres</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_fiction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">classifier</span><span class="o">.</span><span class="n">genres</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">classifier</span><span class="o">.</span><span class="n">genres</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">is_fiction</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,1538 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.resource &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.resource</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Resource, ResourceTransformation, Hyperlink, Representation</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">DataSourceConstants</span><span class="p">,</span>
+    <span class="n">IdentifierConstants</span><span class="p">,</span>
+    <span class="n">LinkRelations</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+
+<span class="kn">from</span> <span class="nn">cStringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">md5</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="k">import</span> <span class="n">Image</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Binary</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">Float</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="n">JSON</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="k">import</span> <span class="n">MutableDict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">backref</span><span class="p">,</span>
+    <span class="n">relationship</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">or_</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">import</span> <span class="nn">urlparse</span>
+
+<div class="viewcode-block" id="Resource"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource">[docs]</a><span class="k">class</span> <span class="nc">Resource</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An external resource that may be mirrored locally.</span>
+<span class="sd">    E.g: a cover image, an epub, a description.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;resources&#39;</span>
+
+    <span class="c1"># How many votes is the initial quality estimate worth?</span>
+    <span class="n">ESTIMATED_QUALITY_WEIGHT</span> <span class="o">=</span> <span class="mi">5</span>
+
+    <span class="c1"># The point at which a generic geometric image is better</span>
+    <span class="c1"># than a lousy cover we got from the Internet.</span>
+    <span class="n">MINIMUM_IMAGE_QUALITY</span> <span class="o">=</span> <span class="mf">0.25</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A URI that uniquely identifies this resource. Most of the time</span>
+    <span class="c1"># this will be an HTTP URL, which is why we&#39;re calling it &#39;url&#39;,</span>
+    <span class="c1"># but it may also be a made-up URI.</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Many Editions may choose this resource (as opposed to other</span>
+    <span class="c1"># resources linked to them with rel=&quot;image&quot;) as their cover image.</span>
+    <span class="n">cover_editions</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Edition&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;cover&quot;</span><span class="p">,</span> <span class="n">foreign_keys</span><span class="o">=</span><span class="p">[</span><span class="n">Edition</span><span class="o">.</span><span class="n">cover_id</span><span class="p">])</span>
+
+    <span class="c1"># Many Works may use this resource (as opposed to other resources</span>
+    <span class="c1"># linked to them with rel=&quot;description&quot;) as their summary.</span>
+    <span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+    <span class="n">summary_works</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Work&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;summary&quot;</span><span class="p">,</span> <span class="n">foreign_keys</span><span class="o">=</span><span class="p">[</span><span class="n">Work</span><span class="o">.</span><span class="n">summary_id</span><span class="p">])</span>
+
+    <span class="c1"># Many LicensePools (but probably one at most) may use this</span>
+    <span class="c1"># resource in a delivery mechanism.</span>
+    <span class="n">licensepooldeliverymechanisms</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;LicensePoolDeliveryMechanism&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;resource&quot;</span><span class="p">,</span>
+        <span class="n">foreign_keys</span><span class="o">=</span><span class="p">[</span><span class="n">LicensePoolDeliveryMechanism</span><span class="o">.</span><span class="n">resource_id</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">links</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Hyperlink&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;resource&quot;</span><span class="p">)</span>
+
+    <span class="c1"># The DataSource that is the controlling authority for this Resource.</span>
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># An archived Representation of this Resource.</span>
+    <span class="n">representation_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;representations.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The rights status of this Resource.</span>
+    <span class="n">rights_status_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;rightsstatus.id&#39;</span><span class="p">))</span>
+
+    <span class="c1"># An optional explanation of the rights status.</span>
+    <span class="n">rights_explanation</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># A Resource may be transformed into many derivatives.</span>
+    <span class="n">transformations</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s1">&#39;ResourceTransformation&#39;</span><span class="p">,</span>
+        <span class="n">primaryjoin</span><span class="o">=</span><span class="s2">&quot;ResourceTransformation.original_id==Resource.id&quot;</span><span class="p">,</span>
+        <span class="n">foreign_keys</span><span class="o">=</span><span class="nb">id</span><span class="p">,</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;joined&quot;</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="n">backref</span><span class="p">(</span><span class="s1">&#39;original&#39;</span><span class="p">,</span> <span class="n">uselist</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="n">uselist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A derivative resource may have one original.</span>
+    <span class="n">derived_through</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s1">&#39;ResourceTransformation&#39;</span><span class="p">,</span>
+        <span class="n">primaryjoin</span><span class="o">=</span><span class="s2">&quot;ResourceTransformation.derivative_id==Resource.id&quot;</span><span class="p">,</span>
+        <span class="n">foreign_keys</span><span class="o">=</span><span class="nb">id</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="n">backref</span><span class="p">(</span><span class="s1">&#39;derivative&#39;</span><span class="p">,</span> <span class="n">uselist</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;joined&quot;</span><span class="p">,</span>
+        <span class="n">uselist</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A calculated value for the quality of this resource, based on an</span>
+    <span class="c1"># algorithmic treatment of its content.</span>
+    <span class="n">estimated_quality</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">)</span>
+
+    <span class="c1"># The average of human-entered values for the quality of this</span>
+    <span class="c1"># resource.</span>
+    <span class="n">voted_quality</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+
+    <span class="c1"># How many votes contributed to the voted_quality value. This lets</span>
+    <span class="c1"># us scale new votes proportionately while keeping only two pieces</span>
+    <span class="c1"># of information.</span>
+    <span class="n">votes_for_quality</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># A combination of the calculated quality value and the</span>
+    <span class="c1"># human-entered quality value.</span>
+    <span class="n">quality</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># URL must be unique.</span>
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;url&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">final_url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;URL to the final, mirrored version of this resource, suitable</span>
+<span class="sd">        for serving to the client.</span>
+<span class="sd">        :return: A URL, or None if the resource has no mirrored</span>
+<span class="sd">        representation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">mirror_url</span>
+
+<div class="viewcode-block" id="Resource.as_delivery_mechanism_for"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.as_delivery_mechanism_for">[docs]</a>    <span class="k">def</span> <span class="nf">as_delivery_mechanism_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If this Resource is used in a LicensePoolDeliveryMechanism for the</span>
+<span class="sd">        given LicensePool, return that LicensePoolDeliveryMechanism.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">lpdm</span> <span class="ow">in</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">delivery_mechanisms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">lpdm</span><span class="o">.</span><span class="n">resource</span> <span class="o">==</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">lpdm</span></div>
+
+<div class="viewcode-block" id="Resource.set_fetched_content"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.set_fetched_content">[docs]</a>    <span class="k">def</span> <span class="nf">set_fetched_content</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_type</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">content_path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Simulate a successful HTTP request for a representation</span>
+<span class="sd">        of this resource.</span>
+<span class="sd">        This is used when the content of the representation is obtained</span>
+<span class="sd">        through some other means.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">content</span> <span class="ow">or</span> <span class="n">content_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;One of content and content_path must be specified.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">content</span> <span class="ow">and</span> <span class="n">content_path</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Only one of content and content_path may be specified.&quot;</span><span class="p">)</span>
+        <span class="n">representation</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">media_type</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">representation</span> <span class="o">=</span> <span class="n">representation</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">set_fetched_content</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">content_path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resource.set_estimated_quality"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.set_estimated_quality">[docs]</a>    <span class="k">def</span> <span class="nf">set_estimated_quality</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimated_quality</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update the estimated quality.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">estimated_quality</span> <span class="o">=</span> <span class="n">estimated_quality</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_quality</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Resource.add_quality_votes"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.add_quality_votes">[docs]</a>    <span class="k">def</span> <span class="nf">add_quality_votes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">quality</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Record someone&#39;s vote as to the quality of this resource.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="ow">or</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span> <span class="ow">or</span> <span class="mi">0</span>
+
+        <span class="n">total_quality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span>
+        <span class="n">total_quality</span> <span class="o">+=</span> <span class="p">(</span><span class="n">quality</span> <span class="o">*</span> <span class="n">weight</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span> <span class="o">+=</span> <span class="n">weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">=</span> <span class="n">total_quality</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_quality</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Resource.reject"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.reject">[docs]</a>    <span class="k">def</span> <span class="nf">reject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reject a Resource by making its voted_quality negative.</span>
+<span class="sd">        If the Resource is a cover, this rejection will render it unusable to</span>
+<span class="sd">        all Editions and Identifiers. Even if the cover is later `approved`</span>
+<span class="sd">        a rejection impacts the overall weight of the `vote_quality`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_quality_votes</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># This Resource has already been rejected.</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Humans have voted positively on this Resource, and now it&#39;s</span>
+        <span class="c1"># being rejected regardless.</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Rejecting Resource with positive votes: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Make the voted_quality negative without impacting the weight</span>
+        <span class="c1"># of existing votes so the value can be restored relatively</span>
+        <span class="c1"># painlessly if necessary.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span>
+
+        <span class="c1"># However, because `votes_for_quality` is incremented, a</span>
+        <span class="c1"># rejection will impact the weight of all `voted_quality` votes</span>
+        <span class="c1"># even if the Resource is later approved.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_quality</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Resource.approve"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.approve">[docs]</a>    <span class="k">def</span> <span class="nf">approve</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Approve a rejected Resource by making its human-generated</span>
+<span class="sd">        voted_quality positive while taking its rejection into account.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># This Resource has been rejected. Reset its value to be</span>
+            <span class="c1"># positive.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># We&#39;re undoing a single rejection.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># An existing positive voted_quality was made negative.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update_quality</span><span class="p">()</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_quality_votes</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resource.update_quality"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.update_quality">[docs]</a>    <span class="k">def</span> <span class="nf">update_quality</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Combine computer-generated `estimated_quality` with</span>
+<span class="sd">        human-generated `voted_quality` to form overall `quality`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">estimated_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ESTIMATED_QUALITY_WEIGHT</span>
+        <span class="n">votes_for_quality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">votes_for_quality</span> <span class="ow">or</span> <span class="mi">0</span>
+        <span class="n">total_weight</span> <span class="o">=</span> <span class="n">estimated_weight</span> <span class="o">+</span> <span class="n">votes_for_quality</span>
+
+        <span class="n">voted_quality</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">voted_quality</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">votes_for_quality</span>
+        <span class="n">total_quality</span> <span class="o">=</span> <span class="p">(((</span><span class="bp">self</span><span class="o">.</span><span class="n">estimated_quality</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ESTIMATED_QUALITY_WEIGHT</span><span class="p">)</span> <span class="o">+</span>
+                         <span class="n">voted_quality</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">voted_quality</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">total_quality</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># If `voted_quality` is negative, the Resource has been</span>
+            <span class="c1"># rejected by a human and should no longer be available.</span>
+            <span class="c1">#</span>
+            <span class="c1"># This human-generated negativity must be passed to the final</span>
+            <span class="c1"># Resource.quality value.</span>
+            <span class="n">total_quality</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">total_quality</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quality</span> <span class="o">=</span> <span class="n">total_quality</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">total_weight</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resource.image_type_priority"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.image_type_priority">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">image_type_priority</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">media_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Where does the given image media type rank on our list of</span>
+<span class="sd">        preferences?</span>
+<span class="sd">        :return: A lower number is better. None means it&#39;s not an</span>
+<span class="sd">        image type or we don&#39;t care about it at all.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">media_type</span> <span class="ow">in</span> <span class="n">Representation</span><span class="o">.</span><span class="n">IMAGE_MEDIA_TYPES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Representation</span><span class="o">.</span><span class="n">IMAGE_MEDIA_TYPES</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">media_type</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Resource.best_covers_among"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.best_covers_among">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">best_covers_among</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">resources</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Choose the best covers from a list of Resources.&quot;&quot;&quot;</span>
+        <span class="n">champions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">champion_key</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">resources</span><span class="p">:</span>
+            <span class="n">rep</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">representation</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">rep</span><span class="p">:</span>
+                <span class="c1"># A Resource with no Representation is not usable, period</span>
+                <span class="k">continue</span>
+            <span class="n">media_priority</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">image_type_priority</span><span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">media_type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">media_priority</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">media_priority</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+
+            <span class="c1"># This method will set the quality if it hasn&#39;t been set before.</span>
+            <span class="n">r</span><span class="o">.</span><span class="n">quality_as_thumbnail_image</span>
+            <span class="c1"># Now we can use it.</span>
+            <span class="n">quality</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">quality</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">quality</span> <span class="o">&gt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">MINIMUM_IMAGE_QUALITY</span><span class="p">:</span>
+                <span class="c1"># A Resource below the minimum quality threshold is not</span>
+                <span class="c1"># usable, period.</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># In order, our criteria are: whether we</span>
+            <span class="c1"># mirrored the representation (which means we directly</span>
+            <span class="c1"># control it), image quality, and media type suitability.</span>
+            <span class="c1">#</span>
+            <span class="c1"># We invert media type suitability because it&#39;s given to us</span>
+            <span class="c1"># as a priority (where smaller is better), but we want to compare</span>
+            <span class="c1"># it as a quantity (where larger is better).</span>
+            <span class="n">compare_key</span> <span class="o">=</span> <span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">mirror_url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="n">quality</span><span class="p">,</span> <span class="o">-</span><span class="n">media_priority</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">champion_key</span> <span class="ow">or</span> <span class="p">(</span><span class="n">compare_key</span> <span class="o">&gt;</span> <span class="n">champion_key</span><span class="p">):</span>
+                <span class="c1"># A new champion.</span>
+                <span class="n">champions</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">]</span>
+                <span class="n">champion_key</span> <span class="o">=</span> <span class="n">compare_key</span>
+            <span class="k">elif</span> <span class="n">compare_key</span> <span class="o">==</span> <span class="n">champion_key</span><span class="p">:</span>
+                <span class="c1"># This image is equally good as the existing champion.</span>
+                <span class="n">champions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">champions</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">quality_as_thumbnail_image</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine this image&#39;s suitability for use as a thumbnail image.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">representation</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">rep</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+
+        <span class="n">quality</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c1"># If the size of the image is known, that might affect</span>
+        <span class="c1"># the quality.</span>
+        <span class="n">quality</span> <span class="o">=</span> <span class="n">quality</span> <span class="o">*</span> <span class="n">rep</span><span class="o">.</span><span class="n">thumbnail_size_quality_penalty</span>
+
+        <span class="c1"># Scale the estimated quality by the source of the image.</span>
+        <span class="n">source_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">if</span> <span class="n">source_name</span><span class="o">==</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">GUTENBERG_COVER_GENERATOR</span><span class="p">:</span>
+            <span class="n">quality</span> <span class="o">=</span> <span class="n">quality</span> <span class="o">*</span> <span class="mf">0.60</span>
+        <span class="k">elif</span> <span class="n">source_name</span><span class="o">==</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">GUTENBERG</span><span class="p">:</span>
+            <span class="n">quality</span> <span class="o">=</span> <span class="n">quality</span> <span class="o">*</span> <span class="mf">0.50</span>
+        <span class="k">elif</span> <span class="n">source_name</span><span class="o">==</span><span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OPEN_LIBRARY</span><span class="p">:</span>
+            <span class="n">quality</span> <span class="o">=</span> <span class="n">quality</span> <span class="o">*</span> <span class="mf">0.25</span>
+        <span class="k">elif</span> <span class="n">source_name</span> <span class="ow">in</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">COVER_IMAGE_PRIORITY</span><span class="p">:</span>
+            <span class="c1"># Covers from the data sources listed in</span>
+            <span class="c1"># COVER_IMAGE_PRIORITY (e.g. the metadata wrangler</span>
+            <span class="c1"># and the administrative interface) are given priority</span>
+            <span class="c1"># over all others, relative to their position in</span>
+            <span class="c1"># COVER_IMAGE_PRIORITY.</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">COVER_IMAGE_PRIORITY</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">source_name</span><span class="p">)</span>
+            <span class="n">quality</span> <span class="o">=</span> <span class="n">quality</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_estimated_quality</span><span class="p">(</span><span class="n">quality</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">quality</span>
+
+<div class="viewcode-block" id="Resource.add_derivative"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Resource.add_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">add_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">derivative_resource</span><span class="p">,</span> <span class="n">settings</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">transformation</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ResourceTransformation</span><span class="p">,</span> <span class="n">derivative_id</span><span class="o">=</span><span class="n">derivative_resource</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">transformation</span><span class="o">.</span><span class="n">original_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">transformation</span><span class="o">.</span><span class="n">settings</span> <span class="o">=</span> <span class="n">settings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">transformation</span></div></div>
+
+<div class="viewcode-block" id="ResourceTransformation"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.ResourceTransformation">[docs]</a><span class="k">class</span> <span class="nc">ResourceTransformation</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record that a resource is a derivative of another resource,</span>
+<span class="sd">    and the settings that were used to transform the original into it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;resourcetransformations&#39;</span>
+
+    <span class="c1"># The derivative resource. A resource can only be derived from one other resource.</span>
+    <span class="n">derivative_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;resources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The original resource that was transformed into the derivative.</span>
+    <span class="n">original_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;resources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The settings used for the transformation.</span>
+    <span class="n">settings</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">MutableDict</span><span class="o">.</span><span class="n">as_mutable</span><span class="p">(</span><span class="n">JSON</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="p">{})</span></div>
+
+<div class="viewcode-block" id="Hyperlink"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Hyperlink">[docs]</a><span class="k">class</span> <span class="nc">Hyperlink</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">LinkRelations</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A link between an Identifier and a Resource.&quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;hyperlinks&#39;</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A Hyperlink is always associated with some Identifier.</span>
+    <span class="n">identifier_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># The DataSource through which this link was discovered.</span>
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># The link relation between the Identifier and the Resource.</span>
+    <span class="n">rel</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># The Resource on the other end of the link.</span>
+    <span class="n">resource_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;resources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Hyperlink.unmirrored"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Hyperlink.unmirrored">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">unmirrored</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all Hyperlinks associated with an item in the</span>
+<span class="sd">        given Collection that could be mirrored but aren&#39;t.</span>
+<span class="sd">        TODO: We don&#39;t cover the case where an image was mirrored but no</span>
+<span class="sd">        thumbnail was created of it. (We do cover the case where the thumbnail</span>
+<span class="sd">        was created but not mirrored.)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hyperlink</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Hyperlink</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
+            <span class="n">Hyperlink</span><span class="o">.</span><span class="n">resource</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
+            <span class="n">Resource</span><span class="o">.</span><span class="n">representation</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">rel</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">MIRRORED</span><span class="p">))</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="n">collection</span><span class="o">.</span><span class="n">data_source</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">or_</span><span class="p">(</span>
+                <span class="n">Representation</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">Representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Without this ordering, the query does a table scan looking for</span>
+        <span class="c1"># items that match. With the ordering, they&#39;re all at the front.</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">mirror_url</span><span class="o">.</span><span class="n">asc</span><span class="p">()</span><span class="o">.</span><span class="n">nullsfirst</span><span class="p">(),</span>
+                         <span class="n">Representation</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">asc</span><span class="p">()</span><span class="o">.</span><span class="n">nullsfirst</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="Hyperlink.generic_uri"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Hyperlink.generic_uri">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">generic_uri</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a generic URI for the other end of this hyperlink.</span>
+<span class="sd">        This is useful for resources that are obtained through means</span>
+<span class="sd">        other than fetching a single URL via HTTP. It lets us get a</span>
+<span class="sd">        URI that&#39;s most likely unique, so we can create a Resource</span>
+<span class="sd">        object without violating the uniqueness constraint.</span>
+<span class="sd">        If the output of this method isn&#39;t unique in your situation</span>
+<span class="sd">        (because the data source provides more than one link with a</span>
+<span class="sd">        given link relation for a given identifier), you&#39;ll need some</span>
+<span class="sd">        other way of coming up with generic URIs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">urn</span><span class="p">,</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">rel</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">content</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">md5</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">())</span>
+        <span class="k">return</span> <span class="s2">&quot;:&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">l</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_default_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rel</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">rel</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">OPEN_ACCESS_DOWNLOAD</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;content&#39;</span>
+        <span class="k">elif</span> <span class="n">rel</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;cover&#39;</span>
+        <span class="k">elif</span> <span class="n">rel</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;cover-thumbnail&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_filename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rel</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Representation"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation">[docs]</a><span class="k">class</span> <span class="nc">Representation</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">MediaTypes</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A cached document obtained from (and possibly mirrored to) the Web</span>
+<span class="sd">    at large.</span>
+<span class="sd">    Sometimes this is a DataSource&#39;s representation of a specific</span>
+<span class="sd">    book.</span>
+<span class="sd">    Sometimes it&#39;s associated with a database Resource (which has a</span>
+<span class="sd">    well-defined relationship to one specific book).</span>
+<span class="sd">    Sometimes it&#39;s just a web page that we need a cached local copy</span>
+<span class="sd">    of.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;representations&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># URL from which the representation was fetched.</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The media type of the representation.</span>
+    <span class="n">media_type</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Resource&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;representation&quot;</span><span class="p">,</span> <span class="n">uselist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1">### Records of things we tried to do with this representation.</span>
+
+    <span class="c1"># When the representation was last fetched from `url`.</span>
+    <span class="n">fetched_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A textual description of the error encountered the last time</span>
+    <span class="c1"># we tried to fetch the representation</span>
+    <span class="n">fetch_exception</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A URL under our control to which this representation has been</span>
+    <span class="c1"># mirrored.</span>
+    <span class="n">mirror_url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># When the representation was last pushed to `mirror_url`.</span>
+    <span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># An exception that happened while pushing this representation</span>
+    <span class="c1"># to `mirror_url.</span>
+    <span class="n">mirror_exception</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># If this image is a scaled-down version of some other image,</span>
+    <span class="c1"># `scaled_at` is the time it was last generated.</span>
+    <span class="n">scaled_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># If this image is a scaled-down version of some other image,</span>
+    <span class="c1"># this is the exception that happened the last time we tried</span>
+    <span class="c1"># to scale it down.</span>
+    <span class="n">scale_exception</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1">### End records of things we tried to do with this representation.</span>
+
+    <span class="c1"># An image Representation may be a thumbnail version of another</span>
+    <span class="c1"># Representation.</span>
+    <span class="n">thumbnail_of_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;representations.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">thumbnails</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Representation&quot;</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="n">backref</span><span class="p">(</span><span class="s2">&quot;thumbnail_of&quot;</span><span class="p">,</span> <span class="n">remote_side</span> <span class="o">=</span> <span class="p">[</span><span class="nb">id</span><span class="p">]),</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;joined&quot;</span><span class="p">,</span> <span class="n">post_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The HTTP status code from the last fetch.</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+
+    <span class="c1"># A textual representation of the HTTP headers sent along with the</span>
+    <span class="c1"># representation.</span>
+    <span class="n">headers</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># The Location header from the last representation.</span>
+    <span class="n">location</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># The Last-Modified header from the last representation.</span>
+    <span class="n">last_modified</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># The Etag header from the last representation.</span>
+    <span class="n">etag</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># The size of the representation, in bytes.</span>
+    <span class="n">file_size</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+
+    <span class="c1"># If this representation is an image, the height of the image.</span>
+    <span class="n">image_height</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># If this representation is an image, the width of the image.</span>
+    <span class="n">image_width</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The content of the representation itself.</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Binary</span><span class="p">)</span>
+
+    <span class="c1"># Instead of being stored in the database, the content of the</span>
+    <span class="c1"># representation may be stored on a local file relative to the</span>
+    <span class="c1"># data root.</span>
+    <span class="n">local_content_path</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># A Representation may be a CachedMARCFile.</span>
+    <span class="n">marc_file</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;CachedMARCFile&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;representation&quot;</span><span class="p">,</span>
+        <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># At any given time, we will have a single representation for a</span>
+    <span class="c1"># given URL and media type.</span>
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;url&#39;</span><span class="p">,</span> <span class="s1">&#39;media_type&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A User-Agent to use when acting like a web browser.</span>
+    <span class="c1"># BROWSER_USER_AGENT = &quot;Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36 (Simplified)&quot;</span>
+    <span class="n">BROWSER_USER_AGENT</span> <span class="o">=</span> <span class="s2">&quot;Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:37.0) Gecko/20100101 Firefox/37.0&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">age</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1000000</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">has_content</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_content_path</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_content_path</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">public_url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the best URL to publish when referencing this Representation</span>
+<span class="sd">        in a public space.</span>
+<span class="sd">        :return: a bytestring</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mirror_url</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource</span><span class="p">:</span>
+            <span class="c1"># This really shouldn&#39;t happen.</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">url</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">url</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_usable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns True if the Representation has some data or received</span>
+<span class="sd">        a status code that&#39;s not in the 5xx series.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_path</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">/</span> <span class="mi">100</span> <span class="o">!=</span> <span class="mi">5</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="Representation.is_media_type"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.is_media_type">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_media_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return true if the given string looks like a media type.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">s</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span>
+                   <span class="s1">&#39;application/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;audio/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;example/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;image/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;message/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;model/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;multipart/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;text/&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;video/&#39;</span>
+        <span class="p">])</span></div>
+
+<div class="viewcode-block" id="Representation.guess_media_type"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.guess_media_type">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">guess_media_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Guess a likely media type from a filename.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">filename</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">extension</span><span class="p">,</span> <span class="n">media_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">MEDIA_TYPE_FOR_EXTENSION</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">extension</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">media_type</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Representation.is_fresher_than"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.is_fresher_than">[docs]</a>    <span class="k">def</span> <span class="nf">is_fresher_than</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_age</span><span class="p">):</span>
+        <span class="c1"># Convert a max_age timedelta to a number of seconds.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_age</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">):</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="n">max_age</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_usable</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">max_age</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">max_age</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">age</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Representation.get"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.get">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_request_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">accept</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pause_before</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_redirects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">presumed_media_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_reviewer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exception_handler</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve a representation from the cache if possible.</span>
+<span class="sd">        If not possible, retrieve it from the web and store it in the</span>
+<span class="sd">        cache.</span>
+<span class="sd">        :param do_get: A function that takes arguments (url, headers)</span>
+<span class="sd">        and retrieves a representation over the network.</span>
+<span class="sd">        :param max_age: A timedelta object representing the maximum</span>
+<span class="sd">        time to consider a cached representation fresh. (We ignore the</span>
+<span class="sd">        caching directives from web servers because they&#39;re usually</span>
+<span class="sd">        far too conservative for our purposes.)</span>
+<span class="sd">        :return: A 2-tuple (representation, obtained_from_cache)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">representation</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">do_get</span> <span class="o">=</span> <span class="n">do_get</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_get</span>
+
+        <span class="n">exception_handler</span> <span class="o">=</span> <span class="n">exception_handler</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">record_exception</span>
+
+        <span class="c1"># TODO: We allow representations of the same URL in different</span>
+        <span class="c1"># media types, but we don&#39;t have a good solution here for</span>
+        <span class="c1"># doing content negotiation (letting the caller ask for a</span>
+        <span class="c1"># specific set of media types and matching against what we</span>
+        <span class="c1"># have cached). Fortunately this isn&#39;t an issue with any of</span>
+        <span class="c1"># the data sources we currently use, so for now we can treat</span>
+        <span class="c1"># different representations of a URL as interchangeable.</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">accept</span><span class="p">:</span>
+            <span class="n">a</span><span class="p">[</span><span class="s1">&#39;media_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">accept</span>
+        <span class="n">representation</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">a</span><span class="p">)</span>
+
+        <span class="n">usable_representation</span> <span class="o">=</span> <span class="n">fresh_representation</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">representation</span><span class="p">:</span>
+            <span class="c1"># Do we already have a usable representation?</span>
+            <span class="n">usable_representation</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">is_usable</span>
+
+            <span class="c1"># Assuming we have a usable representation, is it fresh?</span>
+            <span class="n">fresh_representation</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">is_fresher_than</span><span class="p">(</span><span class="n">max_age</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">debug</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">debug_level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span>
+        <span class="k">elif</span> <span class="n">debug</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">debug_level</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">debug_level</span> <span class="o">=</span> <span class="n">debug</span>
+
+        <span class="k">if</span> <span class="n">fresh_representation</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">debug_level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cached </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">representation</span><span class="p">,</span> <span class="kc">True</span>
+
+        <span class="c1"># We have a representation that is either not fresh or not usable.</span>
+        <span class="c1"># We must make an HTTP request.</span>
+        <span class="k">if</span> <span class="n">debug_level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">debug_level</span><span class="p">,</span> <span class="s2">&quot;Fetching </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">extra_request_headers</span><span class="p">:</span>
+            <span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_request_headers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">accept</span><span class="p">:</span>
+            <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Accept&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">accept</span>
+
+        <span class="k">if</span> <span class="n">usable_representation</span><span class="p">:</span>
+            <span class="c1"># We have a representation but it&#39;s not fresh. We will</span>
+            <span class="c1"># be making a conditional HTTP request to see if there&#39;s</span>
+            <span class="c1"># a new version.</span>
+            <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">last_modified</span><span class="p">:</span>
+                <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;If-Modified-Since&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">last_modified</span>
+            <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">etag</span><span class="p">:</span>
+                <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;If-None-Match&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">etag</span>
+
+        <span class="n">fetched_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">pause_before</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">pause_before</span><span class="p">)</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">fetch_exception</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">exception_traceback</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">response_reviewer</span><span class="p">:</span>
+                <span class="c1"># An optional function passed to raise errors if the</span>
+                <span class="c1"># post response isn&#39;t worth caching.</span>
+                <span class="n">response_reviewer</span><span class="p">((</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">))</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">media_type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_best_media_type</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">presumed_media_type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">fetch_exception</span><span class="p">:</span>
+            <span class="c1"># This indicates there was a problem with making the HTTP</span>
+            <span class="c1"># request, not that the HTTP request returned an error</span>
+            <span class="c1"># condition.</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error making HTTP request to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">fetch_exception</span><span class="p">)</span>
+            <span class="n">exception_traceback</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+
+            <span class="n">status_code</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">media_type</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># At this point we can create/fetch a Representation object if</span>
+        <span class="c1"># we don&#39;t have one already, or if the URL or media type we</span>
+        <span class="c1"># actually got from the server differs from what we thought</span>
+        <span class="c1"># we had.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">usable_representation</span>
+            <span class="ow">or</span> <span class="n">media_type</span> <span class="o">!=</span> <span class="n">representation</span><span class="o">.</span><span class="n">media_type</span>
+            <span class="ow">or</span> <span class="n">url</span> <span class="o">!=</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span><span class="p">):</span>
+            <span class="n">representation</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">media_type</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">fetch_exception</span><span class="p">:</span>
+            <span class="n">exception_handler</span><span class="p">(</span>
+                <span class="n">representation</span><span class="p">,</span> <span class="n">fetch_exception</span><span class="p">,</span> <span class="n">exception_traceback</span>
+            <span class="p">)</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">fetched_at</span>
+
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">==</span> <span class="mi">304</span><span class="p">:</span>
+            <span class="c1"># The representation hasn&#39;t changed since we last checked.</span>
+            <span class="c1"># Set its fetched_at property and return the cached</span>
+            <span class="c1"># version as though it were new.</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">fetched_at</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
+            <span class="k">return</span> <span class="n">representation</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">status_code</span><span class="p">:</span>
+            <span class="n">status_code_series</span> <span class="o">=</span> <span class="n">status_code</span> <span class="o">/</span> <span class="mi">100</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">status_code_series</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">status_code_series</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span> <span class="ow">or</span> <span class="n">status_code</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="mi">410</span><span class="p">):</span>
+            <span class="c1"># We have a new, good representation. Update the</span>
+            <span class="c1"># Representation object and return it as fresh.</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">media_type</span> <span class="o">=</span> <span class="n">media_type</span>
+
+            <span class="k">for</span> <span class="n">header</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="s1">&#39;etag&#39;</span><span class="p">,</span> <span class="s1">&#39;etag&#39;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s1">&#39;last-modified&#39;</span><span class="p">,</span> <span class="s1">&#39;last_modified&#39;</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s1">&#39;location&#39;</span><span class="p">,</span> <span class="s1">&#39;location&#39;</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">header</span> <span class="ow">in</span> <span class="n">headers</span><span class="p">:</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">headers</span><span class="p">[</span><span class="n">header</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">representation</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+            <span class="n">representation</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">headers_to_string</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">update_image_size</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">representation</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="c1"># Okay, things didn&#39;t go so well.</span>
+        <span class="n">date_string</span> <span class="o">=</span> <span class="n">fetched_at</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="s2">&quot;Most recent fetch attempt (at </span><span class="si">%s</span><span class="s2">) got status code </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">date_string</span><span class="p">,</span> <span class="n">status_code</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">usable_representation</span><span class="p">:</span>
+            <span class="c1"># If we have a usable (but stale) representation, we&#39;d</span>
+            <span class="c1"># rather return the cached data than destroy the information.</span>
+            <span class="k">return</span> <span class="n">representation</span><span class="p">,</span> <span class="kc">True</span>
+
+        <span class="c1"># We didn&#39;t have a usable representation before, and we still don&#39;t.</span>
+        <span class="c1"># At this point we&#39;re just logging an error.</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">headers_to_string</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+        <span class="k">return</span> <span class="n">representation</span><span class="p">,</span> <span class="kc">False</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_best_media_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">default</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine the most likely media type for the given HTTP headers.</span>
+<span class="sd">        Almost all the time, this is the value of the content-type</span>
+<span class="sd">        header, if present. However, if the content-type header has a</span>
+<span class="sd">        really generic value like &quot;application/octet-stream&quot; (as often</span>
+<span class="sd">        happens with binary files hosted on Github), we&#39;ll privilege</span>
+<span class="sd">        the default value. If there&#39;s no default value, we&#39;ll try to</span>
+<span class="sd">        derive one from the URL extension.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="n">default</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">guess_media_type</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">headers</span> <span class="ow">or</span> <span class="ow">not</span> <span class="s1">&#39;content-type&#39;</span> <span class="ow">in</span> <span class="n">headers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default</span>
+        <span class="n">headers_type</span> <span class="o">=</span> <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;content-type&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">clean</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_clean_media_type</span><span class="p">(</span><span class="n">headers_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">clean</span> <span class="ow">in</span> <span class="n">Representation</span><span class="o">.</span><span class="n">GENERIC_MEDIA_TYPES</span> <span class="ow">and</span> <span class="n">default</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default</span>
+        <span class="k">return</span> <span class="n">headers_type</span>
+
+<div class="viewcode-block" id="Representation.reraise_exception"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.reraise_exception">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">reraise_exception</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">exception</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Deal with a fetch exception by re-raising it.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">exception</span></div>
+
+<div class="viewcode-block" id="Representation.record_exception"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.record_exception">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">record_exception</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">representation</span><span class="p">,</span> <span class="n">exception</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Deal with a fetch exception by recording it</span>
+<span class="sd">        and moving on.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="o">=</span> <span class="n">traceback</span></div>
+
+<div class="viewcode-block" id="Representation.post"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.post">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">response_reviewer</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds or creates POST request as a Representation&quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">do_post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;data&#39;</span> <span class="p">:</span> <span class="n">data</span><span class="p">})</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">do_post</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
+            <span class="n">response_reviewer</span><span class="o">=</span><span class="n">response_reviewer</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">mirrorable_media_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does this Representation look like the kind of thing we</span>
+<span class="sd">        create mirrors of?</span>
+<span class="sd">        Basically, images and books.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span>
+            <span class="p">(</span><span class="n">Representation</span><span class="o">.</span><span class="n">BOOK_MEDIA_TYPES</span><span class="p">,</span>
+             <span class="n">Representation</span><span class="o">.</span><span class="n">IMAGE_MEDIA_TYPES</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Representation.update_image_size"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.update_image_size">[docs]</a>    <span class="k">def</span> <span class="nf">update_image_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make sure .image_height and .image_width are up to date.</span>
+<span class="sd">        Clears .image_height and .image_width if the representation</span>
+<span class="sd">        is not an image.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;image/&#39;</span><span class="p">):</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_image</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">image</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">image_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_height</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">size</span>
+                <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_height</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Representation.normalize_content_path"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.normalize_content_path">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">normalize_content_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">content_path</span><span class="p">,</span> <span class="n">base</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">content_path</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">base</span> <span class="ow">or</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">data_directory</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">content_path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">base</span><span class="p">):</span>
+            <span class="n">content_path</span> <span class="o">=</span> <span class="n">content_path</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">):]</span>
+            <span class="k">if</span> <span class="n">content_path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
+                <span class="n">content_path</span> <span class="o">=</span> <span class="n">content_path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="n">content_path</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">unicode_content</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attempt to convert the content into Unicode.</span>
+<span class="sd">        If all attempts fail, we will return None rather than raise an exception.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">encoding</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">,</span> <span class="s1">&#39;windows-1252&#39;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">encoding</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">except</span> <span class="ne">UnicodeDecodeError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">content</span>
+
+<div class="viewcode-block" id="Representation.set_fetched_content"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.set_fetched_content">[docs]</a>    <span class="k">def</span> <span class="nf">set_fetched_content</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">content_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Simulate a successful HTTP request for this representation.</span>
+<span class="sd">        This is used when the content of the representation is obtained</span>
+<span class="sd">        through some other means.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_content_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_content_path</span><span class="p">(</span><span class="n">content_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_image_size</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Representation.set_as_mirrored"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.set_as_mirrored">[docs]</a>    <span class="k">def</span> <span class="nf">set_as_mirrored</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mirror_url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Record the fact that the representation has been mirrored</span>
+<span class="sd">        to the given URL.</span>
+<span class="sd">        This should only be called upon successful completion of the</span>
+<span class="sd">        mirror operation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mirror_url</span> <span class="o">=</span> <span class="n">mirror_url</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Representation.headers_to_string"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.headers_to_string">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">headers_to_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">d</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Representation.simple_http_get"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.simple_http_get">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">simple_http_get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The most simple HTTP-based GET.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;allow_redirects&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;allow_redirects&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">get_with_timeout</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span></div>
+
+<div class="viewcode-block" id="Representation.simple_http_post"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.simple_http_post">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">simple_http_post</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The most simple HTTP-based POST.&quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">post_with_timeout</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span></div>
+
+<div class="viewcode-block" id="Representation.http_get_no_timeout"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.http_get_no_timeout">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">http_get_no_timeout</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Representation</span><span class="o">.</span><span class="n">simple_http_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Representation.http_get_no_redirect"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.http_get_no_redirect">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">http_get_no_redirect</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;HTTP-based GET with no redirects.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">allow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Representation.browser_http_get"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.browser_http_get">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">browser_http_get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;GET the representation that would be displayed to a web browser.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+        <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;User-Agent&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BROWSER_USER_AGENT</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Representation.cautious_http_get"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.cautious_http_get">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">cautious_http_get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Examine the URL we&#39;re about to GET, possibly going so far as to</span>
+<span class="sd">        perform a HEAD request, to avoid making a request (or</span>
+<span class="sd">        following a redirect) to a site known to cause problems.</span>
+<span class="sd">        The motivating case is that unglue.it contains gutenberg.org</span>
+<span class="sd">        links that appear to be direct links to EPUBs, but 1) they&#39;re</span>
+<span class="sd">        not direct links to EPUBs, and 2) automated requests to</span>
+<span class="sd">        gutenberg.org quickly result in IP bans. So we don&#39;t make those</span>
+<span class="sd">        requests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">do_not_access</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+            <span class="s1">&#39;do_not_access&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVOID_WHEN_CAUTIOUS_DOMAINS</span>
+        <span class="p">)</span>
+        <span class="n">check_for_redirect</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+            <span class="s1">&#39;check_for_redirect&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">EXERCISE_CAUTION_DOMAINS</span>
+        <span class="p">)</span>
+        <span class="n">do_get</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;do_get&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_get</span><span class="p">)</span>
+        <span class="n">head_client</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;cautious_head_client&#39;</span><span class="p">,</span> <span class="n">requests</span><span class="o">.</span><span class="n">head</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_would_be_useful</span><span class="p">(</span>
+                <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">do_not_access</span><span class="p">,</span> <span class="n">check_for_redirect</span><span class="p">,</span>
+                <span class="n">head_client</span>
+        <span class="p">):</span>
+            <span class="c1"># Go ahead and make the GET request.</span>
+            <span class="k">return</span> <span class="n">do_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Declining to make non-useful HTTP request to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span>
+            <span class="p">)</span>
+            <span class="c1"># 417 Expectation Failed - &quot;... if the server is a proxy,</span>
+            <span class="c1"># the server has unambiguous evidence that the request</span>
+            <span class="c1"># could not be met by the next-hop server.&quot;</span>
+            <span class="c1">#</span>
+            <span class="c1"># Not quite accurate, but I think it&#39;s the closest match</span>
+            <span class="c1"># to &quot;the HTTP client decided to not even make your</span>
+            <span class="c1"># request&quot;.</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="mi">417</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;content-type&quot;</span> <span class="p">:</span>
+                 <span class="s2">&quot;application/vnd.librarysimplified-did-not-make-request&quot;</span><span class="p">},</span>
+                <span class="s2">&quot;Cautiously decided not to make a GET request to </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">url</span>
+            <span class="p">)</span></div>
+
+    <span class="c1"># Sites known to host both free books and redirects to a domain in</span>
+    <span class="c1"># AVOID_WHEN_CAUTIOUS_DOMAINS.</span>
+    <span class="n">EXERCISE_CAUTION_DOMAINS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;unglue.it&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Sites that cause problems for us if we make automated</span>
+    <span class="c1"># HTTP requests to them while trying to find free books.</span>
+    <span class="n">AVOID_WHEN_CAUTIOUS_DOMAINS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;gutenberg.org&#39;</span><span class="p">,</span> <span class="s1">&#39;books.google.com&#39;</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Representation.get_would_be_useful"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.get_would_be_useful">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_would_be_useful</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">do_not_access</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_for_redirect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">head_client</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine whether making a GET request to a given URL is likely to</span>
+<span class="sd">        have a useful result.</span>
+
+<span class="sd">        :param URL: URL under consideration.</span>
+<span class="sd">        :param headers: Headers that would be sent with the GET request.</span>
+<span class="sd">        :param do_not_access: Domains to which GET requests are not useful.</span>
+<span class="sd">        :param check_for_redirect: Domains to which we should make a HEAD</span>
+<span class="sd">            request, in case they redirect to a `do_not_access` domain.</span>
+<span class="sd">        :param head_client: Function for making the HEAD request, if</span>
+<span class="sd">            one becomes necessary. Should return requests.Response or a mock.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">do_not_access</span> <span class="o">=</span> <span class="n">do_not_access</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVOID_WHEN_CAUTIOUS_DOMAINS</span>
+        <span class="n">check_for_redirect</span> <span class="o">=</span> <span class="n">check_for_redirect</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">EXERCISE_CAUTION_DOMAINS</span>
+        <span class="n">head_client</span> <span class="o">=</span> <span class="n">head_client</span> <span class="ow">or</span> <span class="n">requests</span><span class="o">.</span><span class="n">head</span>
+
+        <span class="k">def</span> <span class="nf">has_domain</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">check_against</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Is the given `domain` in `check_against`,</span>
+<span class="sd">            or maybe a subdomain of one of the domains in `check_against`?</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">domain</span> <span class="o">==</span> <span class="n">x</span> <span class="ow">or</span> <span class="n">domain</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">x</span><span class="p">)</span>
+                       <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">check_against</span><span class="p">)</span>
+
+        <span class="n">netloc</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
+        <span class="k">if</span> <span class="n">has_domain</span><span class="p">(</span><span class="n">netloc</span><span class="p">,</span> <span class="n">do_not_access</span><span class="p">):</span>
+            <span class="c1"># The link points directly to a domain we don&#39;t want to</span>
+            <span class="c1"># access.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">has_domain</span><span class="p">(</span><span class="n">netloc</span><span class="p">,</span> <span class="n">check_for_redirect</span><span class="p">):</span>
+            <span class="c1"># We trust this domain not to redirect to a domain we don&#39;t</span>
+            <span class="c1"># want to access.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># We might be fine, or we might get redirected to a domain we</span>
+        <span class="c1"># don&#39;t want to access. Make a HEAD request to see what</span>
+        <span class="c1"># happens.</span>
+        <span class="n">head_response</span> <span class="o">=</span> <span class="n">head_client</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">head_response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">/</span> <span class="mi">100</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># It&#39;s not a redirect. Go ahead and make the GET request.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># Yes, it&#39;s a redirect. Does it redirect to a</span>
+        <span class="c1"># domain we don&#39;t want to access?</span>
+        <span class="n">location</span> <span class="o">=</span> <span class="n">head_response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;location&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">netloc</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">location</span><span class="p">)</span><span class="o">.</span><span class="n">netloc</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="n">has_domain</span><span class="p">(</span><span class="n">netloc</span><span class="p">,</span> <span class="n">do_not_access</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_image</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;image/&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">local_path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the full local path to the representation on disk.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_content_path</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">data_directory</span><span class="p">(),</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">local_content_path</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">clean_media_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The most basic version of this representation&#39;s media type.</span>
+<span class="sd">        No profiles or anything.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_media_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">media_type</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">url_extension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The file extension in this representation&#39;s original url.&quot;&quot;&quot;</span>
+
+        <span class="n">url_path</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span>
+
+        <span class="c1"># Known extensions can be followed by a version number (.epub3)</span>
+        <span class="c1"># or an additional extension (.epub.noimages)</span>
+        <span class="n">known_extensions</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">known_extension_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;\.(</span><span class="si">%s</span><span class="s2">)\d?\.?[\w\d]*$&quot;</span> <span class="o">%</span> <span class="n">known_extensions</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span>
+
+        <span class="n">known_match</span> <span class="o">=</span> <span class="n">known_extension_re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">url_path</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">known_match</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">known_match</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">any_extension_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;\.[\w\d]*$&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span>
+
+            <span class="n">any_match</span> <span class="o">=</span> <span class="n">any_extension_re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">url_path</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">any_match</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">any_match</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Representation.extension"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.extension">[docs]</a>    <span class="k">def</span> <span class="nf">extension</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">destination_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to come up with a good file extension for this representation.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">destination_type</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extension</span><span class="p">(</span><span class="n">destination_type</span><span class="p">)</span>
+
+        <span class="c1"># We&#39;d like to use url_extension because it has some extra</span>
+        <span class="c1"># features for preserving information present in the original</span>
+        <span class="c1"># URL. But if we&#39;re going to be changing the media type of the</span>
+        <span class="c1"># resource when mirroring it, the original URL is irrelevant</span>
+        <span class="c1"># and we need to use an extension associated with the</span>
+        <span class="c1"># outward-facing media type.</span>
+        <span class="n">internal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clean_media_type</span>
+        <span class="n">external</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_media_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">external_media_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">internal</span> <span class="o">!=</span> <span class="n">external</span><span class="p">:</span>
+            <span class="c1"># External media type overrides any information that might</span>
+            <span class="c1"># be present in the URL.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extension</span><span class="p">(</span><span class="n">external</span><span class="p">)</span>
+
+        <span class="c1"># If there is information in the URL, use it.</span>
+        <span class="n">extension</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">url_extension</span>
+        <span class="k">if</span> <span class="n">extension</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">extension</span>
+
+        <span class="c1"># Take a guess based on the internal media type.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extension</span><span class="p">(</span><span class="n">internal</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_clean_media_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">media_type</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">media_type</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">media_type</span>
+        <span class="k">if</span> <span class="s1">&#39;;&#39;</span> <span class="ow">in</span> <span class="n">media_type</span><span class="p">:</span>
+            <span class="n">media_type</span> <span class="o">=</span> <span class="n">media_type</span><span class="p">[:</span><span class="n">media_type</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">media_type</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_extension</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">media_type</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">media_type</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="Representation.default_filename"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.default_filename">[docs]</a>    <span class="k">def</span> <span class="nf">default_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">destination_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to come up with a good filename for this representation.&quot;&quot;&quot;</span>
+
+        <span class="n">scheme</span><span class="p">,</span> <span class="n">netloc</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">fragment</span> <span class="o">=</span> <span class="n">urlparse</span><span class="o">.</span><span class="n">urlsplit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">path_parts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">path_parts</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">path_parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">filename</span> <span class="ow">and</span> <span class="n">link</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">default_filename</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">filename</span><span class="p">:</span>
+            <span class="c1"># This is the absolute last-ditch filename solution, and</span>
+            <span class="c1"># it&#39;s basically only used when we try to mirror the root</span>
+            <span class="c1"># URL of a domain.</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;resource&#39;</span>
+
+        <span class="n">default_extension</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extension</span><span class="p">()</span>
+        <span class="n">extension</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extension</span><span class="p">(</span><span class="n">destination_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">default_extension</span> <span class="ow">and</span> <span class="n">default_extension</span> <span class="o">!=</span> <span class="n">extension</span> <span class="ow">and</span> <span class="n">filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">default_extension</span><span class="p">):</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">default_extension</span><span class="p">)]</span> <span class="o">+</span> <span class="n">extension</span>
+        <span class="k">elif</span> <span class="n">extension</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">extension</span><span class="p">):</span>
+            <span class="n">filename</span> <span class="o">+=</span> <span class="n">extension</span>
+        <span class="k">return</span> <span class="n">filename</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">external_media_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span>
+
+<div class="viewcode-block" id="Representation.external_content"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.external_content">[docs]</a>    <span class="k">def</span> <span class="nf">external_content</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a filehandle to the representation&#39;s contents, as they</span>
+<span class="sd">        should be mirrored externally, and the media type to be used</span>
+<span class="sd">        when mirroring.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_fh</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Representation.content_fh"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.content_fh">[docs]</a>    <span class="k">def</span> <span class="nf">content_fh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return an open filehandle to the representation&#39;s contents.</span>
+<span class="sd">        This works whether the representation is kept in the database</span>
+<span class="sd">        or in a file on disk.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">StringIO</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_path</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_path</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> does not exist.&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Representation.as_image"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.as_image">[docs]</a>    <span class="k">def</span> <span class="nf">as_image</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Load this Representation&#39;s contents as a PIL image.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_image</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot load non-image representation as image: type </span><span class="si">%s</span><span class="s2">.&quot;</span>
+                <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_path</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Image representation has no content.&quot;</span><span class="p">)</span>
+
+        <span class="n">fh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_fh</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">fh</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">clean_media_type</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">SVG_MEDIA_TYPE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span></div>
+
+    <span class="n">pil_format_for_media_type</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;image/gif&quot;</span><span class="p">:</span> <span class="s2">&quot;gif&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;image/png&quot;</span><span class="p">:</span> <span class="s2">&quot;png&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;image/jpeg&quot;</span><span class="p">:</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="Representation.scale"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.scale">[docs]</a>    <span class="k">def</span> <span class="nf">scale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_height</span><span class="p">,</span> <span class="n">max_width</span><span class="p">,</span>
+              <span class="n">destination_url</span><span class="p">,</span> <span class="n">destination_media_type</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a Representation that&#39;s a scaled-down version of this</span>
+<span class="sd">        Representation, creating it if necessary.</span>
+<span class="sd">        :param destination_url: The URL the scaled-down resource will</span>
+<span class="sd">        (eventually) be uploaded to.</span>
+<span class="sd">        :return: A 2-tuple (Representation, is_new)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">destination_media_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pil_format_for_media_type</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported destination media type: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">destination_media_type</span><span class="p">)</span>
+
+        <span class="n">pil_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pil_format_for_media_type</span><span class="p">[</span><span class="n">destination_media_type</span><span class="p">]</span>
+
+        <span class="c1"># Make sure we actually have an image to scale.</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_image</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scaled_at</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># This most likely indicates an error during the fetch</span>
+            <span class="c1"># phrase.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="o">=</span> <span class="s2">&quot;Error found while scaling: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error found while scaling </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">image</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="c1"># Now that we&#39;ve loaded the image, take the opportunity to set</span>
+        <span class="c1"># the image size of the original representation.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_height</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="c1"># If the image is already a thumbnail-size bitmap, don&#39;t bother.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clean_media_type</span> <span class="o">!=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">SVG_MEDIA_TYPE</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_height</span> <span class="o">&lt;=</span> <span class="n">max_height</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_width</span> <span class="o">&lt;=</span> <span class="n">max_width</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thumbnails</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="c1"># Do we already have a representation for the given URL?</span>
+        <span class="n">thumbnail</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">destination_url</span><span class="p">,</span>
+            <span class="n">media_type</span><span class="o">=</span><span class="n">destination_media_type</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">thumbnail</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">thumbnails</span><span class="p">:</span>
+            <span class="n">thumbnail</span><span class="o">.</span><span class="n">thumbnail_of</span> <span class="o">=</span> <span class="bp">self</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_new</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+            <span class="c1"># We found a preexisting thumbnail and we&#39;re allowed to</span>
+            <span class="c1"># use it.</span>
+            <span class="k">return</span> <span class="n">thumbnail</span><span class="p">,</span> <span class="n">is_new</span>
+
+        <span class="c1"># At this point we have a parent Representation (self), we</span>
+        <span class="c1"># have a Representation that will contain a thumbnail</span>
+        <span class="c1"># (thumbnail), and we know we need to actually thumbnail the</span>
+        <span class="c1"># parent into the thumbnail.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Because the representation of this image is being</span>
+        <span class="c1"># changed, it will need to be mirrored later on.</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">thumbnail</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">thumbnail</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[(</span><span class="n">max_width</span><span class="p">,</span> <span class="n">max_height</span><span class="p">),</span>
+                <span class="n">Image</span><span class="o">.</span><span class="n">ANTIALIAS</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">image</span><span class="o">.</span><span class="n">thumbnail</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">IOError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># I&#39;m not sure why, but sometimes just trying</span>
+            <span class="c1"># it again works.</span>
+            <span class="n">original_exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">image</span><span class="o">.</span><span class="n">thumbnail</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">IOError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span> <span class="o">=</span> <span class="n">original_exception</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scaled_at</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="c1"># Save the thumbnail image to the database under</span>
+        <span class="c1"># thumbnail.content.</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">image</span><span class="o">.</span><span class="n">mode</span> <span class="o">!=</span> <span class="s1">&#39;RGB&#39;</span><span class="p">:</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;RGB&#39;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">pil_format</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scaled_at</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># This most likely indicates a problem during the fetch phase,</span>
+            <span class="c1"># Set fetch_exception so we&#39;ll retry the fetch.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="o">=</span> <span class="s2">&quot;Error found while scaling: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_exception</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="n">thumbnail</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+        <span class="n">thumbnail</span><span class="o">.</span><span class="n">image_width</span><span class="p">,</span> <span class="n">thumbnail</span><span class="o">.</span><span class="n">image_height</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">output</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">thumbnail</span><span class="o">.</span><span class="n">scale_exception</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">thumbnail</span><span class="o">.</span><span class="n">scaled_at</span> <span class="o">=</span> <span class="n">now</span>
+        <span class="k">return</span> <span class="n">thumbnail</span><span class="p">,</span> <span class="kc">True</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">thumbnail_size_quality_penalty</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thumbnail_size_quality_penalty</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">image_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_height</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_thumbnail_size_quality_penalty</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Measure a cover image&#39;s deviation from the ideal aspect ratio, and</span>
+<span class="sd">        by its deviation (in the &quot;too small&quot; direction only) from the</span>
+<span class="sd">        ideal thumbnail resolution.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">quotient</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">width</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">height</span><span class="p">:</span>
+            <span class="c1"># In the absence of any information, assume the cover is</span>
+            <span class="c1"># just dandy.</span>
+            <span class="c1">#</span>
+            <span class="c1"># This is obviously less than ideal, but this code is used</span>
+            <span class="c1"># pretty rarely now that we no longer have hundreds of</span>
+            <span class="c1"># covers competing for the privilege of representing a</span>
+            <span class="c1"># public domain book, so I&#39;m not too concerned about it.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Look at it this way: this escape hatch only causes a</span>
+            <span class="c1"># problem if we compare an image whose size we know</span>
+            <span class="c1"># against an image whose size we don&#39;t know.</span>
+            <span class="c1">#</span>
+            <span class="c1"># In the circulation manager, we never know what size an</span>
+            <span class="c1"># image is, and we must always trust that the cover</span>
+            <span class="c1"># (e.g. Overdrive and the metadata wrangler) give us</span>
+            <span class="c1"># &quot;thumbnail&quot; images that are approximately the right</span>
+            <span class="c1"># size. So we always use this escape hatch.</span>
+            <span class="c1">#</span>
+            <span class="c1"># In the metadata wrangler and content server, we always</span>
+            <span class="c1"># have access to the covers themselves, so we always have</span>
+            <span class="c1"># size information and we never use this escape hatch.</span>
+            <span class="k">return</span> <span class="n">quotient</span>
+
+        <span class="c1"># Penalize an image for deviation from the ideal aspect ratio.</span>
+        <span class="n">aspect_ratio</span> <span class="o">=</span> <span class="n">width</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">height</span><span class="p">)</span>
+        <span class="n">ideal</span> <span class="o">=</span> <span class="n">IdentifierConstants</span><span class="o">.</span><span class="n">IDEAL_COVER_ASPECT_RATIO</span>
+        <span class="k">if</span> <span class="n">aspect_ratio</span> <span class="o">&gt;</span> <span class="n">ideal</span><span class="p">:</span>
+            <span class="n">deviation</span> <span class="o">=</span> <span class="n">ideal</span> <span class="o">/</span> <span class="n">aspect_ratio</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">deviation</span> <span class="o">=</span> <span class="n">aspect_ratio</span><span class="o">/</span><span class="n">ideal</span>
+        <span class="k">if</span> <span class="n">deviation</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">quotient</span> <span class="o">*=</span> <span class="n">deviation</span>
+
+        <span class="c1"># Penalize an image for not being wide enough.</span>
+        <span class="n">width_shortfall</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">width</span> <span class="o">-</span> <span class="n">IdentifierConstants</span><span class="o">.</span><span class="n">IDEAL_IMAGE_WIDTH</span><span class="p">)</span> <span class="o">/</span> <span class="n">IdentifierConstants</span><span class="o">.</span><span class="n">IDEAL_IMAGE_WIDTH</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">width_shortfall</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">quotient</span> <span class="o">*=</span> <span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">width_shortfall</span><span class="p">)</span>
+
+        <span class="c1"># Penalize an image for not being tall enough.</span>
+        <span class="n">height_shortfall</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">height</span> <span class="o">-</span> <span class="n">IdentifierConstants</span><span class="o">.</span><span class="n">IDEAL_IMAGE_HEIGHT</span><span class="p">)</span> <span class="o">/</span> <span class="n">IdentifierConstants</span><span class="o">.</span><span class="n">IDEAL_IMAGE_HEIGHT</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">height_shortfall</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">quotient</span> <span class="o">*=</span> <span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">height_shortfall</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">quotient</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">best_thumbnail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the best thumbnail among all the thumbnails associated with</span>
+<span class="sd">        this Representation.</span>
+<span class="sd">        Basically, we prefer a thumbnail that has been mirrored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">champion</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">thumbnail</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">thumbnails</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">thumbnail</span><span class="o">.</span><span class="n">mirror_url</span><span class="p">:</span>
+                <span class="n">champion</span> <span class="o">=</span> <span class="n">thumbnail</span>
+                <span class="k">break</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">champion</span><span class="p">:</span>
+                <span class="n">champion</span> <span class="o">=</span> <span class="n">thumbnail</span>
+        <span class="k">return</span> <span class="n">champion</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

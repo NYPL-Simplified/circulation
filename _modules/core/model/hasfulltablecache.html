@@ -1,0 +1,241 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.hasfulltablecache &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.hasfulltablecache</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">get_one</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<div class="viewcode-block" id="HasFullTableCache"><a class="viewcode-back" href="../../../core.model.html#core.model.hasfulltablecache.HasFullTableCache">[docs]</a><span class="k">class</span> <span class="nc">HasFullTableCache</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A mixin class for ORM classes that maintain an in-memory cache of</span>
+<span class="sd">    (hopefully) every item in the database table for performance reasons.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">RESET</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+    <span class="c1"># You MUST define your own class-specific &#39;_cache&#39; and &#39;_id_cache&#39;</span>
+    <span class="c1"># variables, like so:</span>
+    <span class="c1">#</span>
+    <span class="c1"># _cache = HasFullTableCache.RESET</span>
+    <span class="c1"># _id_cache = HasFullTableCache.RESET</span>
+
+<div class="viewcode-block" id="HasFullTableCache.reset_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.hasfulltablecache.HasFullTableCache.reset_cache">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">reset_cache</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_id_cache</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span></div>
+
+<div class="viewcode-block" id="HasFullTableCache.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.hasfulltablecache.HasFullTableCache.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_cache_insert</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">id_cache</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Cache an object for later retrieval, possibly by a different</span>
+<span class="sd">        database session.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">cache_key</span><span class="p">()</span>
+        <span class="nb">id</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cache</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span><span class="p">:</span>
+                <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span>
+            <span class="k">if</span> <span class="n">id_cache</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span><span class="p">:</span>
+                <span class="n">id_cache</span><span class="p">[</span><span class="nb">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># The cache was reset in between the time we checked for a</span>
+            <span class="c1"># reset and the time we tried to put an object in the</span>
+            <span class="c1"># cache. Stop trying to mess with the cache.</span>
+            <span class="k">pass</span>
+
+<div class="viewcode-block" id="HasFullTableCache.populate_cache"><a class="viewcode-back" href="../../../core.model.html#core.model.hasfulltablecache.HasFullTableCache.populate_cache">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">populate_cache</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Populate the in-memory caches from scratch with every single</span>
+<span class="sd">        object from the database table.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">id_cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_cache_insert</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">id_cache</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_id_cache</span> <span class="o">=</span> <span class="n">id_cache</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_cache_lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">cache_name</span><span class="p">,</span> <span class="n">cache_key</span><span class="p">,</span> <span class="n">lookup_hook</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper method used by both by_id and by_cache_key.</span>
+
+<span class="sd">        Looks up `cache_key` in `cache` and calls `lookup_hook`</span>
+<span class="sd">        to find/create it if it&#39;s not in there.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">cache</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span><span class="p">:</span>
+            <span class="c1"># The cache has been reset. Populate it with the contents</span>
+            <span class="c1"># of the table.</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">populate_cache</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+
+            <span class="c1"># Get the new value of the cache, replacing the value</span>
+            <span class="c1"># that turned out to be cls.RESET.</span>
+            <span class="n">cache</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">cache_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cache</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RESET</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">obj</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cache_key</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># This shouldn&#39;t happen. Even if the actual cache was</span>
+                <span class="c1"># reset just now, we still have a copy of the &#39;old&#39;</span>
+                <span class="c1"># cache which passed the &#39;cache != cls.RESET&#39; test.</span>
+                <span class="k">pass</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">obj</span><span class="p">:</span>
+            <span class="c1"># Either this object didn&#39;t exist when the cache was</span>
+            <span class="c1"># populated, or the cache was reset while we were trying</span>
+            <span class="c1"># to look it up.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Give up on the cache and go direct to the database,</span>
+            <span class="c1"># creating the object if necessary.</span>
+            <span class="k">if</span> <span class="n">lookup_hook</span><span class="p">:</span>
+                <span class="n">obj</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">lookup_hook</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">obj</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">obj</span><span class="p">:</span>
+                <span class="c1"># The object doesn&#39;t exist and couldn&#39;t be created.</span>
+                <span class="k">return</span> <span class="n">obj</span><span class="p">,</span> <span class="n">new</span>
+
+            <span class="c1"># Stick the object in the caches, assuming they&#39;re not</span>
+            <span class="c1"># currently in a reset state.</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_cache_insert</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_cache</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_id_cache</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">obj</span> <span class="ow">and</span> <span class="n">obj</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_db</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">obj</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;Unable to merge cached object </span><span class="si">%r</span><span class="s2"> into database session&quot;</span><span class="p">,</span>
+                    <span class="n">obj</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+                <span class="p">)</span>
+                <span class="c1"># Try to look up a fresh copy of the object.</span>
+                <span class="n">obj</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">lookup_hook</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">obj</span> <span class="ow">and</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">_db</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Was able to look up a fresh copy of </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">obj</span><span class="p">,</span> <span class="n">new</span>
+
+                <span class="c1"># That didn&#39;t work. Re-raise the original exception.</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Unable to look up a fresh copy of </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">return</span> <span class="n">obj</span><span class="p">,</span> <span class="n">new</span>
+
+<div class="viewcode-block" id="HasFullTableCache.by_id"><a class="viewcode-back" href="../../../core.model.html#core.model.hasfulltablecache.HasFullTableCache.by_id">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">by_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up an item by its unique database ID.&quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="nb">id</span><span class="p">),</span> <span class="kc">False</span>
+        <span class="n">obj</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_cache_lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_id_cache</span><span class="p">,</span> <span class="s1">&#39;_id_cache&#39;</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">lookup_hook</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">obj</span></div>
+
+<div class="viewcode-block" id="HasFullTableCache.by_cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.hasfulltablecache.HasFullTableCache.by_cache_key">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">by_cache_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">cache_key</span><span class="p">,</span> <span class="n">lookup_hook</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_cache_lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_cache</span><span class="p">,</span> <span class="s1">&#39;_cache&#39;</span><span class="p">,</span> <span class="n">cache_key</span><span class="p">,</span> <span class="n">lookup_hook</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

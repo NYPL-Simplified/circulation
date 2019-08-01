@@ -1,0 +1,856 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.edition &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.edition</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Edition</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="n">CoverageRecord</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">DataSourceConstants</span><span class="p">,</span>
+    <span class="n">EditionConstants</span><span class="p">,</span>
+    <span class="n">LinkRelations</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">contributor</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Contributor</span><span class="p">,</span>
+    <span class="n">Contribution</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">Date</span><span class="p">,</span>
+    <span class="n">Enum</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">String</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="n">JSON</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="k">import</span> <span class="n">MutableDict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">..util</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">LanguageCodes</span><span class="p">,</span>
+    <span class="n">TitleProcessor</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..util.permanent_work_id</span> <span class="k">import</span> <span class="n">WorkIDCalculator</span>
+
+<div class="viewcode-block" id="Edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition">[docs]</a><span class="k">class</span> <span class="nc">Edition</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;A lightly schematized collection of metadata for a work, or an</span>
+<span class="sd">    edition of a work, or a book, or whatever. If someone thinks of it</span>
+<span class="sd">    as a &quot;book&quot; with a &quot;title&quot; it can go in here.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;editions&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">MAX_THUMBNAIL_HEIGHT</span> <span class="o">=</span> <span class="mi">300</span>
+    <span class="n">MAX_THUMBNAIL_WIDTH</span> <span class="o">=</span> <span class="mi">200</span>
+
+    <span class="c1"># A full-sized image no larger than this height can be used as a thumbnail</span>
+    <span class="c1"># in a pinch.</span>
+    <span class="n">MAX_FALLBACK_THUMBNAIL_HEIGHT</span> <span class="o">=</span> <span class="mi">500</span>
+
+    <span class="c1"># This Edition is associated with one particular</span>
+    <span class="c1"># identifier--the one used by its data source to identify</span>
+    <span class="c1"># it. Through the Equivalency class, it is associated with a</span>
+    <span class="c1"># (probably huge) number of other identifiers.</span>
+    <span class="n">primary_identifier_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># An Edition may be the presentation edition for a single Work. If it&#39;s not</span>
+    <span class="c1"># a presentation edition for a work, work will be None.</span>
+    <span class="n">work</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Work&quot;</span><span class="p">,</span> <span class="n">uselist</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;presentation_edition&quot;</span><span class="p">)</span>
+
+    <span class="c1"># An Edition may show up in many CustomListEntries.</span>
+    <span class="n">custom_list_entries</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;CustomListEntry&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;edition&quot;</span><span class="p">)</span>
+
+    <span class="c1"># An Edition may be the presentation edition for many LicensePools.</span>
+    <span class="n">is_presentation_for</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;LicensePool&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;presentation_edition&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">title</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">sort_title</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">subtitle</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">series</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">series_position</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+
+    <span class="c1"># This is not a foreign key per se; it&#39;s a calculated UUID-like</span>
+    <span class="c1"># identifier for this work based on its title and author, used to</span>
+    <span class="c1"># group together different editions of the same work.</span>
+    <span class="n">permanent_work_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">36</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A string depiction of the authors&#39; names.</span>
+    <span class="n">author</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">sort_author</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">contributions</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Contribution&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;edition&quot;</span><span class="p">)</span>
+
+    <span class="n">language</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">publisher</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">imprint</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># `issued` is the date the ebook edition was sent to the distributor by the publisher,</span>
+    <span class="c1"># i.e. the date it became available for librarians to buy for their libraries</span>
+    <span class="n">issued</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Date</span><span class="p">)</span>
+    <span class="c1"># `published is the original publication date of the text.</span>
+    <span class="c1"># A Project Gutenberg text was likely `published` long before being `issued`.</span>
+    <span class="n">published</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Date</span><span class="p">)</span>
+
+    <span class="n">MEDIUM_ENUM</span> <span class="o">=</span> <span class="n">Enum</span><span class="p">(</span><span class="o">*</span><span class="n">EditionConstants</span><span class="o">.</span><span class="n">KNOWN_MEDIA</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;medium&quot;</span><span class="p">)</span>
+
+    <span class="n">medium</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">MEDIUM_ENUM</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">cover_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span>
+            <span class="s1">&#39;resources.id&#39;</span><span class="p">,</span> <span class="n">use_alter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;fk_editions_summary_id&#39;</span><span class="p">),</span>
+        <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># These two let us avoid actually loading up the cover Resource</span>
+    <span class="c1"># every time.</span>
+    <span class="n">cover_full_url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+    <span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># An OPDS entry containing all metadata about this entry that</span>
+    <span class="c1"># would be relevant to display to a library patron.</span>
+    <span class="n">simple_opds_entry</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># Information kept in here probably won&#39;t be used.</span>
+    <span class="n">extra</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">MutableDict</span><span class="o">.</span><span class="n">as_mutable</span><span class="p">(</span><span class="n">JSON</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="p">{})</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">id_repr</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Edition </span><span class="si">%s</span><span class="s2"> [</span><span class="si">%r</span><span class="s2">] (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">id_repr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
+            <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">sort_name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">contributors</span><span class="p">]),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">language_code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">three_to_two</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">contributors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">contributor</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">contributions</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">author_contributors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;All distinct &#39;author&#39;-type contributors, with the primary author</span>
+<span class="sd">        first, other authors sorted by sort name.</span>
+<span class="sd">        Basically, we&#39;re trying to figure out what would go on the</span>
+<span class="sd">        book cover. The primary author should go first, and be</span>
+<span class="sd">        followed by non-primary authors in alphabetical order. People</span>
+<span class="sd">        whose role does not rise to the level of &quot;authorship&quot;</span>
+<span class="sd">        (e.g. author of afterword) do not show up.</span>
+<span class="sd">        The list as a whole should contain no duplicates. This might</span>
+<span class="sd">        happen because someone is erroneously listed twice in the same</span>
+<span class="sd">        role, someone is listed as both primary author and regular</span>
+<span class="sd">        author, someone is listed as both author and translator,</span>
+<span class="sd">        etc. However it happens, your name only shows up once on the</span>
+<span class="sd">        front of the book.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">seen_authors</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">primary_author</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">other_authors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">acceptable_substitutes</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">contributions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="c1"># If there is one and only one contributor, return them, no</span>
+        <span class="c1"># matter what their role is.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contributions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">contributions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">contributor</span><span class="p">]</span>
+
+        <span class="c1"># There is more than one contributor. Try to pick out the ones</span>
+        <span class="c1"># that rise to the level of being &#39;authors&#39;.</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">contributions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">primary_author</span> <span class="ow">and</span> <span class="n">x</span><span class="o">.</span><span class="n">role</span> <span class="o">==</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">:</span>
+                <span class="n">primary_author</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">contributor</span>
+            <span class="k">elif</span> <span class="n">x</span><span class="o">.</span><span class="n">role</span> <span class="ow">in</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLES</span><span class="p">:</span>
+                <span class="n">other_authors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">contributor</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">x</span><span class="o">.</span><span class="n">role</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;author and&#39;</span><span class="p">):</span>
+                <span class="n">other_authors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">contributor</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">role</span> <span class="ow">in</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_SUBSTITUTE_ROLES</span>
+                  <span class="ow">or</span> <span class="n">x</span><span class="o">.</span><span class="n">role</span> <span class="ow">in</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLES</span><span class="p">):</span>
+                <span class="n">l</span> <span class="o">=</span> <span class="n">acceptable_substitutes</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">role</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">contributor</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+                    <span class="n">l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">contributor</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">dedupe</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;If an item shows up multiple times in a list,</span>
+<span class="sd">            keep only the first occurence.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="n">deduped</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">deduped</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">deduped</span>
+
+        <span class="k">if</span> <span class="n">primary_author</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dedupe</span><span class="p">([</span><span class="n">primary_author</span><span class="p">]</span> <span class="o">+</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">other_authors</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">sort_name</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">other_authors</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dedupe</span><span class="p">(</span><span class="n">other_authors</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_SUBSTITUTE_ROLES</span>
+                <span class="o">+</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PERFORMER_ROLES</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">acceptable_substitutes</span><span class="p">:</span>
+                <span class="n">contributors</span> <span class="o">=</span> <span class="n">acceptable_substitutes</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">dedupe</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">contributors</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">sort_name</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># There are roles, but they&#39;re so random that we can&#39;t be</span>
+            <span class="c1"># sure who&#39;s the &#39;author&#39; or so low on the creativity</span>
+            <span class="c1"># scale (like &#39;Executive producer&#39;) that we just don&#39;t</span>
+            <span class="c1"># want to put them down as &#39;author&#39;.</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+
+<div class="viewcode-block" id="Edition.for_foreign_id"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.for_foreign_id">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_foreign_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span>
+                       <span class="n">foreign_id_type</span><span class="p">,</span> <span class="n">foreign_id</span><span class="p">,</span>
+                       <span class="n">create_if_not_exists</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the Edition representing the given data source&#39;s view of</span>
+<span class="sd">        the work that it primarily identifies by foreign ID.</span>
+<span class="sd">        e.g. for_foreign_id(_db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, uuid)</span>
+<span class="sd">        finds the Edition for Overdrive&#39;s view of a book identified</span>
+<span class="sd">        by Overdrive UUID.</span>
+<span class="sd">        This:</span>
+<span class="sd">        for_foreign_id(_db, DataSource.OVERDRIVE, Identifier.ISBN, isbn)</span>
+<span class="sd">        will probably return nothing, because although Overdrive knows</span>
+<span class="sd">        that books have ISBNs, it doesn&#39;t use ISBN as a primary</span>
+<span class="sd">        identifier.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Look up the data source if necessary.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
+
+        <span class="n">identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">foreign_id_type</span><span class="p">,</span> <span class="n">foreign_id</span><span class="p">)</span>
+
+        <span class="c1"># Combine the two to get/create a Edition.</span>
+        <span class="k">if</span> <span class="n">create_if_not_exists</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">get_one_or_create</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">get_one</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Edition</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+                 <span class="n">primary_identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">license_pools</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The LicensePools that provide access to the book described</span>
+<span class="sd">        by this Edition.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Edition.equivalent_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.equivalent_identifiers">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;All Identifiers equivalent to this</span>
+<span class="sd">        Edition&#39;s primary identifier, according to the given</span>
+<span class="sd">        PresentationCalculationPolicy</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">identifier_id_subquery</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span>
+        <span class="p">)</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_id_subquery</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="nb">type</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="nb">type</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">q</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Edition.equivalent_editions"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.equivalent_editions">[docs]</a>    <span class="k">def</span> <span class="nf">equivalent_editions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;All Editions whose primary ID is equivalent to this Edition&#39;s</span>
+<span class="sd">        primary ID, according to the given PresentationCalculationPolicy.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">identifier_id_subquery</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Edition</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_id_subquery</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Edition.missing_coverage_from"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.missing_coverage_from">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">missing_coverage_from</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">edition_data_sources</span><span class="p">,</span> <span class="n">coverage_data_source</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find Editions from `edition_data_source` whose primary</span>
+<span class="sd">        identifiers have no CoverageRecord from</span>
+<span class="sd">        `coverage_data_source`.</span>
+<span class="sd">        e.g.::</span>
+<span class="sd">        gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)</span>
+<span class="sd">        oclc_classify = DataSource.lookup(_db, DataSource.OCLC)</span>
+<span class="sd">        missing_coverage_from(_db, gutenberg, oclc_classify)</span>
+<span class="sd">        </span>
+<span class="sd">        will find Editions that came from Project Gutenberg and</span>
+<span class="sd">        have never been used as input to the OCLC Classify web</span>
+<span class="sd">        service.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition_data_sources</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
+            <span class="n">edition_data_sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">edition_data_sources</span><span class="p">]</span>
+        <span class="n">edition_data_source_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">edition_data_sources</span><span class="p">]</span>
+        <span class="n">join_clause</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span> <span class="o">&amp;</span>
+            <span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="n">coverage_data_source</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">&amp;</span>
+            <span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">operation</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Edition</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
+            <span class="n">CoverageRecord</span><span class="p">,</span> <span class="n">join_clause</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">edition_data_source_ids</span><span class="p">:</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">edition_data_source_ids</span><span class="p">))</span>
+        <span class="n">q2</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">q2</span></div>
+
+<div class="viewcode-block" id="Edition.sort_by_priority"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.sort_by_priority">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">sort_by_priority</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">editions</span><span class="p">,</span> <span class="n">license_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return all Editions that describe the Identifier associated with</span>
+<span class="sd">        this LicensePool, in the order they should be used to create a</span>
+<span class="sd">        presentation Edition for the LicensePool.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">sort_key</span><span class="p">(</span><span class="n">edition</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Return a numeric ordering of this edition.&quot;&quot;&quot;</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">data_source</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span><span class="p">:</span>
+                <span class="c1"># This shouldn&#39;t happen. Give this edition the</span>
+                <span class="c1"># lowest priority.</span>
+                <span class="k">return</span> <span class="o">-</span><span class="mi">100</span>
+
+            <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="n">license_source</span><span class="p">:</span>
+                <span class="c1"># This Edition contains information from the same data</span>
+                <span class="c1"># source as the LicensePool itself. Put it below any</span>
+                <span class="c1"># Edition from one of the data sources in</span>
+                <span class="c1"># PRESENTATION_EDITION_PRIORITY, but above all other</span>
+                <span class="c1"># Editions.</span>
+                <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+            <span class="k">elif</span> <span class="n">source</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">METADATA_WRANGLER</span><span class="p">:</span>
+                <span class="c1"># The metadata wrangler is slightly less trustworthy</span>
+                <span class="c1"># than the license source, for everything except cover</span>
+                <span class="c1"># image (which is handled by</span>
+                <span class="c1"># Representation.quality_as_thumbnail_image)</span>
+                <span class="k">return</span> <span class="o">-</span><span class="mf">1.5</span>
+
+            <span class="k">if</span> <span class="n">source</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">PRESENTATION_EDITION_PRIORITY</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">PRESENTATION_EDITION_PRIORITY</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="o">-</span><span class="mi">2</span>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">editions</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">sort_key</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_content</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">is_html</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Represent content that might be plain-text or HTML.</span>
+<span class="sd">        e.g. a book&#39;s summary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">content</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">is_html</span><span class="p">:</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;html&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;text&quot;</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">content</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Edition.set_cover"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.set_cover">[docs]</a>    <span class="k">def</span> <span class="nf">set_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
+        <span class="n">old_cover</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover</span>
+        <span class="n">old_cover_full_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cover</span> <span class="o">=</span> <span class="n">resource</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">public_url</span>
+
+        <span class="c1"># TODO: In theory there could be multiple scaled-down</span>
+        <span class="c1"># versions of this representation and we need some way of</span>
+        <span class="c1"># choosing between them. Right now we just pick the first one</span>
+        <span class="c1"># that works.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">image_height</span>
+            <span class="ow">and</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">image_height</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_THUMBNAIL_HEIGHT</span><span class="p">):</span>
+            <span class="c1"># This image doesn&#39;t need a thumbnail.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">public_url</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Use the best available thumbnail for this image.</span>
+            <span class="n">best_thumbnail</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">best_thumbnail</span>
+            <span class="k">if</span> <span class="n">best_thumbnail</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="n">best_thumbnail</span><span class="o">.</span><span class="n">public_url</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="ow">and</span>
+            <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">image_height</span>
+            <span class="ow">and</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">image_height</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_FALLBACK_THUMBNAIL_HEIGHT</span><span class="p">):</span>
+            <span class="c1"># The full-sized image is too large to be a thumbnail, but it&#39;s</span>
+            <span class="c1"># not huge, and there is no other thumbnail, so use it.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">public_url</span>
+        <span class="k">if</span> <span class="n">old_cover</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover</span> <span class="ow">or</span> <span class="n">old_cover_full_url</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Setting cover for </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">: full=</span><span class="si">%s</span><span class="s2"> thumb=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Edition.add_contributor"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.add_contributor">[docs]</a>    <span class="k">def</span> <span class="nf">add_contributor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">roles</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">viaf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Assign a contributor to this Edition.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">roles</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">roles</span> <span class="o">=</span> <span class="p">[</span><span class="n">roles</span><span class="p">]</span>
+
+        <span class="c1"># First find or create the Contributor.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">Contributor</span><span class="p">):</span>
+            <span class="n">contributor</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">contributor</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">lc</span><span class="p">,</span> <span class="n">viaf</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">contributor</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="c1"># Contributor was looked up/created by name,</span>
+                <span class="c1"># which returns a list.</span>
+                <span class="n">contributor</span> <span class="o">=</span> <span class="n">contributor</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Then add their Contributions.</span>
+        <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">roles</span><span class="p">:</span>
+            <span class="n">contribution</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">Contribution</span><span class="p">,</span> <span class="n">edition</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">contributor</span><span class="o">=</span><span class="n">contributor</span><span class="p">,</span>
+                <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">contributor</span></div>
+
+<div class="viewcode-block" id="Edition.similarity_to"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.similarity_to">[docs]</a>    <span class="k">def</span> <span class="nf">similarity_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_record</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;How likely is it that this record describes the same book as the</span>
+<span class="sd">        given record?</span>
+<span class="sd">        1 indicates very strong similarity, 0 indicates no similarity</span>
+<span class="sd">        at all.</span>
+<span class="sd">        For now we just compare the sets of words used in the titles</span>
+<span class="sd">        and the authors&#39; names. This should be good enough for most</span>
+<span class="sd">        cases given that there is usually some preexisting reason to</span>
+<span class="sd">        suppose that the two records are related (e.g. OCLC said</span>
+<span class="sd">        they were).</span>
+<span class="sd">        Most of the Editions are from OCLC Classify, and we expect</span>
+<span class="sd">        to get some of them wrong (e.g. when a single OCLC work is a</span>
+<span class="sd">        compilation of several novels by the same author). That&#39;s okay</span>
+<span class="sd">        because those Editions aren&#39;t backed by</span>
+<span class="sd">        LicensePools. They&#39;re purely informative. We will have some</span>
+<span class="sd">        bad information in our database, but the clear-cut cases</span>
+<span class="sd">        should outnumber the fuzzy cases, so we we should still group</span>
+<span class="sd">        the Editions that really matter--the ones backed by</span>
+<span class="sd">        LicensePools--together correctly.</span>
+<span class="sd">        TODO: apply much more lenient terms if the two Editions are</span>
+<span class="sd">        identified by the same ISBN or other unique identifier.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">other_record</span> <span class="o">==</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="c1"># A record is always identical to itself.</span>
+            <span class="k">return</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">other_record</span><span class="o">.</span><span class="n">language</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">:</span>
+            <span class="c1"># The books are in the same language. Hooray!</span>
+            <span class="n">language_factor</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">other_record</span><span class="o">.</span><span class="n">language</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">:</span>
+                <span class="c1"># Each record specifies a different set of languages. This</span>
+                <span class="c1"># is an immediate disqualification.</span>
+                <span class="k">return</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># One record specifies a language and one does not. This</span>
+                <span class="c1"># is a little tricky. We&#39;re going to apply a penalty, but</span>
+                <span class="c1"># since the majority of records we&#39;re getting from OCLC are in</span>
+                <span class="c1"># English, the penalty will be less if one of the</span>
+                <span class="c1"># languages is English. It&#39;s more likely that an unlabeled</span>
+                <span class="c1"># record is in English than that it&#39;s in some other language.</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span> <span class="o">==</span> <span class="s1">&#39;eng&#39;</span> <span class="ow">or</span> <span class="n">other_record</span><span class="o">.</span><span class="n">language</span> <span class="o">==</span> <span class="s1">&#39;eng&#39;</span><span class="p">:</span>
+                    <span class="n">language_factor</span> <span class="o">=</span> <span class="mf">0.80</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">language_factor</span> <span class="o">=</span> <span class="mf">0.50</span>
+
+        <span class="n">title_quotient</span> <span class="o">=</span> <span class="n">MetadataSimilarity</span><span class="o">.</span><span class="n">title_similarity</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">other_record</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+
+        <span class="n">author_quotient</span> <span class="o">=</span> <span class="n">MetadataSimilarity</span><span class="o">.</span><span class="n">author_similarity</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">author_contributors</span><span class="p">,</span> <span class="n">other_record</span><span class="o">.</span><span class="n">author_contributors</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">author_quotient</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># The two works have no authors in common. Immediate</span>
+            <span class="c1"># disqualification.</span>
+            <span class="k">return</span> <span class="mi">0</span>
+
+        <span class="c1"># We weight title more heavily because it&#39;s much more likely</span>
+        <span class="c1"># that one author wrote two different books than that two</span>
+        <span class="c1"># books with the same title have different authors.</span>
+        <span class="k">return</span> <span class="n">language_factor</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">title_quotient</span> <span class="o">*</span> <span class="mf">0.80</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">author_quotient</span> <span class="o">*</span> <span class="mf">0.20</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Edition.apply_similarity_threshold"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.apply_similarity_threshold">[docs]</a>    <span class="k">def</span> <span class="nf">apply_similarity_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Yield the Editions from the given list that are similar</span>
+<span class="sd">        enough to this one.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">candidate</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">candidate</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">similarity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">similarity_to</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">similarity</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="n">candidate</span></div>
+
+<div class="viewcode-block" id="Edition.best_cover_within_distance"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.best_cover_within_distance">[docs]</a>    <span class="k">def</span> <span class="nf">best_cover_within_distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="n">distance</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">policy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">new_policy</span> <span class="o">=</span> <span class="n">PresentationCalculationPolicy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_policy</span> <span class="o">=</span> <span class="n">PresentationCalculationPolicy</span><span class="p">(</span>
+                    <span class="n">equivalent_identifier_levels</span><span class="o">=</span><span class="n">distance</span><span class="p">,</span>
+                    <span class="n">equivalent_identifier_cutoff</span><span class="o">=</span><span class="n">policy</span><span class="o">.</span><span class="n">equivalent_identifier_cutoff</span><span class="p">,</span>
+                    <span class="n">equivalent_identifier_threshold</span><span class="o">=</span><span class="n">policy</span><span class="o">.</span><span class="n">equivalent_identifier_threshold</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="n">identifier_ids_dict</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">recursively_equivalent_identifier_ids</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">new_policy</span>
+            <span class="p">)</span>
+            <span class="n">identifier_ids</span> <span class="o">+=</span> <span class="n">identifier_ids_dict</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">best_cover_for</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="n">rel</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">title_for_permanent_work_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtitle</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot;: &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtitle</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">title</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">author_for_permanent_work_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">authors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">author_contributors</span>
+        <span class="k">if</span> <span class="n">authors</span><span class="p">:</span>
+            <span class="c1"># Use the sort name of the primary author.</span>
+            <span class="n">author</span> <span class="o">=</span> <span class="n">authors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">sort_name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This may be an Edition that represents an item on a best-seller list</span>
+            <span class="c1"># or something like that. In this case it wouldn&#39;t have any Contributor</span>
+            <span class="c1"># objects, just an author string. Use that.</span>
+            <span class="n">author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_author</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span>
+        <span class="k">return</span> <span class="n">author</span>
+
+<div class="viewcode-block" id="Edition.calculate_permanent_work_id"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_permanent_work_id">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_permanent_work_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">title_for_permanent_work_id</span>
+        <span class="n">medium</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">medium_for_permanent_work_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">title</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">medium</span><span class="p">:</span>
+            <span class="c1"># If a book has no title or medium, it has no permanent work ID.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span>
+
+        <span class="n">author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">author_for_permanent_work_id</span>
+
+        <span class="n">w</span> <span class="o">=</span> <span class="n">WorkIDCalculator</span>
+        <span class="n">norm_title</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">normalize_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">norm_author</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">normalize_author</span><span class="p">(</span><span class="n">author</span><span class="p">)</span>
+
+        <span class="n">old_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_permanent_work_id_for_title_and_author</span><span class="p">(</span>
+            <span class="n">title</span><span class="p">,</span> <span class="n">author</span><span class="p">,</span> <span class="n">medium</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Permanent work ID for </span><span class="si">%d</span><span class="s2">: </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> -&gt; </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> -&gt; </span><span class="si">%s</span><span class="s2"> (was </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">author</span><span class="p">,</span> <span class="n">norm_title</span><span class="p">,</span> <span class="n">norm_author</span><span class="p">,</span> <span class="n">medium</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">,</span> <span class="n">old_id</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">old_id</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Edition.calculate_permanent_work_id_for_title_and_author"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_permanent_work_id_for_title_and_author">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">calculate_permanent_work_id_for_title_and_author</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">author</span><span class="p">,</span> <span class="n">medium</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">WorkIDCalculator</span>
+        <span class="n">norm_title</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">normalize_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">norm_author</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">normalize_author</span><span class="p">(</span><span class="n">author</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">WorkIDCalculator</span><span class="o">.</span><span class="n">permanent_id</span><span class="p">(</span>
+            <span class="n">norm_title</span><span class="p">,</span> <span class="n">norm_author</span><span class="p">,</span> <span class="n">medium</span><span class="p">)</span></div>
+
+    <span class="n">UNKNOWN_AUTHOR</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;[Unknown]&quot;</span>
+
+
+
+<div class="viewcode-block" id="Edition.calculate_presentation"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_presentation">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_presentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make sure the presentation of this Edition is up-to-date.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">policy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">policy</span> <span class="o">=</span> <span class="n">PresentationCalculationPolicy</span><span class="p">()</span>
+
+        <span class="c1"># Gather information up front that will be used to determine</span>
+        <span class="c1"># whether this method actually did anything.</span>
+        <span class="n">old_author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span>
+        <span class="n">old_sort_author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_author</span>
+        <span class="n">old_sort_title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_title</span>
+        <span class="n">old_work_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span>
+        <span class="n">old_cover</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover</span>
+        <span class="n">old_cover_full_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span>
+        <span class="n">old_cover_thumbnail_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span>
+
+        <span class="k">if</span> <span class="n">policy</span><span class="o">.</span><span class="n">set_edition_metadata</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">author</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_author</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sort_title</span> <span class="o">=</span> <span class="n">TitleProcessor</span><span class="o">.</span><span class="n">sort_title_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">calculate_permanent_work_id</span><span class="p">()</span>
+            <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">add_for</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                <span class="n">operation</span><span class="o">=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SET_EDITION_METADATA_OPERATION</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">policy</span><span class="o">.</span><span class="n">choose_cover</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">choose_cover</span><span class="p">(</span><span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">author</span> <span class="o">!=</span> <span class="n">old_author</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_author</span> <span class="o">!=</span> <span class="n">old_sort_author</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_title</span> <span class="o">!=</span> <span class="n">old_sort_title</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span> <span class="o">!=</span> <span class="n">old_work_id</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover</span> <span class="o">!=</span> <span class="n">old_cover</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span> <span class="o">!=</span> <span class="n">old_cover_full_url</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">!=</span> <span class="n">old_cover_thumbnail_url</span>
+        <span class="p">):</span>
+            <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># Now that everything&#39;s calculated, log it.</span>
+        <span class="k">if</span> <span class="n">policy</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">changed</span><span class="p">:</span>
+                <span class="n">changed_status</span> <span class="o">=</span> <span class="s2">&quot;changed&quot;</span>
+                <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">info</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">changed_status</span> <span class="o">=</span> <span class="s2">&quot;unchanged&quot;</span>
+                <span class="n">level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">debug</span>
+
+            <span class="n">msg</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Presentation </span><span class="si">%s</span><span class="s2"> for Edition </span><span class="si">%s</span><span class="s2"> (by </span><span class="si">%s</span><span class="s2">, pub=</span><span class="si">%s</span><span class="s2">, ident=</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">, pwid=</span><span class="si">%s</span><span class="s2">, language=</span><span class="si">%s</span><span class="s2">, cover=</span><span class="si">%r</span><span class="s2">)&quot;</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">changed_status</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">publisher</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cover</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">public_url</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">level</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">changed</span></div>
+
+<div class="viewcode-block" id="Edition.calculate_author"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.calculate_author">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_author</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn the list of Contributors into string values for .author</span>
+<span class="sd">        and .sort_author.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">sort_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">display_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">author_contributors</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">author</span><span class="o">.</span><span class="n">sort_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">author</span><span class="o">.</span><span class="n">display_name</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">author</span><span class="o">.</span><span class="n">family_name</span><span class="p">:</span>
+                <span class="n">default_family</span><span class="p">,</span> <span class="n">default_display</span> <span class="o">=</span> <span class="n">author</span><span class="o">.</span><span class="n">default_names</span><span class="p">()</span>
+            <span class="n">display_name</span> <span class="o">=</span> <span class="n">author</span><span class="o">.</span><span class="n">display_name</span> <span class="ow">or</span> <span class="n">default_display</span> <span class="ow">or</span> <span class="n">author</span><span class="o">.</span><span class="n">sort_name</span>
+            <span class="n">family_name</span> <span class="o">=</span> <span class="n">author</span><span class="o">.</span><span class="n">family_name</span> <span class="ow">or</span> <span class="n">default_family</span> <span class="ow">or</span> <span class="n">author</span><span class="o">.</span><span class="n">sort_name</span>
+            <span class="n">display_names</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">family_name</span><span class="p">,</span> <span class="n">display_name</span><span class="p">])</span>
+            <span class="n">sort_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">author</span><span class="o">.</span><span class="n">sort_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_names</span><span class="p">:</span>
+            <span class="n">author</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">display_names</span><span class="p">)])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNKNOWN_AUTHOR</span>
+        <span class="k">if</span> <span class="n">sort_names</span><span class="p">:</span>
+            <span class="n">sort_author</span> <span class="o">=</span> <span class="s2">&quot; ; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">sort_names</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sort_author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">UNKNOWN_AUTHOR</span>
+        <span class="k">return</span> <span class="n">author</span><span class="p">,</span> <span class="n">sort_author</span></div>
+
+<div class="viewcode-block" id="Edition.choose_cover"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition.choose_cover">[docs]</a>    <span class="k">def</span> <span class="nf">choose_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to find a cover that can be used for this Edition.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">distance</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+            <span class="c1"># If there&#39;s a cover directly associated with the</span>
+            <span class="c1"># Edition&#39;s primary ID, use it. Otherwise, find the</span>
+            <span class="c1"># best cover associated with any related identifier.</span>
+            <span class="n">best_cover</span><span class="p">,</span> <span class="n">covers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_cover_within_distance</span><span class="p">(</span>
+                <span class="n">distance</span><span class="o">=</span><span class="n">distance</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">best_cover</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">best_cover</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">&quot;Best cover for </span><span class="si">%r</span><span class="s2"> has no representation!&quot;</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">rep</span> <span class="o">=</span> <span class="n">best_cover</span><span class="o">.</span><span class="n">representation</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">rep</span><span class="o">.</span><span class="n">thumbnails</span><span class="p">:</span>
+                        <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                            <span class="s2">&quot;Best cover for </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">) was never thumbnailed!&quot;</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
+                            <span class="n">rep</span><span class="o">.</span><span class="n">public_url</span>
+                        <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set_cover</span><span class="p">(</span><span class="n">best_cover</span><span class="p">)</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># No cover has been found. If the Edition currently references</span>
+            <span class="c1"># a cover, it has since been rejected or otherwise removed.</span>
+            <span class="c1"># Cover details need to be removed.</span>
+            <span class="n">cover_info</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cover</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">cover_info</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cover</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cover_full_url</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span><span class="p">:</span>
+            <span class="c1"># The process we went through above did not result in the</span>
+            <span class="c1"># setting of a thumbnail cover.</span>
+            <span class="c1">#</span>
+            <span class="c1"># It&#39;s possible there&#39;s a thumbnail even when there&#39;s no</span>
+            <span class="c1"># full-sized cover, or when the full-sized cover and</span>
+            <span class="c1"># thumbnail are different Resources on the same</span>
+            <span class="c1"># Identifier. Try to find a thumbnail the same way we&#39;d</span>
+            <span class="c1"># look for a cover.</span>
+            <span class="k">for</span> <span class="n">distance</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+                <span class="n">best_thumbnail</span><span class="p">,</span> <span class="n">thumbnails</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_cover_within_distance</span><span class="p">(</span>
+                    <span class="n">distance</span><span class="o">=</span><span class="n">distance</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">,</span>
+                    <span class="n">rel</span><span class="o">=</span><span class="n">LinkRelations</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">best_thumbnail</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">best_thumbnail</span><span class="o">.</span><span class="n">representation</span><span class="p">:</span>
+                        <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                            <span class="s2">&quot;Best thumbnail for </span><span class="si">%r</span><span class="s2"> has no representation!&quot;</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">rep</span> <span class="o">=</span> <span class="n">best_thumbnail</span><span class="o">.</span><span class="n">representation</span>
+                        <span class="k">if</span> <span class="n">rep</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="n">rep</span><span class="o">.</span><span class="n">public_url</span>
+                        <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># No thumbnail was found. If the Edition references a thumbnail,</span>
+                <span class="c1"># it needs to be removed.</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">cover_thumbnail_url</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Whether or not we succeeded in setting the cover,</span>
+        <span class="c1"># record the fact that we tried.</span>
+        <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">add_for</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">CHOOSE_COVER_OPERATION</span>
+        <span class="p">)</span></div></div>
+
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_editions_data_source_id_identifier_id&quot;</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">data_source_id</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

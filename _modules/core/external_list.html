@@ -1,0 +1,439 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.external_list &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.external_list</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="k">import</span> <span class="n">parse</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+
+<span class="kn">from</span> <span class="nn">opds_import</span> <span class="k">import</span> <span class="n">SimplifiedOPDSLookup</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CSVMetadataImporter</span><span class="p">,</span>
+    <span class="n">ReplacementPolicy</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">Classification</span><span class="p">,</span>
+    <span class="n">CustomList</span><span class="p">,</span>
+    <span class="n">CustomListEntry</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+    <span class="n">Work</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
+
+<div class="viewcode-block" id="CustomListFromCSV"><a class="viewcode-back" href="../../core.html#core.external_list.CustomListFromCSV">[docs]</a><span class="k">class</span> <span class="nc">CustomListFromCSV</span><span class="p">(</span><span class="n">CSVMetadataImporter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create a CustomList, with entries, from a CSV file.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">list_name</span><span class="p">,</span> <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">overwrite_old_data</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">annotation_field</span><span class="o">=</span><span class="s1">&#39;text&#39;</span><span class="p">,</span>
+                 <span class="n">annotation_author_name_field</span><span class="o">=</span><span class="s1">&#39;name&#39;</span><span class="p">,</span>
+                 <span class="n">annotation_author_affiliation_field</span><span class="o">=</span><span class="s1">&#39;location&#39;</span><span class="p">,</span>
+                 <span class="n">first_appearance_field</span><span class="o">=</span><span class="s1">&#39;timestamp&#39;</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span>
+             <span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CustomListFromCSV</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">data_source_name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">foreign_identifier</span> <span class="o">=</span> <span class="n">list_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">list_name</span> <span class="o">=</span> <span class="n">list_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">overwrite_old_data</span><span class="o">=</span><span class="n">overwrite_old_data</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata_client</span><span class="p">:</span>
+            <span class="n">metadata_url</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">integration_url</span><span class="p">(</span>
+                <span class="n">Configuration</span><span class="o">.</span><span class="n">METADATA_WRANGLER_INTEGRATION</span><span class="p">,</span>
+                <span class="n">required</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+            <span class="n">metadata_client</span> <span class="o">=</span> <span class="n">SimplifiedOPDSLookup</span><span class="p">(</span><span class="n">metadata_url</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_client</span> <span class="o">=</span> <span class="n">metadata_client</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotation_field</span> <span class="o">=</span> <span class="n">annotation_field</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotation_author_name_field</span> <span class="o">=</span> <span class="n">annotation_author_name_field</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotation_author_affiliation_field</span> <span class="o">=</span> <span class="n">annotation_author_affiliation_field</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_appearance_field</span> <span class="o">=</span> <span class="n">first_appearance_field</span>
+
+<div class="viewcode-block" id="CustomListFromCSV.to_customlist"><a class="viewcode-back" href="../../core.html#core.external_list.CustomListFromCSV.to_customlist">[docs]</a>    <span class="k">def</span> <span class="nf">to_customlist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">dictreader</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn the CSV file in `dictreader` into a CustomList.</span>
+
+<span class="sd">        TODO: Keep track of the list&#39;s current members. If any item</span>
+<span class="sd">        was on the list but is no longer on the list, set its</span>
+<span class="sd">        last_appeared date to its most recent appearance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source_name</span><span class="p">)</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+        <span class="c1"># Find or create the CustomList object itself.</span>
+        <span class="n">custom_list</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span>
+            <span class="n">CustomList</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">foreign_identifier</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">foreign_identifier</span><span class="p">,</span>
+            <span class="n">create_method_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">created</span><span class="o">=</span><span class="n">now</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">custom_list</span><span class="o">.</span><span class="n">updated</span> <span class="o">=</span> <span class="n">now</span>
+
+        <span class="c1"># Turn the rows of the CSV file into a sequence of Metadata</span>
+        <span class="c1"># objects, then turn each Metadata into a CustomListEntry object.</span>
+        <span class="k">for</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_metadata</span><span class="p">(</span><span class="n">dictreader</span><span class="p">):</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_to_list_entry</span><span class="p">(</span>
+                <span class="n">custom_list</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CustomListFromCSV.metadata_to_list_entry"><a class="viewcode-back" href="../../core.html#core.external_list.CustomListFromCSV.metadata_to_list_entry">[docs]</a>    <span class="k">def</span> <span class="nf">metadata_to_list_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert a Metadata object to a CustomListEntry.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">data_source</span><span class="p">)</span>
+
+        <span class="n">title_from_external_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_to_title</span><span class="p">(</span><span class="n">now</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
+        <span class="n">list_entry</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">title_from_external_list</span><span class="o">.</span><span class="n">to_custom_list_entry</span><span class="p">(</span>
+            <span class="n">custom_list</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_client</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">overwrite_old_data</span><span class="p">)</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">edition</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># We couldn&#39;t create an Edition, probably because we</span>
+            <span class="c1"># couldn&#39;t find a useful Identifier.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Could not create edition for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Edition</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="o">==</span><span class="n">e</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">q</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Found matching work in collection for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                              <span class="n">metadata</span><span class="o">.</span><span class="n">title</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No matching work found for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                              <span class="n">metadata</span><span class="o">.</span><span class="n">title</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">list_entry</span></div>
+
+<div class="viewcode-block" id="CustomListFromCSV.metadata_to_title"><a class="viewcode-back" href="../../core.html#core.external_list.CustomListFromCSV.metadata_to_title">[docs]</a>    <span class="k">def</span> <span class="nf">metadata_to_title</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert a Metadata object to a TitleFromExternalList object.&quot;&quot;&quot;</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">csv_row</span>
+        <span class="n">first_appearance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_date_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_appearance_field</span><span class="p">)</span>
+        <span class="n">annotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_field</span><span class="p">)</span>
+        <span class="n">annotation_citation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_citation</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">annotation_citation</span><span class="p">:</span>
+            <span class="n">annotation</span> <span class="o">=</span> <span class="n">annotation</span> <span class="o">+</span> <span class="n">annotation_citation</span>
+
+        <span class="k">return</span> <span class="n">TitleFromExternalList</span><span class="p">(</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">first_appearance</span><span class="o">=</span><span class="n">first_appearance</span><span class="p">,</span>
+            <span class="n">most_recent_appearance</span><span class="o">=</span><span class="n">now</span><span class="p">,</span>
+            <span class="n">annotation</span><span class="o">=</span><span class="n">annotation</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CustomListFromCSV.annotation_citation"><a class="viewcode-back" href="../../core.html#core.external_list.CustomListFromCSV.annotation_citation">[docs]</a>    <span class="k">def</span> <span class="nf">annotation_citation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a citation for an annotation from a row of a CSV file.&quot;&quot;&quot;</span>
+        <span class="n">annotation_author</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_author_name_field</span><span class="p">)</span>
+        <span class="n">annotation_author_affiliation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_field</span><span class="p">(</span>
+            <span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_author_affiliation_field</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">annotation_author_affiliation</span> <span class="o">==</span> <span class="n">annotation_author</span><span class="p">:</span>
+            <span class="n">annotation_author_affiliation</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">annotation_extra</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">annotation_author</span><span class="p">:</span>
+            <span class="n">annotation_extra</span> <span class="o">=</span> <span class="n">annotation_author</span>
+            <span class="k">if</span> <span class="n">annotation_author_affiliation</span><span class="p">:</span>
+                <span class="n">annotation_extra</span> <span class="o">+=</span> <span class="s1">&#39;, &#39;</span> <span class="o">+</span> <span class="n">annotation_author_affiliation</span>
+        <span class="k">if</span> <span class="n">annotation_extra</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">u</span><span class="s1">&#39; —&#39;</span> <span class="o">+</span> <span class="n">annotation_extra</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+
+
+<div class="viewcode-block" id="TitleFromExternalList"><a class="viewcode-back" href="../../core.html#core.external_list.TitleFromExternalList">[docs]</a><span class="k">class</span> <span class="nc">TitleFromExternalList</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;This class helps you convert data from external lists into Simplified</span>
+<span class="sd">    Edition and CustomListEntry objects.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">first_appearance</span><span class="p">,</span> <span class="n">most_recent_appearance</span><span class="p">,</span>
+                 <span class="n">annotation</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Title from external list&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_appearance</span> <span class="o">=</span> <span class="n">first_appearance</span> <span class="ow">or</span> <span class="n">most_recent_appearance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">most_recent_appearance</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="n">annotation</span>
+
+<div class="viewcode-block" id="TitleFromExternalList.to_custom_list_entry"><a class="viewcode-back" href="../../core.html#core.external_list.TitleFromExternalList.to_custom_list_entry">[docs]</a>    <span class="k">def</span> <span class="nf">to_custom_list_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">,</span>
+                             <span class="n">overwrite_old_data</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn this object into a CustomListEntry with associated Edition.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">custom_list</span><span class="p">)</span>
+        <span class="n">edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_edition</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">,</span> <span class="n">overwrite_old_data</span><span class="p">)</span>
+
+        <span class="n">list_entry</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">CustomListEntry</span><span class="p">,</span> <span class="n">edition</span><span class="o">=</span><span class="n">edition</span><span class="p">,</span> <span class="n">customlist</span><span class="o">=</span><span class="n">custom_list</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">first_appearance</span>
+            <span class="ow">or</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">first_appearance</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_appearance</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">first_appearance</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;I thought </span><span class="si">%s</span><span class="s2"> first showed up at </span><span class="si">%s</span><span class="s2">, but then I saw it earlier, at </span><span class="si">%s</span><span class="s2">!&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">first_appearance</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">first_appearance</span>
+                <span class="p">)</span>
+            <span class="n">list_entry</span><span class="o">.</span><span class="n">first_appearance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_appearance</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">most_recent_appearance</span>
+            <span class="ow">or</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">most_recent_appearance</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">most_recent_appearance</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;I thought </span><span class="si">%s</span><span class="s2"> most recently showed up at </span><span class="si">%s</span><span class="s2">, but then I saw it later, at </span><span class="si">%s</span><span class="s2">!&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">list_entry</span><span class="o">.</span><span class="n">most_recent_appearance</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">most_recent_appearance</span>
+                <span class="p">)</span>
+            <span class="n">list_entry</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">most_recent_appearance</span>
+
+        <span class="n">list_entry</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span>
+
+        <span class="n">list_entry</span><span class="o">.</span><span class="n">set_work</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">list_entry</span><span class="p">,</span> <span class="n">is_new</span></div>
+
+<div class="viewcode-block" id="TitleFromExternalList.to_edition"><a class="viewcode-back" href="../../core.html#core.external_list.TitleFromExternalList.to_edition">[docs]</a>    <span class="k">def</span> <span class="nf">to_edition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">,</span> <span class="n">overwrite_old_data</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create or update an Edition object for this list item.</span>
+
+<span class="sd">        We have two goals here:</span>
+
+<span class="sd">        1. Make sure there is an Edition representing the list&#39;s view</span>
+<span class="sd">        of the data.</span>
+
+<span class="sd">        2. If at all possible, connect the Edition&#39;s primary</span>
+<span class="sd">        identifier to other identifiers in the system, identifiers</span>
+<span class="sd">        which may have associated LicensePools. This can happen in two</span>
+<span class="sd">        ways:</span>
+
+<span class="sd">        2a. The Edition&#39;s primary identifier, or other identifiers</span>
+<span class="sd">        associated with the Edition, may be directly associated with</span>
+<span class="sd">        LicensePools. This can happen if a book&#39;s list entry includes</span>
+<span class="sd">        (e.g.) an Overdrive ID.</span>
+
+<span class="sd">        2b. The Edition&#39;s permanent work ID may identify it as the</span>
+<span class="sd">        same work as other Editions in the system. In that case this</span>
+<span class="sd">        Edition&#39;s primary identifier may be associated with the other</span>
+<span class="sd">        Editions&#39; primary identifiers. (p=0.85)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Converting </span><span class="si">%s</span><span class="s2"> to an Edition object.&quot;</span><span class="p">,</span>
+                      <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+
+        <span class="c1"># Make sure the Metadata object&#39;s view of the book is present</span>
+        <span class="c1"># as an Edition. This will also associate all its identifiers</span>
+        <span class="c1"># with its primary identifier, and calculate the permanent work</span>
+        <span class="c1"># ID if possible.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">edition</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Ignoring </span><span class="si">%s</span><span class="s2">, no corresponding edition.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">title</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">overwrite_old_data</span><span class="p">:</span>
+            <span class="n">policy</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="o">.</span><span class="n">from_metadata_source</span><span class="p">(</span>
+                <span class="n">even_if_not_apparently_updated</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">policy</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="o">.</span><span class="n">append_only</span><span class="p">(</span>
+                <span class="n">even_if_not_apparently_updated</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="n">edition</span><span class="o">=</span><span class="n">edition</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">metadata_client</span><span class="o">=</span><span class="n">metadata_client</span><span class="p">,</span>
+            <span class="n">replace</span><span class="o">=</span><span class="n">policy</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">associate_with_identifiers_based_on_permanent_work_id</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">edition</span></div></div>
+
+
+<div class="viewcode-block" id="MembershipManager"><a class="viewcode-back" href="../../core.html#core.external_list.MembershipManager">[docs]</a><span class="k">class</span> <span class="nc">MembershipManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Manage the membership of a custom list based on some criteria.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span>
+            <span class="s2">&quot;Membership manager for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">custom_list</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">custom_list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">custom_list</span> <span class="o">=</span> <span class="n">custom_list</span>
+
+<div class="viewcode-block" id="MembershipManager.update"><a class="viewcode-back" href="../../core.html#core.external_list.MembershipManager.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">update_time</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">update_time</span> <span class="o">=</span> <span class="n">update_time</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+        <span class="c1"># Map each Edition currently in this list to the corresponding</span>
+        <span class="c1"># CustomListEntry.</span>
+        <span class="n">current_membership</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">custom_list</span><span class="o">.</span><span class="n">entries</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">edition</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">current_membership</span><span class="p">[</span><span class="n">entry</span><span class="o">.</span><span class="n">edition</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+        <span class="c1"># Find the new membership of the list.</span>
+        <span class="k">for</span> <span class="n">new_edition</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_membership</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">new_edition</span> <span class="ow">in</span> <span class="n">current_membership</span><span class="p">:</span>
+                <span class="c1"># This entry was in the list before, and is still in</span>
+                <span class="c1"># the list. Update its .most_recent_appearance.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Maintaining </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">new_edition</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+                <span class="n">entry_list</span> <span class="o">=</span> <span class="n">current_membership</span><span class="p">[</span><span class="n">new_edition</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entry_list</span><span class="p">:</span>
+                    <span class="n">entry</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="n">update_time</span>
+                <span class="k">del</span> <span class="n">current_membership</span><span class="p">[</span><span class="n">new_edition</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This is a new list entry.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Adding </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">new_edition</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">custom_list</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span>
+                    <span class="n">work_or_edition</span><span class="o">=</span><span class="n">new_edition</span><span class="p">,</span> <span class="n">first_appearance</span><span class="o">=</span><span class="n">update_time</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Anything still left in current_membership used to be in the</span>
+        <span class="c1"># list but is no longer. Remove these entries from the list.</span>
+        <span class="k">for</span> <span class="n">entry_list</span> <span class="ow">in</span> <span class="n">current_membership</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entry_list</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Deleting </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">entry</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">new_membership</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over the new membership of the list.</span>
+
+<span class="sd">        :yield: a sequence of Edition objects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ClassificationBasedMembershipManager"><a class="viewcode-back" href="../../core.html#core.external_list.ClassificationBasedMembershipManager">[docs]</a><span class="k">class</span> <span class="nc">ClassificationBasedMembershipManager</span><span class="p">(</span><span class="n">MembershipManager</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Manage a custom list containing all Editions whose primary</span>
+<span class="sd">    Identifier is classified under one of the given subject fragments.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">subject_fragments</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ClassificationBasedMembershipManager</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">custom_list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subject_fragments</span> <span class="o">=</span> <span class="n">subject_fragments</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">new_membership</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over the new membership of the list.</span>
+
+<span class="sd">        :yield: a sequence of Edition objects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subject_clause</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject_fragments</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">Subject</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s1">&#39;%&#39;</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="s1">&#39;%&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">subject_clause</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">subject_clause</span> <span class="o">=</span> <span class="n">c</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">subject_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span><span class="n">subject_clause</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Edition</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">classifications</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Classification</span><span class="o">.</span><span class="n">subject</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">subject_clause</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

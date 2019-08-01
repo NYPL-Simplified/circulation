@@ -1,6 +1,0 @@
-[submodule "core"]
-	path = core
-	url = https://github.com/NYPL-Simplified/server_core.git
-[submodule "docker"]
-	path = docker
-	url = https://github.com/NYPL-Simplified/circulation-docker.git

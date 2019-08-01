@@ -1,0 +1,251 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.admin.geographic_validator &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.admin.geographic_validator</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="k">import</span> <span class="n">Validator</span>
+<span class="kn">from</span> <span class="nn">api.registry</span> <span class="k">import</span> <span class="n">RemoteRegistry</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Representation</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">pypostalcode</span> <span class="k">import</span> <span class="n">PostalCodeDatabase</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">import</span> <span class="nn">uszipcode</span>
+
+<div class="viewcode-block" id="GeographicValidator"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator">[docs]</a><span class="k">class</span> <span class="nc">GeographicValidator</span><span class="p">(</span><span class="n">Validator</span><span class="p">):</span>
+<div class="viewcode-block" id="GeographicValidator.validate_geographic_areas"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.validate_geographic_areas">[docs]</a>    <span class="k">def</span> <span class="nf">validate_geographic_areas</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="c1"># Note: the validator does not recognize data from US territories other than Puerto Rico.</span>
+
+        <span class="n">us_search</span> <span class="o">=</span> <span class="n">uszipcode</span><span class="o">.</span><span class="n">SearchEngine</span><span class="p">(</span><span class="n">simple_zipcode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ca_search</span> <span class="o">=</span> <span class="n">PostalCodeDatabase</span><span class="p">()</span>
+        <span class="n">CA_PROVINCES</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;AB&quot;</span><span class="p">:</span> <span class="s2">&quot;Alberta&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BC&quot;</span><span class="p">:</span> <span class="s2">&quot;British Columbia&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MB&quot;</span><span class="p">:</span> <span class="s2">&quot;Manitoba&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;NB&quot;</span><span class="p">:</span> <span class="s2">&quot;New Brunswick&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;NL&quot;</span><span class="p">:</span> <span class="s2">&quot;Newfoundland and Labrador&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;NT&quot;</span><span class="p">:</span> <span class="s2">&quot;Northwest Territories&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;NS&quot;</span><span class="p">:</span> <span class="s2">&quot;Nova Scotia&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;NU&quot;</span><span class="p">:</span> <span class="s2">&quot;Nunavut&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ON&quot;</span><span class="p">:</span> <span class="s2">&quot;Ontario&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;PE&quot;</span><span class="p">:</span> <span class="s2">&quot;Prince Edward Island&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;QC&quot;</span><span class="p">:</span> <span class="s2">&quot;Quebec&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;SK&quot;</span><span class="p">:</span> <span class="s2">&quot;Saskatchewan&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;YT&quot;</span><span class="p">:</span> <span class="s2">&quot;Yukon Territories&quot;</span>
+        <span class="p">}</span>
+
+        <span class="n">locations</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;US&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;CA&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+            <span class="n">flagged</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
+                <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="c1"># Is it a US state or Canadian province abbreviation?</span>
+                    <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">CA_PROVINCES</span><span class="p">:</span>
+                        <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CA_PROVINCES</span><span class="p">[</span><span class="n">value</span><span class="p">])</span>
+                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">us_search</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="n">value</span><span class="p">)):</span>
+                        <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(value)s</span><span class="s1">&quot; is not a valid U.S. state or Canadian province abbreviation.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">CA_PROVINCES</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">):</span>
+                    <span class="c1"># Is it a Canadian zipcode?</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">)</span>
+                        <span class="n">formatted</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">city</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">province</span><span class="p">)</span>
+                        <span class="c1"># In some cases--mainly involving very small towns--even if the zip code is valid,</span>
+                        <span class="c1"># the registry won&#39;t recognize the name of the place to which it corresponds.</span>
+                        <span class="n">registry_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_location_through_registry</span><span class="p">(</span><span class="n">formatted</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">registry_response</span><span class="p">:</span>
+                            <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">formatted</span><span class="p">);</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Unable to locate &quot;</span><span class="si">%(value)s</span><span class="s1">&quot; (</span><span class="si">%(formatted)s</span><span class="s1">).  Try entering the name of a larger area.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">formatted</span><span class="o">=</span><span class="n">formatted</span><span class="p">))</span>
+                    <span class="k">except</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(value)s</span><span class="s1">&quot; is not a valid Canadian zipcode.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">))</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="c1"># Is it in the format &quot;[city], [state abbreviation]&quot; or &quot;[county], [state abbreviation]&quot;?</span>
+                    <span class="n">city_or_county</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">us_search</span><span class="o">.</span><span class="n">by_city_and_state</span><span class="p">(</span><span class="n">city_or_county</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+                        <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
+                    <span class="k">elif</span> <span class="nb">len</span><span class="p">([</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">us_search</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">returns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">county</span> <span class="o">==</span> <span class="n">city_or_county</span><span class="p">]):</span>
+                        <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Flag this as needing to be checked with the registry</span>
+                        <span class="n">flagged</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;US&quot;</span><span class="p">):</span>
+                    <span class="c1"># Is it a US zipcode?</span>
+                    <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;US&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">info</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(value)s</span><span class="s1">&quot; is not a valid U.S. zipcode.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
+                    <span class="n">locations</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">flagged</span> <span class="o">=</span> <span class="kc">True</span>
+
+                <span class="k">if</span> <span class="n">flagged</span><span class="p">:</span>
+                    <span class="n">registry_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_location_through_registry</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">registry_response</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">registry_response</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="n">registry_response</span>
+                    <span class="k">elif</span> <span class="n">registry_response</span><span class="p">:</span>
+                        <span class="n">locations</span><span class="p">[</span><span class="n">registry_response</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">UNKNOWN_LOCATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;Unable to locate &quot;</span><span class="si">%(value)s</span><span class="s1">&quot;.&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GeographicValidator.is_zip"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.is_zip">[docs]</a>    <span class="k">def</span> <span class="nf">is_zip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">country</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;US&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span> <span class="ow">and</span> <span class="n">value</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;CA&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;^[A-Za-z]</span><span class="se">\\</span><span class="s2">d[A-Za-z]&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="GeographicValidator.look_up_zip"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.look_up_zip">[docs]</a>    <span class="k">def</span> <span class="nf">look_up_zip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">zip</span><span class="p">,</span> <span class="n">country</span><span class="p">,</span> <span class="n">formatted</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;US&quot;</span><span class="p">:</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="n">uszipcode</span><span class="o">.</span><span class="n">SearchEngine</span><span class="p">(</span><span class="n">simple_zipcode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">by_zipcode</span><span class="p">(</span><span class="nb">zip</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">formatted</span><span class="p">:</span>
+                <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_place</span><span class="p">(</span><span class="nb">zip</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">major_city</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">country</span> <span class="o">==</span> <span class="s2">&quot;CA&quot;</span><span class="p">:</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="n">PostalCodeDatabase</span><span class="p">()[</span><span class="nb">zip</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">formatted</span><span class="p">:</span>
+                <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_place</span><span class="p">(</span><span class="nb">zip</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">city</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">province</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">info</span></div>
+
+<div class="viewcode-block" id="GeographicValidator.format_place"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.format_place">[docs]</a>    <span class="k">def</span> <span class="nf">format_place</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">zip</span><span class="p">,</span> <span class="n">city</span><span class="p">,</span> <span class="n">state_or_province</span><span class="p">):</span>
+        <span class="n">details</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">city</span><span class="p">,</span> <span class="n">state_or_province</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="nb">zip</span><span class="p">:</span> <span class="n">details</span> <span class="p">}</span></div>
+
+<div class="viewcode-block" id="GeographicValidator.find_location_through_registry"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.find_location_through_registry">[docs]</a>    <span class="k">def</span> <span class="nf">find_location_through_registry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">nation</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">]:</span>
+            <span class="n">service_area_object</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="s1">&#39;{&quot;</span><span class="si">%s</span><span class="s1">&quot;: &quot;</span><span class="si">%s</span><span class="s1">&quot;}&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nation</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+            <span class="n">registry_check</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ask_registry</span><span class="p">(</span><span class="n">service_area_object</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">registry_check</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">registry_check</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">registry_check</span>
+            <span class="k">elif</span> <span class="n">registry_check</span><span class="p">:</span>
+                <span class="c1"># If the registry has established that this is a US location, don&#39;t bother also trying to find it in Canada</span>
+                <span class="k">return</span> <span class="n">nation</span></div>
+
+<div class="viewcode-block" id="GeographicValidator.ask_registry"><a class="viewcode-back" href="../../../api.admin.html#api.admin.geographic_validator.GeographicValidator.ask_registry">[docs]</a>    <span class="k">def</span> <span class="nf">ask_registry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_area_object</span><span class="p">,</span> <span class="n">db</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">debuggable_get</span><span class="p">):</span>
+        <span class="c1"># If the circulation manager doesn&#39;t know about this location, check whether the Library Registry does.</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">registry</span> <span class="ow">in</span> <span class="n">RemoteRegistry</span><span class="o">.</span><span class="n">for_protocol_and_goal</span><span class="p">(</span>
+            <span class="n">db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_REGISTRATION</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DISCOVERY_GOAL</span>
+        <span class="p">):</span>
+            <span class="n">base_url</span> <span class="o">=</span> <span class="n">registry</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">url</span> <span class="o">+</span> <span class="s2">&quot;/coverage?coverage=&quot;</span>
+
+            <span class="n">response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">base_url</span> <span class="o">+</span> <span class="n">service_area_object</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Unable to contact the registry at </span><span class="si">%(url)s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">registry</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">url</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">):</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+                <span class="n">found_place</span> <span class="o">=</span> <span class="ow">not</span> <span class="p">(</span><span class="n">content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unknown&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ambiguous&quot;</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">found_place</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">return</span> <span class="n">result</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

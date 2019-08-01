@@ -1,0 +1,566 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.patron &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.patron</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">credential</span> <span class="k">import</span> <span class="n">Credential</span>
+
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">Date</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">String</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">..user_profile</span> <span class="k">import</span> <span class="n">ProfileStorage</span>
+<span class="kn">import</span> <span class="nn">uuid</span>
+
+<div class="viewcode-block" id="LoanAndHoldMixin"><a class="viewcode-back" href="../../../core.model.html#api.monitor.LoanAndHoldMixin">[docs]</a><span class="k">class</span> <span class="nc">LoanAndHoldMixin</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to find the corresponding work for this Loan/Hold.&quot;&quot;&quot;</span>
+        <span class="n">license_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pool</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">license_pool</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">work</span>
+        <span class="k">if</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">presentation_edition</span> <span class="ow">and</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">work</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">library</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to find the corresponding library for this Loan/Hold.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span>
+        <span class="c1"># If this Loan/Hold belongs to a external patron, there may be no library.</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Patron"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron">[docs]</a><span class="k">class</span> <span class="nc">Patron</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;patrons&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Each patron is the patron _of_ one particular library.  An</span>
+    <span class="c1"># individual human being may patronize multiple libraries, but</span>
+    <span class="c1"># they will have a different patron account at each one.</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="c1"># The patron&#39;s permanent unique identifier in an external library</span>
+    <span class="c1"># system, probably never seen by the patron.</span>
+    <span class="c1">#</span>
+    <span class="c1"># This is not stored as a ForeignIdentifier because it corresponds</span>
+    <span class="c1"># to the patron&#39;s identifier in the library responsible for the</span>
+    <span class="c1"># Simplified instance, not a third party.</span>
+    <span class="n">external_identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># The patron&#39;s account type, as reckoned by an external library</span>
+    <span class="c1"># system. Different account types may be subject to different</span>
+    <span class="c1"># library policies.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Depending on library policy it may be possible to automatically</span>
+    <span class="c1"># derive the patron&#39;s account type from their authorization</span>
+    <span class="c1"># identifier.</span>
+    <span class="n">external_type</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># An identifier used by the patron that gives them the authority</span>
+    <span class="c1"># to borrow books. This identifier may change over time.</span>
+    <span class="n">authorization_identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># An identifier used by the patron that authenticates them,</span>
+    <span class="c1"># but does not give them the authority to borrow books. i.e. their</span>
+    <span class="c1"># website username.</span>
+    <span class="n">username</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># The last time this record was synced up with an external library</span>
+    <span class="c1"># system.</span>
+    <span class="n">last_external_sync</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">)</span>
+
+    <span class="c1"># The time, if any, at which the user&#39;s authorization to borrow</span>
+    <span class="c1"># books expires.</span>
+    <span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Date</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Outstanding fines the user has, if any.</span>
+    <span class="n">fines</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># If the patron&#39;s borrowing privileges have been blocked, this</span>
+    <span class="c1"># field contains the library&#39;s reason for the block. If this field</span>
+    <span class="c1"># is None, the patron&#39;s borrowing privileges have not been</span>
+    <span class="c1"># blocked.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Although we currently don&#39;t do anything with specific values for</span>
+    <span class="c1"># this field, the expectation is that values will be taken from a</span>
+    <span class="c1"># small controlled vocabulary (e.g. &quot;banned&quot;, &quot;incorrect personal</span>
+    <span class="c1"># information&quot;, &quot;unknown&quot;), rather than freeform strings entered</span>
+    <span class="c1"># by librarians.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Common reasons for blocks are kept in circulation&#39;s PatronData</span>
+    <span class="c1"># class.</span>
+    <span class="n">block_reason</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># Whether or not the patron wants their annotations synchronized</span>
+    <span class="c1"># across devices (which requires storing those annotations on a</span>
+    <span class="c1"># library server).</span>
+    <span class="n">_synchronize_annotations</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                      <span class="n">name</span><span class="o">=</span><span class="s2">&quot;synchronize_annotations&quot;</span><span class="p">)</span>
+
+    <span class="n">loans</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Loan&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s1">&#39;delete&#39;</span><span class="p">)</span>
+    <span class="n">holds</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Hold&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s1">&#39;delete&#39;</span><span class="p">)</span>
+
+    <span class="n">annotations</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Annotation&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="n">order_by</span><span class="o">=</span><span class="s2">&quot;desc(Annotation.timestamp)&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s1">&#39;delete&#39;</span><span class="p">)</span>
+
+    <span class="c1"># One Patron can have many associated Credentials.</span>
+    <span class="n">credentials</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Credential&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;patron&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;delete&quot;</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="s1">&#39;username&#39;</span><span class="p">),</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="s1">&#39;authorization_identifier&#39;</span><span class="p">),</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="s1">&#39;external_identifier&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">AUDIENCE_RESTRICTION_POLICY</span> <span class="o">=</span> <span class="s1">&#39;audiences&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">date</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Format an object that might be a datetime as a date.</span>
+
+<span class="sd">            This keeps a patron representation short.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">d</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">d</span>
+        <span class="k">return</span> <span class="s1">&#39;&lt;Patron authentication_identifier=</span><span class="si">%s</span><span class="s1"> expires=</span><span class="si">%s</span><span class="s1"> sync=</span><span class="si">%s</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span> <span class="n">date</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">authorization_expires</span><span class="p">),</span>
+            <span class="n">date</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">last_external_sync</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Patron.identifier_to_remote_service"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.identifier_to_remote_service">[docs]</a>    <span class="k">def</span> <span class="nf">identifier_to_remote_service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_data_source</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or randomly create an identifier to use when identifying</span>
+<span class="sd">        this patron to a remote service.</span>
+<span class="sd">        :param remote_data_source: A DataSource object (or name of a</span>
+<span class="sd">        DataSource) corresponding to the remote service.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="n">credential</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">generator</span> <span class="ow">and</span> <span class="n">callable</span><span class="p">(</span><span class="n">generator</span><span class="p">):</span>
+                <span class="n">identifier</span> <span class="o">=</span> <span class="n">generator</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">identifier</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid1</span><span class="p">())</span>
+            <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="n">identifier</span>
+        <span class="n">credential</span> <span class="o">=</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">remote_data_source</span><span class="p">,</span> <span class="n">Credential</span><span class="o">.</span><span class="n">IDENTIFIER_TO_REMOTE_SERVICE</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">refresh</span><span class="p">,</span> <span class="n">allow_persistent_token</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span></div>
+
+<div class="viewcode-block" id="Patron.works_on_loan"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.works_on_loan">[docs]</a>    <span class="k">def</span> <span class="nf">works_on_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">loans</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Loan</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Loan</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">loan</span><span class="o">.</span><span class="n">work</span> <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">loans</span> <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">work</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Patron.works_on_loan_or_on_hold"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.works_on_loan_or_on_hold">[docs]</a>    <span class="k">def</span> <span class="nf">works_on_loan_or_on_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">holds</span> <span class="o">=</span> <span class="p">[</span><span class="n">hold</span><span class="o">.</span><span class="n">work</span> <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">holds</span> <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">work</span><span class="p">]</span>
+        <span class="n">loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_on_loan</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">holds</span> <span class="o">+</span> <span class="n">loans</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Patron.can_borrow"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Patron.can_borrow">[docs]</a>    <span class="k">def</span> <span class="nf">can_borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">policy</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return true if the given policy allows this patron to borrow the</span>
+<span class="sd">        given work.</span>
+<span class="sd">        This will return False when the policy for this patron&#39;s</span>
+<span class="sd">        .external_type prevents access to this book&#39;s audience.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_type</span> <span class="ow">in</span> <span class="n">policy</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">work</span><span class="p">:</span>
+            <span class="c1"># Shouldn&#39;t happen, but not this method&#39;s problem.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">policy</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">external_type</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">allowed</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">AUDIENCE_RESTRICTION_POLICY</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">work</span><span class="o">.</span><span class="n">audience</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">synchronize_annotations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize_annotations</span>
+
+    <span class="nd">@synchronize_annotations</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">synchronize_annotations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;When a patron says they don&#39;t want their annotations to be stored</span>
+<span class="sd">        on a library server, delete all their annotations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># A patron cannot decide to go back to the state where</span>
+            <span class="c1"># they hadn&#39;t made a decision.</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;synchronize_annotations cannot be unset once set.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Annotation</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Annotation</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="bp">self</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="n">qu</span><span class="p">:</span>
+                <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_synchronize_annotations</span> <span class="o">=</span> <span class="n">value</span></div>
+
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_patron_library_id_external_identifier&quot;</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">)</span>
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_patron_library_id_authorization_identifier&quot;</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">)</span>
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_patron_library_id_username&quot;</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">Patron</span><span class="o">.</span><span class="n">username</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Loan"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Loan">[docs]</a><span class="k">class</span> <span class="nc">Loan</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">LoanAndHoldMixin</span><span class="p">):</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;loans&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">patron_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;patrons.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">integration_client_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;integrationclients.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A Loan is always associated with a LicensePool.</span>
+    <span class="n">license_pool_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;licensepools.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># It may also be associated with an individual License if the source</span>
+    <span class="c1"># provides information about individual licenses.</span>
+    <span class="n">license_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;licenses.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">fulfillment_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;licensepooldeliveries.id&#39;</span><span class="p">))</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Some distributors (e.g. Feedbooks) may have an identifier that can</span>
+    <span class="c1"># be used to check the status of a specific Loan.</span>
+    <span class="n">external_identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;patron_id&#39;</span><span class="p">,</span> <span class="s1">&#39;license_pool_id&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="Loan.until"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Loan.until">[docs]</a>    <span class="k">def</span> <span class="nf">until</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Give or estimate the time at which the loan will end.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span>
+        <span class="k">if</span> <span class="n">default_loan_period</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># This loan will last forever.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">start</span> <span class="o">+</span> <span class="n">default_loan_period</span></div></div>
+
+<div class="viewcode-block" id="Hold"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Hold">[docs]</a><span class="k">class</span> <span class="nc">Hold</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">LoanAndHoldMixin</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A patron is in line to check out a book.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;holds&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">patron_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;patrons.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">integration_client_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;integrationclients.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">license_pool_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;licensepools.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">position</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">external_identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_calculate_until</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">queue_position</span><span class="p">,</span> <span class="n">total_licenses</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">,</span>
+            <span class="n">default_reservation_period</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper method for `Hold.until` that can be tested independently.</span>
+<span class="sd">        We have to wait for the available licenses to cycle a</span>
+<span class="sd">        certain number of times before we get a turn.</span>
+<span class="sd">        Example: 4 licenses, queue position 21</span>
+<span class="sd">        After 1 cycle: queue position 17</span>
+<span class="sd">              2      : queue position 13</span>
+<span class="sd">              3      : queue position 9</span>
+<span class="sd">              4      : queue position 5</span>
+<span class="sd">              5      : queue position 1</span>
+<span class="sd">              6      : available</span>
+<span class="sd">        The worst-case cycle time is the loan period plus the reservation</span>
+<span class="sd">        period.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">queue_position</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># The book is currently reserved to this patron--they need</span>
+            <span class="c1"># to hurry up and check it out.</span>
+            <span class="k">return</span> <span class="n">start</span> <span class="o">+</span> <span class="n">default_reservation_period</span>
+
+        <span class="k">if</span> <span class="n">total_licenses</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># The book will never be available</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># If you are at the very front of the queue, the worst case</span>
+        <span class="c1"># time to get the book is is the time it takes for the person</span>
+        <span class="c1"># in front of you to get a reservation notification, borrow</span>
+        <span class="c1"># the book at the last minute, and keep the book for the</span>
+        <span class="c1"># maximum allowable time.</span>
+        <span class="n">cycle_period</span> <span class="o">=</span> <span class="p">(</span><span class="n">default_reservation_period</span> <span class="o">+</span> <span class="n">default_loan_period</span><span class="p">)</span>
+
+        <span class="c1"># This will happen at least once.</span>
+        <span class="n">cycles</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">queue_position</span> <span class="o">&lt;=</span> <span class="n">total_licenses</span><span class="p">:</span>
+            <span class="c1"># But then the book will be available to you.</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This will happen more than once. After the first cycle,</span>
+            <span class="c1"># other people will be notified that it&#39;s their turn,</span>
+            <span class="c1"># they&#39;ll wait a while, get a reservation, and then keep</span>
+            <span class="c1"># the book for a while, and so on.</span>
+            <span class="n">cycles</span> <span class="o">+=</span> <span class="n">queue_position</span> <span class="o">/</span> <span class="n">total_licenses</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">total_licenses</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">queue_position</span> <span class="o">%</span> <span class="n">total_licenses</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">cycles</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">cycle_period</span> <span class="o">*</span> <span class="n">cycles</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Hold.until"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Hold.until">[docs]</a>    <span class="k">def</span> <span class="nf">until</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_loan_period</span><span class="p">,</span> <span class="n">default_reservation_period</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Give or estimate the time at which the book will be available</span>
+<span class="sd">        to this patron.</span>
+<span class="sd">        This is a *very* rough estimate that should be treated more or</span>
+<span class="sd">        less as a worst case. (Though it could be even worse than</span>
+<span class="sd">        this--the library&#39;s license might expire and then you&#39;ll</span>
+<span class="sd">        _never_ get the book.)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">():</span>
+            <span class="c1"># The license source provided their own estimate, and it&#39;s</span>
+            <span class="c1"># not obviously wrong, so use it.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span>
+
+        <span class="k">if</span> <span class="n">default_loan_period</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">default_reservation_period</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># This hold has no definite end date, because there&#39;s no known</span>
+            <span class="c1"># upper bound on how long someone in front of you can keep the</span>
+            <span class="c1"># book.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">licenses_available</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">licenses_owned</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span>
+        <span class="k">if</span> <span class="n">position</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We don&#39;t know where in line we are. Assume we&#39;re at the</span>
+            <span class="c1"># end.</span>
+            <span class="n">position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_until</span><span class="p">(</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">licenses_available</span><span class="p">,</span>
+            <span class="n">default_loan_period</span><span class="p">,</span> <span class="n">default_reservation_period</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Hold.update"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Hold.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">position</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;When the book becomes available, position will be 0 and end will be</span>
+<span class="sd">        set to the time at which point the patron will lose their place in</span>
+<span class="sd">        line.</span>
+<span class="sd">        Otherwise, end is irrelevant and is set to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">end</span>
+        <span class="k">if</span> <span class="n">position</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">=</span> <span class="n">position</span></div>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;patron_id&#39;</span><span class="p">,</span> <span class="s1">&#39;license_pool_id&#39;</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Annotation"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Annotation">[docs]</a><span class="k">class</span> <span class="nc">Annotation</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="c1"># The Web Annotation Data Model defines a basic set of motivations.</span>
+    <span class="c1"># https://www.w3.org/TR/annotation-model/#motivation-and-purpose</span>
+    <span class="n">OA_NAMESPACE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://www.w3.org/ns/oa#&quot;</span>
+
+    <span class="c1"># We need to define some terms of our own.</span>
+    <span class="n">LS_NAMESPACE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/annotation/&quot;</span>
+
+    <span class="n">IDLING</span> <span class="o">=</span> <span class="n">LS_NAMESPACE</span> <span class="o">+</span> <span class="sa">u</span><span class="s1">&#39;idling&#39;</span>
+    <span class="n">BOOKMARKING</span> <span class="o">=</span> <span class="n">OA_NAMESPACE</span> <span class="o">+</span> <span class="sa">u</span><span class="s1">&#39;bookmarking&#39;</span>
+
+    <span class="n">MOTIVATIONS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">IDLING</span><span class="p">,</span>
+        <span class="n">BOOKMARKING</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;annotations&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">patron_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;patrons.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">identifier_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">motivation</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">active</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Annotation.get_one_or_create"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Annotation.get_one_or_create">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_one_or_create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create an Annotation, but only if the patron has</span>
+<span class="sd">        annotation sync turned on.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">synchronize_annotations</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Patron has opted out of synchronizing annotations.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Annotation.set_inactive"><a class="viewcode-back" href="../../../core.model.html#api.monitor.Annotation.set_inactive">[docs]</a>    <span class="k">def</span> <span class="nf">set_inactive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span></div></div>
+
+<div class="viewcode-block" id="PatronProfileStorage"><a class="viewcode-back" href="../../../core.model.html#api.monitor.PatronProfileStorage">[docs]</a><span class="k">class</span> <span class="nc">PatronProfileStorage</span><span class="p">(</span><span class="n">ProfileStorage</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface between a Patron object and the User Profile Management</span>
+<span class="sd">    Protocol.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">url_for</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set up a storage interface for a specific Patron.</span>
+<span class="sd">        :param patron: We are accessing the profile for this patron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patron</span> <span class="o">=</span> <span class="n">patron</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">url_for</span> <span class="o">=</span> <span class="n">url_for</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">writable_setting_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the subset of settings that are considered writable.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">SYNCHRONIZE_ANNOTATIONS</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profile_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a Profile document representing the patron&#39;s current</span>
+<span class="sd">        status.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">doc</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">patron</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron</span>
+        <span class="n">doc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">AUTHORIZATION_IDENTIFIER</span><span class="p">]</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span>
+        <span class="k">if</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_expires</span><span class="p">:</span>
+            <span class="n">doc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">AUTHORIZATION_EXPIRES</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">patron</span><span class="o">.</span><span class="n">authorization_expires</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">T%H:%M:%SZ&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SYNCHRONIZE_ANNOTATIONS</span> <span class="p">:</span>
+            <span class="n">patron</span><span class="o">.</span><span class="n">synchronize_annotations</span>
+        <span class="p">}</span>
+        <span class="n">doc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">SETTINGS_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="n">settings</span>
+        <span class="k">return</span> <span class="n">doc</span>
+
+<div class="viewcode-block" id="PatronProfileStorage.update"><a class="viewcode-back" href="../../../core.model.html#api.monitor.PatronProfileStorage.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settable</span><span class="p">,</span> <span class="n">full</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Bring the Patron&#39;s status up-to-date with the given document.</span>
+<span class="sd">        Right now this means making sure Patron.synchronize_annotations</span>
+<span class="sd">        is up to date.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SYNCHRONIZE_ANNOTATIONS</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">settable</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="o">.</span><span class="n">synchronize_annotations</span> <span class="o">=</span> <span class="n">settable</span><span class="p">[</span><span class="n">key</span><span class="p">]</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,144 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.admin.controller.self_tests &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.admin.controller.self_tests</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">SettingsController</span>
+
+<div class="viewcode-block" id="SelfTestsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController">[docs]</a><span class="k">class</span> <span class="nc">SelfTestsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_manage_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MISSING_IDENTIFIER</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;GET&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_post</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SelfTestsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">item</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">protocol_class</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_find_protocol_class&quot;</span><span class="p">):</span>
+            <span class="n">protocol_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_protocol_class</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;self_test_results&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_prior_test_results</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">protocol_class</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">self_test_results</span><span class="o">=</span><span class="n">info</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SelfTestsController.process_post"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.process_post">[docs]</a>    <span class="k">def</span> <span class="nf">process_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span> <span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">item</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_tests</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">elif</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Successfully ran new self tests&quot;</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">FAILED_TO_RUN_SELF_TESTS</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+            <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Failed to run self tests for this </span><span class="si">%(type)s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  <li><a href="../controller.html">api.admin.controller</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

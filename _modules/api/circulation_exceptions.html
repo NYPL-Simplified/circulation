@@ -1,0 +1,317 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.circulation_exceptions &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.circulation_exceptions</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="n">IntegrationException</span>
+<span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">INTEGRATION_ERROR</span><span class="p">,</span>
+    <span class="n">INTERNAL_SERVER_ERROR</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="CirculationException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CirculationException">[docs]</a><span class="k">class</span> <span class="nc">CirculationException</span><span class="p">(</span><span class="n">IntegrationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An exception occured when carrying out a circulation operation.</span>
+
+<span class="sd">    `status_code` is the status code that should be returned to the patron.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="n">message</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">debug_info</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="InternalServerError"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.InternalServerError">[docs]</a><span class="k">class</span> <span class="nc">InternalServerError</span><span class="p">(</span><span class="n">IntegrationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span>
+
+<div class="viewcode-block" id="InternalServerError.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.InternalServerError.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">INTERNAL_SERVER_ERROR</span></div></div>
+
+<div class="viewcode-block" id="RemoteInitiatedServerError"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.RemoteInitiatedServerError">[docs]</a><span class="k">class</span> <span class="nc">RemoteInitiatedServerError</span><span class="p">(</span><span class="n">InternalServerError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;One of the servers we communicate with had an internal error.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">502</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">service_name</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">RemoteInitiatedServerError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span> <span class="o">=</span> <span class="n">service_name</span>
+
+<div class="viewcode-block" id="RemoteInitiatedServerError.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.RemoteInitiatedServerError.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Integration error communicating with </span><span class="si">%(service_name)s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">service_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="NoOpenAccessDownload"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NoOpenAccessDownload">[docs]</a><span class="k">class</span> <span class="nc">NoOpenAccessDownload</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;We expected a book to have an open-access download, but it didn&#39;t.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="AuthorizationFailedException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.AuthorizationFailedException">[docs]</a><span class="k">class</span> <span class="nc">AuthorizationFailedException</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">401</span></div>
+
+<div class="viewcode-block" id="PatronAuthorizationFailedException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronAuthorizationFailedException">[docs]</a><span class="k">class</span> <span class="nc">PatronAuthorizationFailedException</span><span class="p">(</span><span class="n">AuthorizationFailedException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="RemotePatronCreationFailedException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.RemotePatronCreationFailedException">[docs]</a><span class="k">class</span> <span class="nc">RemotePatronCreationFailedException</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="LibraryAuthorizationFailedException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.LibraryAuthorizationFailedException">[docs]</a><span class="k">class</span> <span class="nc">LibraryAuthorizationFailedException</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="InvalidInputException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.InvalidInputException">[docs]</a><span class="k">class</span> <span class="nc">InvalidInputException</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron gave invalid input to the library.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="LibraryInvalidInputException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.LibraryInvalidInputException">[docs]</a><span class="k">class</span> <span class="nc">LibraryInvalidInputException</span><span class="p">(</span><span class="n">InvalidInputException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The library gave invalid input to the book provider.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="DeliveryMechanismError"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.DeliveryMechanismError">[docs]</a><span class="k">class</span> <span class="nc">DeliveryMechanismError</span><span class="p">(</span><span class="n">InvalidInputException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span>
+    <span class="sd">&quot;&quot;&quot;The patron broke the rules about delivery mechanisms.&quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="DeliveryMechanismMissing"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.DeliveryMechanismMissing">[docs]</a><span class="k">class</span> <span class="nc">DeliveryMechanismMissing</span><span class="p">(</span><span class="n">DeliveryMechanismError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron needed to specify a delivery mechanism and didn&#39;t.&quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="DeliveryMechanismConflict"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.DeliveryMechanismConflict">[docs]</a><span class="k">class</span> <span class="nc">DeliveryMechanismConflict</span><span class="p">(</span><span class="n">DeliveryMechanismError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron specified a delivery mechanism that conflicted with</span>
+<span class="sd">    one already set in stone.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="CannotLoan"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotLoan">[docs]</a><span class="k">class</span> <span class="nc">CannotLoan</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="OutstandingFines"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.OutstandingFines">[docs]</a><span class="k">class</span> <span class="nc">OutstandingFines</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron has outstanding fines above the limit in the library&#39;s</span>
+<span class="sd">    policy.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">403</span></div>
+
+<div class="viewcode-block" id="AuthorizationExpired"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.AuthorizationExpired">[docs]</a><span class="k">class</span> <span class="nc">AuthorizationExpired</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron&#39;s authorization has expired.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">403</span>
+
+<div class="viewcode-block" id="AuthorizationExpired.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.AuthorizationExpired.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">EXPIRED_CREDENTIALS</span></div></div>
+
+<div class="viewcode-block" id="AuthorizationBlocked"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.AuthorizationBlocked">[docs]</a><span class="k">class</span> <span class="nc">AuthorizationBlocked</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron&#39;s authorization is blocked for some reason other than</span>
+<span class="sd">    fines or an expired card.</span>
+
+<span class="sd">    For instance, the patron has been banned from the library.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">403</span>
+
+<div class="viewcode-block" id="AuthorizationBlocked.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.AuthorizationBlocked.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">BLOCKED_CREDENTIALS</span></div></div>
+
+
+<div class="viewcode-block" id="PatronLoanLimitReached"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronLoanLimitReached">[docs]</a><span class="k">class</span> <span class="nc">PatronLoanLimitReached</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">403</span></div>
+
+<div class="viewcode-block" id="CannotReturn"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotReturn">[docs]</a><span class="k">class</span> <span class="nc">CannotReturn</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="CannotHold"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotHold">[docs]</a><span class="k">class</span> <span class="nc">CannotHold</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="PatronHoldLimitReached"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronHoldLimitReached">[docs]</a><span class="k">class</span> <span class="nc">PatronHoldLimitReached</span><span class="p">(</span><span class="n">CannotHold</span><span class="p">):</span>
+
+<div class="viewcode-block" id="PatronHoldLimitReached.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronHoldLimitReached.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">HOLD_LIMIT_REACHED</span></div></div>
+
+<div class="viewcode-block" id="CannotReleaseHold"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotReleaseHold">[docs]</a><span class="k">class</span> <span class="nc">CannotReleaseHold</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="CannotFulfill"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotFulfill">[docs]</a><span class="k">class</span> <span class="nc">CannotFulfill</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="CannotPartiallyFulfill"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotPartiallyFulfill">[docs]</a><span class="k">class</span> <span class="nc">CannotPartiallyFulfill</span><span class="p">(</span><span class="n">CannotFulfill</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="FormatNotAvailable"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.FormatNotAvailable">[docs]</a><span class="k">class</span> <span class="nc">FormatNotAvailable</span><span class="p">(</span><span class="n">CannotFulfill</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Our format information for this book was outdated, and it&#39;s</span>
+<span class="sd">    no longer available in the requested format.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">502</span></div>
+
+<div class="viewcode-block" id="NotFoundOnRemote"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NotFoundOnRemote">[docs]</a><span class="k">class</span> <span class="nc">NotFoundOnRemote</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;We know about this book but the remote site doesn&#39;t seem to.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">404</span></div>
+
+<div class="viewcode-block" id="NoLicenses"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NoLicenses">[docs]</a><span class="k">class</span> <span class="nc">NoLicenses</span><span class="p">(</span><span class="n">NotFoundOnRemote</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The library no longer has licenses for this book.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="NoLicenses.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NoLicenses.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">NO_LICENSES</span></div></div>
+
+<div class="viewcode-block" id="CannotRenew"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotRenew">[docs]</a><span class="k">class</span> <span class="nc">CannotRenew</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron can&#39;t renew their loan on this book.</span>
+
+<span class="sd">    Probably because it&#39;s not available for renewal.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="NoAvailableCopies"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NoAvailableCopies">[docs]</a><span class="k">class</span> <span class="nc">NoAvailableCopies</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron can&#39;t check this book out because all available</span>
+<span class="sd">    copies are already checked out.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="AlreadyCheckedOut"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.AlreadyCheckedOut">[docs]</a><span class="k">class</span> <span class="nc">AlreadyCheckedOut</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron can&#39;t put check this book out because they already have</span>
+<span class="sd">    it checked out.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="AlreadyOnHold"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.AlreadyOnHold">[docs]</a><span class="k">class</span> <span class="nc">AlreadyOnHold</span><span class="p">(</span><span class="n">CannotHold</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron can&#39;t put this book on hold because they already have</span>
+<span class="sd">    it on hold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="NotCheckedOut"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NotCheckedOut">[docs]</a><span class="k">class</span> <span class="nc">NotCheckedOut</span><span class="p">(</span><span class="n">CannotReturn</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron can&#39;t return this book because they don&#39;t</span>
+<span class="sd">    have it checked out in the first place.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="RemoteRefusedReturn"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.RemoteRefusedReturn">[docs]</a><span class="k">class</span> <span class="nc">RemoteRefusedReturn</span><span class="p">(</span><span class="n">CannotReturn</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The remote refused to count this book as returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
+
+<div class="viewcode-block" id="NotOnHold"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NotOnHold">[docs]</a><span class="k">class</span> <span class="nc">NotOnHold</span><span class="p">(</span><span class="n">CannotReleaseHold</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron can&#39;t release a hold for this book because they don&#39;t</span>
+<span class="sd">    have it on hold in the first place.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="CurrentlyAvailable"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CurrentlyAvailable">[docs]</a><span class="k">class</span> <span class="nc">CurrentlyAvailable</span><span class="p">(</span><span class="n">CannotHold</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron can&#39;t put this book on hold because it&#39;s available now.&quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="NoAcceptableFormat"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NoAcceptableFormat">[docs]</a><span class="k">class</span> <span class="nc">NoAcceptableFormat</span><span class="p">(</span><span class="n">CannotFulfill</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;We can&#39;t fulfill the patron&#39;s loan because the book is not available</span>
+<span class="sd">    in an acceptable format.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="FulfilledOnIncompatiblePlatform"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.FulfilledOnIncompatiblePlatform">[docs]</a><span class="k">class</span> <span class="nc">FulfilledOnIncompatiblePlatform</span><span class="p">(</span><span class="n">CannotFulfill</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;We can&#39;t fulfill the patron&#39;s loan because the loan was already</span>
+<span class="sd">    fulfilled on an incompatible platform (i.e. Kindle) in a way that&#39;s</span>
+<span class="sd">    exclusive to that platform.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">451</span></div>
+
+<div class="viewcode-block" id="NoActiveLoan"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.NoActiveLoan">[docs]</a><span class="k">class</span> <span class="nc">NoActiveLoan</span><span class="p">(</span><span class="n">CannotFulfill</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;We can&#39;t fulfill the patron&#39;s loan because they don&#39;t have an</span>
+<span class="sd">    active loan.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span></div>
+
+<div class="viewcode-block" id="PatronNotFoundOnRemote"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronNotFoundOnRemote">[docs]</a><span class="k">class</span> <span class="nc">PatronNotFoundOnRemote</span><span class="p">(</span><span class="n">NotFoundOnRemote</span><span class="p">):</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">404</span></div>
+
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

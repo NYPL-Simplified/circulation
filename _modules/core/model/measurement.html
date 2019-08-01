@@ -1,0 +1,357 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.measurement &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.measurement</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Measurement</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="n">DataSourceConstants</span>
+
+<span class="kn">import</span> <span class="nn">bisect</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">Float</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="Measurement"><a class="viewcode-back" href="../../../core.model.html#core.model.measurement.Measurement">[docs]</a><span class="k">class</span> <span class="nc">Measurement</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A  measurement of some numeric quantity associated with a</span>
+<span class="sd">    Identifier.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;measurements&#39;</span>
+
+    <span class="c1"># Some common measurement types</span>
+    <span class="n">POPULARITY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/popularity&quot;</span>
+    <span class="n">QUALITY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/quality&quot;</span>
+    <span class="n">PUBLISHED_EDITIONS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/editions&quot;</span>
+    <span class="n">HOLDINGS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/holdings&quot;</span>
+    <span class="n">RATING</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://schema.org/ratingValue&quot;</span>
+    <span class="n">DOWNLOADS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://schema.org/UserDownloads&quot;</span>
+    <span class="n">PAGE_COUNT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;https://schema.org/numberOfPages&quot;</span>
+    <span class="n">AWARDS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/awards&quot;</span>
+
+    <span class="n">GUTENBERG_FAVORITE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://librarysimplified.org/terms/rel/lists/gutenberg-favorite&quot;</span>
+
+    <span class="c1"># We have a number of ways of measuring popularity: by an opaque</span>
+    <span class="c1"># number such as Amazon&#39;s Sales Rank, or by a directly measured</span>
+    <span class="c1"># quantity such as the number of downloads or published editions,</span>
+    <span class="c1"># or the number of libraries with a given book in their</span>
+    <span class="c1"># collection.</span>
+    <span class="c1">#</span>
+    <span class="c1"># All of these ways of measuring popularity need to be scaled to a</span>
+    <span class="c1"># range between 0 and 1. This nested dictionary contains</span>
+    <span class="c1"># empirically determined measurements keyed by what they are measureing</span>
+    <span class="c1">#</span>
+    <span class="c1"># Each list has 100 elements. If a popularity measurement is found</span>
+    <span class="c1"># between index n and index n+1 on a given list, it is in the nth</span>
+    <span class="c1"># percentile and its scaled value should be n * 0.01.</span>
+    <span class="c1">#</span>
+    <span class="c1"># If you graphed one of these lists as a histogram you&#39;d see how</span>
+    <span class="c1"># values for the measured quantity are distributed, and what values</span>
+    <span class="c1"># are above or below average.</span>
+    <span class="n">PERCENTILE_SCALES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c1"># A book may have a popularity score derived from an opaque</span>
+        <span class="c1"># measure of &#39;popularity&#39; from some other source.</span>
+        <span class="c1">#</span>
+        <span class="n">POPULARITY</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="c1"># Overdrive provides a &#39;popularity&#39; score for each book.</span>
+            <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span> <span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">21</span><span class="p">,</span> <span class="mi">22</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">33</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">41</span><span class="p">,</span> <span class="mi">43</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">48</span><span class="p">,</span> <span class="mi">51</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">56</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">63</span><span class="p">,</span> <span class="mi">66</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">74</span><span class="p">,</span> <span class="mi">78</span><span class="p">,</span> <span class="mi">82</span><span class="p">,</span> <span class="mi">87</span><span class="p">,</span> <span class="mi">92</span><span class="p">,</span> <span class="mi">97</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">108</span><span class="p">,</span> <span class="mi">115</span><span class="p">,</span> <span class="mi">121</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">135</span><span class="p">,</span> <span class="mi">142</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">159</span><span class="p">,</span> <span class="mi">168</span><span class="p">,</span> <span class="mi">179</span><span class="p">,</span> <span class="mi">190</span><span class="p">,</span> <span class="mi">202</span><span class="p">,</span> <span class="mi">216</span><span class="p">,</span> <span class="mi">230</span><span class="p">,</span> <span class="mi">245</span><span class="p">,</span> <span class="mi">260</span><span class="p">,</span> <span class="mi">277</span><span class="p">,</span> <span class="mi">297</span><span class="p">,</span> <span class="mi">319</span><span class="p">,</span> <span class="mi">346</span><span class="p">,</span> <span class="mi">372</span><span class="p">,</span> <span class="mi">402</span><span class="p">,</span> <span class="mi">436</span><span class="p">,</span> <span class="mi">478</span><span class="p">,</span> <span class="mi">521</span><span class="p">,</span> <span class="mi">575</span><span class="p">,</span> <span class="mi">632</span><span class="p">,</span> <span class="mi">702</span><span class="p">,</span> <span class="mi">777</span><span class="p">,</span> <span class="mi">861</span><span class="p">,</span> <span class="mi">965</span><span class="p">,</span> <span class="mi">1100</span><span class="p">,</span> <span class="mi">1248</span><span class="p">,</span> <span class="mi">1428</span><span class="p">,</span> <span class="mi">1665</span><span class="p">,</span> <span class="mi">2020</span><span class="p">,</span> <span class="mi">2560</span><span class="p">,</span> <span class="mi">3535</span><span class="p">,</span> <span class="mi">5805</span><span class="p">],</span>
+
+            <span class="c1"># Amazon Sales Rank - lower means more sales.</span>
+            <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">AMAZON</span> <span class="p">:</span> <span class="p">[</span><span class="mi">14937330</span><span class="p">,</span> <span class="mi">1974074</span><span class="p">,</span> <span class="mi">1702163</span><span class="p">,</span> <span class="mi">1553600</span><span class="p">,</span> <span class="mi">1432635</span><span class="p">,</span> <span class="mi">1327323</span><span class="p">,</span> <span class="mi">1251089</span><span class="p">,</span> <span class="mi">1184878</span><span class="p">,</span> <span class="mi">1131998</span><span class="p">,</span> <span class="mi">1075720</span><span class="p">,</span> <span class="mi">1024272</span><span class="p">,</span> <span class="mi">978514</span><span class="p">,</span> <span class="mi">937726</span><span class="p">,</span> <span class="mi">898606</span><span class="p">,</span> <span class="mi">868506</span><span class="p">,</span> <span class="mi">837523</span><span class="p">,</span> <span class="mi">799879</span><span class="p">,</span> <span class="mi">770211</span><span class="p">,</span> <span class="mi">743194</span><span class="p">,</span> <span class="mi">718052</span><span class="p">,</span> <span class="mi">693932</span><span class="p">,</span> <span class="mi">668030</span><span class="p">,</span> <span class="mi">647121</span><span class="p">,</span> <span class="mi">627642</span><span class="p">,</span> <span class="mi">609399</span><span class="p">,</span> <span class="mi">591843</span><span class="p">,</span> <span class="mi">575970</span><span class="p">,</span> <span class="mi">559942</span><span class="p">,</span> <span class="mi">540713</span><span class="p">,</span> <span class="mi">524397</span><span class="p">,</span> <span class="mi">511183</span><span class="p">,</span> <span class="mi">497576</span><span class="p">,</span> <span class="mi">483884</span><span class="p">,</span> <span class="mi">470850</span><span class="p">,</span> <span class="mi">458438</span><span class="p">,</span> <span class="mi">444475</span><span class="p">,</span> <span class="mi">432528</span><span class="p">,</span> <span class="mi">420088</span><span class="p">,</span> <span class="mi">408785</span><span class="p">,</span> <span class="mi">398420</span><span class="p">,</span> <span class="mi">387895</span><span class="p">,</span> <span class="mi">377244</span><span class="p">,</span> <span class="mi">366837</span><span class="p">,</span> <span class="mi">355406</span><span class="p">,</span> <span class="mi">344288</span><span class="p">,</span> <span class="mi">333747</span><span class="p">,</span> <span class="mi">324280</span><span class="p">,</span> <span class="mi">315002</span><span class="p">,</span> <span class="mi">305918</span><span class="p">,</span> <span class="mi">296420</span><span class="p">,</span> <span class="mi">288522</span><span class="p">,</span> <span class="mi">279185</span><span class="p">,</span> <span class="mi">270824</span><span class="p">,</span> <span class="mi">262801</span><span class="p">,</span> <span class="mi">253865</span><span class="p">,</span> <span class="mi">246224</span><span class="p">,</span> <span class="mi">238239</span><span class="p">,</span> <span class="mi">230537</span><span class="p">,</span> <span class="mi">222611</span><span class="p">,</span> <span class="mi">215989</span><span class="p">,</span> <span class="mi">208641</span><span class="p">,</span> <span class="mi">202597</span><span class="p">,</span> <span class="mi">195817</span><span class="p">,</span> <span class="mi">188939</span><span class="p">,</span> <span class="mi">181095</span><span class="p">,</span> <span class="mi">173967</span><span class="p">,</span> <span class="mi">166058</span><span class="p">,</span> <span class="mi">160032</span><span class="p">,</span> <span class="mi">153526</span><span class="p">,</span> <span class="mi">146706</span><span class="p">,</span> <span class="mi">139981</span><span class="p">,</span> <span class="mi">133348</span><span class="p">,</span> <span class="mi">126689</span><span class="p">,</span> <span class="mi">119201</span><span class="p">,</span> <span class="mi">112447</span><span class="p">,</span> <span class="mi">106795</span><span class="p">,</span> <span class="mi">101250</span><span class="p">,</span> <span class="mi">96534</span><span class="p">,</span> <span class="mi">91052</span><span class="p">,</span> <span class="mi">85837</span><span class="p">,</span> <span class="mi">80619</span><span class="p">,</span> <span class="mi">75292</span><span class="p">,</span> <span class="mi">69957</span><span class="p">,</span> <span class="mi">65075</span><span class="p">,</span> <span class="mi">59901</span><span class="p">,</span> <span class="mi">55616</span><span class="p">,</span> <span class="mi">51624</span><span class="p">,</span> <span class="mi">47598</span><span class="p">,</span> <span class="mi">43645</span><span class="p">,</span> <span class="mi">39403</span><span class="p">,</span> <span class="mi">35645</span><span class="p">,</span> <span class="mi">31795</span><span class="p">,</span> <span class="mi">27990</span><span class="p">,</span> <span class="mi">24496</span><span class="p">,</span> <span class="mi">20780</span><span class="p">,</span> <span class="mi">17740</span><span class="p">,</span> <span class="mi">14102</span><span class="p">,</span> <span class="mi">10498</span><span class="p">,</span> <span class="mi">7090</span><span class="p">,</span> <span class="mi">3861</span><span class="p">],</span>
+
+            <span class="c1"># This is as measured by the criteria defined in</span>
+            <span class="c1"># ContentCafeSOAPClient.estimate_popularity(), in which</span>
+            <span class="c1"># popularity is the maximum of a) the largest number of books</span>
+            <span class="c1"># ordered in a single month within the last year, or b)</span>
+            <span class="c1"># one-half the largest number of books ever ordered in a</span>
+            <span class="c1"># single month.</span>
+            <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">CONTENT_CAFE</span> <span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">41</span><span class="p">,</span> <span class="mi">125</span><span class="p">,</span> <span class="mi">387</span><span class="p">],</span>
+        <span class="p">},</span>
+
+        <span class="c1"># The popularity of a book may be deduced from the number of</span>
+        <span class="c1"># libraries with that book in their collections.</span>
+        <span class="c1">#</span>
+        <span class="n">HOLDINGS</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OCLC</span> <span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="mi">33</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span> <span class="mi">43</span><span class="p">,</span> <span class="mi">49</span><span class="p">,</span> <span class="mi">55</span><span class="p">,</span> <span class="mi">62</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">78</span><span class="p">,</span> <span class="mi">86</span><span class="p">,</span> <span class="mi">94</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">110</span><span class="p">,</span> <span class="mi">118</span><span class="p">,</span> <span class="mi">126</span><span class="p">,</span> <span class="mi">134</span><span class="p">,</span> <span class="mi">143</span><span class="p">,</span> <span class="mi">151</span><span class="p">,</span> <span class="mi">160</span><span class="p">,</span> <span class="mi">170</span><span class="p">,</span> <span class="mi">178</span><span class="p">,</span> <span class="mi">187</span><span class="p">,</span> <span class="mi">196</span><span class="p">,</span> <span class="mi">205</span><span class="p">,</span> <span class="mi">214</span><span class="p">,</span> <span class="mi">225</span><span class="p">,</span> <span class="mi">233</span><span class="p">,</span> <span class="mi">243</span><span class="p">,</span> <span class="mi">253</span><span class="p">,</span> <span class="mi">263</span><span class="p">,</span> <span class="mi">275</span><span class="p">,</span> <span class="mi">286</span><span class="p">,</span> <span class="mi">298</span><span class="p">,</span> <span class="mi">310</span><span class="p">,</span> <span class="mi">321</span><span class="p">,</span> <span class="mi">333</span><span class="p">,</span> <span class="mi">345</span><span class="p">,</span> <span class="mi">358</span><span class="p">,</span> <span class="mi">370</span><span class="p">,</span> <span class="mi">385</span><span class="p">,</span> <span class="mi">398</span><span class="p">,</span> <span class="mi">413</span><span class="p">,</span> <span class="mi">427</span><span class="p">,</span> <span class="mi">443</span><span class="p">,</span> <span class="mi">458</span><span class="p">,</span> <span class="mi">475</span><span class="p">,</span> <span class="mi">492</span><span class="p">,</span> <span class="mi">511</span><span class="p">,</span> <span class="mi">530</span><span class="p">,</span> <span class="mi">549</span><span class="p">,</span> <span class="mi">567</span><span class="p">,</span> <span class="mi">586</span><span class="p">,</span> <span class="mi">606</span><span class="p">,</span> <span class="mi">627</span><span class="p">,</span> <span class="mi">647</span><span class="p">,</span> <span class="mi">669</span><span class="p">,</span> <span class="mi">693</span><span class="p">,</span> <span class="mi">718</span><span class="p">,</span> <span class="mi">741</span><span class="p">,</span> <span class="mi">766</span><span class="p">,</span> <span class="mi">794</span><span class="p">,</span> <span class="mi">824</span><span class="p">,</span> <span class="mi">852</span><span class="p">,</span> <span class="mi">882</span><span class="p">,</span> <span class="mi">914</span><span class="p">,</span> <span class="mi">947</span><span class="p">,</span> <span class="mi">980</span><span class="p">,</span> <span class="mi">1018</span><span class="p">,</span> <span class="mi">1056</span><span class="p">,</span> <span class="mi">1098</span><span class="p">,</span> <span class="mi">1142</span><span class="p">,</span> <span class="mi">1188</span><span class="p">,</span> <span class="mi">1235</span><span class="p">,</span> <span class="mi">1288</span><span class="p">,</span> <span class="mi">1347</span><span class="p">,</span> <span class="mi">1410</span><span class="p">,</span> <span class="mi">1477</span><span class="p">,</span> <span class="mi">1545</span><span class="p">,</span> <span class="mi">1625</span><span class="p">,</span> <span class="mi">1714</span><span class="p">,</span> <span class="mi">1812</span><span class="p">,</span> <span class="mi">1923</span><span class="p">,</span> <span class="mi">2039</span><span class="p">,</span> <span class="mi">2164</span><span class="p">,</span> <span class="mi">2304</span><span class="p">,</span> <span class="mi">2479</span><span class="p">,</span> <span class="mi">2671</span><span class="p">,</span> <span class="mi">2925</span><span class="p">,</span> <span class="mi">3220</span><span class="p">,</span> <span class="mi">3565</span><span class="p">,</span> <span class="mi">3949</span><span class="p">,</span> <span class="mi">4476</span><span class="p">,</span> <span class="mi">5230</span><span class="p">,</span> <span class="mi">7125</span><span class="p">,</span> <span class="mi">34811</span><span class="p">],</span>
+        <span class="p">},</span>
+
+        <span class="c1"># The popularity of a book may be deduced from the number of</span>
+        <span class="c1"># published editions of that book.</span>
+        <span class="c1">#</span>
+        <span class="n">PUBLISHED_EDITIONS</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OCLC</span> <span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">21</span><span class="p">,</span> <span class="mi">22</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">36</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">42</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">56</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">73</span><span class="p">,</span> <span class="mi">87</span><span class="p">,</span> <span class="mi">112</span><span class="p">,</span> <span class="mi">156</span><span class="p">,</span> <span class="mi">281</span><span class="p">,</span> <span class="mi">2812</span><span class="p">],</span>
+        <span class="p">},</span>
+
+        <span class="c1"># The popularity of a book may be deduced from the number of</span>
+        <span class="c1"># recent downloads from some site.</span>
+        <span class="c1">#</span>
+        <span class="n">DOWNLOADS</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">GUTENBERG</span> <span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">21</span><span class="p">,</span> <span class="mi">21</span><span class="p">,</span> <span class="mi">22</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">33</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="mi">36</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">41</span><span class="p">,</span> <span class="mi">43</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">48</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">55</span><span class="p">,</span> <span class="mi">57</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">62</span><span class="p">,</span> <span class="mi">65</span><span class="p">,</span> <span class="mi">69</span><span class="p">,</span> <span class="mi">72</span><span class="p">,</span> <span class="mi">76</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">83</span><span class="p">,</span> <span class="mi">87</span><span class="p">,</span> <span class="mi">93</span><span class="p">,</span> <span class="mi">99</span><span class="p">,</span> <span class="mi">106</span><span class="p">,</span> <span class="mi">114</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">130</span><span class="p">,</span> <span class="mi">140</span><span class="p">,</span> <span class="mi">152</span><span class="p">,</span> <span class="mi">163</span><span class="p">,</span> <span class="mi">179</span><span class="p">,</span> <span class="mi">197</span><span class="p">,</span> <span class="mi">220</span><span class="p">,</span> <span class="mi">251</span><span class="p">,</span> <span class="mi">281</span><span class="p">,</span> <span class="mi">317</span><span class="p">,</span> <span class="mi">367</span><span class="p">,</span> <span class="mi">432</span><span class="p">,</span> <span class="mi">501</span><span class="p">,</span> <span class="mi">597</span><span class="p">,</span> <span class="mi">658</span><span class="p">,</span> <span class="mi">718</span><span class="p">,</span> <span class="mi">801</span><span class="p">,</span> <span class="mi">939</span><span class="p">,</span> <span class="mi">1065</span><span class="p">,</span> <span class="mi">1286</span><span class="p">,</span> <span class="mi">1668</span><span class="p">,</span> <span class="mi">2291</span><span class="p">,</span> <span class="mi">4139</span><span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Ratings are issued on a scale which differs from one data source</span>
+    <span class="c1"># to another. Once we know the scale used by a given data source, we can</span>
+    <span class="c1"># scale its ratings to the 0..1 range and create a &#39;quality&#39; rating.</span>
+    <span class="n">RATING_SCALES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span> <span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">AMAZON</span> <span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">UNGLUE_IT</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">NOVELIST</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">LIBRARY_STAFF</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A Measurement is always associated with some Identifier.</span>
+    <span class="n">identifier_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A Measurement always comes from some DataSource.</span>
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The quantity being measured.</span>
+    <span class="n">quantity_measured</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The measurement itself.</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">)</span>
+
+    <span class="c1"># The measurement normalized to a 0...1 scale.</span>
+    <span class="n">_normalized_value</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;normalized_value&quot;</span><span class="p">)</span>
+
+    <span class="c1"># How much weight should be assigned this measurement, relative to</span>
+    <span class="c1"># other measurements of the same quantity from the same source.</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># When the measurement was taken</span>
+    <span class="n">taken_at</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># True if this is the most recent measurement of this quantity for</span>
+    <span class="c1"># this Identifier.</span>
+    <span class="c1">#</span>
+    <span class="n">is_most_recent</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(</span><span class="si">%r</span><span class="s2">)=</span><span class="si">%s</span><span class="s2"> (norm=</span><span class="si">%.2f</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">quantity_measured</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">normalized_value</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Measurement.overall_quality"><a class="viewcode-back" href="../../../core.model.html#core.model.measurement.Measurement.overall_quality">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">overall_quality</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">measurements</span><span class="p">,</span> <span class="n">popularity_weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+                        <span class="n">rating_weight</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn a bunch of measurements into an overall measure of quality.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">popularity_weight</span> <span class="o">+</span> <span class="n">rating_weight</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Popularity weight and rating weight must sum to 1! (</span><span class="si">%.2f</span><span class="s2"> + </span><span class="si">%.2f</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">popularity_weight</span><span class="p">,</span> <span class="n">rating_weight</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">popularities</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ratings</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">qualities</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">measurements</span><span class="p">:</span>
+            <span class="n">l</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">m</span><span class="o">.</span><span class="n">quantity_measured</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">RATING</span><span class="p">:</span>
+                <span class="n">l</span> <span class="o">=</span> <span class="n">ratings</span>
+            <span class="k">elif</span> <span class="n">m</span><span class="o">.</span><span class="n">quantity_measured</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">QUALITY</span><span class="p">:</span>
+                <span class="n">l</span> <span class="o">=</span> <span class="n">qualities</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># NOTE: This is assuming that everything in PERCENTILE_SCALES</span>
+                <span class="c1"># is an opaque measure of &#39;popularity&#39;.</span>
+                <span class="n">l</span> <span class="o">=</span> <span class="n">popularities</span>
+            <span class="k">if</span> <span class="n">l</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">popularity</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_average_normalized_value</span><span class="p">(</span><span class="n">popularities</span><span class="p">)</span>
+        <span class="n">rating</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_average_normalized_value</span><span class="p">(</span><span class="n">ratings</span><span class="p">)</span>
+        <span class="n">quality</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_average_normalized_value</span><span class="p">(</span><span class="n">qualities</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">popularity</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rating</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">quality</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We have absolutely no idea about the quality of this work.</span>
+            <span class="k">return</span> <span class="n">default_value</span>
+        <span class="k">if</span> <span class="n">popularity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rating</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">quality</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Our idea of the quality depends entirely on the work&#39;s popularity.</span>
+            <span class="k">return</span> <span class="n">popularity</span>
+        <span class="k">if</span> <span class="n">rating</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">popularity</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">quality</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Our idea of the quality depends entirely on the work&#39;s rating.</span>
+            <span class="k">return</span> <span class="n">rating</span>
+        <span class="k">if</span> <span class="n">quality</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rating</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">popularity</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Our idea of the quality depends entirely on the work&#39;s quality scores.</span>
+            <span class="k">return</span> <span class="n">quality</span>
+
+        <span class="c1"># We have at least two of the three... but which two?</span>
+        <span class="k">if</span> <span class="n">popularity</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We have rating and quality but not popularity.</span>
+            <span class="n">final</span> <span class="o">=</span> <span class="n">rating</span>
+        <span class="k">elif</span> <span class="n">rating</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We have quality and popularity but not rating.</span>
+            <span class="n">final</span> <span class="o">=</span> <span class="n">popularity</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We have popularity and rating but not quality.</span>
+            <span class="n">final</span> <span class="o">=</span> <span class="p">(</span><span class="n">popularity</span> <span class="o">*</span> <span class="n">popularity_weight</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">rating</span> <span class="o">*</span> <span class="n">rating_weight</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;(</span><span class="si">%.2f</span><span class="s2"> * </span><span class="si">%.2f</span><span class="s2">) + (</span><span class="si">%.2f</span><span class="s2"> * </span><span class="si">%.2f</span><span class="s2">) = </span><span class="si">%.2f</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">popularity</span><span class="p">,</span> <span class="n">popularity_weight</span><span class="p">,</span> <span class="n">rating</span><span class="p">,</span> <span class="n">rating_weight</span><span class="p">,</span> <span class="n">final</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">quality</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Popularity+Rating: </span><span class="si">%.2f</span><span class="s2">, Quality: </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">final</span><span class="p">,</span> <span class="n">quality</span><span class="p">))</span>
+            <span class="n">final</span> <span class="o">=</span> <span class="p">(</span><span class="n">final</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">quality</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Final value: </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">final</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">final</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_average_normalized_value</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">measurements</span><span class="p">):</span>
+        <span class="n">num_measurements</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">measurement_total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">measurements</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">normalized_value</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">num_measurements</span> <span class="o">+=</span> <span class="n">m</span><span class="o">.</span><span class="n">weight</span>
+            <span class="n">measurement_total</span> <span class="o">+=</span> <span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">m</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_measurements</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">measurement_total</span> <span class="o">/</span> <span class="n">num_measurements</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">normalized_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Normalize a measured value, possibly using the rating scales in</span>
+<span class="sd">        RATING_SCALES or the empirically determined percentile scales</span>
+<span class="sd">        in PERCENTILE_SCALES.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalized_value</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">METADATA_WRANGLER</span><span class="p">:</span>
+            <span class="c1"># Data from the metadata wrangler comes in pre-normalized.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_normalized_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">quantity_measured</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">RATING</span>
+              <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">RATING_SCALES</span><span class="p">):</span>
+            <span class="c1"># Ratings need to be normalized from a scale that depends</span>
+            <span class="c1"># on the data source (e.g. Amazon&#39;s 1-5 stars) to a 0..1 scale.</span>
+            <span class="n">scale_min</span><span class="p">,</span> <span class="n">scale_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RATING_SCALES</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale_max</span><span class="o">-</span><span class="n">scale_min</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">-</span><span class="n">scale_min</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_normalized_value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">/</span> <span class="n">width</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">quantity_measured</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PERCENTILE_SCALES</span><span class="p">:</span>
+            <span class="c1"># Other measured quantities need to be normalized using</span>
+            <span class="c1"># a percentile scale determined emperically.</span>
+            <span class="n">by_data_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">PERCENTILE_SCALES</span><span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">quantity_measured</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">by_data_source</span><span class="p">:</span>
+                <span class="c1"># We don&#39;t know how to normalize measurements from</span>
+                <span class="c1"># this data source. Ignore this data.</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">percentiles</span> <span class="o">=</span> <span class="n">by_data_source</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">position</span> <span class="o">=</span> <span class="n">bisect</span><span class="o">.</span><span class="n">bisect_left</span><span class="p">(</span><span class="n">percentiles</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_normalized_value</span> <span class="o">=</span> <span class="n">position</span> <span class="o">*</span> <span class="mf">0.01</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalized_value</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,936 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.collection &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.collection</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Collection, CollectionIdentifier, CollectionMissing</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">create</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CoverageRecord</span><span class="p">,</span>
+    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">configuration</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="n">EditionConstants</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">integrationclient</span> <span class="k">import</span> <span class="n">IntegrationClient</span>
+<span class="kn">from</span> <span class="nn">library</span> <span class="k">import</span> <span class="n">Library</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">exists</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">func</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Table</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+    <span class="n">Boolean</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">backref</span><span class="p">,</span>
+    <span class="n">joinedload</span><span class="p">,</span>
+    <span class="n">mapper</span><span class="p">,</span>
+    <span class="n">relationship</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="n">NoResultFound</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">and_</span><span class="p">,</span>
+    <span class="n">or_</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="Collection"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection">[docs]</a><span class="k">class</span> <span class="nc">Collection</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;A Collection is a set of LicensePools obtained through some mechanism.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;collections&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">DATA_SOURCE_NAME_SETTING</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;data_source&#39;</span>
+
+    <span class="c1"># For use in forms that edit Collections.</span>
+    <span class="n">EXTERNAL_ACCOUNT_ID_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;external_account_id&#39;</span>
+
+    <span class="c1"># How does the provider of this collection distinguish it from</span>
+    <span class="c1"># other collections it provides? On the other side this is usually</span>
+    <span class="c1"># called a &quot;library ID&quot;.</span>
+    <span class="n">external_account_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># How do we connect to the provider of this collection? Any url,</span>
+    <span class="c1"># authentication information, or additional configuration goes</span>
+    <span class="c1"># into the external integration, as does the &#39;protocol&#39;, which</span>
+    <span class="c1"># designates the integration technique we will use to actually get</span>
+    <span class="c1"># the metadata and licenses. Each Collection has a distinct</span>
+    <span class="c1"># ExternalIntegration.</span>
+    <span class="n">external_integration_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;externalintegrations.id&#39;</span><span class="p">),</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A Collection may specialize some other Collection. For instance,</span>
+    <span class="c1"># an Overdrive Advantage collection is a specialization of an</span>
+    <span class="c1"># ordinary Overdrive collection. It uses the same access key and</span>
+    <span class="c1"># secret as the Overdrive collection, but it has a distinct</span>
+    <span class="c1"># external_account_id.</span>
+    <span class="n">parent_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;collections.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Some Collections use an ExternalIntegration to mirror books and</span>
+    <span class="c1"># cover images they discover. Such a collection should use an</span>
+    <span class="c1"># ExternalIntegration to set up its mirroring technique, and keep</span>
+    <span class="c1"># a reference to that ExternalIntegration here.</span>
+    <span class="n">mirror_integration_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;externalintegrations.id&#39;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># When deleting a collection, this flag is set to True so that the deletion</span>
+    <span class="c1"># script can take care of deleting it in the background. This is</span>
+    <span class="c1"># useful for deleting large collections which can timeout when deleting.</span>
+    <span class="n">marked_for_deletion</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># A collection may have many child collections. For example,</span>
+    <span class="c1"># An Overdrive collection may have many children corresponding</span>
+    <span class="c1"># to Overdrive Advantage collections.</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Collection&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="n">backref</span><span class="p">(</span><span class="s2">&quot;parent&quot;</span><span class="p">,</span> <span class="n">remote_side</span> <span class="o">=</span> <span class="p">[</span><span class="nb">id</span><span class="p">]),</span>
+        <span class="n">uselist</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A Collection can provide books to many Libraries.</span>
+    <span class="n">libraries</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Library&quot;</span><span class="p">,</span> <span class="n">secondary</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">collections_libraries</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;collections&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A Collection can include many LicensePools.</span>
+    <span class="n">licensepools</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;LicensePool&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;collection&quot;</span><span class="p">,</span>
+        <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A Collection can have many associated Credentials.</span>
+    <span class="n">credentials</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Credential&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;collection&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;delete&quot;</span><span class="p">)</span>
+
+    <span class="c1"># A Collection can be monitored by many Monitors, each of which</span>
+    <span class="c1"># will have its own Timestamp.</span>
+    <span class="n">timestamps</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Timestamp&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;collection&quot;</span><span class="p">)</span>
+
+    <span class="n">catalog</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Identifier&quot;</span><span class="p">,</span> <span class="n">secondary</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">collections_identifiers</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;collections&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A Collection can be associated with multiple CoverageRecords</span>
+    <span class="c1"># for Identifiers in its catalog.</span>
+    <span class="n">coverage_records</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;CoverageRecord&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;collection&quot;</span><span class="p">,</span>
+        <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A collection may be associated with one or more custom lists.</span>
+    <span class="c1"># When a new license pool is added to the collection, it will</span>
+    <span class="c1"># also be added to the list. Admins can remove items from the</span>
+    <span class="c1"># the list and they won&#39;t be added back, so the list doesn&#39;t</span>
+    <span class="c1"># necessarily match the collection.</span>
+    <span class="n">customlists</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;CustomList&quot;</span><span class="p">,</span> <span class="n">secondary</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">collections_customlists</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;collections&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+    <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+    <span class="c1"># Most data sources offer different catalogs to different</span>
+    <span class="c1"># libraries.  Data sources in this list offer the same catalog to</span>
+    <span class="c1"># every library.</span>
+    <span class="n">GLOBAL_COLLECTION_DATA_SOURCES</span> <span class="o">=</span> <span class="p">[</span><span class="n">DataSource</span><span class="o">.</span><span class="n">ENKI</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s1">&#39;&lt;Collection &quot;</span><span class="si">%s</span><span class="s1">&quot;/&quot;</span><span class="si">%s</span><span class="s1">&quot; ID=</span><span class="si">%d</span><span class="s1">&gt;&#39;</span> <span class="o">%</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Collection.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Collection.by_name_and_protocol"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.by_name_and_protocol">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">by_name_and_protocol</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a Collection with the given name and the given</span>
+<span class="sd">        protocol.</span>
+
+<span class="sd">        This method uses the full-table cache if possible.</span>
+
+<span class="sd">        :return: A 2-tuple (collection, is_new)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_by_name_and_protocol</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">lookup_hook</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_by_name_and_protocol</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">cache_key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a Collection with the given name and the given</span>
+<span class="sd">        protocol.</span>
+
+<span class="sd">        We can&#39;t use get_one_or_create because the protocol is kept in</span>
+<span class="sd">        a separate database object, (an ExternalIntegration).</span>
+
+<span class="sd">        :return: A 2-tuple (collection, is_new)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name</span><span class="p">,</span> <span class="n">protocol</span> <span class="o">=</span> <span class="n">cache_key</span>
+
+        <span class="n">qu</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Collection</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+            <span class="n">is_new</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Make a new Collection.</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_new</span> <span class="ow">and</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">protocol</span><span class="p">:</span>
+                <span class="c1"># The collection already exists, it just uses a different</span>
+                <span class="c1"># protocol than the one we asked about.</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s1">&#39;Collection &quot;</span><span class="si">%s</span><span class="s1">&quot; does not use protocol &quot;</span><span class="si">%s</span><span class="s1">&quot;.&#39;</span> <span class="o">%</span> <span class="p">(</span>
+                        <span class="n">name</span><span class="p">,</span> <span class="n">protocol</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span>
+                <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span>
+            <span class="p">)</span>
+            <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span>
+        <span class="k">return</span> <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span>
+
+<div class="viewcode-block" id="Collection.by_protocol"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.by_protocol">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">by_protocol</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Query collections that get their licenses through the given protocol.</span>
+
+<span class="sd">        Collections marked for deletion are not included.</span>
+
+<span class="sd">        :param protocol: Protocol to use. If this is None, all</span>
+<span class="sd">            Collections will be returned except those marked for deletion.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Collection</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">Collection</span><span class="o">.</span><span class="n">external_integration_id</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LICENSE_GOAL</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">protocol</span><span class="o">==</span><span class="n">protocol</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Collection</span><span class="o">.</span><span class="n">marked_for_deletion</span><span class="o">==</span><span class="kc">False</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="Collection.by_datasource"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.by_datasource">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">by_datasource</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Query collections that are associated with the given DataSource.</span>
+
+<span class="sd">        Collections marked for deletion are not included.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">external_integration_id</span><span class="o">==</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">key</span><span class="o">==</span><span class="n">Collection</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME_SETTING</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">value</span><span class="o">==</span><span class="n">data_source</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Collection</span><span class="o">.</span><span class="n">marked_for_deletion</span><span class="o">==</span><span class="kc">False</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">protocol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;What protocol do we need to use to get licenses for this</span>
+<span class="sd">        collection?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">protocol</span>
+
+    <span class="nd">@protocol</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">protocol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_protocol</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Modify the protocol in use by this Collection.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">new_protocol</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Proposed new protocol (</span><span class="si">%s</span><span class="s2">) contradicts parent collection&#39;s protocol (</span><span class="si">%s</span><span class="s2">).&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">new_protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">protocol</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">protocol</span> <span class="o">=</span> <span class="n">new_protocol</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="n">child</span><span class="o">.</span><span class="n">protocol</span> <span class="o">=</span> <span class="n">new_protocol</span>
+
+    <span class="c1"># For collections that can control the duration of the loans they</span>
+    <span class="c1"># create, the durations are stored in these settings and new loans are</span>
+    <span class="c1"># expected to be created using these settings. For collections</span>
+    <span class="c1"># where loan duration is negotiated out-of-bounds, all loans are</span>
+    <span class="c1"># _assumed_ to have these durations unless we hear otherwise from</span>
+    <span class="c1"># the server.</span>
+    <span class="n">AUDIOBOOK_LOAN_DURATION_KEY</span> <span class="o">=</span> <span class="s1">&#39;audio_loan_duration&#39;</span>
+    <span class="n">EBOOK_LOAN_DURATION_KEY</span> <span class="o">=</span> <span class="s1">&#39;ebook_loan_duration&#39;</span>
+    <span class="n">STANDARD_DEFAULT_LOAN_PERIOD</span> <span class="o">=</span> <span class="mi">21</span>
+
+<div class="viewcode-block" id="Collection.default_loan_period"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.default_loan_period">[docs]</a>    <span class="k">def</span> <span class="nf">default_loan_period</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">medium</span><span class="o">=</span><span class="n">EditionConstants</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Until we hear otherwise from the license provider, we assume</span>
+<span class="sd">        that someone who borrows a non-open-access item from this</span>
+<span class="sd">        collection has it for this number of days.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_loan_period_setting</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="n">medium</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">STANDARD_DEFAULT_LOAN_PERIOD</span></div>
+
+<div class="viewcode-block" id="Collection.default_loan_period_setting"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.default_loan_period_setting">[docs]</a>    <span class="k">def</span> <span class="nf">default_loan_period_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">medium</span><span class="o">=</span><span class="n">EditionConstants</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Until we hear otherwise from the license provider, we assume</span>
+<span class="sd">        that someone who borrows a non-open-access item from this</span>
+<span class="sd">        collection has it for this number of days.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">medium</span> <span class="o">==</span> <span class="n">EditionConstants</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">AUDIOBOOK_LOAN_DURATION_KEY</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">EBOOK_LOAN_DURATION_KEY</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">Library</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+                    <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">IntegrationClient</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+
+    <span class="n">DEFAULT_RESERVATION_PERIOD_KEY</span> <span class="o">=</span> <span class="s1">&#39;default_reservation_period&#39;</span>
+    <span class="n">STANDARD_DEFAULT_RESERVATION_PERIOD</span> <span class="o">=</span> <span class="mi">3</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">default_reservation_period</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Until we hear otherwise from the license provider, we assume</span>
+<span class="sd">        that someone who puts an item on hold has this many days to</span>
+<span class="sd">        check it out before it goes to the next person in line.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_RESERVATION_PERIOD_KEY</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">int_value</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">STANDARD_DEFAULT_RESERVATION_PERIOD</span>
+        <span class="p">)</span>
+
+    <span class="nd">@default_reservation_period</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">default_reservation_period</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_value</span><span class="p">):</span>
+        <span class="n">new_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_RESERVATION_PERIOD_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Collection.create_external_integration"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.create_external_integration">[docs]</a>    <span class="k">def</span> <span class="nf">create_external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an ExternalIntegration for this Collection.</span>
+
+<span class="sd">        To be used immediately after creating a new Collection,</span>
+<span class="sd">        e.g. in by_name_and_protocol, from_metadata_identifier, and</span>
+<span class="sd">        various test methods that create mock Collections.</span>
+
+<span class="sd">        If an external integration already exists, return it instead</span>
+<span class="sd">        of creating another one.</span>
+
+<span class="sd">        :param protocol: The protocol known to be in use when getting</span>
+<span class="sd">            licenses for this collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">goal</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">LICENSE_GOAL</span>
+        <span class="n">external_integration</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">external_integration_id</span><span class="p">,</span>
+            <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="n">goal</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">external_integration</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Located ExternalIntegration, but its protocol (</span><span class="si">%s</span><span class="s2">) does not match desired protocol (</span><span class="si">%s</span><span class="s2">).&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">external_integration</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="n">protocol</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">external_integration_id</span> <span class="o">=</span> <span class="n">external_integration</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">external_integration</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the external integration for this Collection, assuming</span>
+<span class="sd">        it already exists.</span>
+
+<span class="sd">        This is generally a safe assumption since by_name_and_protocol and</span>
+<span class="sd">        from_metadata_identifier both create ExternalIntegrations for the</span>
+<span class="sd">        Collections they create.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># We don&#39;t enforce this on the database level because it is</span>
+        <span class="c1"># legitimate for a newly created Collection to have no</span>
+        <span class="c1"># ExternalIntegration. But by the time it&#39;s being used for real,</span>
+        <span class="c1"># it needs to have one.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration_id</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No known external integration for collection </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_external_integration</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">unique_account_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Identifier that uniquely represents this Collection of works&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GLOBAL_COLLECTION_DATA_SOURCES</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">):</span>
+            <span class="c1"># Every top-level collection from this data source has the</span>
+            <span class="c1"># same catalog. Treat them all as one collection named</span>
+            <span class="c1"># after the data source.</span>
+            <span class="n">unique_account_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">unique_account_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_account_id</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">unique_account_id</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unique account identifier not set&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">unique_account_id</span> <span class="o">+</span> <span class="s1">&#39;+&#39;</span> <span class="o">+</span> <span class="n">unique_account_id</span>
+        <span class="k">return</span> <span class="n">unique_account_id</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">data_source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the data source associated with this Collection.</span>
+
+<span class="sd">        Bibliographic metadata obtained through the collection</span>
+<span class="sd">        protocol is recorded as coming from this data source. A</span>
+<span class="sd">        LicensePool inserted into this collection will be associated</span>
+<span class="sd">        with this data source, unless its bibliographic metadata</span>
+<span class="sd">        indicates some other data source.</span>
+
+<span class="sd">        For most Collections, the integration protocol sets the data</span>
+<span class="sd">        source.  For collections that use the OPDS import protocol,</span>
+<span class="sd">        the data source is a Collection-specific setting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DATA_SOURCE_FOR_LICENSE_PROTOCOL</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+                <span class="n">Collection</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME_SETTING</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data_source</span>
+
+    <span class="nd">@data_source</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">data_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_value</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
+            <span class="n">new_value</span> <span class="o">=</span> <span class="n">new_value</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">new_value</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Only set a DataSource for Collections that don&#39;t have an</span>
+        <span class="c1"># implied source.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DATA_SOURCE_FOR_LICENSE_PROTOCOL</span><span class="p">:</span>
+            <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+                <span class="n">Collection</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME_SETTING</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">new_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">new_value</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">new_value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parents</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_id</span><span class="p">:</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="n">parent</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_id</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">parent</span>
+            <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">parent</span><span class="o">.</span><span class="n">parents</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">collection</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metadata_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Identifier based on collection details that uniquely represents</span>
+<span class="sd">        this Collection on the metadata wrangler. This identifier is</span>
+<span class="sd">        composed of the Collection protocol and account identifier.</span>
+
+<span class="sd">        In the metadata wrangler, this identifier is used as the unique</span>
+<span class="sd">        name of the collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="n">detail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64encode</span><span class="p">(</span><span class="n">detail</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+
+        <span class="n">account_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_account_id</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span><span class="p">:</span>
+            <span class="c1"># Remove ending / from OPDS url that could duplicate the collection</span>
+            <span class="c1"># on the Metadata Wrangler.</span>
+            <span class="k">while</span> <span class="n">account_id</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
+                <span class="n">account_id</span> <span class="o">=</span> <span class="n">account_id</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">account_id</span> <span class="o">=</span> <span class="n">encode</span><span class="p">(</span><span class="n">account_id</span><span class="p">)</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
+
+        <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="n">protocol</span> <span class="o">+</span> <span class="s1">&#39;:&#39;</span> <span class="o">+</span> <span class="n">account_id</span>
+        <span class="k">return</span> <span class="n">encode</span><span class="p">(</span><span class="n">metadata_identifier</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Collection.from_metadata_identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.from_metadata_identifier">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_metadata_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">metadata_identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds or creates a Collection on the metadata wrangler, based</span>
+<span class="sd">        on its unique metadata_identifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">metadata_identifier</span><span class="p">)</span>
+        <span class="n">is_new</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="n">opds_collection_without_url</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">collection</span> <span class="ow">and</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="o">==</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_account_id</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span> <span class="ow">or</span> <span class="n">opds_collection_without_url</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="n">detail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64decode</span><span class="p">(</span><span class="n">detail</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+
+            <span class="n">details</span> <span class="o">=</span> <span class="n">decode</span><span class="p">(</span><span class="n">metadata_identifier</span><span class="p">)</span>
+            <span class="n">encoded_details</span>  <span class="o">=</span> <span class="n">details</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">[</span><span class="n">protocol</span><span class="p">,</span> <span class="n">account_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">decode</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">encoded_details</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span><span class="p">:</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
+                    <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">metadata_identifier</span>
+                <span class="p">)</span>
+                <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span><span class="n">protocol</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span><span class="p">:</span>
+                <span class="c1"># Share the feed URL so the Metadata Wrangler can find it.</span>
+               <span class="n">collection</span><span class="o">.</span><span class="n">external_account_id</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">account_id</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data_source</span><span class="p">:</span>
+            <span class="n">collection</span><span class="o">.</span><span class="n">data_source</span> <span class="o">=</span> <span class="n">data_source</span>
+
+        <span class="k">return</span> <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">pools_with_no_delivery_mechanisms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all LicensePools in this Collection that have no delivery</span>
+<span class="sd">        mechanisms whatsoever.</span>
+
+<span class="sd">        :return: A query object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">with_no_delivery_mechanisms</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Collection.explain"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.explain">[docs]</a>    <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a series of human-readable strings to explain a collection&#39;s</span>
+<span class="sd">        settings.</span>
+
+<span class="sd">        :param include_secrets: For security reasons,</span>
+<span class="sd">           sensitive settings such as passwords are not displayed by default.</span>
+
+<span class="sd">        :return: A list of explanatory strings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Name: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Parent: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span>
+        <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Protocol: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Used by library: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_account_id</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;External account ID: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_account_id</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">key</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">include_secrets</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">setting</span><span class="o">.</span><span class="n">is_secret</span><span class="p">)</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Setting &quot;</span><span class="si">%s</span><span class="s1">&quot;: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">lines</span></div>
+
+<div class="viewcode-block" id="Collection.catalog_identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.catalog_identifier">[docs]</a>    <span class="k">def</span> <span class="nf">catalog_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Inserts an identifier into a catalog&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalog_identifiers</span><span class="p">([</span><span class="n">identifier</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Collection.catalog_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.catalog_identifiers">[docs]</a>    <span class="k">def</span> <span class="nf">catalog_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Inserts identifiers into the catalog&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifiers</span><span class="p">:</span>
+            <span class="c1"># Nothing to do.</span>
+            <span class="k">return</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">identifiers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">already_in_catalog</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">CollectionIdentifier</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">CollectionIdentifier</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+             <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">])</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+        <span class="n">new_catalog_entries</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="n">collection_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">identifier_id</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">identifiers</span>
+            <span class="k">if</span> <span class="n">identifier</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">already_in_catalog</span>
+        <span class="p">]</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">bulk_insert_mappings</span><span class="p">(</span><span class="n">CollectionIdentifier</span><span class="p">,</span> <span class="n">new_catalog_entries</span><span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Collection.unresolved_catalog"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.unresolved_catalog">[docs]</a>    <span class="k">def</span> <span class="nf">unresolved_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">operation</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a query with all identifiers in a Collection&#39;s catalog that</span>
+<span class="sd">        have unsuccessfully attempted resolution. This method is used on the</span>
+<span class="sd">        metadata wrangler.</span>
+
+<span class="sd">        :return: a sqlalchemy.Query</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">coverage_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
+        <span class="n">is_not_resolved</span> <span class="o">=</span> <span class="n">and_</span><span class="p">(</span>
+            <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="n">coverage_source</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">status</span><span class="o">!=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">query</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">work</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">collections</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Collection</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">is_not_resolved</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">query</span></div>
+
+<div class="viewcode-block" id="Collection.works_updated_since"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.works_updated_since">[docs]</a>    <span class="k">def</span> <span class="nf">works_updated_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds all works in a collection&#39;s catalog that have been updated</span>
+<span class="sd">           since the timestamp. Used in the metadata wrangler.</span>
+
+<span class="sd">           :return: a Query that yields (Work, LicensePool,</span>
+<span class="sd">              Identifier) 3-tuples. This gives caller all the</span>
+<span class="sd">              information necessary to create full OPDS entries for</span>
+<span class="sd">              the works.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">opds_operation</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">GENERATE_OPDS_OPERATION</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">Work</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">,</span> <span class="n">Identifier</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">collections</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">opds_operation</span><span class="p">,</span>
+            <span class="n">CollectionIdentifier</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">CollectionIdentifier</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">joinedload</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">timestamp</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&gt;</span> <span class="n">timestamp</span>
+            <span class="p">)</span>
+
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="Collection.isbns_updated_since"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.isbns_updated_since">[docs]</a>    <span class="k">def</span> <span class="nf">isbns_updated_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds all ISBNs in a collection&#39;s catalog that have been updated</span>
+<span class="sd">           since the timestamp but don&#39;t have a Work to show for it. Used in</span>
+<span class="sd">           the metadata wrangler.</span>
+
+<span class="sd">           :return: a Query</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">isbns</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">,</span> <span class="n">func</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;latest&#39;</span><span class="p">))</span>\
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">collections</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s1">&#39;latest&#39;</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Collection</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">work_id</span><span class="o">==</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">status</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">enable_eagerloads</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">joinedload</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">timestamp</span><span class="p">:</span>
+            <span class="n">isbns</span> <span class="o">=</span> <span class="n">isbns</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&gt;</span> <span class="n">timestamp</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">isbns</span></div>
+
+<div class="viewcode-block" id="Collection.restrict_to_ready_deliverable_works"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.restrict_to_ready_deliverable_works">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">restrict_to_ready_deliverable_works</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">collection_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_suppressed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">allow_holds</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict a query to show only presentation-ready works present in</span>
+<span class="sd">        an appropriate collection which the default client can</span>
+<span class="sd">        fulfill.</span>
+
+<span class="sd">        Note that this assumes the query has an active join against</span>
+<span class="sd">        LicensePool and Edition.</span>
+
+<span class="sd">        :param query: The query to restrict.</span>
+
+<span class="sd">        :param show_suppressed: Include titles that have nothing but</span>
+<span class="sd">            suppressed LicensePools.</span>
+
+<span class="sd">        :param collection_ids: Only include titles in the given</span>
+<span class="sd">            collections.</span>
+
+<span class="sd">        :param allow_holds: If false, pools with no available copies</span>
+<span class="sd">            will be hidden.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Only find presentation-ready works.</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span> <span class="o">==</span> <span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Only find books that have some kind of DeliveryMechanism.</span>
+        <span class="n">LPDM</span> <span class="o">=</span> <span class="n">LicensePoolDeliveryMechanism</span>
+        <span class="n">exists_clause</span> <span class="o">=</span> <span class="n">exists</span><span class="p">()</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">and_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="n">LPDM</span><span class="o">.</span><span class="n">data_source_id</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">LPDM</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">exists_clause</span><span class="p">)</span>
+
+        <span class="c1"># Some sources of audiobooks may be excluded because the</span>
+        <span class="c1"># server can&#39;t fulfill them or the expected client can&#39;t play</span>
+        <span class="c1"># them.</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">session</span>
+        <span class="n">excluded</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">excluded_audio_data_sources</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">excluded</span><span class="p">:</span>
+            <span class="n">audio_excluded_ids</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">excluded</span>
+            <span class="p">]</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">or_</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">medium</span> <span class="o">!=</span> <span class="n">EditionConstants</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span><span class="p">,</span>
+                    <span class="o">~</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">audio_excluded_ids</span><span class="p">))</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Only find books with unsuppressed LicensePools.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">show_suppressed</span><span class="p">:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">suppressed</span><span class="o">==</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Only find books with available licenses.</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Only find books in an appropriate collection.</span>
+        <span class="k">if</span> <span class="n">collection_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">collection_ids</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># If we don&#39;t allow holds, hide any books with no available copies.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_holds</span><span class="p">:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">query</span></div>
+
+<div class="viewcode-block" id="Collection.delete"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Delete a collection.</span>
+
+<span class="sd">        Collections can have hundreds of thousands of</span>
+<span class="sd">        LicensePools. This deletes a collection gradually in a way</span>
+<span class="sd">        that can be confined to the background and survive interruption.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">marked_for_deletion</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot delete </span><span class="si">%s</span><span class="s2">: it is not marked for deletion.&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+            <span class="p">)</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">search_index</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">..external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
+                <span class="n">search_index</span> <span class="o">=</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># No search index is configured. This is fine -- just skip</span>
+                <span class="c1"># that part.</span>
+                <span class="k">pass</span>
+
+        <span class="c1"># Delete all the license pools. This should be the only part</span>
+        <span class="c1"># of the application where LicensePools are permanently</span>
+        <span class="c1"># deleted.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pool</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">licensepools</span><span class="p">):</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">work</span>
+            <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">100</span><span class="p">:</span>
+                <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="n">search_index</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">:</span>
+                <span class="n">search_index</span><span class="o">.</span><span class="n">remove_work</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
+                <span class="c1"># TODO: ideally we&#39;d delete the Work itself, but</span>
+                <span class="c1"># that&#39;s another thing we don&#39;t normally do, and it</span>
+                <span class="c1"># might have side effects we haven&#39;t considered.</span>
+
+        <span class="c1"># Now delete the Collection itself.</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div></div>
+
+
+<span class="n">collections_libraries</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;collections_libraries&#39;</span><span class="p">,</span> <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+     <span class="n">Column</span><span class="p">(</span>
+         <span class="s1">&#39;collection_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;collections.id&#39;</span><span class="p">),</span>
+         <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span>
+     <span class="p">),</span>
+     <span class="n">Column</span><span class="p">(</span>
+         <span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span>
+         <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span>
+     <span class="p">),</span>
+     <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">,</span> <span class="s1">&#39;library_id&#39;</span><span class="p">),</span>
+ <span class="p">)</span>
+
+
+<span class="n">collections_identifiers</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;collections_identifiers&#39;</span><span class="p">,</span> <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">(</span>
+        <span class="s1">&#39;collection_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;collections.id&#39;</span><span class="p">),</span>
+        <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">),</span>
+    <span class="n">Column</span><span class="p">(</span>
+        <span class="s1">&#39;identifier_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span>
+        <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">),</span>
+    <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">,</span> <span class="s1">&#39;identifier_id&#39;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># Create an ORM model for the collections_identifiers join table</span>
+<span class="c1"># so it can be used in a bulk_insert_mappings call.</span>
+<div class="viewcode-block" id="CollectionIdentifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CollectionIdentifier">[docs]</a><span class="k">class</span> <span class="nc">CollectionIdentifier</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="CollectionMissing"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CollectionMissing">[docs]</a><span class="k">class</span> <span class="nc">CollectionMissing</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An operation was attempted that can only happen within the context</span>
+<span class="sd">    of a Collection, but there was no Collection available.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+<span class="n">mapper</span><span class="p">(</span>
+    <span class="n">CollectionIdentifier</span><span class="p">,</span> <span class="n">collections_identifiers</span><span class="p">,</span>
+    <span class="n">primary_key</span><span class="o">=</span><span class="p">(</span>
+        <span class="n">collections_identifiers</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">collection_id</span><span class="p">,</span>
+        <span class="n">collections_identifiers</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">identifier_id</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">collections_customlists</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;collections_customlists&#39;</span><span class="p">,</span> <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">(</span>
+        <span class="s1">&#39;collection_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;collections.id&#39;</span><span class="p">),</span>
+        <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">Column</span><span class="p">(</span>
+        <span class="s1">&#39;customlist_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;customlists.id&#39;</span><span class="p">),</span>
+        <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">,</span> <span class="s1">&#39;customlist_id&#39;</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

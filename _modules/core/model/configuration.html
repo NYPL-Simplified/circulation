@@ -1,0 +1,758 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.configuration &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.configuration</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># ExternalIntegration, ConfigurationSetting</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="n">DataSourceConstants</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">library</span> <span class="k">import</span> <span class="n">Library</span>
+<span class="kn">from</span> <span class="nn">..mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">select</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
+
+<div class="viewcode-block" id="ExternalIntegration"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegration</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;An external integration contains configuration for connecting</span>
+<span class="sd">    to a third-party API.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Possible goals of ExternalIntegrations.</span>
+    <span class="c1">#</span>
+    <span class="c1"># These integrations are associated with external services such as</span>
+    <span class="c1"># Google Enterprise which authenticate library administrators.</span>
+    <span class="n">ADMIN_AUTH_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;admin_auth&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services such as</span>
+    <span class="c1"># SIP2 which authenticate library patrons. Other constants related</span>
+    <span class="c1"># to this are defined in the circulation manager.</span>
+    <span class="n">PATRON_AUTH_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;patron_auth&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services such</span>
+    <span class="c1"># as Overdrive which provide access to books.</span>
+    <span class="n">LICENSE_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;licenses&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services such as</span>
+    <span class="c1"># the metadata wrangler, which provide information about books,</span>
+    <span class="c1"># but not the books themselves.</span>
+    <span class="n">METADATA_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;metadata&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services such as</span>
+    <span class="c1"># S3 that provide access to book covers.</span>
+    <span class="n">STORAGE_GOAL</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">STORAGE_GOAL</span>
+
+    <span class="c1"># These integrations are associated with external services like</span>
+    <span class="c1"># Cloudfront or other CDNs that mirror and/or cache certain domains.</span>
+    <span class="n">CDN_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;CDN&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services such as</span>
+    <span class="c1"># Elasticsearch that provide indexed search.</span>
+    <span class="n">SEARCH_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;search&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services such as</span>
+    <span class="c1"># Google Analytics, which receive analytics events.</span>
+    <span class="n">ANALYTICS_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;analytics&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services such as</span>
+    <span class="c1"># Adobe Vendor ID, which manage access to DRM-dependent content.</span>
+    <span class="n">DRM_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;drm&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services that</span>
+    <span class="c1"># help patrons find libraries.</span>
+    <span class="n">DISCOVERY_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;discovery&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services that</span>
+    <span class="c1"># collect logs of server-side events.</span>
+    <span class="n">LOGGING_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;logging&#39;</span>
+
+    <span class="c1"># These integrations are associated with external services that</span>
+    <span class="c1"># a library uses to manage its catalog.</span>
+    <span class="n">CATALOG_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;ils_catalog&#39;</span>
+
+    <span class="c1"># Supported protocols for ExternalIntegrations with LICENSE_GOAL.</span>
+    <span class="n">OPDS_IMPORT</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;OPDS Import&#39;</span>
+    <span class="n">OVERDRIVE</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+    <span class="n">ODILO</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">ODILO</span>
+    <span class="n">BIBLIOTHECA</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">BIBLIOTHECA</span>
+    <span class="n">AXIS_360</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">AXIS_360</span>
+    <span class="n">RB_DIGITAL</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">RB_DIGITAL</span>
+    <span class="n">ONE_CLICK</span> <span class="o">=</span> <span class="n">RB_DIGITAL</span>
+    <span class="n">OPDS_FOR_DISTRIBUTORS</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;OPDS for Distributors&#39;</span>
+    <span class="n">ENKI</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">ENKI</span>
+    <span class="n">FEEDBOOKS</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">FEEDBOOKS</span>
+    <span class="n">MANUAL</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">MANUAL</span>
+
+    <span class="c1"># These protocols were used on the Content Server when mirroring</span>
+    <span class="c1"># content from a given directory or directly from Project</span>
+    <span class="c1"># Gutenberg, respectively. DIRECTORY_IMPORT was replaced by</span>
+    <span class="c1"># MANUAL.  GUTENBERG has yet to be replaced, but will eventually</span>
+    <span class="c1"># be moved into LICENSE_PROTOCOLS.</span>
+    <span class="n">DIRECTORY_IMPORT</span> <span class="o">=</span> <span class="s2">&quot;Directory Import&quot;</span>
+    <span class="n">GUTENBERG</span> <span class="o">=</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">GUTENBERG</span>
+
+    <span class="n">LICENSE_PROTOCOLS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">OPDS_IMPORT</span><span class="p">,</span> <span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">ODILO</span><span class="p">,</span> <span class="n">BIBLIOTHECA</span><span class="p">,</span> <span class="n">AXIS_360</span><span class="p">,</span> <span class="n">RB_DIGITAL</span><span class="p">,</span>
+        <span class="n">GUTENBERG</span><span class="p">,</span> <span class="n">ENKI</span><span class="p">,</span> <span class="n">MANUAL</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Some integrations with LICENSE_GOAL imply that the data and</span>
+    <span class="c1"># licenses come from a specific data source.</span>
+    <span class="n">DATA_SOURCE_FOR_LICENSE_PROTOCOL</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">OVERDRIVE</span> <span class="p">:</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span>
+        <span class="n">ODILO</span> <span class="p">:</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">ODILO</span><span class="p">,</span>
+        <span class="n">BIBLIOTHECA</span> <span class="p">:</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">BIBLIOTHECA</span><span class="p">,</span>
+        <span class="n">AXIS_360</span> <span class="p">:</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">,</span>
+        <span class="n">RB_DIGITAL</span> <span class="p">:</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">RB_DIGITAL</span><span class="p">,</span>
+        <span class="n">ENKI</span> <span class="p">:</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">ENKI</span><span class="p">,</span>
+        <span class="n">FEEDBOOKS</span> <span class="p">:</span> <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">FEEDBOOKS</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Integrations with METADATA_GOAL</span>
+    <span class="n">BIBBLIO</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Bibblio&#39;</span>
+    <span class="n">CONTENT_CAFE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Content Cafe&#39;</span>
+    <span class="n">NOVELIST</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;NoveList Select&#39;</span>
+    <span class="n">NYPL_SHADOWCAT</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Shadowcat&#39;</span>
+    <span class="n">NYT</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;New York Times&#39;</span>
+    <span class="n">METADATA_WRANGLER</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Metadata Wrangler&#39;</span>
+    <span class="n">CONTENT_SERVER</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Content Server&#39;</span>
+
+    <span class="c1"># Integrations with STORAGE_GOAL</span>
+    <span class="n">S3</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Amazon S3&#39;</span>
+
+    <span class="c1"># Integrations with CDN_GOAL</span>
+    <span class="n">CDN</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;CDN&#39;</span>
+
+    <span class="c1"># Integrations with SEARCH_GOAL</span>
+    <span class="n">ELASTICSEARCH</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Elasticsearch&#39;</span>
+
+    <span class="c1"># Integrations with DRM_GOAL</span>
+    <span class="n">ADOBE_VENDOR_ID</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Adobe Vendor ID&#39;</span>
+
+    <span class="c1"># Integrations with DISCOVERY_GOAL</span>
+    <span class="n">OPDS_REGISTRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;OPDS Registration&#39;</span>
+
+    <span class="c1"># Integrations with ANALYTICS_GOAL</span>
+    <span class="n">GOOGLE_ANALYTICS</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Google Analytics&#39;</span>
+
+    <span class="c1"># Integrations with ADMIN_AUTH_GOAL</span>
+    <span class="n">GOOGLE_OAUTH</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Google OAuth&#39;</span>
+
+    <span class="c1"># List of such ADMIN_AUTH_GOAL integrations</span>
+    <span class="n">ADMIN_AUTH_PROTOCOLS</span> <span class="o">=</span> <span class="p">[</span><span class="n">GOOGLE_OAUTH</span><span class="p">]</span>
+
+    <span class="c1"># Integrations with LOGGING_GOAL</span>
+    <span class="n">INTERNAL_LOGGING</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Internal logging&#39;</span>
+    <span class="n">LOGGLY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Loggly&quot;</span>
+    <span class="n">CLOUDWATCH</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;AWS Cloudwatch Logs&quot;</span>
+
+    <span class="c1"># Integrations with CATALOG_GOAL</span>
+    <span class="n">MARC_EXPORT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;MARC Export&quot;</span>
+
+    <span class="c1"># Keys for common configuration settings</span>
+
+    <span class="c1"># If there is a special URL to use for access to this API,</span>
+    <span class="c1"># put it here.</span>
+    <span class="n">URL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;url&quot;</span>
+
+    <span class="c1"># If access requires authentication, these settings represent the</span>
+    <span class="c1"># username/password or key/secret combination necessary to</span>
+    <span class="c1"># authenticate. If there&#39;s a secret but no key, it&#39;s stored in</span>
+    <span class="c1"># &#39;password&#39;.</span>
+    <span class="n">USERNAME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;username&quot;</span>
+    <span class="n">PASSWORD</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;password&quot;</span>
+
+    <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+    <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;externalintegrations&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Each integration should have a protocol (explaining what type of</span>
+    <span class="c1"># code or network traffic we need to run to get things done) and a</span>
+    <span class="c1"># goal (explaining the real-world goal of the integration).</span>
+    <span class="c1">#</span>
+    <span class="c1"># Basically, the protocol is the &#39;how&#39; and the goal is the &#39;why&#39;.</span>
+    <span class="n">protocol</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">goal</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A unique name for this ExternalIntegration. This is primarily</span>
+    <span class="c1"># used to identify ExternalIntegrations from command-line scripts.</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Any additional configuration information goes into</span>
+    <span class="c1"># ConfigurationSettings.</span>
+    <span class="n">settings</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;ConfigurationSetting&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;external_integration&quot;</span><span class="p">,</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;joined&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Any number of Collections may designate an ExternalIntegration</span>
+    <span class="c1"># as the source of their configuration</span>
+    <span class="n">collections</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Collection&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;_external_integration&quot;</span><span class="p">,</span>
+        <span class="n">foreign_keys</span><span class="o">=</span><span class="s1">&#39;Collection.external_integration_id&#39;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># An ExternalIntegration may be used by many Collections</span>
+    <span class="c1"># to mirror book covers or other files.</span>
+    <span class="n">mirror_for</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;Collection&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;mirror_integration&quot;</span><span class="p">,</span>
+        <span class="n">foreign_keys</span><span class="o">=</span><span class="s1">&#39;Collection.mirror_integration_id&#39;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;ExternalIntegration: protocol=</span><span class="si">%s</span><span class="s2"> goal=&#39;</span><span class="si">%s</span><span class="s2">&#39; settings=</span><span class="si">%d</span><span class="s2"> ID=</span><span class="si">%d</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">goal</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ExternalIntegration.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># TODO: This is not ideal, but the lookup method isn&#39;t like</span>
+        <span class="c1"># other HasFullTableCache lookup methods, so for now we use</span>
+        <span class="c1"># the unique ID as the cache key. This means that</span>
+        <span class="c1"># by_cache_key() and by_id() do the same thing.</span>
+        <span class="c1">#</span>
+        <span class="c1"># This is okay because we need by_id() quite a</span>
+        <span class="c1"># bit and by_cache_key() not as much.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="n">integrations</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">libraries</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">protocol</span><span class="o">==</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">goal</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
+            <span class="n">integrations</span> <span class="o">=</span> <span class="n">integrations</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="n">integrations</span> <span class="o">=</span> <span class="n">integrations</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">integrations</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Multiple integrations found for &#39;</span><span class="si">%s</span><span class="s2">&#39;/&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">libraries</span><span class="p">,</span> <span class="n">integrations</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">library</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;This ExternalIntegration requires a library and none was provided.&#39;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">integrations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.with_setting_value"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.with_setting_value">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">with_setting_value</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find ExternalIntegrations with the given protocol, goal, and with a</span>
+<span class="sd">        particular ConfigurationSetting key/value pair.</span>
+<span class="sd">        This is useful in a scenario where an ExternalIntegration is</span>
+<span class="sd">        made unique by a ConfigurationSetting, such as</span>
+<span class="sd">        ExternalIntegration.URL, rather than by anything in the</span>
+<span class="sd">        ExternalIntecation itself.</span>
+
+<span class="sd">        :param protocol: ExternalIntegrations must have this protocol.</span>
+<span class="sd">        :param goal: ExternalIntegrations must have this goal.</span>
+<span class="sd">        :param key: Look only at ExternalIntegrations with</span>
+<span class="sd">            a ConfigurationSetting for this key.</span>
+<span class="sd">        :param value: Find ExternalIntegrations whose ConfigurationSetting</span>
+<span class="sd">            has this value.</span>
+<span class="sd">        :return: A Query object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">settings</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">goal</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">protocol</span><span class="o">==</span><span class="n">protocol</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">key</span><span class="o">==</span><span class="n">key</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">value</span><span class="o">==</span><span class="n">value</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.admin_authentication"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.admin_authentication">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">admin_authentication</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">admin_auth</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">ADMIN_AUTH_GOAL</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">admin_auth</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.for_library_and_goal"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.for_library_and_goal">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_library_and_goal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all ExternalIntegrations associated with the given</span>
+<span class="sd">        Library and the given goal.</span>
+<span class="sd">        :return: A Query.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">libraries</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">goal</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Library</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.one_for_library_and_goal"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.one_for_library_and_goal">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">one_for_library_and_goal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the ExternalIntegration associated with the given</span>
+<span class="sd">        Library and the given goal.</span>
+<span class="sd">        :return: An ExternalIntegration, or None.</span>
+<span class="sd">        :raise: CannotLoadConfiguration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">integrations</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_library_and_goal</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">goal</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">integrations</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">integrations</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Library </span><span class="si">%s</span><span class="s2"> defines multiple integrations with goal </span><span class="si">%s</span><span class="s2">!&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">library</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">goal</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">integrations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.set_setting"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.set_setting">[docs]</a>    <span class="k">def</span> <span class="nf">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create or update a key-value setting for this ExternalIntegration.&quot;&quot;&quot;</span>
+        <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">setting</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.setting"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.setting">[docs]</a>    <span class="k">def</span> <span class="nf">setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting on this ExternalIntegration.</span>
+<span class="sd">        :param key: Name of the setting.</span>
+<span class="sd">        :return: A ConfigurationSetting</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="bp">self</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">URL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="nd">@url</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_url</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">URL</span><span class="p">,</span> <span class="n">new_url</span><span class="p">)</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">username</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="nd">@username</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">username</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_username</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="n">new_username</span><span class="p">)</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">password</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="nd">@password</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_password</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="n">new_password</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ExternalIntegration.explain"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.explain">[docs]</a>    <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a series of human-readable strings to explain an</span>
+<span class="sd">        ExternalIntegration&#39;s settings.</span>
+
+<span class="sd">        :param library: Include additional settings imposed upon this</span>
+<span class="sd">            ExternalIntegration by the given Library.</span>
+<span class="sd">        :param include_secrets: For security reasons,</span>
+<span class="sd">            sensitive settings such as passwords are not displayed by default.</span>
+<span class="sd">        :return: A list of explanatory strings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;ID: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Name: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Protocol/Goal: </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">goal</span><span class="p">))</span>
+
+        <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="n">setting</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">library</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">library</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">library</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">library</span> <span class="o">!=</span> <span class="n">library</span><span class="p">:</span>
+                <span class="c1"># This is a different library&#39;s specialization of</span>
+                <span class="c1"># this integration. Ignore it.</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># The setting has no value. Ignore it.</span>
+                <span class="k">continue</span>
+            <span class="n">explanation</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">=&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">library</span><span class="p">:</span>
+                <span class="n">explanation</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> (applies only to </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">explanation</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">name</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">include_secrets</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">setting</span><span class="o">.</span><span class="n">is_secret</span><span class="p">:</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">explanation</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">lines</span></div></div>
+
+<div class="viewcode-block" id="ConfigurationSetting"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting">[docs]</a><span class="k">class</span> <span class="nc">ConfigurationSetting</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An extra piece of site configuration.</span>
+<span class="sd">    A ConfigurationSetting may be associated with an</span>
+<span class="sd">    ExternalIntegration, a Library, both, or neither.</span>
+<span class="sd">    * The secret used by the circulation manager to sign OAuth bearer</span>
+<span class="sd">    tokens is not associated with an ExternalIntegration or with a</span>
+<span class="sd">    Library.</span>
+<span class="sd">    * The link to a library&#39;s privacy policy is associated with the</span>
+<span class="sd">    Library, but not with any particular ExternalIntegration.</span>
+<span class="sd">    * The &quot;website ID&quot; for an Overdrive collection is associated with</span>
+<span class="sd">    an ExternalIntegration (the Overdrive integration), but not with</span>
+<span class="sd">    any particular Library (since multiple libraries might share an</span>
+<span class="sd">    Overdrive collection).</span>
+<span class="sd">    * The &quot;identifier prefix&quot; used to determine which library a patron</span>
+<span class="sd">    is a patron of, is associated with both a Library and an</span>
+<span class="sd">    ExternalIntegration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;configurationsettings&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">external_integration_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;externalintegrations.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">_value</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;value&quot;</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;external_integration_id&#39;</span><span class="p">,</span> <span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="s1">&#39;key&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+    <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">u</span><span class="s1">&#39;&lt;ConfigurationSetting: key=</span><span class="si">%s</span><span class="s1">, ID=</span><span class="si">%d</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ConfigurationSetting.sitewide_secret"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.sitewide_secret">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">sitewide_secret</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a sitewide shared secret.</span>
+<span class="sd">        The value of this setting doesn&#39;t matter, only that it&#39;s</span>
+<span class="sd">        unique across the site and that it&#39;s always available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">secret</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">secret</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="n">secret</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">urandom</span><span class="p">(</span><span class="mi">24</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;hex&#39;</span><span class="p">)</span>
+            <span class="c1"># Commit to get this in the database ASAP.</span>
+            <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">secret</span><span class="o">.</span><span class="n">value</span></div>
+
+<div class="viewcode-block" id="ConfigurationSetting.explain"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.explain">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Explain all site-wide ConfigurationSettings.&quot;&quot;&quot;</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">site_wide_settings</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ConfigurationSetting</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">library</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                    <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">external_integration</span><span class="o">==</span><span class="kc">None</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">include_secrets</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_secret&quot;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">site_wide_settings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">setting</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">site_wide_settings</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Site-wide configuration settings:&quot;</span><span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;---------------------------------&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">site_wide_settings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">key</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">=&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">lines</span></div>
+
+<div class="viewcode-block" id="ConfigurationSetting.sitewide"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.sitewide">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">sitewide</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a sitewide ConfigurationSetting.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConfigurationSetting.for_library"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.for_library">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_library</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting for the given Library.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConfigurationSetting.for_externalintegration"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.for_externalintegration">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_externalintegration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">externalintegration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting for the given</span>
+<span class="sd">        ExternalIntegration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">externalintegration</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">externalintegration</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_cache_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">external_integration</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
+            <span class="n">library_id</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">library_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">external_integration</span><span class="p">:</span>
+            <span class="n">external_integration_id</span> <span class="o">=</span> <span class="n">external_integration</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">external_integration_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">library_id</span><span class="p">,</span> <span class="n">external_integration_id</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ConfigurationSetting.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConfigurationSetting.for_library_and_externalintegration"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.for_library_and_externalintegration">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_library_and_externalintegration</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">external_integration</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting associated with a Library</span>
+<span class="sd">        and an ExternalIntegration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">create</span><span class="p">():</span>
+            <span class="sd">&quot;&quot;&quot;Function called when a ConfigurationSetting is not found in cache</span>
+<span class="sd">            and must be created.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">ConfigurationSetting</span><span class="p">,</span>
+                <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">external_integration</span><span class="o">=</span><span class="n">external_integration</span><span class="p">,</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">key</span>
+            <span class="p">)</span>
+
+        <span class="c1"># ConfigurationSettings are stored in cache based on their library,</span>
+        <span class="c1"># external integration, and the name of the setting.</span>
+        <span class="n">cache_key</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">external_integration</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="n">setting</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">cache_key</span><span class="p">,</span> <span class="n">create</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">setting</span></div>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;What&#39;s the current value of this configuration setting?</span>
+<span class="sd">        If not present, the value may be inherited from some other</span>
+<span class="sd">        ConfigurationSetting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="p">:</span>
+            <span class="c1"># An explicitly set value always takes precedence.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="p">:</span>
+            <span class="c1"># This is a library-specific specialization of an</span>
+            <span class="c1"># ExternalIntegration. Treat the value set on the</span>
+            <span class="c1"># ExternalIntegration as a default.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">:</span>
+            <span class="c1"># This is a library-specific setting. Treat the site-wide</span>
+            <span class="c1"># value as a default.</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span>
+
+    <span class="nd">@value</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">new_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_value</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">new_value</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_is_secret</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Should the value of the given key be treated as secret?</span>
+<span class="sd">        This will have to do, in the absence of programmatic ways of</span>
+<span class="sd">        saying that a specific setting should be treated as secret.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">key</span> <span class="o">==</span> <span class="n">x</span> <span class="ow">or</span>
+            <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">_&#39;</span> <span class="o">%</span> <span class="n">x</span><span class="p">)</span> <span class="ow">or</span>
+            <span class="n">key</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">x</span><span class="p">)</span> <span class="ow">or</span>
+            <span class="p">(</span><span class="s2">&quot;_</span><span class="si">%s</span><span class="s2">_&quot;</span> <span class="o">%</span><span class="n">x</span><span class="p">)</span> <span class="ow">in</span> <span class="n">key</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;secret&#39;</span><span class="p">,</span> <span class="s1">&#39;password&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_secret</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Should the value of this key be treated as secret?&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_secret</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ConfigurationSetting.value_or_default"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.value_or_default">[docs]</a>    <span class="k">def</span> <span class="nf">value_or_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the value of this setting. If the value is None,</span>
+<span class="sd">        set it to `default` and return that instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">default</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span></div>
+
+    <span class="n">MEANS_YES</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="s1">&#39;true&#39;</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;yes&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">])</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">bool_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn the value into a boolean if possible.</span>
+<span class="sd">        :return: A boolean, or None if there is no value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">MEANS_YES</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">int_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn the value into an int if possible.</span>
+<span class="sd">        :return: An integer, or None if there is no value.</span>
+<span class="sd">        :raise ValueError: If the value cannot be converted to an int.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">float_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn the value into an float if possible.</span>
+<span class="sd">        :return: A float, or None if there is no value.</span>
+<span class="sd">        :raise ValueError: If the value cannot be converted to a float.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">json_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Interpret the value as JSON if possible.</span>
+<span class="sd">        :return: An object, or None if there is no value.</span>
+<span class="sd">        :raise ValueError: If the value cannot be parsed as JSON.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="c1"># As of this release of the software, this is our best guess as to</span>
+    <span class="c1"># which data sources should have their audiobooks excluded from</span>
+    <span class="c1"># lanes.</span>
+    <span class="n">EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">DataSourceConstants</span><span class="o">.</span><span class="n">OVERDRIVE</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="ConfigurationSetting.excluded_audio_data_sources"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ConfigurationSetting.excluded_audio_data_sources">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">excluded_audio_data_sources</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;List the data sources whose audiobooks should not be published in</span>
+<span class="sd">        feeds, either because this server can&#39;t fulfill them or the</span>
+<span class="sd">        expected client can&#39;t play them.</span>
+<span class="sd">        Most methods like this go into Configuration, but this one needs</span>
+<span class="sd">        to reference data model objects for its default value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">EXCLUDED_AUDIO_DATA_SOURCES</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT</span>
+        <span class="k">return</span> <span class="n">value</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,1221 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.odilo &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.odilo</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding=utf-8</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">isbnlib</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">circulation</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">LoanInfo</span><span class="p">,</span>
+    <span class="n">HoldInfo</span><span class="p">,</span>
+    <span class="n">FulfillmentInfo</span><span class="p">,</span>
+    <span class="n">BaseCirculationAPI</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Credential</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Identifier</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">HasSelfTests</span><span class="p">,</span>
+    <span class="n">SelfTestResult</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CollectionMonitor</span><span class="p">,</span>
+    <span class="n">TimelineMonitor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
+
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">Contributor</span><span class="p">,</span>
+    <span class="n">Credential</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Hyperlink</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="k">import</span> <span class="n">Analytics</span>
+
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CirculationData</span><span class="p">,</span>
+    <span class="n">ContributorData</span><span class="p">,</span>
+    <span class="n">FormatData</span><span class="p">,</span>
+    <span class="n">IdentifierData</span><span class="p">,</span>
+    <span class="n">Metadata</span><span class="p">,</span>
+    <span class="n">LinkData</span><span class="p">,</span>
+    <span class="n">ReplacementPolicy</span><span class="p">,</span>
+    <span class="n">SubjectData</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">BibliographicCoverageProvider</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">DatabaseTest</span>
+
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">HTTP</span><span class="p">,</span>
+    <span class="n">BadResponseException</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">core.util.personal_names</span> <span class="k">import</span> <span class="n">sort_name_to_display_name</span>
+
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">MockRequestsResponse</span>
+
+<div class="viewcode-block" id="OdiloRepresentationExtractor"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloRepresentationExtractor">[docs]</a><span class="k">class</span> <span class="nc">OdiloRepresentationExtractor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Extract useful information from Odilo&#39;s JSON representations.&quot;&quot;&quot;</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;OdiloRepresentationExtractor&quot;</span><span class="p">)</span>
+    <span class="n">ACSM</span> <span class="o">=</span> <span class="s1">&#39;ACSM&#39;</span>
+    <span class="n">ACSM_EPUB</span> <span class="o">=</span> <span class="s1">&#39;ACSM_EPUB&#39;</span>
+    <span class="n">ACSM_PDF</span> <span class="o">=</span> <span class="s1">&#39;ACSM_PDF&#39;</span>
+    <span class="n">EBOOK_STREAMING</span> <span class="o">=</span> <span class="s1">&#39;EBOOK_STREAMING&#39;</span>
+
+    <span class="n">format_data_for_odilo_format</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ACSM_PDF</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">PDF_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span>
+        <span class="p">),</span>
+        <span class="n">ACSM_EPUB</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span>
+        <span class="p">),</span>
+        <span class="n">EBOOK_STREAMING</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_TEXT_CONTENT_TYPE</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;MP3&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">MP3_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_AUDIO_CONTENT_TYPE</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;MP4&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">MP4_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_VIDEO_CONTENT_TYPE</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;WMV&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">WMV_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_VIDEO_CONTENT_TYPE</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;JPG&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">JPEG_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;SCORM&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">Representation</span><span class="o">.</span><span class="n">SCORM_MEDIA_TYPE</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span>
+        <span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">odilo_medium_to_simplified_medium</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ACSM_PDF</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span>
+        <span class="n">ACSM_EPUB</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span>
+        <span class="n">EBOOK_STREAMING</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">,</span>
+        <span class="s2">&quot;MP3&quot;</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span><span class="p">,</span>
+        <span class="s2">&quot;MP4&quot;</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">VIDEO_MEDIUM</span><span class="p">,</span>
+        <span class="s2">&quot;WMV&quot;</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">VIDEO_MEDIUM</span><span class="p">,</span>
+        <span class="s2">&quot;JPG&quot;</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">IMAGE_MEDIUM</span><span class="p">,</span>
+        <span class="s2">&quot;SCORM&quot;</span><span class="p">:</span> <span class="n">Edition</span><span class="o">.</span><span class="n">COURSEWARE_MEDIUM</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="OdiloRepresentationExtractor.record_info_to_circulation"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloRepresentationExtractor.record_info_to_circulation">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">record_info_to_circulation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">availability</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Note:  The json data passed into this method is from a different file/stream</span>
+<span class="sd">        from the json data that goes into the record_info_to_metadata() method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="s1">&#39;recordId&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">availability</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">record_id</span> <span class="o">=</span> <span class="n">availability</span><span class="p">[</span><span class="s1">&#39;recordId&#39;</span><span class="p">]</span>
+        <span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ODILO_ID</span><span class="p">,</span> <span class="n">record_id</span><span class="p">)</span>  <span class="c1"># We own this availability.</span>
+
+        <span class="n">licenses_owned</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">availability</span><span class="p">[</span><span class="s1">&#39;totalCopies&#39;</span><span class="p">])</span>
+        <span class="n">licenses_available</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">availability</span><span class="p">[</span><span class="s1">&#39;availableCopies&#39;</span><span class="p">])</span>
+
+        <span class="c1"># &#39;licenses_reserved&#39; is the number of patrons who put the book on hold earlier,</span>
+        <span class="c1">#  but who are now at the front of the queue and who could get the book right now if they wanted to.</span>
+        <span class="k">if</span> <span class="s1">&#39;notifiedHolds&#39;</span> <span class="ow">in</span> <span class="n">availability</span><span class="p">:</span>
+            <span class="n">licenses_reserved</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">availability</span><span class="p">[</span><span class="s1">&#39;notifiedHolds&#39;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">licenses_reserved</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># &#39;patrons_in_hold_queue&#39; contains the number of patrons who are currently waiting for a copy of the book.</span>
+        <span class="k">if</span> <span class="s1">&#39;holdsQueueSize&#39;</span> <span class="ow">in</span> <span class="n">availability</span><span class="p">:</span>
+            <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">availability</span><span class="p">[</span><span class="s1">&#39;holdsQueueSize&#39;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">patrons_in_hold_queue</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="n">CirculationData</span><span class="p">(</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span><span class="p">,</span>
+            <span class="n">primary_identifier</span><span class="o">=</span><span class="n">primary_identifier</span><span class="p">,</span>
+            <span class="n">licenses_owned</span><span class="o">=</span><span class="n">licenses_owned</span><span class="p">,</span>
+            <span class="n">licenses_available</span><span class="o">=</span><span class="n">licenses_available</span><span class="p">,</span>
+            <span class="n">licenses_reserved</span><span class="o">=</span><span class="n">licenses_reserved</span><span class="p">,</span>
+            <span class="n">patrons_in_hold_queue</span><span class="o">=</span><span class="n">patrons_in_hold_queue</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloRepresentationExtractor.image_link_to_linkdata"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloRepresentationExtractor.image_link_to_linkdata">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">image_link_to_linkdata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">link</span><span class="p">,</span> <span class="n">rel</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">link</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">LinkData</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="n">rel</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">link</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">JPEG_MEDIA_TYPE</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloRepresentationExtractor.record_info_to_metadata"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloRepresentationExtractor.record_info_to_metadata">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">record_info_to_metadata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">book</span><span class="p">,</span> <span class="n">availability</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn Odilo&#39;s JSON representation of a book into a Metadata</span>
+<span class="sd">        object.</span>
+
+<span class="sd">        Note:  The json data passed into this method is from a different file/stream</span>
+<span class="sd">        from the json data that goes into the book_info_to_circulation() method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;id&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">book</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">odilo_id</span> <span class="o">=</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+        <span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ODILO_ID</span><span class="p">,</span> <span class="n">odilo_id</span><span class="p">)</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">)</span>
+
+        <span class="n">title</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">)</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;subtitle&#39;</span><span class="p">)</span>
+        <span class="n">series</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;series&#39;</span><span class="p">)</span>
+        <span class="n">series_position</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;seriesPosition&#39;</span><span class="p">)</span>
+
+        <span class="n">contributors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">sort_author</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;author&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sort_author</span><span class="p">:</span>
+            <span class="n">roles</span> <span class="o">=</span> <span class="p">[</span><span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLE</span><span class="p">]</span>
+            <span class="n">display_author</span> <span class="o">=</span> <span class="n">sort_name_to_display_name</span><span class="p">(</span><span class="n">sort_author</span><span class="p">)</span>
+            <span class="n">contributor</span> <span class="o">=</span> <span class="n">ContributorData</span><span class="p">(</span>
+                <span class="n">sort_name</span><span class="o">=</span><span class="n">sort_author</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_author</span><span class="p">,</span>
+                <span class="n">roles</span><span class="o">=</span><span class="n">roles</span><span class="p">,</span> <span class="n">biography</span><span class="o">=</span><span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="n">contributors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">contributor</span><span class="p">)</span>
+
+        <span class="n">publisher</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;publisher&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Metadata --&gt; Marc21 260$c</span>
+        <span class="n">published</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;publicationDate&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">published</span><span class="p">:</span>
+            <span class="c1"># yyyyMMdd --&gt; record creation date</span>
+            <span class="n">published</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;releaseDate&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">published</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">published</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">published</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Cannot parse publication date from: &#39;</span> <span class="o">+</span> <span class="n">published</span> <span class="o">+</span> <span class="s1">&#39;, message: &#39;</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+
+        <span class="c1"># yyyyMMdd --&gt; record last modification date</span>
+        <span class="n">last_update</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;modificationDate&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">last_update</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">last_update</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">last_update</span><span class="p">,</span> <span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Cannot parse last update date from: &#39;</span> <span class="o">+</span> <span class="n">last_update</span> <span class="o">+</span> <span class="s1">&#39;, message: &#39;</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+
+        <span class="n">language</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;language&#39;</span><span class="p">,</span> <span class="s1">&#39;spa&#39;</span><span class="p">)</span>
+
+        <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;subjects&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">subject</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">100</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">subjectBisacCode</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;subjectsBisacCodes&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">BISAC</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">subjectBisacCode</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">100</span><span class="p">))</span>
+
+        <span class="n">grade_level</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;gradeLevel&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">grade_level</span><span class="p">:</span>
+            <span class="n">subject</span> <span class="o">=</span> <span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">grade_level</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+            <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
+
+        <span class="n">medium</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">file_format</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fileFormat&#39;</span><span class="p">)</span>
+        <span class="n">formats</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">format_received</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formats&#39;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="k">if</span> <span class="n">format_received</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">format_data_for_odilo_format</span><span class="p">:</span>
+                <span class="n">medium</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">set_format</span><span class="p">(</span><span class="n">format_received</span><span class="p">,</span> <span class="n">formats</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">format_received</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ACSM</span> <span class="ow">and</span> <span class="n">file_format</span><span class="p">:</span>
+                <span class="n">medium</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">set_format</span><span class="p">(</span><span class="n">format_received</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">file_format</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">formats</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Unrecognized format received: &#39;</span> <span class="o">+</span> <span class="n">format_received</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">medium</span><span class="p">:</span>
+            <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
+
+        <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">isbn</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;isbn&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">isbn</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">isbnlib</span><span class="o">.</span><span class="n">is_isbn10</span><span class="p">(</span><span class="n">isbn</span><span class="p">):</span>
+                <span class="n">isbn</span> <span class="o">=</span> <span class="n">isbnlib</span><span class="o">.</span><span class="n">to_isbn13</span><span class="p">(</span><span class="n">isbn</span><span class="p">)</span>
+            <span class="n">identifiers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">IdentifierData</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">,</span> <span class="n">isbn</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># A cover</span>
+        <span class="n">links</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">cover_image_url</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;coverImageUrl&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cover_image_url</span><span class="p">:</span>
+            <span class="n">image_data</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">image_link_to_linkdata</span><span class="p">(</span><span class="n">cover_image_url</span><span class="p">,</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">image_data</span><span class="p">:</span>
+                <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span>
+
+        <span class="n">original_image_url</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;originalImageUrl&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">original_image_url</span><span class="p">:</span>
+            <span class="n">image_data</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">image_link_to_linkdata</span><span class="p">(</span><span class="n">original_image_url</span><span class="p">,</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">image_data</span><span class="p">:</span>
+                <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span>
+
+        <span class="c1"># Descriptions become links.</span>
+        <span class="n">description</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;description&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">description</span><span class="p">:</span>
+            <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LinkData</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">description</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="s2">&quot;text/html&quot;</span><span class="p">))</span>
+
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">Metadata</span><span class="p">(</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">subtitle</span><span class="o">=</span><span class="n">subtitle</span><span class="p">,</span>
+            <span class="n">language</span><span class="o">=</span><span class="n">language</span><span class="p">,</span>
+            <span class="n">medium</span><span class="o">=</span><span class="n">medium</span><span class="p">,</span>
+            <span class="n">series</span><span class="o">=</span><span class="n">series</span><span class="p">,</span>
+            <span class="n">series_position</span><span class="o">=</span><span class="n">series_position</span><span class="p">,</span>
+            <span class="n">publisher</span><span class="o">=</span><span class="n">publisher</span><span class="p">,</span>
+            <span class="n">published</span><span class="o">=</span><span class="n">published</span><span class="p">,</span>
+            <span class="n">primary_identifier</span><span class="o">=</span><span class="n">primary_identifier</span><span class="p">,</span>
+            <span class="n">identifiers</span><span class="o">=</span><span class="n">identifiers</span><span class="p">,</span>
+            <span class="n">subjects</span><span class="o">=</span><span class="n">subjects</span><span class="p">,</span>
+            <span class="n">contributors</span><span class="o">=</span><span class="n">contributors</span><span class="p">,</span>
+            <span class="n">links</span><span class="o">=</span><span class="n">links</span><span class="p">,</span>
+            <span class="n">data_source_last_updated</span><span class="o">=</span><span class="n">last_update</span>
+        <span class="p">)</span>
+
+        <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span> <span class="o">=</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">record_info_to_circulation</span><span class="p">(</span><span class="n">availability</span><span class="p">)</span>
+        <span class="c1"># &#39;active&#39; --&gt; means that the book exists but it&#39;s no longer in the collection</span>
+        <span class="c1"># (it could be available again in the future)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">active</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">formats</span> <span class="o">=</span> <span class="n">formats</span>
+
+        <span class="k">return</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">active</span></div>
+
+<div class="viewcode-block" id="OdiloRepresentationExtractor.set_format"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloRepresentationExtractor.set_format">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">set_format</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">format_received</span><span class="p">,</span> <span class="n">formats</span><span class="p">):</span>
+        <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">format_data_for_odilo_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">format_received</span><span class="p">)</span>
+        <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FormatData</span><span class="p">(</span><span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">odilo_medium_to_simplified_medium</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">format_received</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="OdiloAPI"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI">[docs]</a><span class="k">class</span> <span class="nc">OdiloAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Odilo API&quot;</span><span class="p">)</span>
+    <span class="n">LIBRARY_API_BASE_URL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;library_api_base_url&quot;</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ODILO</span>
+    <span class="n">DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Integrate an Odilo library collection.&quot;</span><span class="p">)</span>
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+                   <span class="p">{</span>
+                       <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LIBRARY_API_BASE_URL</span><span class="p">,</span>
+                       <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library API base URL&quot;</span><span class="p">),</span>
+                       <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This might look like &lt;code&gt;https://[library].odilo.us/api/v2&lt;/code&gt;.&quot;</span><span class="p">),</span>
+                       <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                       <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+                   <span class="p">},</span>
+                   <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Client Key&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+                   <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Client Secret&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+               <span class="p">]</span> <span class="o">+</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">SETTINGS</span>
+
+
+    <span class="c1"># --- OAuth ---</span>
+    <span class="n">TOKEN_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/token&quot;</span>
+
+    <span class="c1"># --- Discovery API ---</span>
+    <span class="n">ALL_PRODUCTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/records&quot;</span>
+    <span class="n">RECORD_METADATA_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/records/</span><span class="si">{recordId}</span><span class="s2">&quot;</span>
+    <span class="n">RECORD_AVAILABILITY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/records/</span><span class="si">{recordId}</span><span class="s2">/availability&quot;</span>
+
+    <span class="c1"># --- Circulation API ---</span>
+    <span class="n">CHECKOUT_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/records/</span><span class="si">{recordId}</span><span class="s2">/checkout&quot;</span>
+    <span class="n">CHECKIN_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/checkouts/</span><span class="si">{checkoutId}</span><span class="s2">/return?patronId=</span><span class="si">{patronId}</span><span class="s2">&quot;</span>
+
+    <span class="n">PLACE_HOLD_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/records/</span><span class="si">{recordId}</span><span class="s2">/hold&quot;</span>
+    <span class="n">RELEASE_HOLD_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/holds/</span><span class="si">{holdId}</span><span class="s2">/cancel&quot;</span>
+
+    <span class="n">PATRON_CHECKOUTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/patrons/</span><span class="si">{patronId}</span><span class="s2">/checkouts&quot;</span>
+    <span class="n">PATRON_HOLDS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;/patrons/</span><span class="si">{patronId}</span><span class="s2">/holds&quot;</span>
+
+    <span class="c1"># ---------------------------------------</span>
+
+    <span class="n">PAGE_SIZE_LIMIT</span> <span class="o">=</span> <span class="mi">200</span>
+
+    <span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">BORROW_STEP</span>
+
+    <span class="c1"># maps a 2-tuple (media_type, drm_mechanism) to the internal string used in Odilo API to describe that setup.</span>
+    <span class="n">delivery_mechanism_to_internal_format</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">format_data_for_odilo_format</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>
+        <span class="p">}</span>
+
+    <span class="n">error_to_exception</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;TitleNotCheckedOut&quot;</span><span class="p">:</span> <span class="n">NoActiveLoan</span><span class="p">,</span>
+        <span class="s2">&quot;patronNotFound&quot;</span><span class="p">:</span> <span class="n">PatronNotFoundOnRemote</span><span class="p">,</span>
+        <span class="s2">&quot;ERROR_DATA_NOT_FOUND&quot;</span><span class="p">:</span> <span class="n">NotFoundOnRemote</span><span class="p">,</span>
+        <span class="s2">&quot;LOAN_ALREADY_RESERVED&quot;</span><span class="p">:</span> <span class="n">AlreadyOnHold</span><span class="p">,</span>
+        <span class="s2">&quot;CHECKOUT_NOT_FOUND&quot;</span><span class="p">:</span> <span class="n">NotCheckedOut</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">odilo_bibliographic_coverage_provider</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">OdiloBibliographicCoverageProvider</span><span class="p">(</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="bp">self</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ODILO</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Collection protocol is </span><span class="si">%s</span><span class="s2">, but passed into OdiloAPI!&quot;</span> <span class="o">%</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">Analytics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">token</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_key</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">username</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">password</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_API_BASE_URL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_key</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span><span class="s2">&quot;Odilo configuration is incomplete.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Use utf8 instead of unicode encoding</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">client_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">settings</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Get set up with up-to-date credentials from the API.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_creds</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">token</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span><span class="s2">&quot;Invalid credentials for </span><span class="si">%s</span><span class="s2">, cannot intialize API </span><span class="si">%s</span><span class="s2">&quot;</span>
+                                          <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span><span class="p">))</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">collection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OdiloAPI.external_integration"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.external_integration">[docs]</a>    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span></div>
+
+    <span class="k">def</span> <span class="nf">_run_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+            <span class="s2">&quot;Obtaining a sitewide access token&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_creds</span><span class="p">,</span>
+            <span class="n">force_refresh</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">yield</span> <span class="n">result</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="c1"># We couldn&#39;t get a sitewide token, so there is no</span>
+            <span class="c1"># point in continuing.</span>
+            <span class="k">return</span>
+
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_patrons</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">SelfTestResult</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">result</span>
+                <span class="k">continue</span>
+
+            <span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span> <span class="o">=</span> <span class="n">result</span>
+            <span class="n">task</span> <span class="o">=</span> <span class="s2">&quot;Viewing the active loans for the test patron for library </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">library</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
+                <span class="n">task</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_checkouts</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="OdiloAPI.check_creds"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.check_creds">[docs]</a>    <span class="k">def</span> <span class="nf">check_creds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If the Bearer Token has expired, update it.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">force_refresh</span><span class="p">:</span>
+            <span class="n">refresh_on_lookup</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">refresh_on_lookup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refresh_creds</span>
+
+        <span class="n">credential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">credential_object</span><span class="p">(</span><span class="n">refresh_on_lookup</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">force_refresh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">refresh_creds</span><span class="p">(</span><span class="n">credential</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">token</span> <span class="o">=</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.credential_object"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.credential_object">[docs]</a>    <span class="k">def</span> <span class="nf">credential_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">refresh</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the Credential object that allows us to use</span>
+<span class="sd">        the Odilo API.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">refresh</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.refresh_creds"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.refresh_creds">[docs]</a>    <span class="k">def</span> <span class="nf">refresh_creds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fetch a new Bearer Token and update the given Credential object.&quot;&quot;&quot;</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">token_post</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_ENDPOINT</span><span class="p">,</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="n">grant_type</span><span class="o">=</span><span class="s2">&quot;client_credentials&quot;</span><span class="p">),</span>
+            <span class="n">allowed_response_codes</span><span class="o">=</span><span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># If you put in the wrong URL, this is where you&#39;ll run into</span>
+        <span class="c1"># problems, so it&#39;s useful to give a helpful error message if</span>
+        <span class="c1"># Odilo doesn&#39;t provide anything more specific.</span>
+        <span class="n">generic_error</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> may not be the right base URL. Response document was: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+        <span class="p">)</span>
+        <span class="n">generic_exception</span> <span class="o">=</span> <span class="n">BadResponseException</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_ENDPOINT</span><span class="p">,</span> <span class="n">generic_error</span>
+        <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">generic_exception</span>
+
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_credential</span><span class="p">(</span><span class="n">credential</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">token</span> <span class="o">=</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span>
+            <span class="k">return</span>
+        <span class="k">elif</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">data</span> <span class="ow">and</span> <span class="s1">&#39;errors&#39;</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;errors&#39;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;errors&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s1">&#39;description&#39;</span> <span class="ow">in</span> <span class="n">error</span><span class="p">:</span>
+                    <span class="n">message</span> <span class="o">=</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;description&#39;</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">message</span> <span class="o">=</span> <span class="n">generic_error</span>
+                <span class="k">raise</span> <span class="n">BadResponseException</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TOKEN_ENDPOINT</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">generic_exception</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.patron_request"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.patron_request">[docs]</a>    <span class="k">def</span> <span class="nf">patron_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exception_on_401</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make an HTTP request on behalf of a patron.</span>
+
+<span class="sd">        The results are never cached.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">Authorization</span><span class="o">=</span><span class="s2">&quot;Bearer </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">token</span><span class="p">)</span>
+        <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;application/json&#39;</span>
+        <span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_headers</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">and</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;get&#39;</span><span class="p">,</span> <span class="s1">&#39;post&#39;</span><span class="p">,</span> <span class="s1">&#39;put&#39;</span><span class="p">,</span> <span class="s1">&#39;delete&#39;</span><span class="p">):</span>
+            <span class="n">method</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+                <span class="n">method</span> <span class="o">=</span> <span class="s1">&#39;post&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">method</span> <span class="o">=</span> <span class="s1">&#39;get&#39;</span>
+
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_absolute_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">request_with_timeout</span><span class="p">(</span>
+            <span class="n">method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">401</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">exception_on_401</span><span class="p">:</span>
+                <span class="c1"># This is our second try. Give up.</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Something&#39;s wrong with the patron OAuth Bearer Token!&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Refresh the token and try again.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">check_creds</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">extra_headers</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">response</span></div>
+
+    <span class="k">def</span> <span class="nf">_make_absolute_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prepend the API base URL onto `url` unless it is already</span>
+<span class="sd">        an absolute HTTP URL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">protocol</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;http://&#39;</span><span class="p">,</span> <span class="s1">&#39;https://&#39;</span><span class="p">)):</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span> <span class="o">+</span> <span class="n">url</span>
+        <span class="k">return</span> <span class="n">url</span>
+
+<div class="viewcode-block" id="OdiloAPI.get"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">exception_on_401</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make an HTTP GET request using the active Bearer Token.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">extra_headers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">extra_headers</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">Authorization</span><span class="o">=</span><span class="s2">&quot;Bearer </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">token</span><span class="p">)</span>
+        <span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra_headers</span><span class="p">)</span>
+        <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span> <span class="o">+</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">==</span> <span class="mi">401</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">exception_on_401</span><span class="p">:</span>
+                <span class="c1"># This is our second try. Give up.</span>
+                <span class="k">raise</span> <span class="n">BadResponseException</span><span class="o">.</span><span class="n">from_response</span><span class="p">(</span>
+                    <span class="n">url</span><span class="p">,</span>
+                    <span class="s2">&quot;Something&#39;s wrong with the Odilo OAuth Bearer Token!&quot;</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Refresh the token and try again.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">check_creds</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">extra_headers</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.token_post"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.token_post">[docs]</a>    <span class="k">def</span> <span class="nf">token_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make an HTTP POST request for purposes of getting an OAuth token.&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span><span class="p">)</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">standard_b64encode</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+        <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Authorization&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Basic </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">auth</span>
+        <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;application/x-www-form-urlencoded&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_post</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library_api_base_url</span> <span class="o">+</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OdiloAPI.checkout"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.checkout">[docs]</a>    <span class="k">def</span> <span class="nf">checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check out a book on behalf of a patron.</span>
+
+<span class="sd">        :param patron: a Patron object for the patron who wants</span>
+<span class="sd">            to check out the book.</span>
+
+<span class="sd">        :param pin: The patron&#39;s alleged password.</span>
+
+<span class="sd">        :param licensepool: Identifier of the book to be checked out is</span>
+<span class="sd">            attached to this licensepool.</span>
+
+<span class="sd">        :param internal_format: Represents the patron&#39;s desired book format.</span>
+
+<span class="sd">        :return: a LoanInfo object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">record_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+
+        <span class="c1"># Data just as &#39;x-www-form-urlencoded&#39;, no JSON</span>
+
+        <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">patronId</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
+            <span class="nb">format</span><span class="o">=</span><span class="n">internal_format</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKOUT_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">recordId</span><span class="o">=</span><span class="n">record_id</span><span class="p">),</span>
+            <span class="n">extra_headers</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">:</span> <span class="s1">&#39;application/x-www-form-urlencoded&#39;</span><span class="p">},</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="n">response_json</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">response_json</span><span class="p">,</span> <span class="n">default_exception_class</span><span class="o">=</span><span class="n">CannotLoan</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">loan_info_from_odilo_checkout</span><span class="p">(</span><span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">response_json</span><span class="p">)</span>
+
+        <span class="c1"># TODO: we need to improve this at the API and use an error code</span>
+        <span class="k">elif</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NoAcceptableFormat</span><span class="p">(</span><span class="s1">&#39;record_id: </span><span class="si">%s</span><span class="s1">, format: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">record_id</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">))</span>
+
+        <span class="k">raise</span> <span class="n">CannotLoan</span><span class="p">(</span><span class="s1">&#39;patron: </span><span class="si">%s</span><span class="s1">, record_id: </span><span class="si">%s</span><span class="s1">, format: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">record_id</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.loan_info_from_odilo_checkout"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.loan_info_from_odilo_checkout">[docs]</a>    <span class="k">def</span> <span class="nf">loan_info_from_odilo_checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">checkout</span><span class="p">):</span>
+        <span class="n">start_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_date</span><span class="p">(</span><span class="n">checkout</span><span class="p">,</span> <span class="s1">&#39;startTime&#39;</span><span class="p">)</span>
+        <span class="n">end_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_date</span><span class="p">(</span><span class="n">checkout</span><span class="p">,</span> <span class="s1">&#39;endTime&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">LoanInfo</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span>
+            <span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span><span class="p">,</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">ODILO_ID</span><span class="p">,</span>
+            <span class="n">checkout</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+            <span class="n">start_date</span><span class="p">,</span>
+            <span class="n">end_date</span><span class="p">,</span>
+            <span class="n">checkout</span><span class="p">[</span><span class="s1">&#39;downloadUrl&#39;</span><span class="p">]</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.checkin"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.checkin">[docs]</a>    <span class="k">def</span> <span class="nf">checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="n">record_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_checkout</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">record_id</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CHECKIN_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">checkoutId</span><span class="o">=</span><span class="n">loan</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span> <span class="n">patronId</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">)</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;POST&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">response</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">(),</span> <span class="n">default_exception_class</span><span class="o">=</span><span class="n">CannotReturn</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.extract_date"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.extract_date">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">extract_date</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">field_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">]:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># OdiloAPI dates are timestamps in milliseconds</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">field_name</span><span class="p">])</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.raise_exception_on_error"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.raise_exception_on_error">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">raise_exception_on_error</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">default_exception_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ignore_exception_codes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span> <span class="ow">or</span> <span class="s1">&#39;errors&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;errors&#39;</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span>
+
+        <span class="n">error</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;errors&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">error_code</span> <span class="o">=</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;description&#39;</span> <span class="ow">in</span> <span class="n">error</span> <span class="ow">and</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;description&#39;</span><span class="p">])</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ignore_exception_codes</span> <span class="ow">or</span> <span class="n">error_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ignore_exception_codes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">error_code</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">error_to_exception</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="bp">cls</span><span class="o">.</span><span class="n">error_to_exception</span><span class="p">[</span><span class="n">error_code</span><span class="p">](</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">default_exception_class</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">default_exception_class</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.get_checkout"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_checkout">[docs]</a>    <span class="k">def</span> <span class="nf">get_checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">record_id</span><span class="p">):</span>
+        <span class="n">patron_checkouts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_checkouts</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">checkout</span> <span class="ow">in</span> <span class="n">patron_checkouts</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">checkout</span><span class="p">[</span><span class="s1">&#39;recordId&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">record_id</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">checkout</span>
+
+        <span class="k">raise</span> <span class="n">NotFoundOnRemote</span><span class="p">(</span><span class="s2">&quot;Could not find active loan for patron </span><span class="si">%s</span><span class="s2">, record </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">record_id</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.get_hold"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_hold">[docs]</a>    <span class="k">def</span> <span class="nf">get_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">record_id</span><span class="p">):</span>
+        <span class="n">patron_holds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_holds</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">patron_holds</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">hold</span><span class="p">[</span><span class="s1">&#39;recordId&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">record_id</span> <span class="ow">and</span> <span class="n">hold</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;informed&#39;</span><span class="p">,</span> <span class="s1">&#39;waiting&#39;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">hold</span>
+
+        <span class="k">raise</span> <span class="n">NotFoundOnRemote</span><span class="p">(</span><span class="s2">&quot;Could not find active hold for patron </span><span class="si">%s</span><span class="s2">, record </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">record_id</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.fulfill"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the actual resource file to the patron.</span>
+
+<span class="sd">        :param kwargs: A container for arguments to fulfill()</span>
+<span class="sd">           which are not relevant to this vendor.</span>
+
+<span class="sd">        :return: a FulfillmentInfo object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">record_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">content_link</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">content_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fulfillment_link</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">record_id</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">content_link</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">content</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Odilo record_id </span><span class="si">%s</span><span class="s2"> was not available as </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">record_id</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">FulfillmentInfo</span><span class="p">(</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span><span class="p">,</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">ODILO_ID</span><span class="p">,</span>
+                <span class="n">record_id</span><span class="p">,</span>
+                <span class="n">content_link</span><span class="o">=</span><span class="n">content_link</span><span class="p">,</span>
+                <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">,</span>
+                <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+                <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.get_fulfillment_link"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_fulfillment_link">[docs]</a>    <span class="k">def</span> <span class="nf">get_fulfillment_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">record_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the link corresponding to an existing checkout.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Retrieve checkout with its download_ulr. It is necessary to generate a download token in our API</span>
+        <span class="n">checkout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_checkout</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">record_id</span><span class="p">)</span>
+        <span class="n">loan_format</span> <span class="o">=</span> <span class="n">checkout</span><span class="p">[</span><span class="s1">&#39;format&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">format_type</span> <span class="ow">and</span> <span class="n">loan_format</span> <span class="ow">and</span> <span class="p">(</span>
+                        <span class="n">format_type</span> <span class="o">==</span> <span class="n">loan_format</span> <span class="ow">or</span>
+                        <span class="p">(</span><span class="n">loan_format</span> <span class="o">==</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">ACSM</span> <span class="ow">and</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">ACSM_EPUB</span><span class="p">,</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">ACSM_PDF</span><span class="p">))</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="s1">&#39;downloadUrl&#39;</span> <span class="ow">in</span> <span class="n">checkout</span> <span class="ow">and</span> <span class="n">checkout</span><span class="p">[</span><span class="s1">&#39;downloadUrl&#39;</span><span class="p">]:</span>
+                <span class="n">content_link</span> <span class="o">=</span> <span class="n">checkout</span><span class="p">[</span><span class="s1">&#39;downloadUrl&#39;</span><span class="p">]</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">content_type</span> <span class="o">=</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">format_data_for_odilo_format</span><span class="p">[</span><span class="n">format_type</span><span class="p">]</span>
+
+                <span class="c1"># Get also .acsm file</span>
+                <span class="k">if</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">ACSM_EPUB</span><span class="p">,</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">ACSM_PDF</span><span class="p">):</span>
+                    <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">content_link</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+                        <span class="n">content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+                    <span class="k">elif</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span> <span class="ow">and</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">(),</span> <span class="n">CannotFulfill</span><span class="p">)</span>
+
+                <span class="k">return</span> <span class="n">content_link</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">content_type</span>
+
+        <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span><span class="s2">&quot;Cannot obtain a download link for patron[</span><span class="si">%r</span><span class="s2">], record_id[</span><span class="si">%s</span><span class="s2">], format_type[</span><span class="si">%s</span><span class="s2">].&quot;</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span>
+                            <span class="n">record_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.get_patron_checkouts"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_patron_checkouts">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_checkouts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PATRON_CHECKOUTS_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">patronId</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">))</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.get_patron_holds"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_patron_holds">[docs]</a>    <span class="k">def</span> <span class="nf">get_patron_holds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PATRON_HOLDS_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">patronId</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">))</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.patron_activity"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="n">odilo_checkouts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_checkouts</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+        <span class="n">odilo_holds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_patron_holds</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+
+        <span class="n">loans_info</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">holds_info</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+
+        <span class="k">for</span> <span class="n">checkout</span> <span class="ow">in</span> <span class="n">odilo_checkouts</span><span class="p">:</span>
+            <span class="n">loan_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loan_info_from_odilo_checkout</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">checkout</span><span class="p">)</span>
+            <span class="n">loans_info</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loan_info</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">odilo_holds</span><span class="p">:</span>
+            <span class="n">hold_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hold_from_odilo_hold</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
+            <span class="n">holds_info</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hold_info</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">loans_info</span> <span class="o">+</span> <span class="n">holds_info</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.hold_from_odilo_hold"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.hold_from_odilo_hold">[docs]</a>    <span class="k">def</span> <span class="nf">hold_from_odilo_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_date</span><span class="p">(</span><span class="n">hold</span><span class="p">,</span> <span class="s1">&#39;startTime&#39;</span><span class="p">)</span>
+        <span class="c1"># end_date: The estimated date the title will be available for the patron to borrow.</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_date</span><span class="p">(</span><span class="n">hold</span><span class="p">,</span> <span class="s1">&#39;notifiedTime&#39;</span><span class="p">)</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;holdQueuePosition&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">position</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">position</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">position</span><span class="p">)</span>
+
+        <span class="c1"># Patron already notified to borrow the title</span>
+        <span class="k">if</span> <span class="s1">&#39;informed&#39;</span> <span class="o">==</span> <span class="n">hold</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]:</span>
+            <span class="n">position</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="n">HoldInfo</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span>
+            <span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span><span class="p">,</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">ODILO_ID</span><span class="p">,</span>
+            <span class="n">hold</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+            <span class="n">start_date</span><span class="o">=</span><span class="n">start</span><span class="p">,</span>
+            <span class="n">end_date</span><span class="o">=</span><span class="n">end</span><span class="p">,</span>
+            <span class="n">hold_position</span><span class="o">=</span><span class="n">position</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.place_hold"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.place_hold">[docs]</a>    <span class="k">def</span> <span class="nf">place_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">notification_email_address</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Place a book on hold.</span>
+
+<span class="sd">        :return: A HoldInfo object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">record_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+
+        <span class="c1"># Data just as &#39;x-www-form-urlencoded&#39;, no JSON</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">patronId</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">)</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PLACE_HOLD_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">recordId</span><span class="o">=</span><span class="n">record_id</span><span class="p">),</span>
+            <span class="n">extra_headers</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">:</span> <span class="s1">&#39;application/x-www-form-urlencoded&#39;</span><span class="p">},</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hold_from_odilo_hold</span><span class="p">(</span><span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">CannotHold</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.release_hold"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Release a patron&#39;s hold on a book.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">record_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+        <span class="n">hold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hold</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">record_id</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RELEASE_HOLD_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">holdId</span><span class="o">=</span><span class="n">hold</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">patronId</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">))</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;POST&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">raise_exception_on_error</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">(),</span> <span class="n">default_exception_class</span><span class="o">=</span><span class="n">CannotReleaseHold</span><span class="p">,</span>
+                                      <span class="n">ignore_exception_codes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;HOLD_NOT_FOUND&#39;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_update_credential</span><span class="p">(</span><span class="n">credential</span><span class="p">,</span> <span class="n">odilo_data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Copy Odilo OAuth data into a Credential object.&quot;&quot;&quot;</span>
+        <span class="n">credential</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="n">odilo_data</span><span class="p">[</span><span class="s1">&#39;token&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">odilo_data</span><span class="p">[</span><span class="s1">&#39;expiresIn&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># This token never expires.</span>
+            <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">expires_in</span> <span class="o">=</span> <span class="p">(</span><span class="n">odilo_data</span><span class="p">[</span><span class="s1">&#39;expiresIn&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.9</span><span class="p">)</span>
+            <span class="n">credential</span><span class="o">.</span><span class="n">expires</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">expires_in</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OdiloAPI.get_metadata"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record_id</span><span class="p">):</span>
+        <span class="n">identifier</span> <span class="o">=</span> <span class="n">record_id</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">record_id</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">record_id</span><span class="o">.</span><span class="n">identifier</span>
+
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RECORD_METADATA_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">recordId</span><span class="o">=</span><span class="n">identifier</span><span class="p">)</span>
+
+        <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span> <span class="ow">and</span> <span class="n">content</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">content</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Cannot retrieve metadata for record: &#39;</span> <span class="o">+</span> <span class="n">record_id</span> <span class="o">+</span> <span class="s1">&#39; response http &#39;</span> <span class="o">+</span> <span class="n">status_code</span>
+            <span class="k">if</span> <span class="n">content</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">+=</span> <span class="s1">&#39; content: &#39;</span> <span class="o">+</span> <span class="n">content</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="OdiloAPI.get_availability"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloAPI.get_availability">[docs]</a>    <span class="k">def</span> <span class="nf">get_availability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record_id</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RECORD_AVAILABILITY_ENDPOINT</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">recordId</span><span class="o">=</span><span class="n">record_id</span><span class="p">)</span>
+        <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">content</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Cannot retrieve availability for record: &#39;</span> <span class="o">+</span> <span class="n">record_id</span> <span class="o">+</span> <span class="s1">&#39; response http &#39;</span> <span class="o">+</span> <span class="n">status_code</span>
+            <span class="k">if</span> <span class="n">content</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">+=</span> <span class="s1">&#39; content: &#39;</span> <span class="o">+</span> <span class="n">content</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_do_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># More time please</span>
+        <span class="k">if</span> <span class="s1">&#39;timeout&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;timeout&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">60</span>
+
+        <span class="k">if</span> <span class="s1">&#39;allow_redirects&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;allow_redirects&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">get_with_timeout</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_do_post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># More time please</span>
+        <span class="k">if</span> <span class="s1">&#39;timeout&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;timeout&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">60</span>
+
+        <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">post_with_timeout</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="OdiloCirculationMonitor"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloCirculationMonitor">[docs]</a><span class="k">class</span> <span class="nc">OdiloCirculationMonitor</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">,</span> <span class="n">TimelineMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Maintain LicensePools for recently changed Odilo titles</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Odilo Circulation Monitor&quot;</span>
+    <span class="n">INTERVAL_SECONDS</span> <span class="o">=</span> <span class="mi">500</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ODILO</span>
+    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">CollectionMonitor</span><span class="o">.</span><span class="n">NEVER</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">OdiloAPI</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OdiloCirculationMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OdiloCirculationMonitor.catch_up_from"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloCirculationMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find Odilo books that changed recently.</span>
+
+<span class="sd">        :progress: A TimestampData representing the time previously</span>
+<span class="sd">            covered by this Monitor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting recently_changed_ids, start: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;, cutoff: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">cutoff</span><span class="p">))</span>
+
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">updated</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_ids</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+        <span class="n">finish_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+
+        <span class="n">time_elapsed</span> <span class="o">=</span> <span class="n">finish_time</span> <span class="o">-</span> <span class="n">start_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;recently_changed_ids finished in: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time_elapsed</span><span class="p">))</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Updated records: </span><span class="si">%d</span><span class="s2">. New records: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">updated</span><span class="p">,</span> <span class="n">new</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OdiloCirculationMonitor.all_ids"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloCirculationMonitor.all_ids">[docs]</a>    <span class="k">def</span> <span class="nf">all_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">modification_date</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get IDs for every book in the system, from modification date if any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">retrieved</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">limit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">PAGE_SIZE_LIMIT</span>
+
+        <span class="k">if</span> <span class="n">modification_date</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">modification_date</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">):</span>
+            <span class="n">modification_date</span> <span class="o">=</span> <span class="n">modification_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>  <span class="c1"># Format YYYY-MM-DD</span>
+
+        <span class="c1"># Retrieve first group of records</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_url</span><span class="p">(</span><span class="n">limit</span><span class="p">,</span> <span class="n">modification_date</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+        <span class="c1"># Retrieve Odilo record in groups</span>
+        <span class="k">while</span> <span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">limit</span>
+            <span class="n">retrieved</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Retrieved </span><span class="si">%i</span><span class="s1"> records&#39;</span> <span class="o">%</span> <span class="n">retrieved</span><span class="p">)</span>
+
+            <span class="c1"># Process a bunch of records retrieved</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">content</span><span class="p">:</span>
+                <span class="n">record_id</span> <span class="o">=</span> <span class="n">record</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Processing record </span><span class="si">%i</span><span class="s1">/</span><span class="si">%i</span><span class="s1">: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="n">retrieved</span><span class="p">,</span> <span class="n">record_id</span><span class="p">))</span>
+                <span class="n">identifier</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">odilo_bibliographic_coverage_provider</span><span class="o">.</span><span class="n">process_item</span><span class="p">(</span>
+                    <span class="n">record_id</span><span class="p">,</span> <span class="n">record</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
+                    <span class="n">new</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="n">parsed</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="c1"># Persist each bunch of retrieved records</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="c1"># Retrieve next group of records</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_url</span><span class="p">(</span><span class="n">limit</span><span class="p">,</span> <span class="n">modification_date</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">&gt;=</span> <span class="mi">400</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;ERROR: Fail while retrieving data from remote source: HTTP &#39;</span> <span class="o">+</span> <span class="n">status_code</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">content</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;ERROR response content: &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">content</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Retrieving all ids finished ok. Retrieved </span><span class="si">%i</span><span class="s1"> records. New records: </span><span class="si">%i</span><span class="s1">!!&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">retrieved</span><span class="p">,</span> <span class="n">new</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">retrieved</span><span class="p">,</span> <span class="n">new</span></div>
+
+<div class="viewcode-block" id="OdiloCirculationMonitor.get_url"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloCirculationMonitor.get_url">[docs]</a>    <span class="k">def</span> <span class="nf">get_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">,</span> <span class="n">modification_date</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">?limit=</span><span class="si">%i</span><span class="s2">&amp;offset=</span><span class="si">%i</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">ALL_PRODUCTS_ENDPOINT</span><span class="p">,</span> <span class="n">limit</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">modification_date</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&amp;modificationDate=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">modification_date</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">url</span></div></div>
+
+<div class="viewcode-block" id="MockOdiloAPI"><a class="viewcode-back" href="../../api.html#api.odilo.MockOdiloAPI">[docs]</a><span class="k">class</span> <span class="nc">MockOdiloAPI</span><span class="p">(</span><span class="n">OdiloAPI</span><span class="p">):</span>
+<div class="viewcode-block" id="MockOdiloAPI.patron_request"><a class="viewcode-back" href="../../api.html#api.odilo.MockOdiloAPI.patron_request">[docs]</a>    <span class="k">def</span> <span class="nf">patron_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Modify the record of the request to include the patron information.</span>
+        <span class="n">original_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># The last item in the record of the request is keyword arguments.</span>
+        <span class="c1"># Stick this information in there to minimize confusion.</span>
+        <span class="n">original_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;_patron&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">patron</span>
+        <span class="n">original_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;_pin&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pin</span>
+        <span class="k">return</span> <span class="n">response</span></div>
+<div class="viewcode-block" id="MockOdiloAPI.mock_collection"><a class="viewcode-back" href="../../api.html#api.odilo.MockOdiloAPI.mock_collection">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">mock_collection</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="n">DatabaseTest</span><span class="o">.</span><span class="n">make_default_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">collection</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Test Odilo Collection&quot;</span><span class="p">,</span>
+            <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">external_account_id</span><span class="o">=</span><span class="sa">u</span><span class="s1">&#39;library_id_123&#39;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ODILO</span>
+        <span class="p">)</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;username&#39;</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;password&#39;</span>
+        <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">OdiloAPI</span><span class="o">.</span><span class="n">LIBRARY_API_BASE_URL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;http://library_api_base_url/api/v2&#39;</span>
+        <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">collection</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">access_token_requests</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">access_token_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mock_access_token_response</span><span class="p">(</span><span class="s1">&#39;bearer token&#39;</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MockOdiloAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MockOdiloAPI.token_post"><a class="viewcode-back" href="../../api.html#api.odilo.MockOdiloAPI.token_post">[docs]</a>    <span class="k">def</span> <span class="nf">token_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mock the request for an OAuth token.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">access_token_requests</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">))</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">access_token_response</span>
+        <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">_process_response</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockOdiloAPI.mock_access_token_response"><a class="viewcode-back" href="../../api.html#api.odilo.MockOdiloAPI.mock_access_token_response">[docs]</a>    <span class="k">def</span> <span class="nf">mock_access_token_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">expires_in</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">token</span><span class="o">=</span><span class="n">credential</span><span class="p">,</span> <span class="n">expiresIn</span><span class="o">=</span><span class="n">expires_in</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">MockRequestsResponse</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{},</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">token</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MockOdiloAPI.queue_response"><a class="viewcode-back" href="../../api.html#api.odilo.MockOdiloAPI.queue_response">[docs]</a>    <span class="k">def</span> <span class="nf">queue_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+            <span class="mi">0</span><span class="p">,</span> <span class="n">MockRequestsResponse</span><span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_do_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Simulate Representation.simple_http_get.&quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+
+    <span class="k">def</span> <span class="nf">_do_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_make_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">url</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">_process_response</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;allowed_response_codes&#39;</span><span class="p">),</span>
+            <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;disallowed_response_codes&#39;</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OdiloBibliographicCoverageProvider"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloBibliographicCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">OdiloBibliographicCoverageProvider</span><span class="p">(</span><span class="n">BibliographicCoverageProvider</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fill in bibliographic metadata for Odilo records.</span>
+
+<span class="sd">    This will occasionally fill in some availability information for a</span>
+<span class="sd">    single Collection, but we rely on Monitors to keep availability</span>
+<span class="sd">    information up to date for all Collections.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Odilo Bibliographic Coverage Provider&quot;</span>
+    <span class="n">DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">ODILO</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ODILO</span>
+    <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">ODILO_ID</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">OdiloAPI</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param collection: Provide bibliographic coverage to all</span>
+<span class="sd">            Odilo books in the given Collection.</span>
+<span class="sd">        :param api_class: Instantiate this class with the given Collection,</span>
+<span class="sd">            rather than instantiating OdiloAPI.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OdiloBibliographicCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">api_class</span><span class="p">,</span> <span class="n">OdiloAPI</span><span class="p">):</span>
+            <span class="c1"># Use a previously instantiated OdiloAPI instance</span>
+            <span class="c1"># rather than creating a new one.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># A web application should not use this option because it</span>
+            <span class="c1"># will put a non-scoped session in the mix.</span>
+            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api_class</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="p">(</span>
+            <span class="n">identifiers</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">subjects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">contributions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">links</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">formats</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">rights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">link_content</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="c1"># even_if_not_apparently_updated=False,</span>
+            <span class="n">analytics</span><span class="o">=</span><span class="n">Analytics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="OdiloBibliographicCoverageProvider.process_item"><a class="viewcode-back" href="../../api.html#api.odilo.OdiloBibliographicCoverageProvider.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record_id</span><span class="p">,</span> <span class="n">record</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">record</span><span class="p">:</span>
+            <span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">(</span><span class="n">record_id</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">record</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">record_id</span><span class="p">,</span> <span class="s1">&#39;Record not found&#39;</span><span class="p">,</span> <span class="n">transient</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Retrieve availability</span>
+        <span class="n">availability</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_availability</span><span class="p">(</span><span class="n">record_id</span><span class="p">)</span>
+
+        <span class="n">metadata</span><span class="p">,</span> <span class="n">is_active</span> <span class="o">=</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">record_info_to_metadata</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">availability</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="s2">&quot;Could not extract metadata from Odilo data: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">record_id</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">record_id</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+        <span class="n">identifier</span><span class="p">,</span> <span class="n">made_new</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="s2">&quot;Could not create identifier for Odilo data: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">record_id</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+        <span class="n">identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_metadata</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
+
+        <span class="c1"># calls work.set_presentation_ready() for us</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle_success</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">made_new</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

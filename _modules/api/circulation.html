@@ -1,0 +1,1461 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.circulation &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.circulation</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="n">Thread</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">core.cdn</span> <span class="k">import</span> <span class="n">cdnify</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">CirculationEvent</span><span class="p">,</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">CollectionMissing</span><span class="p">,</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">Library</span><span class="p">,</span>
+    <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">Loan</span><span class="p">,</span>
+    <span class="n">Hold</span><span class="p">,</span>
+    <span class="n">Patron</span><span class="p">,</span>
+    <span class="n">RightsStatus</span><span class="p">,</span>
+    <span class="n">Session</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">util.patron</span> <span class="k">import</span> <span class="n">PatronUtility</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<div class="viewcode-block" id="CirculationInfo"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationInfo">[docs]</a><span class="k">class</span> <span class="nc">CirculationInfo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span>
+                 <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A loan, hold, or whatever.</span>
+
+<span class="sd">        :param collection: The Collection that gives us the right to</span>
+<span class="sd">        borrow this title, or the numeric database ID of the</span>
+<span class="sd">        same. This does not have to be specified in the constructor --</span>
+<span class="sd">        the code that instantiates CirculationInfo may not have</span>
+<span class="sd">        access to a database connection -- but it needs to be present</span>
+<span class="sd">        by the time the LoanInfo is connected to a LicensePool.</span>
+
+<span class="sd">        :param data_source_name: The name of the data source that provides</span>
+<span class="sd">            the LicencePool.</span>
+<span class="sd">        :param identifier_type: The type of the Identifier associated</span>
+<span class="sd">            with the LicensePool.</span>
+<span class="sd">        :param identifier: The string identifying the LicensePool.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_source_name</span> <span class="o">=</span> <span class="n">data_source_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">identifier_type</span> <span class="o">=</span> <span class="n">identifier_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span> <span class="o">=</span> <span class="n">identifier</span>
+
+<div class="viewcode-block" id="CirculationInfo.collection"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationInfo.collection">[docs]</a>    <span class="k">def</span> <span class="nf">collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the Collection to which this object belongs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CirculationInfo.license_pool"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationInfo.license_pool">[docs]</a>    <span class="k">def</span> <span class="nf">license_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the LicensePool model object corresponding to this object.&quot;&quot;&quot;</span>
+        <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">pool</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pool</span></div>
+
+<div class="viewcode-block" id="CirculationInfo.fd"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationInfo.fd">[docs]</a>    <span class="k">def</span> <span class="nf">fd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="c1"># Stupid method to format a date</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">d</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="s2">&quot;%Y/%m/</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DeliveryMechanismInfo"><a class="viewcode-back" href="../../api.html#api.circulation.DeliveryMechanismInfo">[docs]</a><span class="k">class</span> <span class="nc">DeliveryMechanismInfo</span><span class="p">(</span><span class="n">CirculationInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record of a technique that must be (but is not, currently, being)</span>
+<span class="sd">    used to fulfill a certain loan.</span>
+
+<span class="sd">    Although this class is similar to `FormatInfo` in</span>
+<span class="sd">    core/metadata.py, usage here is strictly limited to recording</span>
+<span class="sd">    which `LicensePoolDeliveryMechanism` a specific loan is currently</span>
+<span class="sd">    locked to.</span>
+
+<span class="sd">    If, in the course of investigating a patron&#39;s loans, you discover</span>
+<span class="sd">    general facts about a LicensePool&#39;s availability or formats, that</span>
+<span class="sd">    information needs to be stored in a `CirculationData` and applied to</span>
+<span class="sd">    the LicensePool separately.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">,</span>
+                 <span class="n">rights_uri</span><span class="o">=</span><span class="n">RightsStatus</span><span class="o">.</span><span class="n">IN_COPYRIGHT</span><span class="p">,</span> <span class="n">resource</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param content_type: Once the loan is fulfilled, the resulting document</span>
+<span class="sd">            will be of this media type.</span>
+<span class="sd">        :param drm_scheme: Fulfilling the loan will require negotiating this DRM</span>
+<span class="sd">            scheme.</span>
+<span class="sd">        :param rights_uri: Once the loan is fulfilled, the resulting</span>
+<span class="sd">            document will be made available under this license or</span>
+<span class="sd">            copyright regime.</span>
+<span class="sd">        :param resource: The loan can be fulfilled by directly serving the</span>
+<span class="sd">            content in the given `Resource`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span> <span class="o">=</span> <span class="n">content_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drm_scheme</span> <span class="o">=</span> <span class="n">drm_scheme</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rights_uri</span> <span class="o">=</span> <span class="n">rights_uri</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resource</span> <span class="o">=</span> <span class="n">resource</span>
+
+<div class="viewcode-block" id="DeliveryMechanismInfo.apply"><a class="viewcode-back" href="../../api.html#api.circulation.DeliveryMechanismInfo.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">autocommit</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set an appropriate LicensePoolDeliveryMechanism on the given</span>
+<span class="sd">        `Loan`, creating a DeliveryMechanism if necessary.</span>
+
+<span class="sd">        :param loan: A Loan object.</span>
+<span class="sd">        :param autocommit: Set this to false if you are in the middle</span>
+<span class="sd">            of a nested transaction.</span>
+<span class="sd">        :return: A LicensePoolDeliveryMechanism if one could be set on the</span>
+<span class="sd">            given Loan; None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
+
+        <span class="c1"># Create or update the DeliveryMechanism.</span>
+        <span class="n">delivery_mechanism</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">drm_scheme</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span>
+            <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">delivery_mechanism</span> <span class="o">==</span> <span class="n">delivery_mechanism</span><span class="p">):</span>
+            <span class="c1"># The work has already been done. Do nothing.</span>
+            <span class="k">return</span>
+
+        <span class="c1"># At this point we know we need to update the local delivery</span>
+        <span class="c1"># mechanism.</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="c1"># This shouldn&#39;t happen, but bail out if it does.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Look up the LicensePoolDeliveryMechanism for the way the</span>
+        <span class="c1"># server says this book is available, creating the object if</span>
+        <span class="c1"># necessary.</span>
+        <span class="c1">#</span>
+        <span class="c1"># We set autocommit=False because we&#39;re probably in the middle</span>
+        <span class="c1"># of a nested transaction.</span>
+        <span class="n">lpdm</span> <span class="o">=</span> <span class="n">LicensePoolDeliveryMechanism</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="n">pool</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">drm_scheme</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rights_uri</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource</span><span class="p">,</span>
+            <span class="n">autocommit</span><span class="o">=</span><span class="n">autocommit</span>
+        <span class="p">)</span>
+        <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span> <span class="o">=</span> <span class="n">lpdm</span>
+        <span class="k">return</span> <span class="n">lpdm</span></div></div>
+
+
+<div class="viewcode-block" id="FulfillmentInfo"><a class="viewcode-back" href="../../api.html#api.circulation.FulfillmentInfo">[docs]</a><span class="k">class</span> <span class="nc">FulfillmentInfo</span><span class="p">(</span><span class="n">CirculationInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record of a technique that can be used right now to fulfill</span>
+<span class="sd">    a loan.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span>
+                 <span class="n">identifier</span><span class="p">,</span> <span class="n">content_link</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span>
+                 <span class="n">content_expires</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        One and only one of `content_link` and `content` should be</span>
+<span class="sd">        provided.</span>
+
+<span class="sd">        :param collection: A Collection object explaining which Collection</span>
+<span class="sd">            the loan is found in.</span>
+<span class="sd">        :param identifier_type: A possible value for Identifier.type indicating</span>
+<span class="sd">            a type of identifier such as ISBN.</span>
+<span class="sd">        :param identifier: A possible value for Identifier.identifier containing</span>
+<span class="sd">            the identifier used to designate the item beinf fulfilled.</span>
+<span class="sd">        :param content_link: A &quot;next step&quot; URL towards fulfilling the</span>
+<span class="sd">            work. This may be a link to an ACSM file, a</span>
+<span class="sd">            streaming-content web application, a direct download, etc.</span>
+<span class="sd">        :param content_type: Final media type of the content, once acquired.</span>
+<span class="sd">            E.g. EPUB_MEDIA_TYPE or</span>
+<span class="sd">            Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE</span>
+<span class="sd">        :param content: &quot;Next step&quot; content to be served. This may be</span>
+<span class="sd">            the actual content of the item on loan (in which case its</span>
+<span class="sd">            is of the type mentioned in `content_type`) or an</span>
+<span class="sd">            intermediate document such as an ACSM file or audiobook</span>
+<span class="sd">            manifest (in which case its media type will differ from</span>
+<span class="sd">            `content_type`).</span>
+<span class="sd">        :param content_expires: A time after which the &quot;next step&quot;</span>
+<span class="sd">            link or content will no longer be usable.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FulfillmentInfo</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content_link</span> <span class="o">=</span> <span class="n">content_link</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span> <span class="o">=</span> <span class="n">content_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content_expires</span> <span class="o">=</span> <span class="n">content_expires</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="n">blength</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">blength</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;FulfillmentInfo: content_link: </span><span class="si">%r</span><span class="s2">, content_type: </span><span class="si">%r</span><span class="s2">, content: </span><span class="si">%d</span><span class="s2"> bytes, expires: </span><span class="si">%r</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">content_link</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span> <span class="n">blength</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content_expires</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="APIAwareFulfillmentInfo"><a class="viewcode-back" href="../../api.html#api.circulation.APIAwareFulfillmentInfo">[docs]</a><span class="k">class</span> <span class="nc">APIAwareFulfillmentInfo</span><span class="p">(</span><span class="n">FulfillmentInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This that acts like FulfillmentInfo but is prepared to make an API</span>
+<span class="sd">    request on demand to get data, rather than having all the data</span>
+<span class="sd">    ready right now.</span>
+
+<span class="sd">    This class is useful in situations where generating a full</span>
+<span class="sd">    FulfillmentInfo object would be costly. We only want to incur that</span>
+<span class="sd">    cost when the patron wants to fulfill this title and is not just</span>
+<span class="sd">    looking at their loans.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param api: An object that knows how to make API requests.</span>
+<span class="sd">        :param data_source_name: The name of the data source that&#39;s</span>
+<span class="sd">           offering to fulfill a book.</span>
+<span class="sd">        :param identifier: The Identifier of the book being fulfilled.</span>
+<span class="sd">        :param key: Any special data, such as a license key, which must</span>
+<span class="sd">           be used to fulfill the book.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_source_name</span> <span class="o">=</span> <span class="n">data_source_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">identifier_type</span> <span class="o">=</span> <span class="n">identifier_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span> <span class="o">=</span> <span class="n">identifier</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fetched</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_content_link</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_content_type</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_content</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_content_expires</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="APIAwareFulfillmentInfo.fetch"><a class="viewcode-back" href="../../api.html#api.circulation.APIAwareFulfillmentInfo.fetch">[docs]</a>    <span class="k">def</span> <span class="nf">fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;It&#39;s time to tell the API that we want to fulfill this book.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetched</span><span class="p">:</span>
+            <span class="c1"># We already sent the API request..</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">do_fetch</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fetched</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="APIAwareFulfillmentInfo.do_fetch"><a class="viewcode-back" href="../../api.html#api.circulation.APIAwareFulfillmentInfo.do_fetch">[docs]</a>    <span class="k">def</span> <span class="nf">do_fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Actually make the API request.</span>
+
+<span class="sd">        When implemented, this method must set values for some or all</span>
+<span class="sd">        of _content_link, _content_type, _content, and</span>
+<span class="sd">        _content_expires.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">content_link</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_content_link</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">content_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_content_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">content</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_content</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">content_expires</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_content_expires</span></div>
+
+
+
+<div class="viewcode-block" id="LoanInfo"><a class="viewcode-back" href="../../api.html#api.circulation.LoanInfo">[docs]</a><span class="k">class</span> <span class="nc">LoanInfo</span><span class="p">(</span><span class="n">CirculationInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record of a loan.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span>
+                 <span class="n">identifier</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span>
+                 <span class="n">fulfillment_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">external_identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">locked_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param start_date: A datetime reflecting when the patron borrowed the book.</span>
+<span class="sd">        :param end_date: A datetime reflecting when the checked-out book is due.</span>
+<span class="sd">        :param fulfillment_info: A FulfillmentInfo object representing an</span>
+<span class="sd">            active attempt to fulfill the loan.</span>
+<span class="sd">        :param locked_to: A DeliveryMechanismInfo object representing the</span>
+<span class="sd">            delivery mechanism to which this loan is &#39;locked&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LoanInfo</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_date</span> <span class="o">=</span> <span class="n">start_date</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_date</span> <span class="o">=</span> <span class="n">end_date</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fulfillment_info</span> <span class="o">=</span> <span class="n">fulfillment_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">locked_to</span> <span class="o">=</span> <span class="n">locked_to</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">external_identifier</span> <span class="o">=</span> <span class="n">external_identifier</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfillment_info</span><span class="p">:</span>
+            <span class="n">fulfillment</span> <span class="o">=</span> <span class="s2">&quot; Fulfilled by: &quot;</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fulfillment_info</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fulfillment</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="s2">&quot;%Y/%m/</span><span class="si">%d</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;LoanInfo for </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">, start=</span><span class="si">%s</span><span class="s2"> end=</span><span class="si">%s</span><span class="s2">&gt;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">identifier_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_date</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">end_date</span><span class="p">),</span>
+            <span class="n">fulfillment</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HoldInfo"><a class="viewcode-back" href="../../api.html#api.circulation.HoldInfo">[docs]</a><span class="k">class</span> <span class="nc">HoldInfo</span><span class="p">(</span><span class="n">CirculationInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record of a hold.</span>
+
+<span class="sd">    :param identifier_type: Ex. Identifier.RBDIGITAL_ID.</span>
+<span class="sd">    :param identifier: Expected to be the unicode string of the isbn, etc.</span>
+<span class="sd">    :param start_date: When the patron made the reservation.</span>
+<span class="sd">    :param end_date: When reserved book is expected to become available.</span>
+<span class="sd">        Expected to be passed in date, not unicode format.</span>
+<span class="sd">    :param hold_position:  Patron&#39;s place in the hold line. When not available,</span>
+<span class="sd">        default to be passed is None, which is equivalent to &quot;first in line&quot;. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span>
+                 <span class="n">identifier</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">hold_position</span><span class="p">,</span>
+                 <span class="n">external_identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">HoldInfo</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_date</span> <span class="o">=</span> <span class="n">start_date</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_date</span> <span class="o">=</span> <span class="n">end_date</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hold_position</span> <span class="o">=</span> <span class="n">hold_position</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">external_identifier</span> <span class="o">=</span> <span class="n">external_identifier</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;HoldInfo for </span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">, start=</span><span class="si">%s</span><span class="s2"> end=</span><span class="si">%s</span><span class="s2">, position=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">identifier_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_date</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">end_date</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hold_position</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CirculationAPI"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI">[docs]</a><span class="k">class</span> <span class="nc">CirculationAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implement basic circulation logic and abstract away the details</span>
+<span class="sd">    between different circulation APIs behind generic operations like</span>
+<span class="sd">    &#39;borrow&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">api_map</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param _db: A database session (probably a scoped session, which is</span>
+<span class="sd">            why we can&#39;t derive it from `library`).</span>
+
+<span class="sd">        :param library: A Library object representing the library</span>
+<span class="sd">          whose circulation we&#39;re concerned with.</span>
+
+<span class="sd">        :param analytics: An Analytics object for tracking</span>
+<span class="sd">          circulation events.</span>
+
+<span class="sd">        :param api_map: A dictionary mapping Collection protocols to</span>
+<span class="sd">           API classes that should be instantiated to deal with these</span>
+<span class="sd">           protocols. The default map will work fine unless you&#39;re a</span>
+<span class="sd">           unit test.</span>
+
+<span class="sd">           Since instantiating these API classes may result in API</span>
+<span class="sd">           calls, we only instantiate one CirculationAPI per library,</span>
+<span class="sd">           and keep them around as long as possible.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">api_map</span> <span class="o">=</span> <span class="n">api_map</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_api_map</span>
+
+        <span class="c1"># Each of the Library&#39;s relevant Collections is going to be</span>
+        <span class="c1"># associated with an API object.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># When we get our view of a patron&#39;s loans and holds, we need</span>
+        <span class="c1"># to include loans whose license pools are in one of the</span>
+        <span class="c1"># Collections we manage. We don&#39;t need to care about loans</span>
+        <span class="c1"># from any other Collections.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Circulation API&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="ow">in</span> <span class="n">api_map</span><span class="p">:</span>
+                <span class="n">api</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">api</span> <span class="o">=</span> <span class="n">api_map</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">](</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                        <span class="s2">&quot;Error loading configuration for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">initialization_exceptions</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">e</span>
+                <span class="k">if</span> <span class="n">api</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="p">[</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">api</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">library</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Library</span><span class="o">.</span><span class="n">by_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_api_map</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;When you see a Collection that implements protocol X, instantiate</span>
+<span class="sd">        API class Y to handle that collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">overdrive</span> <span class="k">import</span> <span class="n">OverdriveAPI</span>
+        <span class="kn">from</span> <span class="nn">odilo</span> <span class="k">import</span> <span class="n">OdiloAPI</span>
+        <span class="kn">from</span> <span class="nn">bibliotheca</span> <span class="k">import</span> <span class="n">BibliothecaAPI</span>
+        <span class="kn">from</span> <span class="nn">axis</span> <span class="k">import</span> <span class="n">Axis360API</span>
+        <span class="kn">from</span> <span class="nn">rbdigital</span> <span class="k">import</span> <span class="n">RBDigitalAPI</span>
+        <span class="kn">from</span> <span class="nn">enki</span> <span class="k">import</span> <span class="n">EnkiAPI</span>
+        <span class="kn">from</span> <span class="nn">opds_for_distributors</span> <span class="k">import</span> <span class="n">OPDSForDistributorsAPI</span>
+        <span class="kn">from</span> <span class="nn">odl</span> <span class="k">import</span> <span class="n">ODLAPI</span><span class="p">,</span> <span class="n">SharedODLAPI</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span> <span class="p">:</span> <span class="n">OverdriveAPI</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ODILO</span> <span class="p">:</span> <span class="n">OdiloAPI</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">BIBLIOTHECA</span> <span class="p">:</span> <span class="n">BibliothecaAPI</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">AXIS_360</span> <span class="p">:</span> <span class="n">Axis360API</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ONE_CLICK</span> <span class="p">:</span> <span class="n">RBDigitalAPI</span><span class="p">,</span>
+            <span class="n">EnkiAPI</span><span class="o">.</span><span class="n">ENKI_EXTERNAL</span> <span class="p">:</span> <span class="n">EnkiAPI</span><span class="p">,</span>
+            <span class="n">OPDSForDistributorsAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">OPDSForDistributorsAPI</span><span class="p">,</span>
+            <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">ODLAPI</span><span class="p">,</span>
+            <span class="n">SharedODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">SharedODLAPI</span><span class="p">,</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="CirculationAPI.api_for_license_pool"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.api_for_license_pool">[docs]</a>    <span class="k">def</span> <span class="nf">api_for_license_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the API to use for the given license pool.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.can_revoke_hold"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.can_revoke_hold">[docs]</a>    <span class="k">def</span> <span class="nf">can_revoke_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">hold</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Some circulation providers allow you to cancel a hold</span>
+<span class="sd">        when the book is reserved to you. Others only allow you to cancel</span>
+<span class="sd">        a hold while you&#39;re in the hold queue.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">position</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">hold</span><span class="o">.</span><span class="n">position</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">api</span><span class="o">.</span><span class="n">CAN_REVOKE_HOLD_WHEN_RESERVED</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.borrow"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.borrow">[docs]</a>    <span class="k">def</span> <span class="nf">borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">,</span>
+               <span class="n">hold_notification_email</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Either borrow a book or put it on hold. Don&#39;t worry about fulfilling</span>
+<span class="sd">        the loan yet.</span>
+
+<span class="sd">        :return: A 3-tuple (`Loan`, `Hold`, `is_new`). Either `Loan`</span>
+<span class="sd">            or `Hold` must be None, but not both.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Short-circuit the request if the patron lacks borrowing</span>
+        <span class="c1"># privileges.</span>
+        <span class="n">PatronUtility</span><span class="o">.</span><span class="n">assert_borrowing_privileges</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">open_access</span><span class="p">:</span>
+            <span class="c1"># We can &#39;loan&#39; open-access content ourselves just by</span>
+            <span class="c1"># putting a row in the database.</span>
+            <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+            <span class="n">loan</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">loan_to</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">now</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_collect_checkout_event</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">loan</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">is_new</span>
+
+        <span class="c1"># Okay, it&#39;s not an open-access book. This means we need to go</span>
+        <span class="c1"># to an external service to get the book.</span>
+        <span class="c1">#</span>
+        <span class="c1"># This also means that our internal model of whether this book</span>
+        <span class="c1"># is currently on loan or on hold might be wrong.</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">api</span><span class="p">:</span>
+            <span class="c1"># If there&#39;s no API for the pool, the pool is probably associated</span>
+            <span class="c1"># with a collection that this library doesn&#39;t have access to.</span>
+            <span class="k">raise</span> <span class="n">NoLicenses</span><span class="p">()</span>
+
+        <span class="n">must_set_delivery_mechanism</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">api</span><span class="o">.</span><span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">==</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">BORROW_STEP</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">must_set_delivery_mechanism</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">delivery_mechanism</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">DeliveryMechanismMissing</span><span class="p">()</span>
+
+        <span class="n">content_link</span> <span class="o">=</span> <span class="n">content_expires</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">internal_format</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">internal_format</span><span class="p">(</span><span class="n">delivery_mechanism</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">:</span>
+            <span class="n">max_fines</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">max_outstanding_fines</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">max_fines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">patron</span><span class="o">.</span><span class="n">fines</span> <span class="o">&gt;</span> <span class="n">max_fines</span><span class="o">.</span><span class="n">amount</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">OutstandingFines</span><span class="p">()</span>
+
+        <span class="c1"># Do we (think we) already have this book out on loan?</span>
+        <span class="n">existing_loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
+             <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+
+        <span class="n">loan_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">hold_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
+            <span class="c1"># Sync with the API to see if the loan still exists.  If</span>
+            <span class="c1"># it does, we still want to perform a &#39;checkout&#39; operation</span>
+            <span class="c1"># on the API, because that&#39;s how loans are renewed, but</span>
+            <span class="c1"># certain error conditions (like NoAvailableCopies) mean</span>
+            <span class="c1"># something different if you already have a confirmed</span>
+            <span class="c1"># active loan.</span>
+
+            <span class="c1"># TODO: This would be a great place to pass in only the</span>
+            <span class="c1"># single API that needs to be synced.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sync_bookshelf</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+            <span class="n">existing_loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
+                <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+            <span class="p">)</span>
+
+        <span class="n">new_loan</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="n">loan_limit</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">LOAN_LIMIT</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
+        <span class="n">non_open_access_loans_with_end_date</span> <span class="o">=</span> <span class="p">[</span><span class="n">loan</span> <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">patron</span><span class="o">.</span><span class="n">loans</span> <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">False</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">end</span><span class="p">]</span>
+        <span class="n">at_loan_limit</span> <span class="o">=</span> <span class="p">(</span><span class="n">loan_limit</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_open_access_loans_with_end_date</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">loan_limit</span><span class="p">)</span>
+
+        <span class="c1"># If we&#39;re at the loan limit, skip trying to check out the book and just try</span>
+        <span class="c1"># to place a hold. Otherwise, try to check out the book even if we think it&#39;s</span>
+        <span class="c1"># not available.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">at_loan_limit</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">loan_info</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan_info</span><span class="p">,</span> <span class="n">HoldInfo</span><span class="p">):</span>
+                    <span class="c1"># If the API couldn&#39;t give us a loan, it may have given us</span>
+                    <span class="c1"># a hold instead of raising an exception.</span>
+                    <span class="n">hold_info</span> <span class="o">=</span> <span class="n">loan_info</span>
+                    <span class="n">loan_info</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># We asked the API to create a loan and it gave us a</span>
+                    <span class="c1"># LoanInfo object, rather than raising an exception like</span>
+                    <span class="c1"># AlreadyCheckedOut.</span>
+                    <span class="c1">#</span>
+                    <span class="c1"># For record-keeping purposes we&#39;re going to treat this as</span>
+                    <span class="c1"># a newly transacted loan, although it&#39;s possible that the</span>
+                    <span class="c1"># API does something unusual like return LoanInfo instead</span>
+                    <span class="c1"># of raising AlreadyCheckedOut.</span>
+                    <span class="n">new_loan</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">except</span> <span class="n">AlreadyCheckedOut</span><span class="p">:</span>
+                <span class="c1"># This is good, but we didn&#39;t get the real loan info.</span>
+                <span class="c1"># Just fake it.</span>
+                <span class="n">identifier</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span>
+                <span class="n">loan_info</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                    <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                    <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="n">start_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">end_date</span><span class="o">=</span><span class="n">now</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
+                    <span class="n">loan_info</span><span class="o">.</span><span class="n">external_identifier</span><span class="o">=</span><span class="n">existing_loan</span><span class="o">.</span><span class="n">external_identifier</span>
+            <span class="k">except</span> <span class="n">AlreadyOnHold</span><span class="p">:</span>
+                <span class="c1"># We&#39;re trying to check out a book that we already have on hold.</span>
+                <span class="n">hold_info</span> <span class="o">=</span> <span class="n">HoldInfo</span><span class="p">(</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="n">NoAvailableCopies</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
+                    <span class="c1"># The patron tried to renew a loan but there are</span>
+                    <span class="c1"># people waiting in line for them to return the book,</span>
+                    <span class="c1"># so renewals are not allowed.</span>
+                    <span class="k">raise</span> <span class="n">CannotRenew</span><span class="p">(</span>
+                        <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You cannot renew a loan if other patrons have the work on hold.&quot;</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># That&#39;s fine, we&#39;ll just (try to) place a hold.</span>
+                    <span class="c1">#</span>
+                    <span class="c1"># Since the patron incorrectly believed there were</span>
+                    <span class="c1"># copies available, update availability information</span>
+                    <span class="c1"># immediately.</span>
+                    <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">NoLicenses</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># Since the patron incorrectly believed there were</span>
+                <span class="c1"># licenses available, update availability information</span>
+                <span class="c1"># immediately.</span>
+                <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">e</span>
+
+        <span class="k">if</span> <span class="n">loan_info</span><span class="p">:</span>
+            <span class="c1"># We successfuly secured a loan.  Now create it in our</span>
+            <span class="c1"># database.</span>
+            <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+            <span class="n">loan</span><span class="p">,</span> <span class="n">new_loan_record</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">loan_to</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">loan_info</span><span class="o">.</span><span class="n">start_date</span> <span class="ow">or</span> <span class="n">now</span><span class="p">,</span>
+                <span class="n">end</span><span class="o">=</span><span class="n">loan_info</span><span class="o">.</span><span class="n">end_date</span><span class="p">,</span>
+                <span class="n">external_identifier</span><span class="o">=</span><span class="n">loan_info</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">must_set_delivery_mechanism</span><span class="p">:</span>
+                <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span> <span class="o">=</span> <span class="n">delivery_mechanism</span>
+            <span class="n">existing_hold</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
+                <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">existing_hold</span><span class="p">:</span>
+                <span class="c1"># The book was on hold, and now we have a loan.</span>
+                <span class="c1"># Delete the record of the hold.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">existing_hold</span><span class="p">)</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">loan</span> <span class="ow">and</span> <span class="n">new_loan</span><span class="p">:</span>
+                <span class="c1"># Send out an analytics event to record the fact that</span>
+                <span class="c1"># a loan was initiated through the circulation</span>
+                <span class="c1"># manager.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_collect_checkout_event</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">loan</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">new_loan_record</span>
+
+        <span class="c1"># At this point we know that we neither successfully</span>
+        <span class="c1"># transacted a loan, nor discovered a preexisting loan.</span>
+
+        <span class="c1"># Checking out a book didn&#39;t work, so let&#39;s try putting</span>
+        <span class="c1"># the book on hold.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">hold_info</span><span class="p">:</span>
+            <span class="n">hold_limit</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">HOLD_LIMIT</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
+            <span class="k">if</span> <span class="n">hold_limit</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">holds</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">hold_limit</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PatronHoldLimitReached</span><span class="p">()</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">hold_info</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">place_hold</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
+                    <span class="n">hold_notification_email</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="n">AlreadyOnHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">hold_info</span> <span class="o">=</span> <span class="n">HoldInfo</span><span class="p">(</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                    <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="n">CannotHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">at_loan_limit</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">PatronLoanLimitReached</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">e</span>
+
+        <span class="c1"># It&#39;s pretty rare that we&#39;d go from having a loan for a book</span>
+        <span class="c1"># to needing to put it on hold, but we do check for that case.</span>
+        <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+        <span class="n">hold</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">on_hold_to</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span>
+            <span class="n">hold_info</span><span class="o">.</span><span class="n">start_date</span> <span class="ow">or</span> <span class="n">now</span><span class="p">,</span>
+            <span class="n">hold_info</span><span class="o">.</span><span class="n">end_date</span><span class="p">,</span>
+            <span class="n">hold_info</span><span class="o">.</span><span class="n">hold_position</span><span class="p">,</span>
+            <span class="n">hold_info</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">hold</span> <span class="ow">and</span> <span class="n">is_new</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
+            <span class="c1"># Send out an analytics event to record the fact that</span>
+            <span class="c1"># a hold was initiated through the circulation</span>
+            <span class="c1"># manager.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
+                <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
+                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_HOLD_PLACE</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">existing_loan</span><span class="p">)</span>
+        <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">hold</span><span class="p">,</span> <span class="n">is_new</span></div>
+
+    <span class="k">def</span> <span class="nf">_collect_checkout_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Collect an analytics event indicating the given LicensePool</span>
+<span class="sd">        was checked out via the circulation manager.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
+                <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
+                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_CHECKOUT</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="CirculationAPI.can_fulfill_without_loan"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.can_fulfill_without_loan">[docs]</a>    <span class="k">def</span> <span class="nf">can_fulfill_without_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">lpdm</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Can we deliver the given book in the given format to the given</span>
+<span class="sd">        patron, even though the patron has no active loan for that</span>
+<span class="sd">        book?</span>
+
+<span class="sd">        In general this is not possible, but there are some</span>
+<span class="sd">        exceptions, managed in subclasses of BaseCirculationAPI.</span>
+
+<span class="sd">        :param patron: A Patron. This is probably None, indicating</span>
+<span class="sd">            that someone is trying to fulfill a book without identifying</span>
+<span class="sd">            themselves.</span>
+
+<span class="sd">        :param delivery_mechanism: The LicensePoolDeliveryMechanism</span>
+<span class="sd">            representing a format for a specific title.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">lpdm</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">open_access</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">api</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">api</span><span class="o">.</span><span class="n">can_fulfill_without_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">lpdm</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.fulfill"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">,</span> <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sync_on_failure</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fulfil a book that a patron has previously checked out.</span>
+
+<span class="sd">        :param delivery_mechanism: A LicensePoolDeliveryMechanism</span>
+<span class="sd">            explaining how the patron wants the book to be delivered. If</span>
+<span class="sd">            the book has previously been delivered through some other</span>
+<span class="sd">            mechanism, this parameter is ignored and the previously used</span>
+<span class="sd">            mechanism takes precedence.</span>
+
+<span class="sd">        :param part: A vendor-specific identifier indicating that the</span>
+<span class="sd">            patron wants to fulfill one specific part of the book</span>
+<span class="sd">            (e.g. one chapter of an audiobook), not the whole thing.</span>
+
+<span class="sd">        :param fulfill_part_url: A function that takes one argument (a</span>
+<span class="sd">            vendor-specific part identifier) and returns the URL to use</span>
+<span class="sd">            when fulfilling that part.</span>
+
+<span class="sd">        :return: A FulfillmentInfo object.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fulfillment</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">can_fulfill_without_loan</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">delivery_mechanism</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">sync_on_failure</span><span class="p">:</span>
+                <span class="c1"># Sync and try again.</span>
+                <span class="c1"># TODO: Pass in only the single collection or LicensePool</span>
+                <span class="c1"># that needs to be synced.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sync_bookshelf</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
+                    <span class="n">delivery_mechanism</span><span class="o">=</span><span class="n">delivery_mechanism</span><span class="p">,</span>
+                    <span class="n">part</span><span class="o">=</span><span class="n">part</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="n">fulfill_part_url</span><span class="p">,</span>
+                    <span class="n">sync_on_failure</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NoActiveLoan</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Cannot find your active loan for this work.&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">loan</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">compatible_with</span><span class="p">(</span><span class="n">delivery_mechanism</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">DeliveryMechanismConflict</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You already fulfilled this loan as </span><span class="si">%(loan_delivery_mechanism)s</span><span class="s2">, you can&#39;t also do it as </span><span class="si">%(requested_delivery_mechanism)s</span><span class="s2">&quot;</span><span class="p">,</span>
+                  <span class="n">loan_delivery_mechanism</span><span class="o">=</span><span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                  <span class="n">requested_delivery_mechanism</span><span class="o">=</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">open_access</span><span class="p">:</span>
+            <span class="c1"># We ignore the vendor-specific arguments when doing</span>
+            <span class="c1"># open-access fulfillment, because we just don&#39;t support</span>
+            <span class="c1"># partial fulfillment of open-access content.</span>
+            <span class="n">fulfillment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fulfill_open_access</span><span class="p">(</span>
+                <span class="n">licensepool</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+            <span class="n">internal_format</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">internal_format</span><span class="p">(</span><span class="n">delivery_mechanism</span><span class="p">)</span>
+
+            <span class="c1"># Here we _do_ pass in the vendor-specific arguments, but</span>
+            <span class="c1"># we pass them in as keyword arguments, to minimize the</span>
+            <span class="c1"># impact on implementation signatures. Most vendor APIs</span>
+            <span class="c1"># will ignore one or more of these arguments.</span>
+            <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">fulfill</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="n">internal_format</span><span class="p">,</span>
+                <span class="n">part</span><span class="o">=</span><span class="n">part</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="n">fulfill_part_url</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">fulfillment</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span>
+                <span class="n">fulfillment</span><span class="o">.</span><span class="n">content_link</span> <span class="ow">or</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="n">NoAcceptableFormat</span><span class="p">()</span>
+
+        <span class="c1"># Send out an analytics event to record the fact that</span>
+        <span class="c1"># a fulfillment was initiated through the circulation</span>
+        <span class="c1"># manager.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
+                <span class="n">library</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span>
+            <span class="k">elif</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">:</span>
+                <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
+                <span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_FULFILL</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Make sure the delivery mechanism we just used is associated</span>
+        <span class="c1"># with the loan, if any.</span>
+        <span class="k">if</span> <span class="n">loan</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">is_streaming</span><span class="p">:</span>
+            <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+            <span class="n">loan</span><span class="o">.</span><span class="n">fulfillment</span> <span class="o">=</span> <span class="n">delivery_mechanism</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">fulfillment</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.fulfill_open_access"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.fulfill_open_access">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill_open_access</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fulfill an open-access LicensePool through the requested</span>
+<span class="sd">        DeliveryMechanism.</span>
+
+<span class="sd">        :param licensepool: The title to be fulfilled.</span>
+<span class="sd">        :param delivery_mechanism: A DeliveryMechanism.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">delivery_mechanism</span><span class="p">,</span> <span class="n">LicensePoolDeliveryMechanism</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;LicensePoolDeliveryMechanism passed into fulfill_open_access, should be DeliveryMechanism.&quot;</span><span class="p">)</span>
+            <span class="n">delivery_mechanism</span> <span class="o">=</span> <span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span>
+        <span class="n">fulfillment</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">lpdm</span> <span class="ow">in</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">delivery_mechanisms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">lpdm</span><span class="o">.</span><span class="n">resource</span> <span class="ow">and</span> <span class="n">lpdm</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">representation</span>
+                    <span class="ow">and</span> <span class="n">lpdm</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">representation</span><span class="o">.</span><span class="n">url</span><span class="p">):</span>
+                <span class="c1"># This LicensePoolDeliveryMechanism can&#39;t actually</span>
+                <span class="c1"># be used for fulfillment.</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">lpdm</span><span class="o">.</span><span class="n">delivery_mechanism</span> <span class="o">==</span> <span class="n">delivery_mechanism</span><span class="p">:</span>
+                <span class="c1"># We found it! This is how the patron wants</span>
+                <span class="c1"># the book to be delivered.</span>
+                <span class="n">fulfillment</span> <span class="o">=</span> <span class="n">lpdm</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">fulfillment</span><span class="p">:</span>
+            <span class="c1"># There is just no way to fulfill this loan the way the</span>
+            <span class="c1"># patron wants.</span>
+            <span class="k">raise</span> <span class="n">FormatNotAvailable</span><span class="p">()</span>
+
+        <span class="n">rep</span> <span class="o">=</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">representation</span>
+        <span class="k">if</span> <span class="n">rep</span><span class="p">:</span>
+            <span class="n">content_link</span> <span class="o">=</span> <span class="n">cdnify</span><span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">public_url</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">content_link</span> <span class="o">=</span> <span class="n">cdnify</span><span class="p">(</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">rep</span><span class="o">.</span><span class="n">media_type</span>
+        <span class="k">return</span> <span class="n">FulfillmentInfo</span><span class="p">(</span>
+            <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">identifier_type</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">content_link</span><span class="o">=</span><span class="n">content_link</span><span class="p">,</span> <span class="n">content_type</span><span class="o">=</span><span class="n">media_type</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.revoke_loan"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.revoke_loan">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Revoke a patron&#39;s loan for a book.&quot;&quot;&quot;</span>
+        <span class="n">loan</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Loan</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">open_access</span><span class="p">:</span>
+                <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">api</span><span class="o">.</span><span class="n">checkin</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">NotCheckedOut</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="c1"># The book wasn&#39;t checked out in the first</span>
+                    <span class="c1"># place. Everything&#39;s fine.</span>
+                    <span class="k">pass</span>
+
+            <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;In revoke_loan(), deleting loan #</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">loan</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="c1"># Send out an analytics event to record the fact that</span>
+            <span class="c1"># a loan was revoked through the circulation</span>
+            <span class="c1"># manager.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
+                    <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_CHECKIN</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Any other CannotReturn exception will be propagated upwards</span>
+        <span class="c1"># at this point.</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.release_hold"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove a patron&#39;s hold on a book.&quot;&quot;&quot;</span>
+        <span class="n">hold</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Hold</span><span class="p">,</span> <span class="n">patron</span><span class="o">=</span><span class="n">patron</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">licensepool</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">open_access</span><span class="p">:</span>
+            <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">api</span><span class="o">.</span><span class="n">release_hold</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">NotOnHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># The book wasn&#39;t on hold in the first place. Everything&#39;s</span>
+                <span class="c1"># fine.</span>
+                <span class="k">pass</span>
+        <span class="c1"># Any other CannotReleaseHold exception will be propagated</span>
+        <span class="c1"># upwards at this point</span>
+        <span class="k">if</span> <span class="n">hold</span><span class="p">:</span>
+            <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
+            <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="c1"># Send out an analytics event to record the fact that</span>
+            <span class="c1"># a hold was revoked through the circulation</span>
+            <span class="c1"># manager.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
+                    <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_HOLD_RELEASE</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.patron_activity"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a record of the patron&#39;s current activity</span>
+<span class="sd">        vis-a-vis all relevant external loan sources.</span>
+
+<span class="sd">        We check each source in a separate thread for speed.</span>
+
+<span class="sd">        :return: A 2-tuple (loans, holds) containing `HoldInfo` and</span>
+<span class="sd">            `LoanInfo` objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span>
+        <span class="k">class</span> <span class="nc">PatronActivityThread</span><span class="p">(</span><span class="n">Thread</span><span class="p">):</span>
+            <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">api</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">patron</span> <span class="o">=</span> <span class="n">patron</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pin</span> <span class="o">=</span> <span class="n">pin</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">activity</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">trace</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="nb">super</span><span class="p">(</span><span class="n">PatronActivityThread</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+            <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+                <span class="n">before</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">activity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">patron_activity</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">patron</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pin</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">e</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">trace</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()</span>
+                <span class="n">after</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;Synced </span><span class="si">%s</span><span class="s2"> in </span><span class="si">%.2f</span><span class="s2"> sec&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                    <span class="n">after</span><span class="o">-</span><span class="n">before</span>
+                <span class="p">)</span>
+
+        <span class="n">threads</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">before</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_collection</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">thread</span> <span class="o">=</span> <span class="n">PatronActivityThread</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+            <span class="n">threads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="n">threads</span><span class="p">:</span>
+            <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="n">threads</span><span class="p">:</span>
+            <span class="n">thread</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="n">loans</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">holds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">complete</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">thread</span> <span class="ow">in</span> <span class="n">threads</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">thread</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+                <span class="c1"># Something went wrong, so we don&#39;t have a complete</span>
+                <span class="c1"># picture of the patron&#39;s loans.</span>
+                <span class="n">complete</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> errored out: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">thread</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                    <span class="n">thread</span><span class="o">.</span><span class="n">exception</span><span class="p">,</span>
+                    <span class="n">exc_info</span><span class="o">=</span><span class="n">thread</span><span class="o">.</span><span class="n">trace</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">thread</span><span class="o">.</span><span class="n">activity</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">thread</span><span class="o">.</span><span class="n">activity</span><span class="p">:</span>
+                    <span class="n">l</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">LoanInfo</span><span class="p">):</span>
+                        <span class="n">l</span> <span class="o">=</span> <span class="n">loans</span>
+                    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">HoldInfo</span><span class="p">):</span>
+                        <span class="n">l</span> <span class="o">=</span> <span class="n">holds</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                            <span class="s2">&quot;value </span><span class="si">%r</span><span class="s2"> from patron_activity is neither a loan nor a hold.&quot;</span><span class="p">,</span>
+                            <span class="n">i</span>
+                        <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">l</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">after</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Full sync took </span><span class="si">%.2f</span><span class="s2"> sec&quot;</span><span class="p">,</span> <span class="n">after</span><span class="o">-</span><span class="n">before</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loans</span><span class="p">,</span> <span class="n">holds</span><span class="p">,</span> <span class="n">complete</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.local_loans"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.local_loans">[docs]</a>    <span class="k">def</span> <span class="nf">local_loans</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Loan</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Loan</span><span class="o">.</span><span class="n">license_pool</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Loan</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.local_holds"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.local_holds">[docs]</a>    <span class="k">def</span> <span class="nf">local_holds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hold</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Hold</span><span class="o">.</span><span class="n">license_pool</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Hold</span><span class="o">.</span><span class="n">patron</span><span class="o">==</span><span class="n">patron</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.sync_bookshelf"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.sync_bookshelf">[docs]</a>    <span class="k">def</span> <span class="nf">sync_bookshelf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+
+        <span class="c1"># Get the external view of the patron&#39;s current state.</span>
+        <span class="n">remote_loans</span><span class="p">,</span> <span class="n">remote_holds</span><span class="p">,</span> <span class="n">complete</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_activity</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+
+        <span class="c1"># Get our internal view of the patron&#39;s current state.</span>
+        <span class="n">__transaction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">begin_nested</span><span class="p">()</span>
+        <span class="n">local_loans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_loans</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="n">local_holds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_holds</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">local_loans_by_identifier</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">local_holds_by_identifier</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">local_loans</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">l</span><span class="o">.</span><span class="n">license_pool</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Active loan with no license pool!&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">l</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;Active loan on license pool </span><span class="si">%s</span><span class="s2">, which has no identifier!&quot;</span><span class="p">,</span>
+                    <span class="n">l</span><span class="o">.</span><span class="n">license_pool</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="n">local_loans_by_identifier</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">l</span>
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">local_holds</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">h</span><span class="o">.</span><span class="n">license_pool</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Active hold with no license pool!&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;Active hold on license pool </span><span class="si">%r</span><span class="s2">, which has no identifier!&quot;</span><span class="p">,</span>
+                    <span class="n">h</span><span class="o">.</span><span class="n">license_pool</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="n">local_holds_by_identifier</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">h</span>
+
+        <span class="n">active_loans</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">active_holds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">remote_loans</span><span class="p">:</span>
+            <span class="c1"># This is a remote loan. Find or create the corresponding</span>
+            <span class="c1"># local loan.</span>
+            <span class="n">pool</span> <span class="o">=</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">loan</span><span class="o">.</span><span class="n">start_date</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">loan</span><span class="o">.</span><span class="n">end_date</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">loan</span><span class="o">.</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">local_loans_by_identifier</span><span class="p">:</span>
+                <span class="c1"># We already have the Loan object, we don&#39;t need to look</span>
+                <span class="c1"># it up again.</span>
+                <span class="n">local_loan</span> <span class="o">=</span> <span class="n">local_loans_by_identifier</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+                <span class="c1"># But maybe the remote&#39;s opinions as to the loan&#39;s</span>
+                <span class="c1"># start or end date have changed.</span>
+                <span class="k">if</span> <span class="n">start</span><span class="p">:</span>
+                    <span class="n">local_loan</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">start</span>
+                <span class="k">if</span> <span class="n">end</span><span class="p">:</span>
+                    <span class="n">local_loan</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">end</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">local_loan</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">loan_to</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">locked_to</span><span class="p">:</span>
+                <span class="c1"># The loan source is letting us know that the loan is</span>
+                <span class="c1"># locked to a specific delivery mechanism. Even if</span>
+                <span class="c1"># this is the first we&#39;ve heard of this loan,</span>
+                <span class="c1"># it may have been created in another app or through</span>
+                <span class="c1"># a library-website integration.</span>
+                <span class="n">loan</span><span class="o">.</span><span class="n">locked_to</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">local_loan</span><span class="p">,</span> <span class="n">autocommit</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">active_loans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">local_loan</span><span class="p">)</span>
+
+            <span class="c1"># Check the local loan off the list we&#39;re keeping so we</span>
+            <span class="c1"># don&#39;t delete it later.</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">loan</span><span class="o">.</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">local_loans_by_identifier</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">local_loans_by_identifier</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">remote_holds</span><span class="p">:</span>
+            <span class="c1"># This is a remote hold. Find or create the corresponding</span>
+            <span class="c1"># local hold.</span>
+            <span class="n">pool</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">start_date</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">end_date</span>
+            <span class="n">position</span> <span class="o">=</span> <span class="n">hold</span><span class="o">.</span><span class="n">hold_position</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">hold</span><span class="o">.</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">hold</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">local_holds_by_identifier</span><span class="p">:</span>
+                <span class="c1"># We already have the Hold object, we don&#39;t need to look</span>
+                <span class="c1"># it up again.</span>
+                <span class="n">local_hold</span> <span class="o">=</span> <span class="n">local_holds_by_identifier</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+                <span class="c1"># But maybe the remote&#39;s opinions as to the hold&#39;s</span>
+                <span class="c1"># start or end date have changed.</span>
+                <span class="n">local_hold</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">position</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">local_hold</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">on_hold_to</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">position</span><span class="p">)</span>
+            <span class="n">active_holds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">local_hold</span><span class="p">)</span>
+
+            <span class="c1"># Check the local hold off the list we&#39;re keeping so that</span>
+            <span class="c1"># we don&#39;t delete it later.</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">local_holds_by_identifier</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">local_holds_by_identifier</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+        <span class="c1"># We only want to delete local loans and holds if we were able to</span>
+        <span class="c1"># successfully sync with all the providers. If there was an error,</span>
+        <span class="c1"># the provider might still know about a loan or hold that we don&#39;t</span>
+        <span class="c1"># have in the remote lists.</span>
+        <span class="k">if</span> <span class="n">complete</span><span class="p">:</span>
+            <span class="c1"># Every loan remaining in loans_by_identifier is a hold that</span>
+            <span class="c1"># the provider doesn&#39;t know about. This usually means it&#39;s expired</span>
+            <span class="c1"># and we should get rid of it, but it&#39;s possible the patron is</span>
+            <span class="c1"># borrowing a book and syncing their bookshelf at the same time,</span>
+            <span class="c1"># and the local loan was created after we got the remote loans.</span>
+            <span class="c1"># If the loan&#39;s start date is less than a minute ago, we&#39;ll keep it.</span>
+            <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">local_loans_by_identifier</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="p">:</span>
+                    <span class="n">one_minute_ago</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;</span> <span class="n">one_minute_ago</span><span class="p">:</span>
+                        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;In sync_bookshelf for patron </span><span class="si">%s</span><span class="s2">, deleting loan </span><span class="si">%d</span><span class="s2"> (patron </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">))</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">loan</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;In sync_bookshelf for patron </span><span class="si">%s</span><span class="s2">, found local loan </span><span class="si">%d</span><span class="s2"> created in the past minute that wasn&#39;t in remote loans&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span> <span class="n">loan</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+            <span class="c1"># Every hold remaining in holds_by_identifier is a hold that</span>
+            <span class="c1"># the provider doesn&#39;t know about, which means it&#39;s expired</span>
+            <span class="c1"># and we should get rid of it.</span>
+            <span class="k">for</span> <span class="n">hold</span> <span class="ow">in</span> <span class="n">local_holds_by_identifier</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_ids_for_sync</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
+
+        <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">active_loans</span><span class="p">,</span> <span class="n">active_holds</span></div></div>
+
+
+<div class="viewcode-block" id="BaseCirculationAPI"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI">[docs]</a><span class="k">class</span> <span class="nc">BaseCirculationAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Encapsulates logic common to all circulation APIs.&quot;&quot;&quot;</span>
+
+    <span class="c1"># Add to LIBRARY_SETTINGS if your circulation API is for a</span>
+    <span class="c1"># distributor which includes ebooks and allows clients to specify</span>
+    <span class="c1"># their own loan lengths.</span>
+    <span class="n">EBOOK_LOAN_DURATION_SETTING</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;key&quot;</span> <span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">EBOOK_LOAN_DURATION_KEY</span><span class="p">,</span>
+        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Ebook Loan Duration (in Days)&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">STANDARD_DEFAULT_LOAN_PERIOD</span><span class="p">,</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;When a patron uses SimplyE to borrow an ebook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Add to LIBRARY_SETTINGS if your circulation API is for a</span>
+    <span class="c1"># distributor which includes audiobooks and allows clients to</span>
+    <span class="c1"># specify their own loan lengths.</span>
+    <span class="n">AUDIOBOOK_LOAN_DURATION_SETTING</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;key&quot;</span> <span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">AUDIOBOOK_LOAN_DURATION_KEY</span><span class="p">,</span>
+        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Audiobook Loan Duration (in Days)&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">STANDARD_DEFAULT_LOAN_PERIOD</span><span class="p">,</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;When a patron uses SimplyE to borrow an audiobook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Add to LIBRARY_SETTINGS if your circulation API is for a</span>
+    <span class="c1"># distributor with a default loan period negotiated out-of-band,</span>
+    <span class="c1"># such that the circulation manager cannot _specify_ the length of</span>
+    <span class="c1"># a loan.</span>
+    <span class="n">DEFAULT_LOAN_DURATION_SETTING</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">EBOOK_LOAN_DURATION_KEY</span><span class="p">,</span>
+        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Default Loan Period (in Days)&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">Collection</span><span class="o">.</span><span class="n">STANDARD_DEFAULT_LOAN_PERIOD</span><span class="p">,</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Until it hears otherwise from the distributor, this server will assume that any given loan for this library from this collection will last this number of days. This number is usually a negotiated value between the library and the distributor. This only affects estimates&amp;mdash;it cannot affect the actual length of loans.&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="c1"># These collection-specific settings should be inherited by all</span>
+    <span class="c1"># distributors.</span>
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># These library- and collection-specific settings should be</span>
+    <span class="c1"># inherited by all distributors.</span>
+    <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">BORROW_STEP</span> <span class="o">=</span> <span class="s1">&#39;borrow&#39;</span>
+    <span class="n">FULFILL_STEP</span> <span class="o">=</span> <span class="s1">&#39;fulfill&#39;</span>
+
+    <span class="c1"># In 3M only, when a book is in the &#39;reserved&#39; state the patron</span>
+    <span class="c1"># cannot revoke their hold on the book.</span>
+    <span class="n">CAN_REVOKE_HOLD_WHEN_RESERVED</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># If the client must set a delivery mechanism at the point of</span>
+    <span class="c1"># checkout (Axis 360), set this to BORROW_STEP. If the client may</span>
+    <span class="c1"># wait til the point of fulfillment to set a delivery mechanism</span>
+    <span class="c1"># (Overdrive), set this to FULFILL_STEP. If there is no choice of</span>
+    <span class="c1"># delivery mechanisms (3M), set this to None.</span>
+    <span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">FULFILL_STEP</span>
+
+    <span class="c1"># Different APIs have different internal names for delivery</span>
+    <span class="c1"># mechanisms. This is a mapping of (content_type, drm_type)</span>
+    <span class="c1"># 2-tuples to those internal names.</span>
+    <span class="c1">#</span>
+    <span class="c1"># For instance, the combination (&quot;application/epub+zip&quot;,</span>
+    <span class="c1"># &quot;vnd.adobe/adept+xml&quot;) is called &quot;ePub&quot; in Axis 360 and 3M, but</span>
+    <span class="c1"># is called &quot;ebook-epub-adobe&quot; in Overdrive.</span>
+    <span class="n">delivery_mechanism_to_internal_format</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="BaseCirculationAPI.internal_format"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.internal_format">[docs]</a>    <span class="k">def</span> <span class="nf">internal_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the internal format for this delivery mechanism or</span>
+<span class="sd">        raise an exception.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">delivery_mechanism</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">drm_scheme</span><span class="p">)</span>
+        <span class="n">internal_format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delivery_mechanism_to_internal_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">internal_format</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">DeliveryMechanismError</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Could not map Simplified delivery mechanism </span><span class="si">%(mechanism_name)s</span><span class="s2"> to internal delivery mechanism!&quot;</span><span class="p">,</span> <span class="n">mechanism_name</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">internal_format</span></div>
+
+<div class="viewcode-block" id="BaseCirculationAPI.default_notification_email_address"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.default_notification_email_address">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">default_notification_email_address</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library_or_patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;What email address should be used to notify this library&#39;s</span>
+<span class="sd">        patrons of changes?</span>
+
+<span class="sd">        :param library_or_patron: A Library or a Patron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library_or_patron</span><span class="p">,</span> <span class="n">Patron</span><span class="p">):</span>
+            <span class="n">library_or_patron</span> <span class="o">=</span> <span class="n">library_or_patron</span><span class="o">.</span><span class="n">library</span>
+        <span class="k">return</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+            <span class="n">Configuration</span><span class="o">.</span><span class="n">DEFAULT_NOTIFICATION_EMAIL_ADDRESS</span><span class="p">,</span>
+            <span class="n">library_or_patron</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_library_authenticator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a LibraryAuthenticator for the given library.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">authenticator</span> <span class="k">import</span> <span class="n">LibraryAuthenticator</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">LibraryAuthenticator</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BaseCirculationAPI.patron_email_address"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.patron_email_address">[docs]</a>    <span class="k">def</span> <span class="nf">patron_email_address</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">library_authenticator</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the email address that the given Patron shared</span>
+<span class="sd">        with their library.</span>
+
+<span class="sd">        We do not store this information, but some API integrations</span>
+<span class="sd">        need it, so we give the ability to look it up as needed.</span>
+
+<span class="sd">        :param patron: A Patron.</span>
+<span class="sd">        :return: The patron&#39;s email address. None if the patron never</span>
+<span class="sd">            shared their email address with their library, or if the</span>
+<span class="sd">            authentication technique will not share that information</span>
+<span class="sd">            with us.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># LibraryAuthenticator knows about all authentication techniques</span>
+        <span class="c1"># used to identify patrons of this library.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">library_authenticator</span><span class="p">:</span>
+            <span class="n">library_authenticator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_library_authenticator</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+        <span class="n">authorization_identifier</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span>
+
+        <span class="c1"># remote_patron_lookup will try to get information about the</span>
+        <span class="c1"># patron through each authentication technique in turn.</span>
+        <span class="c1"># As soon as one of these techniques gives us an email</span>
+        <span class="c1"># address, we&#39;re done.</span>
+        <span class="n">email_address</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">authenticator</span> <span class="ow">in</span> <span class="n">library_authenticator</span><span class="o">.</span><span class="n">providers</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">patrondata</span> <span class="o">=</span> <span class="n">authenticator</span><span class="o">.</span><span class="n">remote_patron_lookup</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">patrondata</span> <span class="ow">and</span> <span class="n">patrondata</span><span class="o">.</span><span class="n">email_address</span><span class="p">:</span>
+                <span class="n">email_address</span> <span class="o">=</span> <span class="n">patrondata</span><span class="o">.</span><span class="n">email_address</span>
+        <span class="k">return</span> <span class="n">email_address</span></div>
+
+<div class="viewcode-block" id="BaseCirculationAPI.checkin"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.checkin">[docs]</a>    <span class="k">def</span> <span class="nf">checkin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;  Return a book early.</span>
+
+<span class="sd">        :param patron: a Patron object for the patron who wants to check out the book.</span>
+<span class="sd">        :param pin: The patron&#39;s alleged password.</span>
+<span class="sd">        :param licensepool: Contains lending info as well as link to parent Identifier.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="BaseCirculationAPI.checkout"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.checkout">[docs]</a>    <span class="k">def</span> <span class="nf">checkout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check out a book on behalf of a patron.</span>
+
+<span class="sd">        :param patron: a Patron object for the patron who wants to check out the book.</span>
+<span class="sd">        :param pin: The patron&#39;s alleged password.</span>
+<span class="sd">        :param licensepool: Contains lending info as well as link to parent Identifier.</span>
+<span class="sd">        :param internal_format: Represents the patron&#39;s desired book format.</span>
+
+<span class="sd">        :return: a LoanInfo object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseCirculationAPI.can_fulfill_without_loan"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.can_fulfill_without_loan">[docs]</a>    <span class="k">def</span> <span class="nf">can_fulfill_without_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">lpdm</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;In general, you can&#39;t fulfill a book without a loan.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="BaseCirculationAPI.fulfill"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.fulfill">[docs]</a>    <span class="k">def</span> <span class="nf">fulfill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fulfill_part_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the actual resource file to the patron.</span>
+
+<span class="sd">        Implementations are encouraged to define ``**kwargs`` as a container</span>
+<span class="sd">        for vendor-specific arguments, so that they don&#39;t have to change</span>
+<span class="sd">        as new arguments are added.</span>
+
+<span class="sd">        :param internal_format: A vendor-specific name indicating</span>
+<span class="sd">            the format requested by the patron.</span>
+
+<span class="sd">        :param part: A vendor-specific identifier indicating that the</span>
+<span class="sd">            patron wants to fulfill one specific part of the book</span>
+<span class="sd">            (e.g. one chapter of an audiobook), not the whole thing.</span>
+
+<span class="sd">        :param fulfill_part_url: A function that takes one argument (a</span>
+<span class="sd">            vendor-specific part identifier) and returns the URL to use</span>
+<span class="sd">            when fulfilling that part.</span>
+
+<span class="sd">        :return: a FulfillmentInfo object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BaseCirculationAPI.patron_activity"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.patron_activity">[docs]</a>    <span class="k">def</span> <span class="nf">patron_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return a patron&#39;s current checkouts and holds.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BaseCirculationAPI.place_hold"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.place_hold">[docs]</a>    <span class="k">def</span> <span class="nf">place_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">notification_email_address</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Place a book on hold.</span>
+
+<span class="sd">        :return: A HoldInfo object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BaseCirculationAPI.release_hold"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Release a patron&#39;s hold on a book.</span>
+
+<span class="sd">        :raises CannotReleaseHold: If there is an error communicating</span>
+<span class="sd">            with the provider, or the provider refuses to release the hold for</span>
+<span class="sd">            any reason.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BaseCirculationAPI.update_availability"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.update_availability">[docs]</a>    <span class="k">def</span> <span class="nf">update_availability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update availability information for a book.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

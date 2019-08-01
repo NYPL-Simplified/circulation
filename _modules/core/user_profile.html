@@ -1,0 +1,289 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.user_profile &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.user_profile</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<div class="viewcode-block" id="ProfileController"><a class="viewcode-back" href="../../core.html#core.user_profile.ProfileController">[docs]</a><span class="k">class</span> <span class="nc">ProfileController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implement the User Profile Management Protocol.</span>
+
+<span class="sd">    https://github.com/NYPL-Simplified/Simplified/wiki/User-Profile-Management-Protocol</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">MEDIA_TYPE</span> <span class="o">=</span> <span class="s2">&quot;vnd.librarysimplified/user-profile+json&quot;</span>
+    <span class="n">LINK_RELATION</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/user-profile&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">storage</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param storage: An instance of ProfileStorage.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span>
+
+<div class="viewcode-block" id="ProfileController.get"><a class="viewcode-back" href="../../core.html#core.user_profile.ProfileController.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn the storage object into a Profile document and send out its</span>
+<span class="sd">        JSON-based representation.</span>
+
+<span class="sd">        :param return: A ProblemDetail if there is a problem; otherwise,</span>
+<span class="sd">            a 3-tuple (entity-body, response code, headers)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">profile_document</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">profile_document</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">profile_document</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="s1">&#39;as_problem_detail_document&#39;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">INTERNAL_SERVER_ERROR</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">profile_document</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">INTERNAL_SERVER_ERROR</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Profile document is not a JSON object: </span><span class="si">%r</span><span class="s2">.&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">profile_document</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">profile_document</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INTERNAL_SERVER_ERROR</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Could not convert profile document to JSON: </span><span class="si">%r</span><span class="s2">.&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">profile_document</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">body</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPE</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="ProfileController.put"><a class="viewcode-back" href="../../core.html#core.user_profile.ProfileController.put">[docs]</a>    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update the profile storage object with new settings</span>
+<span class="sd">        from a Profile document sent with a PUT request.</span>
+
+<span class="sd">        :param return: A ProblemDetail if there is a problem; otherwise,</span>
+<span class="sd">            a 3-tuple (response code, media type, entity-body)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">media_type</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">UNSUPPORTED_MEDIA_TYPE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Expected </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPE</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">profile_document</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_INPUT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Submitted profile document was not valid JSON.&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">profile_document</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">INVALID_INPUT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Submitted profile document was not a JSON object.&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">new_settings</span> <span class="o">=</span> <span class="n">profile_document</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ProfileStorage</span><span class="o">.</span><span class="n">SETTINGS_KEY</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_settings</span><span class="p">:</span>
+            <span class="c1"># The incoming document is a request to change at least one</span>
+            <span class="c1"># setting in the profile.</span>
+            <span class="n">writable</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">writable_setting_names</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">new_settings</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="c1"># A Profile document is invalid if it attempts to</span>
+                <span class="c1"># change the value of a read-only profile setting.</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">writable</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">INVALID_INPUT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                        <span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%s</span><span class="s1">&quot; is not a writable setting.&#39;</span> <span class="o">%</span> <span class="n">k</span><span class="p">)</span>
+                    <span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Update the profile storage with the new settings.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">new_settings</span><span class="p">,</span> <span class="n">profile_document</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># There was a problem updating the profile storage.</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="s1">&#39;as_problem_detail_document&#39;</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">INTERNAL_SERVER_ERROR</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">body</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;text/plain&quot;</span><span class="p">}</span></div></div>
+
+
+<div class="viewcode-block" id="ProfileStorage"><a class="viewcode-back" href="../../core.html#core.user_profile.ProfileStorage">[docs]</a><span class="k">class</span> <span class="nc">ProfileStorage</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An abstract class defining a specific user&#39;s profile.</span>
+
+<span class="sd">    Subclasses should get profile information from somewhere specific,</span>
+<span class="sd">    e.g. a database row.</span>
+
+<span class="sd">    An instance of this class is responsible for one specific user&#39;s profile,</span>
+<span class="sd">    not the set of all profiles.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">NS</span> <span class="o">=</span> <span class="s1">&#39;simplified:&#39;</span>
+    <span class="n">FINES</span> <span class="o">=</span> <span class="n">NS</span> <span class="o">+</span> <span class="s1">&#39;fines&#39;</span>
+    <span class="n">AUTHORIZATION_IDENTIFIER</span> <span class="o">=</span> <span class="n">NS</span> <span class="o">+</span> <span class="s2">&quot;authorization_identifier&quot;</span>
+    <span class="n">AUTHORIZATION_EXPIRES</span> <span class="o">=</span> <span class="n">NS</span> <span class="o">+</span> <span class="s2">&quot;authorization_expires&quot;</span>
+    <span class="n">SYNCHRONIZE_ANNOTATIONS</span> <span class="o">=</span> <span class="n">NS</span> <span class="o">+</span> <span class="s1">&#39;synchronize_annotations&#39;</span>
+    <span class="n">SETTINGS_KEY</span> <span class="o">=</span> <span class="s1">&#39;settings&#39;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profile_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a Profile document representing the current state of</span>
+<span class="sd">        the user&#39;s profile.</span>
+
+<span class="sd">        :return: A dictionary that can be serialized as JSON.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ProfileStorage.update"><a class="viewcode-back" href="../../core.html#core.user_profile.ProfileStorage.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_values</span><span class="p">,</span> <span class="n">profile_document</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;(Try to) change the user&#39;s profile so it looks like the provided</span>
+<span class="sd">        Profile document.</span>
+
+<span class="sd">        :param new_values: A dictionary of settings that the</span>
+<span class="sd">            client wants to change.</span>
+
+<span class="sd">        :param profile_document: The full Profile document as provided</span>
+<span class="sd">            by the client. Should not be necessary, but provided in</span>
+<span class="sd">            case it&#39;s useful.</span>
+
+<span class="sd">        :raise Exception: If there&#39;s a problem making the user&#39;s profile</span>
+<span class="sd">            look like the provided Profile document.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">writable_setting_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the subset of settings that are considered writable.</span>
+
+<span class="sd">        An attempt to modify a setting that&#39;s not in this list will fail</span>
+<span class="sd">        before update() is called.</span>
+
+<span class="sd">        :return: An iterable.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MockProfileStorage"><a class="viewcode-back" href="../../core.html#core.user_profile.MockProfileStorage">[docs]</a><span class="k">class</span> <span class="nc">MockProfileStorage</span><span class="p">(</span><span class="n">ProfileStorage</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A profile storage object for use in tests.</span>
+
+<span class="sd">    Keeps information in in-memory dictionaries rather than in a database.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">read_only_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">writable_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a profile for a simulated user.</span>
+
+<span class="sd">        :param read_only_settings: A dictionary of values that cannot be</span>
+<span class="sd">            changed.</span>
+
+<span class="sd">        :param writable_settings: A dictionary of values that can be changed</span>
+<span class="sd">            through the User Profile Management Protocol.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">read_only_settings</span> <span class="o">=</span> <span class="n">read_only_settings</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writable_settings</span> <span class="o">=</span> <span class="n">writable_settings</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profile_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read_only_settings</span><span class="p">)</span>
+        <span class="n">body</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">SETTINGS_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">writable_settings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">body</span>
+
+<div class="viewcode-block" id="MockProfileStorage.update"><a class="viewcode-back" href="../../core.html#core.user_profile.MockProfileStorage.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_values</span><span class="p">,</span> <span class="n">profile_document</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;(Try to) change the user&#39;s profile so it looks like the provided</span>
+<span class="sd">        Profile document.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_values</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">writable_settings</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">writable_setting_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the subset of fields that are considered writable.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">writable_settings</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

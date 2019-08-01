@@ -1,8 +1,0 @@
-{
-  "errors": [
-    {
-      "id": "patronNotFound",
-      "description": "Patron '123456789' not found "
-    }
-  ]
-}

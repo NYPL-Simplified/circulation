@@ -1,0 +1,745 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.coverage &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.coverage</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># BaseCoverageRecord, Timestamp, CoverageRecord, WorkCoverageRecord</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">Enum</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">String</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">and_</span><span class="p">,</span>
+    <span class="n">or_</span><span class="p">,</span>
+    <span class="n">literal</span><span class="p">,</span>
+    <span class="n">literal_column</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="BaseCoverageRecord"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.BaseCoverageRecord">[docs]</a><span class="k">class</span> <span class="nc">BaseCoverageRecord</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Contains useful constants used by both CoverageRecord and</span>
+<span class="sd">    WorkCoverageRecord.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;success&#39;</span>
+    <span class="n">TRANSIENT_FAILURE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;transient failure&#39;</span>
+    <span class="n">PERSISTENT_FAILURE</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;persistent failure&#39;</span>
+    <span class="n">REGISTERED</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;registered&#39;</span>
+
+    <span class="n">ALL_STATUSES</span> <span class="o">=</span> <span class="p">[</span><span class="n">REGISTERED</span><span class="p">,</span> <span class="n">SUCCESS</span><span class="p">,</span> <span class="n">TRANSIENT_FAILURE</span><span class="p">,</span> <span class="n">PERSISTENT_FAILURE</span><span class="p">]</span>
+
+    <span class="c1"># Count coverage as attempted if the record is not &#39;registered&#39;.</span>
+    <span class="n">PREVIOUSLY_ATTEMPTED</span> <span class="o">=</span> <span class="p">[</span><span class="n">SUCCESS</span><span class="p">,</span> <span class="n">TRANSIENT_FAILURE</span><span class="p">,</span> <span class="n">PERSISTENT_FAILURE</span><span class="p">]</span>
+
+    <span class="c1"># By default, count coverage as present if it ended in</span>
+    <span class="c1"># success or in persistent failure. Do not count coverage</span>
+    <span class="c1"># as present if it ended in transient failure.</span>
+    <span class="n">DEFAULT_COUNT_AS_COVERED</span> <span class="o">=</span> <span class="p">[</span><span class="n">SUCCESS</span><span class="p">,</span> <span class="n">PERSISTENT_FAILURE</span><span class="p">]</span>
+
+    <span class="n">status_enum</span> <span class="o">=</span> <span class="n">Enum</span><span class="p">(</span><span class="n">SUCCESS</span><span class="p">,</span> <span class="n">TRANSIENT_FAILURE</span><span class="p">,</span> <span class="n">PERSISTENT_FAILURE</span><span class="p">,</span>
+                       <span class="n">REGISTERED</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;coverage_status&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BaseCoverageRecord.not_covered"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.BaseCoverageRecord.not_covered">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">not_covered</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">count_as_covered</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">count_as_not_covered_if_covered_before</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Filter a query to find only items without coverage records.</span>
+
+<span class="sd">        :param count_as_covered: A list of constants that indicate</span>
+<span class="sd">            types of coverage records that should count as &#39;coverage&#39;</span>
+<span class="sd">            for purposes of this query.</span>
+<span class="sd">        :param count_as_not_covered_if_covered_before: If a coverage record</span>
+<span class="sd">            exists, but is older than the given date, do not count it as</span>
+<span class="sd">            covered.</span>
+<span class="sd">        :return: A clause that can be passed in to Query.filter().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">count_as_covered</span><span class="p">:</span>
+            <span class="n">count_as_covered</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_COUNT_AS_COVERED</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">count_as_covered</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">count_as_covered</span> <span class="o">=</span> <span class="p">[</span><span class="n">count_as_covered</span><span class="p">]</span>
+
+        <span class="c1"># If there is no coverage record, then of course the item is</span>
+        <span class="c1"># not covered.</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span>
+
+        <span class="c1"># If we&#39;re looking for specific coverage statuses, then a</span>
+        <span class="c1"># record does not count if it has some other status.</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+            <span class="n">missing</span><span class="p">,</span> <span class="o">~</span><span class="bp">cls</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">count_as_covered</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># If the record&#39;s timestamp is before the cutoff time, we</span>
+        <span class="c1"># don&#39;t count it as covered, regardless of which status it</span>
+        <span class="c1"># has.</span>
+        <span class="k">if</span> <span class="n">count_as_not_covered_if_covered_before</span><span class="p">:</span>
+            <span class="n">missing</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+                <span class="n">missing</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&lt;</span> <span class="n">count_as_not_covered_if_covered_before</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">missing</span></div></div>
+
+
+<div class="viewcode-block" id="Timestamp"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.Timestamp">[docs]</a><span class="k">class</span> <span class="nc">Timestamp</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Tracks the activities of Monitors, CoverageProviders,</span>
+<span class="sd">    and general scripts.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;timestamps&#39;</span>
+
+    <span class="n">MONITOR_TYPE</span> <span class="o">=</span> <span class="s2">&quot;monitor&quot;</span>
+    <span class="n">COVERAGE_PROVIDER_TYPE</span> <span class="o">=</span> <span class="s2">&quot;coverage_provider&quot;</span>
+    <span class="n">SCRIPT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;script&quot;</span>
+
+    <span class="c1"># A stand-in value used to indicate that a field in the timestamps</span>
+    <span class="c1"># table should be explicitly set to None. Passing in None for most</span>
+    <span class="c1"># fields will use default values.</span>
+    <span class="n">CLEAR_VALUE</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+    <span class="n">service_type_enum</span> <span class="o">=</span> <span class="n">Enum</span><span class="p">(</span>
+        <span class="n">MONITOR_TYPE</span><span class="p">,</span> <span class="n">COVERAGE_PROVIDER_TYPE</span><span class="p">,</span> <span class="n">SCRIPT_TYPE</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;service_type&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Unique ID</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Name of the service.</span>
+    <span class="n">service</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Type of the service -- monitor, coverage provider, or script.</span>
+    <span class="c1"># If the service type does not fit into these categories, this field</span>
+    <span class="c1"># can be left null.</span>
+    <span class="n">service_type</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">service_type_enum</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># The collection, if any, associated with this service -- some services</span>
+    <span class="c1"># run separately on a number of collections.</span>
+    <span class="n">collection_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;collections.id&#39;</span><span class="p">),</span>
+                           <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The last time the service _started_ running.</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The last time the service _finished_ running. In most cases this</span>
+    <span class="c1"># is the &#39;timestamp&#39; proper.</span>
+    <span class="n">finish</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">)</span>
+
+    <span class="c1"># A description of the things the service achieved during its last</span>
+    <span class="c1"># run. Each service may decide for itself what counts as an</span>
+    <span class="c1"># &#39;achievement&#39;; this is just a way to distinguish services that</span>
+    <span class="c1"># do a lot of things from services that do a few things, or to see</span>
+    <span class="c1"># services that run to completion but don&#39;t actually do anything.</span>
+    <span class="n">achievements</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># This column allows a service to keep one item of state between</span>
+    <span class="c1"># runs. For example, a monitor that iterates over a database table</span>
+    <span class="c1"># needs to keep track of the last database ID it processed.</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The exception, if any, that stopped the service from running</span>
+    <span class="c1"># during its previous run.</span>
+    <span class="n">exception</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="s1">&#39;%b </span><span class="si">%d</span><span class="s1">, %Y at %H:%M&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">:</span>
+            <span class="n">finish</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">finish</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="nb">format</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">:</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">collection</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">message</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;&lt;Timestamp </span><span class="si">%s</span><span class="s2">: collection=</span><span class="si">%s</span><span class="s2">, start=</span><span class="si">%s</span><span class="s2"> finish=</span><span class="si">%s</span><span class="s2"> counter=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">finish</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">message</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Timestamp.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.Timestamp.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">service_type</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Timestamp</span><span class="p">,</span> <span class="n">service</span><span class="o">=</span><span class="n">service</span><span class="p">,</span> <span class="n">service_type</span><span class="o">=</span><span class="n">service_type</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Timestamp.value"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.Timestamp.value">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">service_type</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the current value of the given Timestamp, if it exists.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stamp</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">service_type</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stamp</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">stamp</span><span class="o">.</span><span class="n">finish</span></div>
+
+<div class="viewcode-block" id="Timestamp.stamp"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.Timestamp.stamp">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">stamp</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">service_type</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">finish</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">achievements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exception</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set a Timestamp, creating it if necessary.</span>
+
+<span class="sd">        This should be called once a service has stopped running,</span>
+<span class="sd">        whether or not it was able to complete its task.</span>
+
+<span class="sd">        :param _db: A database connection.</span>
+<span class="sd">        :param service: The name of the service associated with the Timestamp.</span>
+
+<span class="sd">        :param service_type: The type of the service associated with</span>
+<span class="sd">            the Timestamp. This must be one of the values in</span>
+<span class="sd">            Timestmap.service_type_enum.</span>
+<span class="sd">        :param collection: The Collection, if any, on which this service</span>
+<span class="sd">            just ran.</span>
+<span class="sd">        :param start: The time at which this service started running.</span>
+<span class="sd">            Defaults to now.</span>
+<span class="sd">        :param finish: The time at which this service stopped running.</span>
+<span class="sd">            Defaults to now.</span>
+<span class="sd">        :param achievements: A human-readable description of what the service</span>
+<span class="sd">            did during its run.</span>
+<span class="sd">        :param counter: An integer item of state that the service may use</span>
+<span class="sd">            to track its progress between runs.</span>
+<span class="sd">        :param exception: A stack trace for the exception, if any, which</span>
+<span class="sd">            stopped the service from running.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">finish</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">finish</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">finish</span>
+        <span class="k">elif</span> <span class="n">finish</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">finish</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="n">stamp</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">Timestamp</span><span class="p">,</span>
+            <span class="n">service</span><span class="o">=</span><span class="n">service</span><span class="p">,</span>
+            <span class="n">service_type</span><span class="o">=</span><span class="n">service_type</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">stamp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">finish</span><span class="p">,</span> <span class="n">achievements</span><span class="p">,</span> <span class="n">counter</span><span class="p">,</span> <span class="n">exception</span><span class="p">)</span>
+
+        <span class="c1"># Committing immediately reduces the risk of contention.</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">stamp</span></div>
+
+<div class="viewcode-block" id="Timestamp.update"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.Timestamp.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">achievements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+               <span class="n">counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exception</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Use a single method to update all the fields that aren&#39;t</span>
+<span class="sd">        used to identify a Timestamp.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">CLEAR_VALUE</span><span class="p">:</span>
+                <span class="c1"># In most cases, None is not a valid value for</span>
+                <span class="c1"># Timestamp.start, but this can be overridden.</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="k">if</span> <span class="n">finish</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">finish</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">CLEAR_VALUE</span><span class="p">:</span>
+                <span class="c1"># In most cases, None is not a valid value for</span>
+                <span class="c1"># Timestamp.finish, but this can be overridden.</span>
+                <span class="n">finish</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">finish</span>
+        <span class="k">if</span> <span class="n">achievements</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">achievements</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">CLEAR_VALUE</span><span class="p">:</span>
+                <span class="n">achievements</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="n">achievements</span>
+        <span class="k">if</span> <span class="n">counter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">counter</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">CLEAR_VALUE</span><span class="p">:</span>
+                <span class="n">counter</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">counter</span>
+
+        <span class="c1"># Unlike the other fields, None is the default value for</span>
+        <span class="c1"># .exception, so passing in None to mean &quot;use the default&quot; and</span>
+        <span class="c1"># None to mean &quot;no exception&quot; mean the same thing. But we&#39;ll</span>
+        <span class="c1"># support CLEAR_VALUE anyway.</span>
+        <span class="k">if</span> <span class="n">exception</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">CLEAR_VALUE</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">exception</span></div>
+
+<div class="viewcode-block" id="Timestamp.to_data"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.Timestamp.to_data">[docs]</a>    <span class="k">def</span> <span class="nf">to_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert this Timestamp to an unfinalized TimestampData.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">..metadata_layer</span> <span class="k">import</span> <span class="n">TimestampData</span>
+        <span class="k">return</span> <span class="n">TimestampData</span><span class="p">(</span>
+            <span class="n">start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">,</span>
+            <span class="n">achievements</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">achievements</span><span class="p">,</span> <span class="n">counter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span>
+        <span class="p">)</span></div>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;service&#39;</span><span class="p">,</span> <span class="s1">&#39;collection_id&#39;</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CoverageRecord"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.CoverageRecord">[docs]</a><span class="k">class</span> <span class="nc">CoverageRecord</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">BaseCoverageRecord</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record of a Identifier being used as input into some process.&quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;coveragerecords&#39;</span>
+
+    <span class="n">SET_EDITION_METADATA_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;set-edition-metadata&#39;</span>
+    <span class="n">CHOOSE_COVER_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;choose-cover&#39;</span>
+    <span class="n">REAP_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;reap&#39;</span>
+    <span class="n">IMPORT_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;import&#39;</span>
+    <span class="n">RESOLVE_IDENTIFIER_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;resolve-identifier&#39;</span>
+    <span class="n">REPAIR_SORT_NAME_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;repair-sort-name&#39;</span>
+    <span class="n">METADATA_UPLOAD_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;metadata-upload&#39;</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">identifier_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;identifiers.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># If applicable, this is the ID of the data source that took the</span>
+    <span class="c1"># Identifier as input.</span>
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">operation</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">status</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">status_enum</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">exception</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># If applicable, this is the ID of the collection for which</span>
+    <span class="c1"># coverage has taken place. This is currently only applicable</span>
+    <span class="c1"># for Metadata Wrangler coverage.</span>
+    <span class="n">collection_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;collections.id&#39;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s1">&#39;ix_identifier_id_data_source_id_operation&#39;</span><span class="p">,</span>
+            <span class="n">identifier_id</span><span class="p">,</span> <span class="n">data_source_id</span><span class="p">,</span> <span class="n">operation</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postgresql_where</span><span class="o">=</span><span class="n">collection_id</span><span class="o">.</span><span class="n">is_</span><span class="p">(</span><span class="kc">None</span><span class="p">)),</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s1">&#39;ix_identifier_id_data_source_id_operation_collection_id&#39;</span><span class="p">,</span>
+            <span class="n">identifier_id</span><span class="p">,</span> <span class="n">data_source_id</span><span class="p">,</span> <span class="n">operation</span><span class="p">,</span> <span class="n">collection_id</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="s1">&#39;&lt;CoverageRecord: </span><span class="si">%(timestamp)s</span><span class="s1"> identifier=</span><span class="si">%(identifier_type)s</span><span class="s1">/</span><span class="si">%(identifier)s</span><span class="s1"> data_source=&quot;</span><span class="si">%(data_source)s</span><span class="s1">&quot;</span><span class="si">%(operation)s</span><span class="s1"> status=&quot;</span><span class="si">%(status)s</span><span class="s1">&quot; </span><span class="si">%(exception)s</span><span class="s1">&gt;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">human_readable</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CoverageRecord.human_readable"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.CoverageRecord.human_readable">[docs]</a>    <span class="k">def</span> <span class="nf">human_readable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">template</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Interpolate data into a human-readable template.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">:</span>
+            <span class="n">operation</span> <span class="o">=</span> <span class="s1">&#39; operation=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">operation</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">operation</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="s1">&#39; exception=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">template</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">),</span>
+            <span class="n">identifier_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">exception</span><span class="o">=</span><span class="n">exception</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CoverageRecord.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.CoverageRecord.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">edition_or_identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+               <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+        <span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
+        <span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">edition_or_identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition_or_identifier</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">edition_or_identifier</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition_or_identifier</span><span class="p">,</span> <span class="n">Edition</span><span class="p">):</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">edition_or_identifier</span><span class="o">.</span><span class="n">primary_identifier</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot look up a coverage record for </span><span class="si">%r</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">CoverageRecord</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="CoverageRecord.add_for"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.CoverageRecord.add_for">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edition</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
+        <span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">edition</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">edition</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">Edition</span><span class="p">):</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot create a coverage record for </span><span class="si">%r</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">edition</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">coverage_record</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">CoverageRecord</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+        <span class="n">coverage_record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">status</span>
+        <span class="n">coverage_record</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span>
+        <span class="k">return</span> <span class="n">coverage_record</span><span class="p">,</span> <span class="n">is_new</span></div>
+
+<div class="viewcode-block" id="CoverageRecord.bulk_add"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.CoverageRecord.bulk_add">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">bulk_add</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">status</span><span class="o">=</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">,</span> <span class="n">exception</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create and update CoverageRecords so that every Identifier in</span>
+<span class="sd">        `identifiers` has an identical record.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifiers</span><span class="p">:</span>
+            <span class="c1"># Nothing to do.</span>
+            <span class="k">return</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">identifiers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]</span>
+
+        <span class="n">equivalent_record</span> <span class="o">=</span> <span class="n">and_</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">operation</span><span class="p">,</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="n">data_source</span><span class="p">,</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="n">collection</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">updated_or_created_results</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">force</span><span class="p">:</span>
+            <span class="c1"># Make sure that works that previously had a</span>
+            <span class="c1"># CoverageRecord for this operation have their timestamp</span>
+            <span class="c1"># and status updated.</span>
+            <span class="n">update</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">update</span><span class="p">()</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">and_</span><span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">),</span>
+                <span class="n">equivalent_record</span><span class="p">,</span>
+            <span class="p">))</span><span class="o">.</span><span class="n">values</span><span class="p">(</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">exception</span><span class="o">=</span><span class="n">exception</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">returning</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
+            <span class="n">updated_or_created_results</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">update</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="n">already_covered</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">equivalent_record</span><span class="p">,</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">),</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">subquery</span><span class="p">()</span>
+
+        <span class="c1"># Make sure that any identifiers that need a CoverageRecord get one.</span>
+        <span class="c1"># The SELECT part of the INSERT...SELECT query.</span>
+        <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">data_source</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">collection_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">collection</span><span class="p">:</span>
+            <span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="n">new_records</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;identifier_id&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">operation</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">String</span><span class="p">(</span><span class="mi">255</span><span class="p">))</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;operation&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">DateTime</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;timestamp&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">status_enum</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">exception</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">Unicode</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;exception&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">data_source_id</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">Integer</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;data_source_id&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">collection_id</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">Integer</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">),</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
+            <span class="n">already_covered</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">already_covered</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">already_covered</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">new_records</span> <span class="o">=</span> <span class="n">new_records</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">))</span>
+
+        <span class="c1"># The INSERT part.</span>
+        <span class="n">insert</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">()</span><span class="o">.</span><span class="n">from_select</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;identifier_id&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;operation&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;timestamp&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;exception&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;data_source_id&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;collection_id&#39;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">new_records</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">returning</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
+
+        <span class="n">inserts</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">insert</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="n">updated_or_created_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">inserts</span><span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Default return for the case when all of the identifiers were</span>
+        <span class="c1"># ignored.</span>
+        <span class="n">new_records</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">ignored_identifiers</span> <span class="o">=</span> <span class="n">identifiers</span>
+
+        <span class="n">new_and_updated_record_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">updated_or_created_results</span><span class="p">]</span>
+        <span class="n">impacted_identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">updated_or_created_results</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">new_and_updated_record_ids</span><span class="p">:</span>
+            <span class="n">new_records</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span>
+                <span class="n">new_and_updated_record_ids</span>
+            <span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+        <span class="n">ignored_identifiers</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">impacted_identifier_ids</span><span class="p">,</span> <span class="n">identifiers</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">new_records</span><span class="p">,</span> <span class="n">ignored_identifiers</span></div></div>
+
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_coveragerecords_data_source_id_operation_identifier_id&quot;</span><span class="p">,</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">data_source_id</span><span class="p">,</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="p">,</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
+
+<div class="viewcode-block" id="WorkCoverageRecord"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.WorkCoverageRecord">[docs]</a><span class="k">class</span> <span class="nc">WorkCoverageRecord</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">BaseCoverageRecord</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A record of some operation that was performed on a Work.</span>
+<span class="sd">    This is similar to CoverageRecord, which operates on Identifiers,</span>
+<span class="sd">    but since Work identifiers have no meaning outside of the database,</span>
+<span class="sd">    we presume that all the operations involve internal work only,</span>
+<span class="sd">    and as such there is no data_source_id.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;workcoveragerecords&#39;</span>
+
+    <span class="n">CHOOSE_EDITION_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;choose-edition&#39;</span>
+    <span class="n">CLASSIFY_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;classify&#39;</span>
+    <span class="n">SUMMARY_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;summary&#39;</span>
+    <span class="n">QUALITY_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;quality&#39;</span>
+    <span class="n">GENERATE_OPDS_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;generate-opds&#39;</span>
+    <span class="n">GENERATE_MARC_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;generate-marc&#39;</span>
+    <span class="n">UPDATE_SEARCH_INDEX_OPERATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;update-search-index&#39;</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">work_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;works.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">operation</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">status</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">status_enum</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">exception</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;work_id&#39;</span><span class="p">,</span> <span class="s1">&#39;operation&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="s1">&#39; exception=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="s1">&#39;&lt;WorkCoverageRecord: work_id=</span><span class="si">%s</span><span class="s1"> operation=&quot;</span><span class="si">%s</span><span class="s1">&quot; timestamp=&quot;</span><span class="si">%s</span><span class="s1">&quot;</span><span class="si">%s</span><span class="s1">&gt;&#39;</span>
+        <span class="k">return</span> <span class="n">template</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">operation</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">),</span>
+            <span class="n">exception</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="WorkCoverageRecord.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.WorkCoverageRecord.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">operation</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+            <span class="n">work</span><span class="o">=</span><span class="n">work</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="WorkCoverageRecord.add_for"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.WorkCoverageRecord.add_for">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">operation</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">coverage_record</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+            <span class="n">work</span><span class="o">=</span><span class="n">work</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span>
+            <span class="n">on_multiple</span><span class="o">=</span><span class="s1">&#39;interchangeable&#39;</span>
+        <span class="p">)</span>
+        <span class="n">coverage_record</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">status</span>
+        <span class="n">coverage_record</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span>
+        <span class="k">return</span> <span class="n">coverage_record</span><span class="p">,</span> <span class="n">is_new</span></div>
+
+<div class="viewcode-block" id="WorkCoverageRecord.bulk_add"><a class="viewcode-back" href="../../../core.model.html#core.model.coverage.WorkCoverageRecord.bulk_add">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">bulk_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">operation</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">status</span><span class="o">=</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">,</span> <span class="n">exception</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create and update WorkCoverageRecords so that every Work in</span>
+<span class="sd">        `works` has an identical record.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">works</span><span class="p">:</span>
+            <span class="c1"># Nothing to do.</span>
+            <span class="k">return</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">works</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">work_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">w</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">works</span><span class="p">]</span>
+
+        <span class="c1"># Make sure that works that previously had a</span>
+        <span class="c1"># WorkCoverageRecord for this operation have their timestamp</span>
+        <span class="c1"># and status updated.</span>
+        <span class="n">update</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">update</span><span class="p">()</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">and_</span><span class="p">(</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">work_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">work_ids</span><span class="p">),</span>
+                 <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">operation</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">exception</span><span class="o">=</span><span class="n">exception</span><span class="p">))</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">update</span><span class="p">)</span>
+
+        <span class="c1"># Make sure that any works that are missing a</span>
+        <span class="c1"># WorkCoverageRecord for this operation get one.</span>
+
+        <span class="c1"># Works that already have a WorkCoverageRecord will be ignored</span>
+        <span class="c1"># by the INSERT but handled by the UPDATE.</span>
+        <span class="n">already_covered</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">work_id</span><span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span>
+            <span class="n">WorkCoverageRecord</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">work_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">work_ids</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">operation</span>
+            <span class="p">)</span>
+
+        <span class="c1"># The SELECT part of the INSERT...SELECT query.</span>
+        <span class="n">new_records</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;work_id&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">operation</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">String</span><span class="p">(</span><span class="mi">255</span><span class="p">))</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;operation&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">DateTime</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;timestamp&#39;</span><span class="p">),</span>
+            <span class="n">literal</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="n">BaseCoverageRecord</span><span class="o">.</span><span class="n">status_enum</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span>
+            <span class="n">Work</span>
+        <span class="p">)</span>
+        <span class="n">new_records</span> <span class="o">=</span> <span class="n">new_records</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">work_ids</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="o">~</span><span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">already_covered</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># The INSERT part.</span>
+        <span class="n">insert</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">()</span><span class="o">.</span><span class="n">from_select</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;work_id&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;operation&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;timestamp&#39;</span><span class="p">),</span>
+                <span class="n">literal_column</span><span class="p">(</span><span class="s1">&#39;status&#39;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">new_records</span>
+        <span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">insert</span><span class="p">)</span></div></div>
+
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_workcoveragerecords_operation_work_id&quot;</span><span class="p">,</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="p">,</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">work_id</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,370 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.selftest &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.selftest</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Define the interfaces used by ExternalIntegration self-tests.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">util.http</span> <span class="k">import</span> <span class="n">IntegrationException</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="k">import</span> <span class="n">AtomFeed</span>
+
+
+<div class="viewcode-block" id="SelfTestResult"><a class="viewcode-back" href="../../core.html#core.selftest.SelfTestResult">[docs]</a><span class="k">class</span> <span class="nc">SelfTestResult</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The result of running a single self-test.</span>
+
+<span class="sd">    HasSelfTest.run_self_tests() returns a list of these</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="c1"># Name of the test.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="c1"># Set to True when the test runs without raising an exception.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># The exception raised, if any.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># The return value of the test method, assuming it ran to</span>
+        <span class="c1"># completion.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Start time of the test.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+        <span class="c1"># End time of the test.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert this SelfTestResult to a dictionary for use in</span>
+<span class="sd">        JSON serialization.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Time formatting method</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">_strftime</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                          <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
+                          <span class="s2">&quot;debug_message&quot;</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span> <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">success</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">success</span><span class="p">,</span>
+            <span class="n">duration</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span>
+            <span class="n">exception</span><span class="o">=</span><span class="n">exception</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">:</span>
+            <span class="n">value</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="n">value</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+
+        <span class="c1"># String results will be displayed in a fixed-width font.</span>
+        <span class="c1"># Lists of strings will be hidden behind an expandable toggle.</span>
+        <span class="c1"># Other return values have no defined method of display.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="p">,</span> <span class="n">basestring</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">value</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">value</span><span class="p">[</span><span class="s1">&#39;result&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">,</span> <span class="n">IntegrationException</span><span class="p">):</span>
+                <span class="n">exception</span> <span class="o">=</span> <span class="s2">&quot; exception=</span><span class="si">%r</span><span class="s2"> debug=</span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">exception</span> <span class="o">=</span> <span class="s2">&quot; exception=</span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;SelfTestResult: name=</span><span class="si">%r</span><span class="s2"> duration=</span><span class="si">%.2f</span><span class="s2">sec success=</span><span class="si">%r%s</span><span class="s2"> result=</span><span class="si">%r</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">success</span><span class="p">,</span>
+            <span class="n">exception</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">duration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;How long the test took to run.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">debug_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The debug message associated with the Exception, if any.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">,</span> <span class="s1">&#39;debug_message&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HasSelfTests"><a class="viewcode-back" href="../../core.html#core.selftest.HasSelfTests">[docs]</a><span class="k">class</span> <span class="nc">HasSelfTests</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An object capable of verifying its own setup by running a</span>
+<span class="sd">    series of self-tests.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Self-test results are stored in a ConfigurationSetting with this name,</span>
+    <span class="c1"># associated with the appropriate ExternalIntegration.</span>
+    <span class="n">SELF_TEST_RESULTS_SETTING</span> <span class="o">=</span> <span class="s1">&#39;self_test_results&#39;</span>
+
+<div class="viewcode-block" id="HasSelfTests.run_self_tests"><a class="viewcode-back" href="../../core.html#core.selftest.HasSelfTests.run_self_tests">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">run_self_tests</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">constructor_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Instantiate this class and call _run_self_tests on it.</span>
+
+<span class="sd">        :param _db: A database connection. Will be passed into `_run_self_tests`.</span>
+<span class="sd">            This connection may need to be used again</span>
+<span class="sd">            in args, if the constructor needs it.</span>
+
+<span class="sd">        :param constructor_method: Method to use to instantiate the</span>
+<span class="sd">            class, if different from the default constructor.</span>
+
+<span class="sd">        :param args: Positional arguments to pass into the constructor.</span>
+<span class="sd">        :param kwargs: Keyword arguments to pass into the constructor.</span>
+
+<span class="sd">        :return: A 2-tuple (results_dict, results_list) `results_dict`</span>
+<span class="sd">            is a JSON-serializable dictionary describing the results of</span>
+<span class="sd">            the self-test. `results_list` is a list of SelfTestResult</span>
+<span class="sd">            objects.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
+
+        <span class="n">constructor_method</span> <span class="o">=</span> <span class="n">constructor_method</span> <span class="ow">or</span> <span class="bp">cls</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">SelfTestResult</span><span class="p">(</span><span class="s2">&quot;Initial setup.&quot;</span><span class="p">)</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Treat the construction of the integration code as its own</span>
+        <span class="c1"># test.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">instance</span> <span class="o">=</span> <span class="n">constructor_method</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">instance</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">e</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">instance</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">instance</span><span class="o">.</span><span class="n">_run_self_tests</span><span class="p">(</span><span class="n">_db</span><span class="p">):</span>
+                    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># This should only happen when there&#39;s a bug in the</span>
+                <span class="c1"># self-test method itself.</span>
+                <span class="n">failure</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">test_failure</span><span class="p">(</span>
+                    <span class="s2">&quot;Uncaught exception in the self-test method itself.&quot;</span><span class="p">,</span> <span class="n">e</span>
+                <span class="p">)</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">failure</span><span class="p">)</span>
+
+
+        <span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+        <span class="c1"># Format the results in a useful way.</span>
+
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">start</span><span class="o">=</span><span class="n">AtomFeed</span><span class="o">.</span><span class="n">_strftime</span><span class="p">(</span><span class="n">start</span><span class="p">),</span>
+            <span class="n">end</span><span class="o">=</span><span class="n">AtomFeed</span><span class="o">.</span><span class="n">_strftime</span><span class="p">(</span><span class="n">end</span><span class="p">),</span>
+            <span class="n">duration</span> <span class="o">=</span> <span class="p">(</span><span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">to_dict</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="c1"># Store the formatted results in the database, if we can find</span>
+        <span class="c1"># a place to store them.</span>
+
+        <span class="k">if</span> <span class="n">instance</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">ExternalSearchIndex</span><span class="p">):</span>
+            <span class="n">integration</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">search_integration</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;results&quot;</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,)):</span>
+                    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">result</span>
+
+        <span class="k">elif</span> <span class="n">instance</span><span class="p">:</span>
+            <span class="n">integration</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">external_integration</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">SELF_TEST_RESULTS_SETTING</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span><span class="p">,</span> <span class="n">results</span></div>
+
+<div class="viewcode-block" id="HasSelfTests.prior_test_results"><a class="viewcode-back" href="../../core.html#core.selftest.HasSelfTests.prior_test_results">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">prior_test_results</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">constructor_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve the last set of test results from the database.</span>
+
+<span class="sd">        The arguments here are the same as the arguments to run_self_tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">constructor_method</span> <span class="o">=</span> <span class="n">constructor_method</span> <span class="ow">or</span> <span class="bp">cls</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">constructor_method</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">ExternalSearchIndex</span><span class="p">):</span>
+            <span class="n">integration</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">search_integration</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">integration</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">external_integration</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SELF_TEST_RESULTS_SETTING</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span> <span class="ow">or</span> <span class="s2">&quot;No results yet&quot;</span></div>
+
+<div class="viewcode-block" id="HasSelfTests.external_integration"><a class="viewcode-back" href="../../core.html#core.selftest.HasSelfTests.external_integration">[docs]</a>    <span class="k">def</span> <span class="nf">external_integration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Locate the ExternalIntegration associated with this object.</span>
+<span class="sd">        The status of the self-tests will be stored as a ConfigurationSetting</span>
+<span class="sd">        on this ExternalIntegration.</span>
+
+<span class="sd">        By default, there is no way to get from an object to its</span>
+<span class="sd">        ExternalIntegration, and self-test status will not be stored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+    <span class="k">def</span> <span class="nf">_run_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run a series of self-tests.</span>
+
+<span class="sd">        :return: A list of SelfTestResult objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+<div class="viewcode-block" id="HasSelfTests.run_test"><a class="viewcode-back" href="../../core.html#core.selftest.HasSelfTests.run_test">[docs]</a>    <span class="k">def</span> <span class="nf">run_test</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run a test method, record any exception that happens, and keep</span>
+<span class="sd">        track of how long the test takes to run.</span>
+
+<span class="sd">        :param name: The name of the test to be run.</span>
+<span class="sd">        :param method: A method to call to run the test.</span>
+<span class="sd">        :param args: Positional arguments to `method`.</span>
+<span class="sd">        :param kwargs: Keyword arguments to `method`.</span>
+
+<span class="sd">        :return: A filled-in SelfTestResult.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">SelfTestResult</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">return_value</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">return_value</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">e</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="HasSelfTests.test_failure"><a class="viewcode-back" href="../../core.html#core.selftest.HasSelfTests.test_failure">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">test_failure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a SelfTestResult for a known failure.</span>
+
+<span class="sd">        This is useful when you can&#39;t even get the data necessary to</span>
+<span class="sd">        run a test method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">SelfTestResult</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">start</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="n">message</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">exception</span><span class="o">.</span><span class="n">message</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">debug_message</span><span class="p">:</span>
+                <span class="n">debug_message</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+        <span class="n">exception</span> <span class="o">=</span> <span class="n">IntegrationException</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">exception</span>
+        <span class="k">return</span> <span class="n">result</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

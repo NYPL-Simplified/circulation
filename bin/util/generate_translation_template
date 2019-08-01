@@ -1,3 +1,0 @@
-pybabel extract -F bin/util/core.babel.cfg -k _ -o core.pot .
-pybabel extract -F bin/util/circulation.babel.cfg -k _ -o circulation.pot .
-pybabel extract -F bin/util/admin.babel.cfg -k _ -o circulation-admin.pot .

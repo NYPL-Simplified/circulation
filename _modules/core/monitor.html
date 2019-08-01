@@ -1,0 +1,952 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.monitor &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.monitor</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">or_</span><span class="p">,</span>
+    <span class="n">and_</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">log</span> <span class="c1"># This sets the appropriate log format and level.</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="n">CoverageFailure</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="n">TimestampData</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">CachedFeed</span><span class="p">,</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">CollectionMissing</span><span class="p">,</span>
+    <span class="n">CoverageRecord</span><span class="p">,</span>
+    <span class="n">Credential</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">CustomListEntry</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">Patron</span><span class="p">,</span>
+    <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+    <span class="n">Timestamp</span><span class="p">,</span>
+    <span class="n">Work</span><span class="p">,</span>
+    <span class="n">WorkCoverageRecord</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="Monitor"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor">[docs]</a><span class="k">class</span> <span class="nc">Monitor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor is responsible for running some piece of code on a</span>
+<span class="sd">    regular basis. A Monitor has an associated Timestamp that tracks</span>
+<span class="sd">    the last time it successfully ran; it may use this information on</span>
+<span class="sd">    its next run to cover the intervening span of time.</span>
+
+<span class="sd">    A Monitor will run to completion and then stop. To repeatedly run</span>
+<span class="sd">    a Monitor, you&#39;ll need to repeatedly invoke it from some external</span>
+<span class="sd">    source such as a cron job.</span>
+
+<span class="sd">    This class is designed to be subclassed rather than instantiated</span>
+<span class="sd">    directly. Subclasses must define SERVICE_NAME. Subclasses may</span>
+<span class="sd">    define replacement values for DEFAULT_START_TIME and</span>
+<span class="sd">    DEFAULT_COUNTER.</span>
+
+<span class="sd">    Although any Monitor may be associated with a Collection, it&#39;s</span>
+<span class="sd">    most useful to subclass CollectionMonitor if you&#39;re writing code</span>
+<span class="sd">    that needs to be run on every Collection of a certain type.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># In your subclass, set this to the name of the service,</span>
+    <span class="c1"># e.g. &quot;Overdrive Circulation Monitor&quot;. All instances of your</span>
+    <span class="c1"># subclass will give this as their service name and track their</span>
+    <span class="c1"># Timestamps under this name.</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Some useful relative constants for DEFAULT_START_TIME (below).</span>
+    <span class="n">ONE_MINUTE_AGO</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+    <span class="n">ONE_YEAR_AGO</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">365</span><span class="p">)</span>
+    <span class="n">NEVER</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+    <span class="c1"># If there is no Timestamp for this Monitor, this time will be</span>
+    <span class="c1"># passed into `run_once()` as the `start_time` parameter.</span>
+    <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">ONE_MINUTE_AGO</span>
+
+    <span class="c1"># When the Timestamp for this Monitor is created, this value will</span>
+    <span class="c1"># be set for `Timestamp.counter`.</span>
+    <span class="c1">#</span>
+    <span class="c1"># This is only used by the SweepMonitor subclass.</span>
+    <span class="n">DEFAULT_COUNTER</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SERVICE_NAME</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> must define SERVICE_NAME.&quot;</span> <span class="o">%</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span>
+        <span class="n">default_start_time</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_START_TIME</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">default_start_time</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">):</span>
+            <span class="n">default_start_time</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="n">default_start_time</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span> <span class="o">=</span> <span class="n">default_start_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_counter</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_COUNTER</span>
+
+        <span class="c1"># We store the collection ID rather than the Collection to</span>
+        <span class="c1"># avoid breakage in case an app server with a scoped session</span>
+        <span class="c1"># ever uses a Monitor.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">collection</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_log&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">collection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve the Collection object associated with this</span>
+<span class="sd">        Monitor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">initial_start_time</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The time that should be used as the &#39;start time&#39; the first</span>
+<span class="sd">        time this Monitor is run.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">NEVER</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_start_time</span>
+        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Monitor.timestamp"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor.timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a Timestamp for this Monitor.</span>
+
+<span class="sd">        This does not use TimestampData because it relies on checking</span>
+<span class="sd">        whether a Timestamp already exists in the database.</span>
+
+<span class="sd">        A new timestamp will have .finish set to None, since the first</span>
+<span class="sd">        run is presumably in progress.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">initial_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_start_time</span>
+        <span class="n">timestamp</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Timestamp</span><span class="p">,</span>
+            <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span>
+            <span class="n">service_type</span><span class="o">=</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">MONITOR_TYPE</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">start</span><span class="o">=</span><span class="n">initial_timestamp</span><span class="p">,</span>
+                <span class="n">finish</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">counter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">default_counter</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">timestamp</span></div>
+
+<div class="viewcode-block" id="Monitor.run"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do all the work that has piled up since the</span>
+<span class="sd">        last time the Monitor ran to completion.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Use the existing Timestamp to determine the progress made up</span>
+        <span class="c1"># to this point. It&#39;s the job of the subclass to decide where</span>
+        <span class="c1"># to go from here.</span>
+        <span class="n">timestamp_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+        <span class="n">progress</span> <span class="o">=</span> <span class="n">timestamp_obj</span><span class="o">.</span><span class="n">to_data</span><span class="p">()</span>
+
+        <span class="n">this_run_start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">ignorable</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">TimestampData</span><span class="o">.</span><span class="n">CLEAR_VALUE</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">new_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_once</span><span class="p">(</span><span class="n">progress</span><span class="p">)</span>
+            <span class="n">this_run_finish</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">new_timestamp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Assume this Monitor has no special needs surrounding</span>
+                <span class="c1"># its timestamp.</span>
+                <span class="n">new_timestamp</span> <span class="o">=</span> <span class="n">TimestampData</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">new_timestamp</span><span class="o">.</span><span class="n">achievements</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ignorable</span><span class="p">:</span>
+                <span class="c1"># This eliminates the need to create similar-looking</span>
+                <span class="c1"># strings for TimestampData.achievements and for the log.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">new_timestamp</span><span class="o">.</span><span class="n">achievements</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">new_timestamp</span><span class="o">.</span><span class="n">exception</span> <span class="ow">in</span> <span class="n">ignorable</span><span class="p">:</span>
+                <span class="c1"># run_once() completed with no exceptions being raised.</span>
+                <span class="c1"># We can run the cleanup code and finalize the timestamp.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+                <span class="n">new_timestamp</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span>
+                    <span class="n">service</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span>
+                    <span class="n">service_type</span><span class="o">=</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">MONITOR_TYPE</span><span class="p">,</span>
+                    <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                    <span class="n">start</span><span class="o">=</span><span class="n">this_run_start</span><span class="p">,</span>
+                    <span class="n">finish</span><span class="o">=</span><span class="n">this_run_finish</span><span class="p">,</span>
+                    <span class="n">exception</span><span class="o">=</span><span class="kc">None</span>
+                <span class="p">)</span>
+                <span class="n">new_timestamp</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This will be treated the same as an unhandled</span>
+                <span class="c1"># exception, below.</span>
+                <span class="n">exception</span> <span class="o">=</span> <span class="n">new_timestamp</span><span class="o">.</span><span class="n">exception</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">this_run_finish</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Error running </span><span class="si">%s</span><span class="s2"> monitor. Timestamp will not be updated.&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+            <span class="p">)</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">exception</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We will update Timestamp.exception but not go through</span>
+            <span class="c1"># the whole TimestampData.apply() process, which might</span>
+            <span class="c1"># erase the information the Monitor needs to recover from</span>
+            <span class="c1"># this failure.</span>
+            <span class="n">timestamp_obj</span><span class="o">.</span><span class="n">exception</span> <span class="o">=</span> <span class="n">exception</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="n">duration</span> <span class="o">=</span> <span class="n">this_run_finish</span> <span class="o">-</span> <span class="n">this_run_start</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Ran </span><span class="si">%s</span><span class="s2"> monitor in </span><span class="si">%.2f</span><span class="s2"> sec.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span>
+            <span class="n">duration</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Monitor.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do the actual work of the Monitor.</span>
+
+<span class="sd">        :param progress: A TimestampData representing the</span>
+<span class="sd">           work done by the Monitor up to this point.</span>
+
+<span class="sd">        :return: A TimestampData representing how you want the</span>
+<span class="sd">            Monitor&#39;s entry in the `timestamps` table to look like</span>
+<span class="sd">            from this point on.  NOTE: Modifying the incoming</span>
+<span class="sd">            `progress` and returning it is generally a bad idea,</span>
+<span class="sd">            because the incoming `progress` is full of old</span>
+<span class="sd">            data. Instead, return a new TimestampData containing data</span>
+<span class="sd">            for only the fields you want to set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Monitor.cleanup"><a class="viewcode-back" href="../../core.html#core.monitor.Monitor.cleanup">[docs]</a>    <span class="k">def</span> <span class="nf">cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do any work that needs to be done at the end, once the main work</span>
+<span class="sd">        has completed successfully.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="TimelineMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.TimelineMonitor">[docs]</a><span class="k">class</span> <span class="nc">TimelineMonitor</span><span class="p">(</span><span class="n">Monitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A monitor that needs to process everything that happened between</span>
+<span class="sd">    two specific times.</span>
+
+<span class="sd">    This Monitor uses `Timestamp.start` and `Timestamp.finish` to describe</span>
+<span class="sd">    the span of time covered in the most recent run, not the time it</span>
+<span class="sd">    actually took to run.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">OVERLAP</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TimelineMonitor.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.TimelineMonitor.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># This monitor has never run before. Use the default</span>
+            <span class="c1"># start time for this monitor.</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_start_time</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">OVERLAP</span>
+        <span class="n">cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catch_up_from</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">progress</span><span class="o">.</span><span class="n">is_failure</span><span class="p">:</span>
+            <span class="c1"># Something has gone wrong. Stop immediately.</span>
+            <span class="c1">#</span>
+            <span class="c1"># TODO: Ideally we would undo any other changes made to</span>
+            <span class="c1"># the TimestampData, but most Monitors don&#39;t set</span>
+            <span class="c1"># .exception directly so it&#39;s not a big deal.</span>
+            <span class="k">return</span> <span class="n">progress</span>
+
+        <span class="c1"># We set `finish` to the time at which we _started_</span>
+        <span class="c1"># running this process, to reduce the risk that we miss</span>
+        <span class="c1"># events that happened while the process was running.</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">finish</span> <span class="o">=</span> <span class="n">cutoff</span>
+        <span class="k">return</span> <span class="n">progress</span></div>
+
+<div class="viewcode-block" id="TimelineMonitor.catch_up_from"><a class="viewcode-back" href="../../core.html#core.monitor.TimelineMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make sure all events between `start` and `cutoff` are covered.</span>
+
+<span class="sd">        :param start: Start looking for events that happened at this</span>
+<span class="sd">            time.</span>
+<span class="sd">        :param cutoff: You&#39;re not responsible for events that happened</span>
+<span class="sd">            after this time.</span>
+<span class="sd">        :param progress: A TimestampData representing the progress so</span>
+<span class="sd">            far. Unlike with run_once(), you are encouraged to can</span>
+<span class="sd">            modify this in place, for instance to set .achievements.</span>
+<span class="sd">            However, you cannot change .start and .finish -- any</span>
+<span class="sd">            changes will be overwritten by run_once().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="CollectionMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionMonitor">[docs]</a><span class="k">class</span> <span class="nc">CollectionMonitor</span><span class="p">(</span><span class="n">Monitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does something for all Collections that come</span>
+<span class="sd">    from a certain provider.</span>
+
+<span class="sd">    This class is designed to be subclassed rather than instantiated</span>
+<span class="sd">    directly. Subclasses must define SERVICE_NAME and</span>
+<span class="sd">    PROTOCOL. Subclasses may define replacement values for</span>
+<span class="sd">    DEFAULT_START_TIME and DEFAULT_COUNTER.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Set this to the name of the license provider managed by this</span>
+    <span class="c1"># Monitor. If this value is set, the CollectionMonitor can only be</span>
+    <span class="c1"># instantiated with Collections that get their licenses from this</span>
+    <span class="c1"># provider. If this is unset, the CollectionMonitor can be</span>
+    <span class="c1"># instantiated with any Collection, or with no Collection at all.</span>
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">collection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CollectionMissing</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="ow">and</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Collection protocol (</span><span class="si">%s</span><span class="s2">) does not match Monitor protocol (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CollectionMonitor.all"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionMonitor.all">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">all</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Yield a sequence of CollectionMonitor objects: one for every</span>
+<span class="sd">        Collection associated with cls.PROTOCOL.</span>
+
+<span class="sd">        Monitors that have no Timestamp will be yielded first. After</span>
+<span class="sd">        that, Monitors with older values for Timestamp.start will be</span>
+<span class="sd">        yielded before Monitors with newer values.</span>
+
+<span class="sd">        :param constructor_kwargs: These keyword arguments will be passed</span>
+<span class="sd">            into the CollectionMonitor constructor.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">service_match</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">service</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">SERVICE_NAME</span><span class="p">,</span>
+                            <span class="n">Timestamp</span><span class="o">.</span><span class="n">service</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">collections</span> <span class="o">=</span> <span class="n">Collection</span><span class="o">.</span><span class="n">by_protocol</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span>
+            <span class="n">Timestamp</span><span class="p">,</span>
+            <span class="n">and_</span><span class="p">(</span>
+                <span class="n">Timestamp</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="n">Collection</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">service_match</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">collections</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+            <span class="n">Timestamp</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">asc</span><span class="p">()</span><span class="o">.</span><span class="n">nullsfirst</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">SweepMonitor</span><span class="p">(</span><span class="n">CollectionMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A monitor that does some work for every item in a database table,</span>
+<span class="sd">    then stops.</span>
+
+<span class="sd">    Progress through the table is stored in the Timestamp, so that if</span>
+<span class="sd">    the Monitor crashes, the next time the Monitor is run, it starts</span>
+<span class="sd">    at the item that caused the crash, rather than starting from the</span>
+<span class="sd">    beginning of the table.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># The completion of each individual item should be logged at</span>
+    <span class="c1"># this log level.</span>
+    <span class="n">COMPLETION_LOG_LEVEL</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+
+    <span class="c1"># Items will be processed in batches of this size.</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
+
+    <span class="n">DEFAULT_COUNTER</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># The model class corresponding to the database table that this</span>
+    <span class="c1"># Monitor sweeps over. This class must keep its primary key in the</span>
+    <span class="c1"># `id` field.</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">batch_size</span> <span class="ow">or</span> <span class="n">batch_size</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">batch_size</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_BATCH_SIZE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> must define MODEL_CLASS&quot;</span> <span class="o">%</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">MODEL_CLASS</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SweepMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SweepMonitor.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">ignore</span><span class="p">):</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">counter</span>
+        <span class="n">new_offset</span> <span class="o">=</span> <span class="n">offset</span>
+        <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># The timestamp for a SweepMonitor is purely informative --</span>
+        <span class="c1"># we&#39;re not trying to capture all the events that happened</span>
+        <span class="c1"># since a certain time -- so we&#39;re going to make sure the</span>
+        <span class="c1"># timestamp is set from the start of the run to the end of the</span>
+        <span class="c1"># last _successful_ batch.</span>
+        <span class="n">run_started_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">timestamp</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">run_started_at</span>
+
+        <span class="n">total_processed</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">old_offset</span> <span class="o">=</span> <span class="n">offset</span>
+            <span class="n">batch_started_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="n">new_offset</span><span class="p">,</span> <span class="n">batch_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_batch</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+            <span class="n">total_processed</span> <span class="o">+=</span> <span class="n">batch_size</span>
+            <span class="n">batch_ended_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> monitor went from offset </span><span class="si">%s</span><span class="s2"> to </span><span class="si">%s</span><span class="s2"> in </span><span class="si">%.2f</span><span class="s2"> sec&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">new_offset</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">batch_ended_at</span><span class="o">-</span><span class="n">batch_started_at</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Records processed: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">total_processed</span>
+
+            <span class="n">offset</span> <span class="o">=</span> <span class="n">new_offset</span>
+            <span class="k">if</span> <span class="n">offset</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># We completed a sweep. We&#39;re done.</span>
+                <span class="k">break</span>
+
+            <span class="c1"># We need to do another batch. If it should raise an exception,</span>
+            <span class="c1"># we don&#39;t want to lose the progress we&#39;ve already made.</span>
+            <span class="n">timestamp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="n">counter</span><span class="o">=</span><span class="n">new_offset</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="n">batch_ended_at</span><span class="p">,</span>
+                <span class="n">achievements</span><span class="o">=</span><span class="n">achievements</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># We&#39;re done with this run. The run() method will do the final</span>
+        <span class="c1"># update.</span>
+        <span class="k">return</span> <span class="n">TimestampData</span><span class="p">(</span><span class="n">counter</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span> <span class="n">achievements</span><span class="o">=</span><span class="n">achievements</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SweepMonitor.process_batch"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor.process_batch">[docs]</a>    <span class="k">def</span> <span class="nf">process_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Process one batch of work.&quot;&quot;&quot;</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="n">offset</span> <span class="ow">or</span> <span class="mi">0</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_batch</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">items</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">process_items</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+            <span class="c1"># We&#39;ve completed a batch. Return the ID of the last item</span>
+            <span class="c1"># in the batch so we don&#39;t do this work again.</span>
+            <span class="k">return</span> <span class="n">items</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># There are no more items in this database table, so we</span>
+            <span class="c1"># are done with the sweep. Reset the counter.</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="SweepMonitor.process_items"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor.process_items">[docs]</a>    <span class="k">def</span> <span class="nf">process_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Process a list of items.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">process_item</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">COMPLETION_LOG_LEVEL</span><span class="p">,</span> <span class="s2">&quot;Completed </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SweepMonitor.fetch_batch"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor.fetch_batch">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve one batch of work from the database.&quot;&quot;&quot;</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item_query</span><span class="p">()</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">id</span> <span class="o">&gt;</span> <span class="n">offset</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">q</span></div>
+
+<div class="viewcode-block" id="SweepMonitor.item_query"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor.item_query">[docs]</a>    <span class="k">def</span> <span class="nf">item_query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the items that need to be processed in the sweep.</span>
+
+<span class="sd">        :return: A query object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Start by getting everything in the table.</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">:</span>
+            <span class="c1"># Restrict to only those items associated with self.collection</span>
+            <span class="c1"># somehow.</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope_to_collection</span><span class="p">(</span><span class="n">qu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_class</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="SweepMonitor.scope_to_collection"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor.scope_to_collection">[docs]</a>    <span class="k">def</span> <span class="nf">scope_to_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qu</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict the given query so that it only finds items</span>
+<span class="sd">        associated with the given collection.</span>
+
+<span class="sd">        :param qu: A query object.</span>
+<span class="sd">        :param collection: A Collection object, presumed to not be None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SweepMonitor.process_item"><a class="viewcode-back" href="../../core.html#core.monitor.SweepMonitor.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do the work that needs to be done for a given item.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="IdentifierSweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.IdentifierSweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">IdentifierSweepMonitor</span><span class="p">(</span><span class="n">SweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does some work for every Identifier.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Identifier</span>
+
+<div class="viewcode-block" id="IdentifierSweepMonitor.scope_to_collection"><a class="viewcode-back" href="../../core.html#core.monitor.IdentifierSweepMonitor.scope_to_collection">[docs]</a>    <span class="k">def</span> <span class="nf">scope_to_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qu</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Only find Identifiers licensed through the given Collection.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="n">collection</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SubjectSweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.SubjectSweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">SubjectSweepMonitor</span><span class="p">(</span><span class="n">SweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does some work for every Subject.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Subject</span>
+
+    <span class="c1"># It&#39;s usually easy to process a Subject, so make the batch size</span>
+    <span class="c1"># large.</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">500</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">subject_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filter_string</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+<span class="sd">        :param subject_type: Only process Subjects of this type.</span>
+<span class="sd">        :param filter_string: Only process Subjects whose .identifier</span>
+<span class="sd">           or .name contain this string.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SubjectSweepMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subject_type</span> <span class="o">=</span> <span class="n">subject_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filter_string</span> <span class="o">=</span> <span class="n">filter_string</span>
+
+<div class="viewcode-block" id="SubjectSweepMonitor.item_query"><a class="viewcode-back" href="../../core.html#core.monitor.SubjectSweepMonitor.item_query">[docs]</a>    <span class="k">def</span> <span class="nf">item_query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find only Subjects that match the given filters.&quot;&quot;&quot;</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Subject</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject_type</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">subject_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filter_string</span><span class="p">:</span>
+            <span class="n">filter_string</span> <span class="o">=</span> <span class="s1">&#39;%&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filter_string</span> <span class="o">+</span> <span class="s1">&#39;%&#39;</span>
+            <span class="n">or_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+                <span class="n">Subject</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="n">filter_string</span><span class="p">),</span>
+                <span class="n">Subject</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="n">filter_string</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">or_clause</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="SubjectSweepMonitor.scope_to_collection"><a class="viewcode-back" href="../../core.html#core.monitor.SubjectSweepMonitor.scope_to_collection">[docs]</a>    <span class="k">def</span> <span class="nf">scope_to_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qu</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Refuse to scope this query to a Collection.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">qu</span></div></div>
+
+
+<div class="viewcode-block" id="CustomListEntrySweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.CustomListEntrySweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">CustomListEntrySweepMonitor</span><span class="p">(</span><span class="n">SweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does something to every CustomListEntry.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">CustomListEntry</span>
+
+<div class="viewcode-block" id="CustomListEntrySweepMonitor.scope_to_collection"><a class="viewcode-back" href="../../core.html#core.monitor.CustomListEntrySweepMonitor.scope_to_collection">[docs]</a>    <span class="k">def</span> <span class="nf">scope_to_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qu</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict the query to only find CustomListEntries whose</span>
+<span class="sd">        Work is in the given Collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">CustomListEntry</span><span class="o">.</span><span class="n">work</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="n">collection</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="EditionSweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.EditionSweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">EditionSweepMonitor</span><span class="p">(</span><span class="n">SweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does something to every Edition.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Edition</span>
+
+<div class="viewcode-block" id="EditionSweepMonitor.scope_to_collection"><a class="viewcode-back" href="../../core.html#core.monitor.EditionSweepMonitor.scope_to_collection">[docs]</a>    <span class="k">def</span> <span class="nf">scope_to_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qu</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict the query to only find Editions whose</span>
+<span class="sd">        primary Identifier is licensed to the given Collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="n">collection</span>
+            <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="WorkSweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.WorkSweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">WorkSweepMonitor</span><span class="p">(</span><span class="n">SweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does something to every Work.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Work</span>
+
+<div class="viewcode-block" id="WorkSweepMonitor.scope_to_collection"><a class="viewcode-back" href="../../core.html#core.monitor.WorkSweepMonitor.scope_to_collection">[docs]</a>    <span class="k">def</span> <span class="nf">scope_to_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qu</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict the query to only find Works found in the given</span>
+<span class="sd">        Collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="n">collection</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="PresentationReadyWorkSweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.PresentationReadyWorkSweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">PresentationReadyWorkSweepMonitor</span><span class="p">(</span><span class="n">WorkSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does something to every presentation-ready Work.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="PresentationReadyWorkSweepMonitor.item_query"><a class="viewcode-back" href="../../core.html#core.monitor.PresentationReadyWorkSweepMonitor.item_query">[docs]</a>    <span class="k">def</span> <span class="nf">item_query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span>
+            <span class="n">PresentationReadyWorkSweepMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">item_query</span><span class="p">()</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="o">==</span><span class="kc">True</span>
+            <span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="NotPresentationReadyWorkSweepMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.NotPresentationReadyWorkSweepMonitor">[docs]</a><span class="k">class</span> <span class="nc">NotPresentationReadyWorkSweepMonitor</span><span class="p">(</span><span class="n">WorkSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that does something to every Work that is not</span>
+<span class="sd">    presentation-ready.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="NotPresentationReadyWorkSweepMonitor.item_query"><a class="viewcode-back" href="../../core.html#core.monitor.NotPresentationReadyWorkSweepMonitor.item_query">[docs]</a>    <span class="k">def</span> <span class="nf">item_query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">not_presentation_ready</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="o">==</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="o">==</span><span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span>
+            <span class="n">NotPresentationReadyWorkSweepMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">item_query</span><span class="p">()</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">not_presentation_ready</span>
+            <span class="p">)</span></div></div>
+
+
+<span class="c1"># SweepMonitors that do something specific.</span>
+
+<div class="viewcode-block" id="OPDSEntryCacheMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.OPDSEntryCacheMonitor">[docs]</a><span class="k">class</span> <span class="nc">OPDSEntryCacheMonitor</span><span class="p">(</span><span class="n">PresentationReadyWorkSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that recalculates the OPDS entries for every</span>
+<span class="sd">    presentation-ready Work.</span>
+
+<span class="sd">    This is different from the OPDSEntryWorkCoverageProvider,</span>
+<span class="sd">    which only processes works that are missing a WorkCoverageRecord</span>
+<span class="sd">    with the &#39;generate-opds&#39; operation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;ODPS Entry Cache Monitor&quot;</span>
+
+<div class="viewcode-block" id="OPDSEntryCacheMonitor.process_item"><a class="viewcode-back" href="../../core.html#core.monitor.OPDSEntryCacheMonitor.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="n">work</span><span class="o">.</span><span class="n">calculate_opds_entries</span><span class="p">()</span></div></div>
+
+<div class="viewcode-block" id="PermanentWorkIDRefreshMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.PermanentWorkIDRefreshMonitor">[docs]</a><span class="k">class</span> <span class="nc">PermanentWorkIDRefreshMonitor</span><span class="p">(</span><span class="n">EditionSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A monitor that calculates or recalculates the permanent work ID for</span>
+<span class="sd">    every edition.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Permanent work ID refresh&quot;</span>
+
+<div class="viewcode-block" id="PermanentWorkIDRefreshMonitor.process_item"><a class="viewcode-back" href="../../core.html#core.monitor.PermanentWorkIDRefreshMonitor.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edition</span><span class="p">):</span>
+        <span class="n">edition</span><span class="o">.</span><span class="n">calculate_permanent_work_id</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="MakePresentationReadyMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.MakePresentationReadyMonitor">[docs]</a><span class="k">class</span> <span class="nc">MakePresentationReadyMonitor</span><span class="p">(</span><span class="n">NotPresentationReadyWorkSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A monitor that makes works presentation ready.</span>
+
+<span class="sd">    By default this works by passing the work&#39;s active edition into</span>
+<span class="sd">    ensure_coverage() for each of a list of CoverageProviders. If all</span>
+<span class="sd">    the ensure_coverage() calls succeed, presentation of the work is</span>
+<span class="sd">    calculated and the work is marked presentation ready.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Make Works Presentation Ready&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">coverage_providers</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MakePresentationReadyMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coverage_providers</span> <span class="o">=</span> <span class="n">coverage_providers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">policy</span> <span class="o">=</span> <span class="n">PresentationCalculationPolicy</span><span class="p">(</span>
+            <span class="n">choose_edition</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MakePresentationReadyMonitor.run"><a class="viewcode-back" href="../../core.html#core.monitor.MakePresentationReadyMonitor.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Before doing anything, consolidate works.&quot;&quot;&quot;</span>
+        <span class="n">LicensePool</span><span class="o">.</span><span class="n">consolidate_works</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">MakePresentationReadyMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MakePresentationReadyMonitor.process_item"><a class="viewcode-back" href="../../core.html#core.monitor.MakePresentationReadyMonitor.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do the work necessary to make one Work presentation-ready,</span>
+<span class="sd">        and handle exceptions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">CoverageProvidersFailed</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="s2">&quot;Provider(s) failed: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Exception processing work </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
+            <span class="p">)</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="c1"># Unlike with most Monitors, an exception is not a good</span>
+            <span class="c1"># reason to stop doing our job. Note it inside the Work</span>
+            <span class="c1"># and keep going.</span>
+            <span class="n">work</span><span class="o">.</span><span class="n">presentation_ready_exception</span> <span class="o">=</span> <span class="n">exception</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Success!</span>
+            <span class="n">work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">policy</span><span class="p">)</span>
+            <span class="n">work</span><span class="o">.</span><span class="n">set_presentation_ready</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MakePresentationReadyMonitor.prepare"><a class="viewcode-back" href="../../core.html#core.monitor.MakePresentationReadyMonitor.prepare">[docs]</a>    <span class="k">def</span> <span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to make a single Work presentation-ready.</span>
+
+<span class="sd">        :raise CoverageProvidersFailed: If we can&#39;t make a Work</span>
+<span class="sd">            presentation-ready because one or more CoverageProviders</span>
+<span class="sd">            failed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">edition</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">edition</span><span class="p">:</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">()</span>
+        <span class="n">identifier</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span>
+        <span class="n">overall_success</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">coverage_providers</span><span class="p">:</span>
+            <span class="n">covered_types</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">input_identifier_types</span>
+            <span class="k">if</span> <span class="n">covered_types</span> <span class="ow">and</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">covered_types</span><span class="p">:</span>
+                <span class="n">coverage_record</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">ensure_coverage</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coverage_record</span><span class="p">,</span> <span class="n">CoverageRecord</span><span class="p">)</span>
+                    <span class="ow">or</span> <span class="n">coverage_record</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span>
+                    <span class="ow">or</span> <span class="n">coverage_record</span><span class="o">.</span><span class="n">exception</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+                    <span class="c1"># This provider has failed.</span>
+                    <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">failures</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CoverageProvidersFailed</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">failures</span></div></div>
+
+
+<div class="viewcode-block" id="CoverageProvidersFailed"><a class="viewcode-back" href="../../core.html#core.monitor.CoverageProvidersFailed">[docs]</a><span class="k">class</span> <span class="nc">CoverageProvidersFailed</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;We tried to run CoverageProviders on a Work&#39;s identifier,</span>
+<span class="sd">    but some of the providers failed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">failed_providers</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">failed_providers</span> <span class="o">=</span> <span class="n">failed_providers</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CoverageProvidersFailed</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">service_name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">failed_providers</span><span class="p">])</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="WorkRandomnessUpdateMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.WorkRandomnessUpdateMonitor">[docs]</a><span class="k">class</span> <span class="nc">WorkRandomnessUpdateMonitor</span><span class="p">(</span><span class="n">WorkSweepMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Update the random value associated with each work.</span>
+
+<span class="sd">    (This value is used when randomly choosing books to feature.)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Work Randomness Updater&quot;</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<div class="viewcode-block" id="WorkRandomnessUpdateMonitor.process_batch"><a class="viewcode-back" href="../../core.html#core.monitor.WorkRandomnessUpdateMonitor.process_batch">[docs]</a>    <span class="k">def</span> <span class="nf">process_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Unlike other Monitors, this one leaves process_item() undefined</span>
+<span class="sd">        because it works on a large number of Works at once using raw</span>
+<span class="sd">        SQL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_offset</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;update works set random=random() where id &gt;= :offset and id &lt; :new_offset;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span> <span class="n">new_offset</span><span class="o">=</span><span class="n">new_offset</span><span class="p">))</span>
+        <span class="p">[[</span><span class="bp">self</span><span class="o">.</span><span class="n">max_work_id</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select max(id) from works&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_work_id</span> <span class="o">&lt;</span> <span class="n">new_offset</span><span class="p">:</span>
+            <span class="c1"># We&#39;re all done.</span>
+            <span class="n">new_offset</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">new_offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span></div></div>
+
+
+<div class="viewcode-block" id="CustomListEntryWorkUpdateMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.CustomListEntryWorkUpdateMonitor">[docs]</a><span class="k">class</span> <span class="nc">CustomListEntryWorkUpdateMonitor</span><span class="p">(</span><span class="n">CustomListEntrySweepMonitor</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Set or reset the Work associated with each custom list entry.&quot;&quot;&quot;</span>
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Update Works for custom list entries&quot;</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
+
+<div class="viewcode-block" id="CustomListEntryWorkUpdateMonitor.process_item"><a class="viewcode-back" href="../../core.html#core.monitor.CustomListEntryWorkUpdateMonitor.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="n">item</span><span class="o">.</span><span class="n">set_work</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="ReaperMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.ReaperMonitor">[docs]</a><span class="k">class</span> <span class="nc">ReaperMonitor</span><span class="p">(</span><span class="n">Monitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Monitor that deletes database rows that have expired but</span>
+<span class="sd">    have no other process to delete them.</span>
+
+<span class="sd">    A subclass of ReaperMonitor MUST define values for the following</span>
+<span class="sd">    constants:</span>
+<span class="sd">    * MODEL_CLASS - The model class this monitor is reaping, e.g. Credential.</span>
+<span class="sd">    * TIMESTAMP_FIELD - Within the model class, the DateTime field to be</span>
+<span class="sd">    used when deciding which rows to deleting,</span>
+<span class="sd">    e.g. &#39;expires&#39;. The reaper will be more efficient if there&#39;s</span>
+<span class="sd">    an index on this field.</span>
+<span class="sd">    * MAX_AGE - A datetime.timedelta or number of days representing</span>
+<span class="sd">    the time that must pass before an item can be safely deleted.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">TIMESTAMP_FIELD</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">MAX_AGE</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">REGISTRY</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Reaper for </span><span class="si">%s</span><span class="s2">.</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">TIMESTAMP_FIELD</span>
+        <span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cutoff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Items with a timestamp earlier than this time will be reaped.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_AGE</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">):</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_AGE</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_AGE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="n">max_age</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">timestamp_field</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIMESTAMP_FIELD</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">where_clause</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A SQLAlchemy clause that identifies the database rows to be reaped.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_field</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutoff</span>
+
+<div class="viewcode-block" id="ReaperMonitor.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.ReaperMonitor.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">rows_deleted</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Deleting </span><span class="si">%d</span><span class="s2"> row(s)&quot;</span><span class="p">,</span> <span class="n">qu</span><span class="o">.</span><span class="n">count</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">qu</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Deleting </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">rows_deleted</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">TimestampData</span><span class="p">(</span><span class="n">achievements</span><span class="o">=</span><span class="s2">&quot;Items deleted: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">rows_deleted</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ReaperMonitor.delete"><a class="viewcode-back" href="../../core.html#core.monitor.ReaperMonitor.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Delete a row from the database.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">row</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ReaperMonitor.query"><a class="viewcode-back" href="../../core.html#core.monitor.ReaperMonitor.query">[docs]</a>    <span class="k">def</span> <span class="nf">query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">where_clause</span><span class="p">)</span></div></div>
+
+<span class="c1"># ReaperMonitors that do something specific.</span>
+
+<div class="viewcode-block" id="CachedFeedReaper"><a class="viewcode-back" href="../../core.html#core.monitor.CachedFeedReaper">[docs]</a><span class="k">class</span> <span class="nc">CachedFeedReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Removed cached feeds older than thirty days.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">CachedFeed</span>
+    <span class="n">TIMESTAMP_FIELD</span> <span class="o">=</span> <span class="s1">&#39;timestamp&#39;</span>
+    <span class="n">MAX_AGE</span> <span class="o">=</span> <span class="mi">30</span></div>
+<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CachedFeedReaper</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CredentialReaper"><a class="viewcode-back" href="../../core.html#core.monitor.CredentialReaper">[docs]</a><span class="k">class</span> <span class="nc">CredentialReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove Credentials that expired more than a day ago.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Credential</span>
+    <span class="n">TIMESTAMP_FIELD</span> <span class="o">=</span> <span class="s1">&#39;expires&#39;</span>
+    <span class="n">MAX_AGE</span> <span class="o">=</span> <span class="mi">1</span></div>
+<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CredentialReaper</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PatronRecordReaper"><a class="viewcode-back" href="../../core.html#core.monitor.PatronRecordReaper">[docs]</a><span class="k">class</span> <span class="nc">PatronRecordReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove patron records that expired more than 60 days ago&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Patron</span>
+    <span class="n">TIMESTAMP_FIELD</span> <span class="o">=</span> <span class="s1">&#39;authorization_expires&#39;</span>
+    <span class="n">MAX_AGE</span> <span class="o">=</span> <span class="mi">60</span></div>
+<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PatronRecordReaper</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CollectionReaper"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionReaper">[docs]</a><span class="k">class</span> <span class="nc">CollectionReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove collections that have been marked for deletion.&quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Collection</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">where_clause</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A SQLAlchemy clause that identifies the database rows to be reaped.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Collection</span><span class="o">.</span><span class="n">marked_for_deletion</span> <span class="o">==</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="CollectionReaper.delete"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionReaper.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Delete a Collection from the database.</span>
+
+<span class="sd">        Database deletion of a Collection might take a really long</span>
+<span class="sd">        time, so we call a special method that will do the deletion</span>
+<span class="sd">        incrementally and can pick up where it left off if there&#39;s a</span>
+<span class="sd">        failure.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">collection</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span></div></div>
+<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CollectionReaper</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

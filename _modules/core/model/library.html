@@ -1,0 +1,524 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.library &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.library</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Library</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">..entrypoint</span> <span class="k">import</span> <span class="n">EntryPoint</span>
+<span class="kn">from</span> <span class="nn">..facets</span> <span class="k">import</span> <span class="n">FacetConstants</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+<span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">func</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Table</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+
+<div class="viewcode-block" id="Library"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library">[docs]</a><span class="k">class</span> <span class="nc">Library</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A library that uses this circulation manager to authenticate</span>
+<span class="sd">    its patrons and manage access to its content.</span>
+<span class="sd">    A circulation manager may serve many libraries.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;libraries&#39;</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># The human-readable name of this library. Used in the library&#39;s</span>
+    <span class="c1"># Authentication for OPDS document.</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A short name of this library, to use when identifying it in</span>
+    <span class="c1"># scripts. e.g. &quot;NYPL&quot; for NYPL.</span>
+    <span class="n">short_name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># A UUID that uniquely identifies the library among all libraries</span>
+    <span class="c1"># in the world. This is used to serve the library&#39;s Authentication</span>
+    <span class="c1"># for OPDS document, and it also goes to the library registry.</span>
+    <span class="n">uuid</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># One, and only one, library may be the default. The default</span>
+    <span class="c1"># library is the one chosen when an incoming request does not</span>
+    <span class="c1"># designate a library.</span>
+    <span class="n">_is_default</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;is_default&#39;</span><span class="p">)</span>
+
+    <span class="c1"># The name of this library to use when signing short client tokens</span>
+    <span class="c1"># for consumption by the library registry. e.g. &quot;NYNYPL&quot; for NYPL.</span>
+    <span class="c1"># This name must be unique across the library registry.</span>
+    <span class="n">_library_registry_short_name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;library_registry_short_name&#39;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># The shared secret to use when signing short client tokens for</span>
+    <span class="c1"># consumption by the library registry.</span>
+    <span class="n">library_registry_shared_secret</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># A library may have many Patrons.</span>
+    <span class="n">patrons</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s1">&#39;Patron&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;library&#39;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># An Library may have many admin roles.</span>
+    <span class="n">adminroles</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;AdminRole&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;library&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">)</span>
+
+    <span class="c1"># A Library may have many CachedFeeds.</span>
+    <span class="n">cachedfeeds</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;CachedFeed&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;library&quot;</span><span class="p">,</span>
+        <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A Library may have many CachedMARCFiles.</span>
+    <span class="n">cachedmarcfiles</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;CachedMARCFile&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;library&quot;</span><span class="p">,</span>
+        <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A Library may have many CustomLists.</span>
+    <span class="n">custom_lists</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;CustomList&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;library&quot;</span><span class="p">,</span> <span class="n">lazy</span><span class="o">=</span><span class="s1">&#39;joined&#39;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># A Library may have many ExternalIntegrations.</span>
+    <span class="n">integrations</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;ExternalIntegration&quot;</span><span class="p">,</span> <span class="n">secondary</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">externalintegrations_libraries</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;libraries&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Any additional configuration information is stored as</span>
+    <span class="c1"># ConfigurationSettings.</span>
+    <span class="n">settings</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;ConfigurationSetting&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;library&quot;</span><span class="p">,</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;joined&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+    <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;&lt;Library: name=&quot;</span><span class="si">%s</span><span class="s1">&quot;, short name=&quot;</span><span class="si">%s</span><span class="s1">&quot;, uuid=&quot;</span><span class="si">%s</span><span class="s1">&quot;, library registry short name=&quot;</span><span class="si">%s</span><span class="s1">&quot;&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_registry_short_name</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Library.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_name</span></div>
+
+<div class="viewcode-block" id="Library.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.lookup">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">short_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up a library by short name.&quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">_lookup</span><span class="p">():</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Library</span><span class="p">,</span> <span class="n">short_name</span><span class="o">=</span><span class="n">short_name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">library</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="n">library</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">short_name</span><span class="p">,</span> <span class="n">_lookup</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">library</span></div>
+
+<div class="viewcode-block" id="Library.default"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.default">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">default</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the default Library.&quot;&quot;&quot;</span>
+        <span class="c1"># If for some reason there are multiple default libraries in</span>
+        <span class="c1"># the database, they&#39;re not actually interchangeable, but</span>
+        <span class="c1"># raising an error here might make it impossible to fix the</span>
+        <span class="c1"># problem.</span>
+        <span class="n">defaults</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">Library</span><span class="o">.</span><span class="n">_is_default</span><span class="o">==</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">asc</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">defaults</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># This is the normal case.</span>
+            <span class="k">return</span> <span class="n">defaults</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">default_library</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">defaults</span><span class="p">:</span>
+            <span class="c1"># There is no current default. Find the library with the</span>
+            <span class="c1"># lowest ID and make it the default.</span>
+            <span class="n">libraries</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">asc</span><span class="p">())</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">libraries</span><span class="o">.</span><span class="n">count</span><span class="p">():</span>
+                <span class="c1"># There are no libraries in the system, so no default.</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="p">[</span><span class="n">default_library</span><span class="p">]</span> <span class="o">=</span> <span class="n">libraries</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;No default library, setting </span><span class="si">%s</span><span class="s2"> as default.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">default_library</span><span class="o">.</span><span class="n">short_name</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># There is more than one default, probably caused by a</span>
+            <span class="c1"># race condition. Fix it by arbitrarily designating one</span>
+            <span class="c1"># of the libraries as the default.</span>
+            <span class="n">default_library</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Multiple default libraries, setting </span><span class="si">%s</span><span class="s2"> as default.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">default_library</span><span class="o">.</span><span class="n">short_name</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">default_library</span><span class="o">.</span><span class="n">is_default</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">default_library</span></div>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">library_registry_short_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Gets library_registry_short_name from database&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_library_registry_short_name</span>
+
+    <span class="nd">@library_registry_short_name</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">library_registry_short_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Uppercase the library registry short name on the way in.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="k">if</span> <span class="s1">&#39;|&#39;</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Library registry short name cannot contain the pipe character.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_library_registry_short_name</span> <span class="o">=</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="Library.setting"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.setting">[docs]</a>    <span class="k">def</span> <span class="nf">setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting on this Library.</span>
+<span class="sd">        :param key: Name of the setting.</span>
+<span class="sd">        :return: A ConfigurationSetting</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">configuration</span> <span class="k">import</span> <span class="n">ConfigurationSetting</span>
+        <span class="k">return</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+            <span class="n">key</span><span class="p">,</span> <span class="bp">self</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">all_collections</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">collection</span>
+            <span class="k">for</span> <span class="n">parent</span> <span class="ow">in</span> <span class="n">collection</span><span class="o">.</span><span class="n">parents</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">parent</span>
+
+    <span class="c1"># Some specific per-library configuration settings.</span>
+
+    <span class="c1"># The name of the per-library regular expression used to derive a patron&#39;s</span>
+    <span class="c1"># external_type from their authorization_identifier.</span>
+    <span class="n">EXTERNAL_TYPE_REGULAR_EXPRESSION</span> <span class="o">=</span> <span class="s1">&#39;external_type_regular_expression&#39;</span>
+
+    <span class="c1"># The name of the per-library configuration policy that controls whether</span>
+    <span class="c1"># books may be put on hold.</span>
+    <span class="n">ALLOW_HOLDS</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">ALLOW_HOLDS</span>
+
+    <span class="c1"># Each facet group has two associated per-library keys: one</span>
+    <span class="c1"># configuring which facets are enabled for that facet group, and</span>
+    <span class="c1"># one configuring which facet is the default.</span>
+    <span class="n">ENABLED_FACETS_KEY_PREFIX</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">ENABLED_FACETS_KEY_PREFIX</span>
+    <span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span>
+
+    <span class="c1"># Each library may set a minimum quality for the books that show</span>
+    <span class="c1"># up in the &#39;featured&#39; lanes that show up on the front page.</span>
+    <span class="n">MINIMUM_FEATURED_QUALITY</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">MINIMUM_FEATURED_QUALITY</span>
+
+    <span class="c1"># Each library may configure the maximum number of books in the</span>
+    <span class="c1"># &#39;featured&#39; lanes.</span>
+    <span class="n">FEATURED_LANE_SIZE</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">FEATURED_LANE_SIZE</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">allow_holds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does this library allow patrons to put items on hold?&quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOW_HOLDS</span><span class="p">)</span><span class="o">.</span><span class="n">bool_value</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># If the library has not set a value for this setting,</span>
+            <span class="c1"># holds are allowed.</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">minimum_featured_quality</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The minimum quality a book must have to be &#39;featured&#39;.&quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MINIMUM_FEATURED_QUALITY</span><span class="p">)</span><span class="o">.</span><span class="n">float_value</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="mf">0.65</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">featured_lane_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The minimum quality a book must have to be &#39;featured&#39;.&quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FEATURED_LANE_SIZE</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="mi">15</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">entrypoints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The EntryPoints enabled for this library.&quot;&quot;&quot;</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">EntryPoint</span><span class="o">.</span><span class="n">ENABLED_SETTING</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># No decision has been made about enabled EntryPoints.</span>
+            <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">EntryPoint</span><span class="o">.</span><span class="n">DEFAULT_ENABLED</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="bp">cls</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># It&#39;s okay for `values` to be an empty list--that means</span>
+            <span class="c1"># the library wants to only use lanes, no entry points.</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+                <span class="bp">cls</span> <span class="o">=</span> <span class="n">EntryPoint</span><span class="o">.</span><span class="n">BY_INTERNAL_NAME</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">cls</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="bp">cls</span>
+
+<div class="viewcode-block" id="Library.enabled_facets"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.enabled_facets">[docs]</a>    <span class="k">def</span> <span class="nf">enabled_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the enabled facets for a given facet group.&quot;&quot;&quot;</span>
+        <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled_facets_setting</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid list of enabled facets for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                          <span class="n">group_name</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_ENABLED_FACETS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group_name</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="Library.enabled_facets_setting"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.enabled_facets_setting">[docs]</a>    <span class="k">def</span> <span class="nf">enabled_facets_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ENABLED_FACETS_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group_name</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Library.restrict_to_ready_deliverable_works"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.restrict_to_ready_deliverable_works">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_to_ready_deliverable_works</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">collection_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_suppressed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict a query to show only presentation-ready works present in</span>
+<span class="sd">        an appropriate collection which the default client can</span>
+<span class="sd">        fulfill.</span>
+<span class="sd">        Note that this assumes the query has an active join against</span>
+<span class="sd">        LicensePool.</span>
+<span class="sd">        :param query: The query to restrict.</span>
+<span class="sd">        :param collection_ids: Only include titles in the given</span>
+<span class="sd">        collections.</span>
+<span class="sd">        :param show_suppressed: Include titles that have nothing but</span>
+<span class="sd">        suppressed LicensePools.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">collection</span> <span class="k">import</span> <span class="n">Collection</span>
+        <span class="n">collection_ids</span> <span class="o">=</span> <span class="n">collection_ids</span> <span class="ow">or</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_collections</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">Collection</span><span class="o">.</span><span class="n">restrict_to_ready_deliverable_works</span><span class="p">(</span>
+            <span class="n">query</span><span class="p">,</span> <span class="n">collection_ids</span><span class="o">=</span><span class="n">collection_ids</span><span class="p">,</span>
+            <span class="n">show_suppressed</span><span class="o">=</span><span class="n">show_suppressed</span><span class="p">,</span> <span class="n">allow_holds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">allow_holds</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Library.estimated_holdings_by_language"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.estimated_holdings_by_language">[docs]</a>    <span class="k">def</span> <span class="nf">estimated_holdings_by_language</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Estimate how many titles this library has in various languages.</span>
+<span class="sd">        The estimate is pretty good but should not be relied upon as</span>
+<span class="sd">        exact.</span>
+<span class="sd">        :return: A Counter mapping languages to the estimated number</span>
+<span class="sd">        of titles in that language.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">Edition</span><span class="o">.</span><span class="n">language</span><span class="p">,</span> <span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s2">&quot;work_count&quot;</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">language</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">language</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_to_ready_deliverable_works</span><span class="p">(</span><span class="n">qu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">include_open_access</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">==</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">language</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">qu</span><span class="p">:</span>
+            <span class="n">counter</span><span class="p">[</span><span class="n">language</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
+        <span class="k">return</span> <span class="n">counter</span></div>
+
+<div class="viewcode-block" id="Library.default_facet"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.default_facet">[docs]</a>    <span class="k">def</span> <span class="nf">default_facet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up the default facet for a given facet group.&quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_facet_setting</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+<div class="viewcode-block" id="Library.default_facet_setting"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.default_facet_setting">[docs]</a>    <span class="k">def</span> <span class="nf">default_facet_setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group_name</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Library.explain"><a class="viewcode-back" href="../../../core.model.html#core.model.library.Library.explain">[docs]</a>    <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a series of human-readable strings to explain a library&#39;s</span>
+<span class="sd">        settings.</span>
+
+<span class="sd">        :param include_secrets: For security reasons, secrets are not</span>
+<span class="sd">            displayed by default.</span>
+<span class="sd">        :return: A list of explanatory strings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Library UUID: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Name: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_name</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Short name: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_registry_short_name</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="s1">&#39;Short name (for library registry): &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">library_registry_short_name</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library_registry_shared_secret</span> <span class="ow">and</span> <span class="n">include_secrets</span><span class="p">):</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="s1">&#39;Shared secret (for library registry): &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">library_registry_shared_secret</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Find all ConfigurationSettings that are set on the library</span>
+        <span class="c1"># itself and are not on the library + an external integration.</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">x</span><span class="o">.</span><span class="n">external_integration</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">settings</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Configuration settings:&quot;</span><span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-----------------------&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">settings</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">include_secrets</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">setting</span><span class="o">.</span><span class="n">is_secret</span><span class="p">)</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">=&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+
+        <span class="n">integrations</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integrations</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;External integrations:&quot;</span><span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;----------------------&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                <span class="n">integration</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_secrets</span><span class="o">=</span><span class="n">include_secrets</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">lines</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_default</span>
+
+    <span class="nd">@is_default</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">is_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_is_default</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set this library, and only this library, as the default.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_default</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">new_is_default</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;You cannot stop a library from being the default library; you must designate a different library as the default.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">library</span> <span class="o">==</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="n">library</span><span class="o">.</span><span class="n">_is_default</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">library</span><span class="o">.</span><span class="n">_is_default</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+<span class="n">externalintegrations_libraries</span> <span class="o">=</span> <span class="n">Table</span><span class="p">(</span>
+    <span class="s1">&#39;externalintegrations_libraries&#39;</span><span class="p">,</span> <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+     <span class="n">Column</span><span class="p">(</span>
+         <span class="s1">&#39;externalintegration_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;externalintegrations.id&#39;</span><span class="p">),</span>
+         <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span>
+     <span class="p">),</span>
+     <span class="n">Column</span><span class="p">(</span>
+         <span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span>
+         <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span>
+     <span class="p">),</span>
+     <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;externalintegration_id&#39;</span><span class="p">,</span> <span class="s1">&#39;library_id&#39;</span><span class="p">),</span>
+ <span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

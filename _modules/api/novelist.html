@@ -1,0 +1,828 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.novelist &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.novelist</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CoverageFailure</span><span class="p">,</span>
+    <span class="n">IdentifierCoverageProvider</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ContributorData</span><span class="p">,</span>
+    <span class="n">IdentifierData</span><span class="p">,</span>
+    <span class="n">LinkData</span><span class="p">,</span>
+    <span class="n">MeasurementData</span><span class="p">,</span>
+    <span class="n">Metadata</span><span class="p">,</span>
+    <span class="n">SubjectData</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">Hyperlink</span><span class="p">,</span>
+    <span class="n">Identifier</span><span class="p">,</span>
+    <span class="n">Measurement</span><span class="p">,</span>
+    <span class="n">Representation</span><span class="p">,</span>
+    <span class="n">Session</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">Equivalency</span><span class="p">,</span>
+    <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">Collection</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
+    <span class="n">Contributor</span><span class="p">,</span>
+    <span class="n">Contribution</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">TitleProcessor</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">select</span><span class="p">,</span>
+    <span class="n">join</span><span class="p">,</span>
+    <span class="n">and_</span><span class="p">,</span>
+    <span class="n">or_</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">aliased</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+
+<div class="viewcode-block" id="NoveListAPI"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI">[docs]</a><span class="k">class</span> <span class="nc">NoveListAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">NOVELIST</span>
+    <span class="n">NAME</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Novelist API&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Hardcoded authentication key used as a Header for calling the NoveList</span>
+    <span class="c1"># Collections API. It identifies the client, and lets NoveList know that</span>
+    <span class="c1"># SimplyE is making the requests.</span>
+    <span class="n">AUTHORIZED_IDENTIFIER</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;62521fa1-bdbb-4939-84aa-aee2a52c8d59&quot;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Profile&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Password&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Different libraries may have different NoveList integrations</span>
+    <span class="c1"># on the same circulation manager.</span>
+    <span class="n">SITEWIDE</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">IS_CONFIGURED</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_configuration_library_id</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;NoveList API&quot;</span><span class="p">)</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="s2">&quot;2.2&quot;</span>
+
+    <span class="n">NO_ISBN_EQUIVALENCY</span> <span class="o">=</span> <span class="s2">&quot;No clear ISBN equivalency: </span><span class="si">%r</span><span class="s2">&quot;</span>
+
+    <span class="c1"># While the NoveList API doesn&#39;t require parameters to be passed via URL,</span>
+    <span class="c1"># the Representation object needs a unique URL to return the proper data</span>
+    <span class="c1"># from the database.</span>
+    <span class="n">QUERY_ENDPOINT</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;https://novselect.ebscohost.com/Data/ContentByQuery?&quot;</span>
+        <span class="s2">&quot;ISBN=</span><span class="si">%(ISBN)s</span><span class="s2">&amp;ClientIdentifier=</span><span class="si">%(ClientIdentifier)s</span><span class="s2">&amp;version=</span><span class="si">%(version)s</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+    <span class="n">COLLECTION_DATA_API</span> <span class="o">=</span> <span class="s2">&quot;http://www.noveListcollectiondata.com/api/collections&quot;</span>
+    <span class="n">AUTH_PARAMS</span> <span class="o">=</span> <span class="s2">&quot;&amp;profile=</span><span class="si">%(profile)s</span><span class="s2">&amp;password=</span><span class="si">%(password)s</span><span class="s2">&quot;</span>
+    <span class="n">MAX_REPRESENTATION_AGE</span> <span class="o">=</span> <span class="mi">7</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span>      <span class="c1"># one week</span>
+
+    <span class="n">currentQueryIdentifier</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">medium_to_book_format_type_values</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span> <span class="p">:</span> <span class="sa">u</span><span class="s2">&quot;EBook&quot;</span><span class="p">,</span>
+        <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span> <span class="p">:</span> <span class="sa">u</span><span class="s2">&quot;Audiobook&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="NoveListAPI.from_config"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.from_config">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">profile</span><span class="p">,</span> <span class="n">password</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">values</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">profile</span> <span class="ow">and</span> <span class="n">password</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;No NoveList integration configured for library (</span><span class="si">%s</span><span class="s2">).&quot;</span> <span class="o">%</span> <span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
+            <span class="p">)</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.values"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.values">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">NOVELIST</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">METADATA_GOAL</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span>
+        <span class="n">password</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.is_configured"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.is_configured">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_configured</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">IS_CONFIGURED</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span>
+            <span class="n">library</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_configuration_library_id</span>
+        <span class="p">):</span>
+            <span class="n">profile</span><span class="p">,</span> <span class="n">password</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">values</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">IS_CONFIGURED</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">profile</span> <span class="ow">and</span> <span class="n">password</span><span class="p">)</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_configuration_library_id</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IS_CONFIGURED</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">profile</span> <span class="o">=</span> <span class="n">profile</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">password</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">NOVELIST</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NoveListAPI.lookup_equivalent_isbns"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.lookup_equivalent_isbns">[docs]</a>    <span class="k">def</span> <span class="nf">lookup_equivalent_isbns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds NoveList data for all ISBNs equivalent to an identifier.</span>
+
+<span class="sd">        :return: Metadata object or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lookup_metadata</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">license_sources</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">license_sources_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+
+        <span class="c1"># Find strong ISBN equivalents.</span>
+        <span class="n">isbns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">license_source</span> <span class="ow">in</span> <span class="n">license_sources</span><span class="p">:</span>
+            <span class="n">isbns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">eq</span><span class="o">.</span><span class="n">output</span> <span class="k">for</span> <span class="n">eq</span> <span class="ow">in</span> <span class="n">identifier</span><span class="o">.</span><span class="n">equivalencies</span> <span class="k">if</span> <span class="p">(</span>
+                <span class="n">eq</span><span class="o">.</span><span class="n">data_source</span><span class="o">==</span><span class="n">license_source</span> <span class="ow">and</span>
+                <span class="n">eq</span><span class="o">.</span><span class="n">strength</span><span class="o">==</span><span class="mi">1</span> <span class="ow">and</span>
+                <span class="n">eq</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span>
+            <span class="p">)]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">isbns</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="p">(</span><span class="s2">&quot;Identifiers without an ISBN equivalent can&#39;t&quot;</span>
+                <span class="s2">&quot;be looked up with NoveList: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">),</span> <span class="n">identifier</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Look up metadata for all equivalent ISBNs.</span>
+        <span class="n">lookup_metadata</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">isbn</span> <span class="ow">in</span> <span class="n">isbns</span><span class="p">:</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">isbn</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">metadata</span><span class="p">:</span>
+                <span class="n">lookup_metadata</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">lookup_metadata</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="p">(</span><span class="s2">&quot;No NoveList metadata found for Identifiers without an ISBN&quot;</span>
+                <span class="s2">&quot;equivalent can&#39;t be looked up with NoveList: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">),</span> <span class="n">identifier</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">best_metadata</span><span class="p">,</span> <span class="n">confidence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">choose_best_metadata</span><span class="p">(</span>
+            <span class="n">lookup_metadata</span><span class="p">,</span> <span class="n">identifier</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">best_metadata</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">round</span><span class="p">(</span><span class="n">confidence</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NO_ISBN_EQUIVALENCY</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">metadata</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_confirm_same_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata_objects</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Ensures that all metadata objects have the same NoveList ID&quot;&quot;&quot;</span>
+
+        <span class="n">novelist_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">identifier</span>
+            <span class="k">for</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">metadata_objects</span>
+        <span class="p">])</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">novelist_ids</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span>
+
+<div class="viewcode-block" id="NoveListAPI.choose_best_metadata"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.choose_best_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">choose_best_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata_objects</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Chooses the most likely book metadata from a list of Metadata objects</span>
+
+<span class="sd">        Given several Metadata objects with different NoveList IDs, this</span>
+<span class="sd">        method returns the metadata of the ID with the highest representation</span>
+<span class="sd">        and a float representing confidence in the result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">confidence</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_confirm_same_identifier</span><span class="p">(</span><span class="n">metadata_objects</span><span class="p">):</span>
+            <span class="c1"># Metadata with the same NoveList ID will be identical. Take one.</span>
+            <span class="k">return</span> <span class="n">metadata_objects</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">confidence</span>
+
+        <span class="c1"># One or more of the equivalents did not return the same NoveList work</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%r</span><span class="s2"> has inaccurate ISBN equivalents&quot;</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">metadata_objects</span><span class="p">:</span>
+            <span class="n">counter</span><span class="p">[</span><span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="p">[(</span><span class="n">target_identifier</span><span class="p">,</span> <span class="n">most_amount</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">ignore</span><span class="p">,</span> <span class="n">secondmost</span><span class="p">)]</span> <span class="o">=</span> <span class="n">counter</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">most_amount</span><span class="o">==</span><span class="n">secondmost</span><span class="p">:</span>
+            <span class="c1"># The counts are the same, and neither can be trusted.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NO_ISBN_EQUIVALENCY</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">confidence</span> <span class="o">=</span> <span class="n">most_amount</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">metadata_objects</span><span class="p">))</span>
+        <span class="n">target_metadata</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">==</span><span class="n">target_identifier</span><span class="p">,</span> <span class="n">metadata_objects</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">target_metadata</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">confidence</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.lookup"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.lookup">[docs]</a>    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Requests NoveList metadata for a particular identifier</span>
+
+<span class="sd">        :return: Metadata object or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">client_identifier</span> <span class="o">=</span> <span class="n">identifier</span><span class="o">.</span><span class="n">urn</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_equivalent_isbns</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+
+        <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">ClientIdentifier</span><span class="o">=</span><span class="n">client_identifier</span><span class="p">,</span> <span class="n">ISBN</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">profile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">password</span>
+        <span class="p">)</span>
+        <span class="n">scrubbed_url</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scrubbed_url</span><span class="p">(</span><span class="n">params</span><span class="p">))</span>
+
+        <span class="n">representation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cached_representation</span><span class="p">(</span><span class="n">scrubbed_url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">representation</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No cached NoveList request available.&quot;</span><span class="p">)</span>
+
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_query_url</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;NoveList lookup: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>  <span class="n">url</span><span class="p">)</span>
+            <span class="n">representation</span><span class="p">,</span> <span class="n">from_cache</span> <span class="o">=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">url</span><span class="p">),</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_REPRESENTATION_AGE</span><span class="p">,</span>
+                <span class="n">response_reviewer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">review_response</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Remove credential information from the Representation URL. This</span>
+            <span class="c1"># avoids holding those details in an unexpected part of the database</span>
+            <span class="c1"># and lets multiple libraries to use the same cached representation.</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">scrubbed_url</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_info_to_metadata</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.review_response"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.review_response">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">review_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Performs NoveList-specific error review of the request response&quot;&quot;&quot;</span>
+        <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span> <span class="o">=</span> <span class="n">response</span>
+        <span class="k">if</span> <span class="n">status_code</span> <span class="o">==</span> <span class="mi">403</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Invalid NoveList credentials&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">content</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;Missing&#39;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Invalid NoveList parameters: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">content</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.scrubbed_url"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.scrubbed_url">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">scrubbed_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Removes authentication details from cached Representation.url&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">build_query_url</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">include_auth</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_scrub_subtitle</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">subtitle</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Removes common NoveList subtitle annoyances&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">subtitle</span><span class="p">:</span>
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="n">subtitle</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;[electronic resource]&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="c1"># Then get rid of any leading whitespace or punctuation.</span>
+            <span class="n">subtitle</span> <span class="o">=</span> <span class="n">TitleProcessor</span><span class="o">.</span><span class="n">extract_subtitle</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">subtitle</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">subtitle</span>
+
+<div class="viewcode-block" id="NoveListAPI.build_query_url"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.build_query_url">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">build_query_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">include_auth</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Builds a unique and url-encoded query endpoint&quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">QUERY_ENDPOINT</span>
+        <span class="k">if</span> <span class="n">include_auth</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">+=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUTH_PARAMS</span>
+
+        <span class="n">urlencoded_params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">urlencoded_params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">url</span> <span class="o">%</span> <span class="n">urlencoded_params</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.cached_representation"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.cached_representation">[docs]</a>    <span class="k">def</span> <span class="nf">cached_representation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scrubbed_url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attempts to find a usable cached Representation for a given URL&quot;&quot;&quot;</span>
+        <span class="n">representation</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">scrubbed_url</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">representation</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">representation</span><span class="o">.</span><span class="n">is_fresher_than</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_REPRESENTATION_AGE</span><span class="p">):</span>
+            <span class="c1"># The Representation is nonexistent or stale. Delete it, so it</span>
+            <span class="c1"># can be replaced.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">representation</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.lookup_info_to_metadata"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.lookup_info_to_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">lookup_info_to_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lookup_representation</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Transforms a NoveList JSON representation into a Metadata object&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">lookup_representation</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">lookup_info</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">lookup_representation</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">book_info</span> <span class="o">=</span> <span class="n">lookup_info</span><span class="p">[</span><span class="s1">&#39;TitleInfo&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">book_info</span><span class="p">:</span>
+            <span class="n">novelist_identifier</span> <span class="o">=</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ui&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">book_info</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">novelist_identifier</span><span class="p">:</span>
+            <span class="c1"># NoveList didn&#39;t know the ISBN.</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">primary_identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">for_foreign_id</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">NOVELIST_ID</span><span class="p">,</span> <span class="n">novelist_identifier</span>
+        <span class="p">)</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">Metadata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">primary_identifier</span><span class="o">=</span><span class="n">primary_identifier</span><span class="p">)</span>
+
+        <span class="c1"># Get the equivalent ISBN identifiers.</span>
+        <span class="n">metadata</span><span class="o">.</span><span class="n">identifiers</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_isbns</span><span class="p">(</span><span class="n">book_info</span><span class="p">)</span>
+
+        <span class="n">author</span> <span class="o">=</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;author&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">author</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">contributors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ContributorData</span><span class="p">(</span><span class="n">sort_name</span><span class="o">=</span><span class="n">author</span><span class="p">))</span>
+
+        <span class="n">description</span> <span class="o">=</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;description&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">description</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LinkData</span><span class="p">(</span>
+                <span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">TEXT_PLAIN</span>
+            <span class="p">))</span>
+
+        <span class="n">audience_level</span> <span class="o">=</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;audience_level&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">audience_level</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span>
+                <span class="n">Subject</span><span class="o">.</span><span class="n">FREEFORM_AUDIENCE</span><span class="p">,</span> <span class="n">audience_level</span>
+            <span class="p">))</span>
+
+        <span class="n">novelist_rating</span> <span class="o">=</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rating&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">novelist_rating</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">measurements</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MeasurementData</span><span class="p">(</span>
+                <span class="n">Measurement</span><span class="o">.</span><span class="n">RATING</span><span class="p">,</span> <span class="n">novelist_rating</span>
+            <span class="p">))</span>
+
+        <span class="c1"># Extract feature content if it is available.</span>
+        <span class="n">series_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">appeals_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">lexile_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">goodreads_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">recommendations_info</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">feature_content</span> <span class="o">=</span> <span class="n">lookup_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;FeatureContent&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">feature_content</span><span class="p">:</span>
+            <span class="n">series_info</span> <span class="o">=</span> <span class="n">feature_content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SeriesInfo&#39;</span><span class="p">)</span>
+            <span class="n">appeals_info</span> <span class="o">=</span> <span class="n">feature_content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Appeals&#39;</span><span class="p">)</span>
+            <span class="n">lexile_info</span> <span class="o">=</span> <span class="n">feature_content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;LexileInfo&#39;</span><span class="p">)</span>
+            <span class="n">goodreads_info</span> <span class="o">=</span> <span class="n">feature_content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;GoodReads&#39;</span><span class="p">)</span>
+            <span class="n">recommendations_info</span> <span class="o">=</span> <span class="n">feature_content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;SimilarTitles&#39;</span><span class="p">)</span>
+
+        <span class="n">metadata</span><span class="p">,</span> <span class="n">title_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_series_information</span><span class="p">(</span>
+            <span class="n">metadata</span><span class="p">,</span> <span class="n">series_info</span><span class="p">,</span> <span class="n">book_info</span>
+        <span class="p">)</span>
+        <span class="n">metadata</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">title_key</span><span class="p">)</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">TitleProcessor</span><span class="o">.</span><span class="n">extract_subtitle</span><span class="p">(</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;full_title&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">metadata</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scrub_subtitle</span><span class="p">(</span><span class="n">subtitle</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">appeals_info</span><span class="p">:</span>
+            <span class="n">extracted_genres</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">appeal</span> <span class="ow">in</span> <span class="n">appeals_info</span><span class="p">:</span>
+                <span class="n">genres</span> <span class="o">=</span> <span class="n">appeal</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;genres&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">genres</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">genre</span> <span class="ow">in</span> <span class="n">genres</span><span class="p">:</span>
+                        <span class="n">metadata</span><span class="o">.</span><span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span>
+                            <span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">genre</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">]</span>
+                        <span class="p">))</span>
+                        <span class="n">extracted_genres</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">if</span> <span class="n">extracted_genres</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">lexile_info</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span>
+                <span class="n">Subject</span><span class="o">.</span><span class="n">LEXILE_SCORE</span><span class="p">,</span> <span class="n">lexile_info</span><span class="p">[</span><span class="s1">&#39;Lexile&#39;</span><span class="p">]</span>
+            <span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">goodreads_info</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">measurements</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MeasurementData</span><span class="p">(</span>
+                <span class="n">Measurement</span><span class="o">.</span><span class="n">RATING</span><span class="p">,</span> <span class="n">goodreads_info</span><span class="p">[</span><span class="s1">&#39;average_rating&#39;</span><span class="p">]</span>
+            <span class="p">))</span>
+
+        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_recommendations</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">recommendations_info</span><span class="p">)</span>
+
+        <span class="c1"># If nothing interesting comes from the API, ignore it.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">measurements</span> <span class="ow">or</span> <span class="n">metadata</span><span class="o">.</span><span class="n">series_position</span> <span class="ow">or</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">series</span> <span class="ow">or</span> <span class="n">metadata</span><span class="o">.</span><span class="n">subjects</span> <span class="ow">or</span> <span class="n">metadata</span><span class="o">.</span><span class="n">links</span> <span class="ow">or</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">subtitle</span> <span class="ow">or</span> <span class="n">metadata</span><span class="o">.</span><span class="n">recommendations</span>
+        <span class="p">):</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">metadata</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.get_series_information"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.get_series_information">[docs]</a>    <span class="k">def</span> <span class="nf">get_series_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">series_info</span><span class="p">,</span> <span class="n">book_info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns metadata object with series info and optimal title key&quot;&quot;&quot;</span>
+
+        <span class="n">title_key</span> <span class="o">=</span> <span class="s1">&#39;main_title&#39;</span>
+        <span class="k">if</span> <span class="n">series_info</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">series</span> <span class="o">=</span> <span class="n">series_info</span><span class="p">[</span><span class="s1">&#39;full_title&#39;</span><span class="p">]</span>
+            <span class="n">series_titles</span> <span class="o">=</span> <span class="n">series_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;series_titles&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">series_titles</span><span class="p">:</span>
+                <span class="n">matching_series_volume</span> <span class="o">=</span> <span class="p">[</span><span class="n">volume</span> <span class="k">for</span> <span class="n">volume</span> <span class="ow">in</span> <span class="n">series_titles</span>
+                        <span class="k">if</span> <span class="n">volume</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;full_title&#39;</span><span class="p">)</span><span class="o">==</span><span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;full_title&#39;</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">matching_series_volume</span><span class="p">:</span>
+                    <span class="c1"># If there&#39;s no full_title match, try the main_title.</span>
+                    <span class="n">matching_series_volume</span> <span class="o">=</span> <span class="p">[</span><span class="n">volume</span> <span class="k">for</span> <span class="n">volume</span> <span class="ow">in</span> <span class="n">series_titles</span>
+                        <span class="k">if</span> <span class="n">volume</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;main_title&#39;</span><span class="p">)</span><span class="o">==</span><span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;main_title&#39;</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">matching_series_volume</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="c1"># This probably won&#39;t happen, but if it does, it will be</span>
+                    <span class="c1"># difficult to debug without an error.</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multiple matching volumes found.&quot;</span><span class="p">)</span>
+                <span class="n">series_position</span> <span class="o">=</span> <span class="n">matching_series_volume</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;volume&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">series_position</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">series_position</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+                        <span class="n">series_position</span> <span class="o">=</span> <span class="n">series_position</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">metadata</span><span class="o">.</span><span class="n">series_position</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">series_position</span><span class="p">)</span>
+
+                <span class="c1"># Sometimes all of the volumes in a series have the same</span>
+                <span class="c1"># main_title so using the full_title is preferred.</span>
+                <span class="n">main_titles</span> <span class="o">=</span> <span class="p">[</span><span class="n">volume</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">title_key</span><span class="p">)</span> <span class="k">for</span> <span class="n">volume</span> <span class="ow">in</span> <span class="n">series_titles</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">main_titles</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">main_titles</span><span class="p">))</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="n">title_key</span> <span class="o">=</span> <span class="s1">&#39;full_title&#39;</span>
+
+        <span class="k">return</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">title_key</span></div>
+
+    <span class="k">def</span> <span class="nf">_extract_isbns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">book_info</span><span class="p">):</span>
+        <span class="n">isbns</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">synonymous_ids</span> <span class="o">=</span> <span class="n">book_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;manifestations&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">synonymous_id</span> <span class="ow">in</span> <span class="n">synonymous_ids</span><span class="p">:</span>
+            <span class="n">isbn</span> <span class="o">=</span> <span class="n">synonymous_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ISBN&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">isbn</span><span class="p">:</span>
+                <span class="n">isbn_data</span> <span class="o">=</span> <span class="n">IdentifierData</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">,</span> <span class="n">isbn</span><span class="p">)</span>
+                <span class="n">isbns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">isbn_data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">isbns</span>
+
+<div class="viewcode-block" id="NoveListAPI.get_recommendations"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.get_recommendations">[docs]</a>    <span class="k">def</span> <span class="nf">get_recommendations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">recommendations_info</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">recommendations_info</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">metadata</span>
+
+        <span class="n">related_books</span> <span class="o">=</span> <span class="n">recommendations_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;titles&#39;</span><span class="p">)</span>
+        <span class="n">related_books</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">b</span><span class="p">:</span> <span class="n">b</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;is_held_locally&#39;</span><span class="p">),</span> <span class="n">related_books</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">related_books</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">book_info</span> <span class="ow">in</span> <span class="n">related_books</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="o">.</span><span class="n">recommendations</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_isbns</span><span class="p">(</span><span class="n">book_info</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">metadata</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.get_items_from_query"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.get_items_from_query">[docs]</a>    <span class="k">def</span> <span class="nf">get_items_from_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Gets identifiers and its related title, medium, and authors from the</span>
+<span class="sd">        database.</span>
+<span class="sd">        Keeps track of the current &#39;ISBN&#39; identifier and current item object that</span>
+<span class="sd">        is being processed. If the next ISBN being processed is new, the existing one</span>
+<span class="sd">        gets added to the list of items. If the ISBN is the same, then we append</span>
+<span class="sd">        the Author property since there are multiple contributors.</span>
+
+<span class="sd">        :return: a list of Novelist objects to send</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">collectionList</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
+            <span class="n">collectionList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="n">LEFT_OUTER_JOIN</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">i1</span> <span class="o">=</span> <span class="n">aliased</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>
+        <span class="n">i2</span> <span class="o">=</span> <span class="n">aliased</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>
+        <span class="n">roles</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLES</span><span class="p">)</span>
+        <span class="n">roles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Contributor</span><span class="o">.</span><span class="n">NARRATOR_ROLE</span><span class="p">)</span>
+
+        <span class="n">isbnQuery</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">i1</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">i1</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">i2</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+            <span class="n">Edition</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">medium</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">published</span><span class="p">,</span>
+            <span class="n">Contribution</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span>
+            <span class="n">DataSource</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span>
+            <span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i1</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Equivalency</span><span class="p">,</span> <span class="n">i1</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">Equivalency</span><span class="o">.</span><span class="n">input_id</span><span class="p">,</span> <span class="n">LEFT_OUTER_JOIN</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">i2</span><span class="p">,</span> <span class="n">Equivalency</span><span class="o">.</span><span class="n">output_id</span><span class="o">==</span><span class="n">i2</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">LEFT_OUTER_JOIN</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">Edition</span><span class="p">,</span>
+                <span class="n">or_</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="o">==</span><span class="n">i1</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">primary_identifier_id</span><span class="o">==</span><span class="n">i2</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Contribution</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">Contribution</span><span class="o">.</span><span class="n">edition_id</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Contributor</span><span class="p">,</span> <span class="n">Contribution</span><span class="o">.</span><span class="n">contributor_id</span><span class="o">==</span><span class="n">Contributor</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">DataSource</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">data_source_id</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">and_</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">collectionList</span><span class="p">),</span>
+                <span class="n">or_</span><span class="p">(</span><span class="n">i1</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="s2">&quot;ISBN&quot;</span><span class="p">,</span> <span class="n">i2</span><span class="o">.</span><span class="n">type</span><span class="o">==</span><span class="s2">&quot;ISBN&quot;</span><span class="p">),</span>
+                <span class="n">or_</span><span class="p">(</span><span class="n">Contribution</span><span class="o">.</span><span class="n">role</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">roles</span><span class="p">))</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">i1</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">i2</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">isbnQuery</span><span class="p">)</span>
+
+        <span class="n">items</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">newItem</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">existingItem</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">currentIdentifier</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Loop through the query result. There&#39;s a need to keep track of the</span>
+        <span class="c1"># previously processed object and the currently processed object because</span>
+        <span class="c1"># the identifier could be the same. If it is, we update the data</span>
+        <span class="c1"># object to send to Novelist.</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">newItem</span><span class="p">:</span>
+                <span class="n">existingItem</span> <span class="o">=</span> <span class="n">newItem</span>
+            <span class="p">(</span><span class="n">currentIdentifier</span><span class="p">,</span> <span class="n">existingItem</span><span class="p">,</span> <span class="n">newItem</span><span class="p">,</span> <span class="n">addItem</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">create_item_object</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">currentIdentifier</span><span class="p">,</span> <span class="n">existingItem</span><span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">addItem</span> <span class="ow">and</span> <span class="n">existingItem</span><span class="p">:</span>
+                <span class="c1"># The Role property isn&#39;t needed in the actual request.</span>
+                <span class="k">del</span> <span class="n">existingItem</span><span class="p">[</span><span class="s1">&#39;role&#39;</span><span class="p">]</span>
+                <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">existingItem</span><span class="p">)</span>
+
+        <span class="c1"># For the case when there&#39;s only one item in `result`</span>
+        <span class="k">if</span> <span class="n">newItem</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">newItem</span><span class="p">[</span><span class="s1">&#39;role&#39;</span><span class="p">]</span>
+            <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newItem</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">items</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.create_item_object"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.create_item_object">[docs]</a>    <span class="k">def</span> <span class="nf">create_item_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">object</span><span class="p">,</span> <span class="n">currentIdentifier</span><span class="p">,</span> <span class="n">existingItem</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a new item if the current identifier that was processed</span>
+<span class="sd">        is not the same as the new object&#39;s ISBN being processed. If the new</span>
+<span class="sd">        object&#39;s ISBN matches the current identifier, the previous object&#39;s</span>
+<span class="sd">        Author property is updated.</span>
+
+<span class="sd">        :param object: the current item object to process</span>
+<span class="sd">        :param currentIdentifier: the current identifier to process</span>
+<span class="sd">        :param existingItem: the previously processed item object</span>
+
+<span class="sd">        :return: (</span>
+<span class="sd">            current identifier,</span>
+<span class="sd">            the existing object if available,</span>
+<span class="sd">            a new object if the item wasn&#39;t found before,</span>
+<span class="sd">            if the item is ready to the added to the list of books to send</span>
+<span class="sd">            )</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">object</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nb">object</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">):</span>
+            <span class="n">isbn</span> <span class="o">=</span> <span class="nb">object</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">object</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">isbn</span> <span class="o">=</span> <span class="nb">object</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We cannot find an ISBN for this work -- probably due to</span>
+            <span class="c1"># a data error.</span>
+            <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">roles</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLES</span><span class="p">)</span>
+        <span class="n">roles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Contributor</span><span class="o">.</span><span class="n">NARRATOR_ROLE</span><span class="p">)</span>
+
+        <span class="n">role</span> <span class="o">=</span> <span class="nb">object</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
+        <span class="n">author_or_narrator</span> <span class="o">=</span> <span class="nb">object</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span> <span class="k">if</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">roles</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">distributor</span> <span class="o">=</span> <span class="nb">object</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span>
+
+        <span class="c1"># If there&#39;s no existing author value but we now get one, add it.</span>
+        <span class="c1"># If the role is narrator and it&#39;s a new value</span>
+        <span class="c1"># (i.e. no &quot;narrator&quot; was already added), then add the narrator.</span>
+        <span class="c1"># If we encounter an existing ISBN and its role is &quot;Primary Author&quot;,</span>
+        <span class="c1"># then that value overrides the existing Author property.</span>
+        <span class="k">if</span> <span class="n">isbn</span> <span class="o">==</span> <span class="n">currentIdentifier</span> <span class="ow">and</span> <span class="n">existingItem</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">existingItem</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;author&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLES</span><span class="p">:</span>
+                <span class="n">existingItem</span><span class="p">[</span><span class="s1">&#39;author&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">author_or_narrator</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">existingItem</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;narrator&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">role</span> <span class="o">==</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">NARRATOR_ROLE</span><span class="p">:</span>
+                <span class="n">existingItem</span><span class="p">[</span><span class="s1">&#39;narrator&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">author_or_narrator</span>
+            <span class="k">if</span> <span class="n">role</span> <span class="o">==</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">PRIMARY_AUTHOR_ROLE</span><span class="p">:</span>
+                <span class="n">existingItem</span><span class="p">[</span><span class="s1">&#39;author&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">author_or_narrator</span>
+            <span class="n">existingItem</span><span class="p">[</span><span class="s1">&#39;role&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">role</span>
+
+            <span class="c1"># Always return False to keep processing the currentIdentifier until</span>
+            <span class="c1"># we get a new ISBN to process. In that case, return and add all</span>
+            <span class="c1"># the data we&#39;ve accumulated for this object.</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">currentIdentifier</span><span class="p">,</span> <span class="n">existingItem</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># If we encounter a new ISBN, we take whatever values are initially given.</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="nb">object</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">mediaType</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">medium_to_book_format_type_values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">object</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+            <span class="n">newItem</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">isbn</span><span class="o">=</span><span class="n">isbn</span><span class="p">,</span>
+                <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                <span class="n">mediaType</span><span class="o">=</span><span class="n">mediaType</span><span class="p">,</span>
+                <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+                <span class="n">distributor</span><span class="o">=</span><span class="n">distributor</span>
+            <span class="p">)</span>
+
+            <span class="n">publicationDate</span> <span class="o">=</span> <span class="nb">object</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">publicationDate</span><span class="p">:</span>
+                <span class="n">publicationDateString</span> <span class="o">=</span> <span class="n">publicationDate</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="n">newItem</span><span class="p">[</span><span class="s2">&quot;publicationDate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">publicationDateString</span>
+
+            <span class="c1"># If we are processing a new item and there is an existing item,</span>
+            <span class="c1"># then we can add the existing item to the list and keep</span>
+            <span class="c1"># the current new item for further data aggregation.</span>
+            <span class="n">addItem</span> <span class="o">=</span> <span class="kc">True</span> <span class="k">if</span> <span class="n">existingItem</span> <span class="k">else</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">AUTHOR_ROLES</span><span class="p">:</span>
+                <span class="n">newItem</span><span class="p">[</span><span class="s1">&#39;author&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">author_or_narrator</span>
+            <span class="k">if</span> <span class="n">role</span> <span class="o">==</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">NARRATOR_ROLE</span><span class="p">:</span>
+                <span class="n">newItem</span><span class="p">[</span><span class="s1">&#39;narrator&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">author_or_narrator</span>
+
+            <span class="k">return</span> <span class="p">(</span><span class="n">isbn</span><span class="p">,</span> <span class="n">existingItem</span><span class="p">,</span> <span class="n">newItem</span><span class="p">,</span> <span class="n">addItem</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.put_items_novelist"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.put_items_novelist">[docs]</a>    <span class="k">def</span> <span class="nf">put_items_novelist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_items_from_query</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+
+        <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">items</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">make_novelist_data_object</span><span class="p">(</span><span class="n">items</span><span class="p">))</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">put</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_DATA_API</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;AuthorizedIdentifier&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">AUTHORIZED_IDENTIFIER</span><span class="p">,</span>
+                    <span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json; charset=utf-8&quot;</span>
+                <span class="p">},</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">data</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">):</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Success from NoveList: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Data sent was: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;Error </span><span class="si">%s</span><span class="s2"> from NoveList: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span>
+                    <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">content</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.make_novelist_data_object"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.make_novelist_data_object">[docs]</a>    <span class="k">def</span> <span class="nf">make_novelist_data_object</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;customer&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">),</span>
+            <span class="s2">&quot;records&quot;</span><span class="p">:</span> <span class="n">items</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="NoveListAPI.put"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.put">[docs]</a>    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+        <span class="c1"># This might take a very long time -- disable the normal</span>
+        <span class="c1"># timeout.</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;timeout&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">put_with_timeout</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span></div></div>
+
+
+<div class="viewcode-block" id="MockNoveListAPI"><a class="viewcode-back" href="../../api.html#api.novelist.MockNoveListAPI">[docs]</a><span class="k">class</span> <span class="nc">MockNoveListAPI</span><span class="p">(</span><span class="n">NoveListAPI</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="MockNoveListAPI.setup"><a class="viewcode-back" href="../../api.html#api.novelist.MockNoveListAPI.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MockNoveListAPI.lookup"><a class="viewcode-back" href="../../api.html#api.novelist.MockNoveListAPI.lookup">[docs]</a>    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="n">response</span></div></div>
+
+
+<div class="viewcode-block" id="NoveListCoverageProvider"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">NoveListCoverageProvider</span><span class="p">(</span><span class="n">IdentifierCoverageProvider</span><span class="p">):</span>
+
+    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;NoveList CoverageProvider&quot;</span>
+    <span class="n">DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">NOVELIST</span>
+    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">25</span>
+    <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">]</span>
+
+<div class="viewcode-block" id="NoveListCoverageProvider.process_item"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListCoverageProvider.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="c1"># Either NoveList didn&#39;t recognize the identifier or</span>
+            <span class="c1"># no interesting data came of this. Consider it covered.</span>
+            <span class="k">return</span> <span class="n">identifier</span>
+
+        <span class="c1"># Set identifier equivalent to its NoveList ID.</span>
+        <span class="n">identifier</span><span class="o">.</span><span class="n">equivalent_to</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
+            <span class="n">strength</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="c1"># Create an edition with the NoveList metadata &amp; NoveList identifier.</span>
+        <span class="c1"># This will capture equivalent ISBNs and less appealing metadata in</span>
+        <span class="c1"># its unfettered state on the NoveList identifier alone.</span>
+        <span class="n">edition</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">series</span> <span class="ow">or</span> <span class="n">edition</span><span class="o">.</span><span class="n">series_position</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">identifier</span>
+            <span class="c1"># Series data from NoveList is appealing, but we need to avoid</span>
+            <span class="c1"># creating any potentially-inaccurate ISBN equivalencies on the</span>
+            <span class="c1"># license source identifier.</span>
+            <span class="c1">#</span>
+            <span class="c1"># So just remove the identifiers from the metadata object entirely.</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">identifiers</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="c1"># Before creating an edition for the original identifier.</span>
+            <span class="n">novelist_edition</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">novelist_edition</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">identifier</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

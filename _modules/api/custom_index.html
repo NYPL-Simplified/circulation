@@ -1,0 +1,322 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.custom_index &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.custom_index</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;A custom index view customizes a library&#39;s &#39;front page&#39; to serve</span>
+<span class="sd">something other than the default.</span>
+
+<span class="sd">This code is DEPRECATED; you probably want a CustomPatronCatalog instead.</span>
+<span class="sd">We&#39;re keeping it around because existing iOS versions of SimplyE need the</span>
+<span class="sd">OPDS navigation feed it generates.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="k">import</span> <span class="n">cdn_url_for</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">get_one</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="n">Lane</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="k">import</span> <span class="n">OPDSFeed</span>
+
+<div class="viewcode-block" id="CustomIndexView"><a class="viewcode-back" href="../../api.html#api.custom_index.CustomIndexView">[docs]</a><span class="k">class</span> <span class="nc">CustomIndexView</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A custom view that replaces the default OPDS view for a</span>
+<span class="sd">    library.</span>
+
+<span class="sd">    Any subclass of this class must define PROTOCOL and must be</span>
+<span class="sd">    passed into a CustomIndexView.register() call after the class</span>
+<span class="sd">    definition is complete.</span>
+
+<span class="sd">    Subclasses of this class are loaded into the CirculationManager, so they</span>
+<span class="sd">    should not store any objects obtained from the database without</span>
+<span class="sd">    disconnecting them from their session.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">BY_PROTOCOL</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">GOAL</span> <span class="o">=</span> <span class="s2">&quot;custom_index&quot;</span>
+
+<div class="viewcode-block" id="CustomIndexView.register"><a class="viewcode-back" href="../../api.html#api.custom_index.CustomIndexView.register">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view_class</span><span class="p">):</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">view_class</span><span class="o">.</span><span class="n">PROTOCOL</span>
+        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">BY_PROTOCOL</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Duplicate index view for protocol: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">protocol</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">BY_PROTOCOL</span><span class="p">[</span><span class="n">protocol</span><span class="p">]</span> <span class="o">=</span> <span class="n">view_class</span></div>
+
+<div class="viewcode-block" id="CustomIndexView.unregister"><a class="viewcode-back" href="../../api.html#api.custom_index.CustomIndexView.unregister">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">unregister</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view_class</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove a CustomIndexView from consideration.</span>
+<span class="sd">        Only used in tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">BY_PROTOCOL</span><span class="p">[</span><span class="n">view_class</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="CustomIndexView.for_library"><a class="viewcode-back" href="../../api.html#api.custom_index.CustomIndexView.for_library">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_library</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the appropriate CustomIndexView for the given library.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">one_for_library_and_goal</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">GOAL</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BY_PROTOCOL</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Unregistered custom index protocol: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">protocol</span>
+            <span class="p">)</span>
+        <span class="n">view_class</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BY_PROTOCOL</span><span class="p">[</span><span class="n">protocol</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">view_class</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Render the custom index view.</span>
+
+<span class="sd">        :return: A Response or ProblemDetail</span>
+<span class="sd">        :param library: A Library</span>
+<span class="sd">        :param annoatator: An Annotator for annotating OPDS feeds.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="COPPAGate"><a class="viewcode-back" href="../../api.html#api.custom_index.COPPAGate">[docs]</a><span class="k">class</span> <span class="nc">COPPAGate</span><span class="p">(</span><span class="n">CustomIndexView</span><span class="p">):</span>
+
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="s2">&quot;COPPA Age Gate&quot;</span>
+
+    <span class="n">URI</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/restrictions/coppa&quot;</span>
+    <span class="n">NO_TITLE</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;I&#39;m Under 13&quot;</span><span class="p">)</span>
+    <span class="n">NO_CONTENT</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Read children&#39;s books&quot;</span><span class="p">)</span>
+    <span class="n">YES_TITLE</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;I&#39;m 13 or Older&quot;</span><span class="p">)</span>
+    <span class="n">YES_CONTENT</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;See the full collection&quot;</span><span class="p">)</span>
+
+    <span class="n">REQUIREMENT_MET_LANE</span> <span class="o">=</span> <span class="s2">&quot;requirement_met_lane&quot;</span>
+    <span class="n">REQUIREMENT_NOT_MET_LANE</span> <span class="o">=</span> <span class="s2">&quot;requirement_not_met_lane&quot;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">REQUIREMENT_MET_LANE</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;ID of lane for patrons who are 13 or older&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">REQUIREMENT_NOT_MET_LANE</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;ID of lane for patrons who are under 13&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span>
+        <span class="n">yes_lane_id</span> <span class="o">=</span> <span class="n">m</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REQUIREMENT_MET_LANE</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span>
+        <span class="n">no_lane_id</span> <span class="o">=</span> <span class="n">m</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REQUIREMENT_NOT_MET_LANE</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span>
+
+        <span class="c1"># We don&#39;t want to store the Lane objects long-term, but we do need</span>
+        <span class="c1"># to make sure the lane IDs correspond to real lanes for the</span>
+        <span class="c1"># right library.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">yes_lane_id</span> <span class="o">=</span> <span class="n">yes_lane_id</span><span class="o">.</span><span class="n">int_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">no_lane_id</span> <span class="o">=</span> <span class="n">no_lane_id</span><span class="o">.</span><span class="n">int_value</span>
+        <span class="n">yes_lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_lane</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">yes_lane_id</span><span class="p">)</span>
+        <span class="n">no_lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_lane</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_lane_id</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_load_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">lane_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make sure the Lane with the given ID actually exists and is</span>
+<span class="sd">        associated with the given Library.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="n">lane</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">lane_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span><span class="s2">&quot;No lane with ID: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">lane_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">lane</span><span class="o">.</span><span class="n">library</span> <span class="o">!=</span> <span class="n">library</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Lane </span><span class="si">%d</span><span class="s2"> is for the wrong library (</span><span class="si">%s</span><span class="s2">, I need </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span>
+                <span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">lane</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">library</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">lane</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">url_for</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Render an OPDS navigation feed that lets the patron choose a root</span>
+<span class="sd">        lane on their own, without providing any credentials.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;navigation_feed&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">navigation_feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_navigation_feed</span><span class="p">(</span>
+                <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">url_for</span>
+            <span class="p">)</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">NAVIGATION_FEED_TYPE</span> <span class="p">}</span>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">navigation_feed</span><span class="p">),</span> <span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_navigation_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">url_for</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate an OPDS feed for navigating the COPPA age gate.&quot;&quot;&quot;</span>
+        <span class="n">url_for</span> <span class="o">=</span> <span class="n">url_for</span> <span class="ow">or</span> <span class="n">cdn_url_for</span>
+        <span class="n">base_url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">,</span> <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+
+        <span class="c1"># An entry for grown-ups.</span>
+        <span class="n">feed</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">base_url</span><span class="p">)</span>
+        <span class="n">opds</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">feed</span>
+
+        <span class="n">yes_url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span>
+            <span class="s1">&#39;acquisition_groups&#39;</span><span class="p">,</span>
+            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+            <span class="n">lane_identifier</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">yes_lane_id</span>
+        <span class="p">)</span>
+        <span class="n">opds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">navigation_entry</span><span class="p">(</span><span class="n">yes_url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">YES_TITLE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">YES_CONTENT</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># An entry for children.</span>
+        <span class="n">no_url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span>
+            <span class="s1">&#39;acquisition_groups&#39;</span><span class="p">,</span>
+            <span class="n">library_short_name</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
+            <span class="n">lane_identifier</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">no_lane_id</span>
+        <span class="p">)</span>
+        <span class="n">opds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">navigation_entry</span><span class="p">(</span><span class="n">no_url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_TITLE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_CONTENT</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># The gate tag is the thing that the SimplyE client actually uses.</span>
+        <span class="n">opds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gate_tag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">URI</span><span class="p">,</span> <span class="n">yes_url</span><span class="p">,</span> <span class="n">no_url</span><span class="p">))</span>
+
+        <span class="c1"># Add any other links associated with this library, notably</span>
+        <span class="c1"># the link to its authentication document.</span>
+        <span class="k">if</span> <span class="n">annotator</span><span class="p">:</span>
+            <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">opds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">updated</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">_strftime</span><span class="p">(</span><span class="n">now</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">feed</span>
+
+<div class="viewcode-block" id="COPPAGate.navigation_entry"><a class="viewcode-back" href="../../api.html#api.custom_index.COPPAGate.navigation_entry">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">navigation_entry</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">href</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create an &lt;entry&gt; that serves as navigation.&quot;&quot;&quot;</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">E</span>
+        <span class="n">content_tag</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">content</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">)</span>
+        <span class="n">content_tag</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">entry</span><span class="p">(</span>
+            <span class="n">E</span><span class="o">.</span><span class="n">id</span><span class="p">(</span><span class="n">href</span><span class="p">),</span>
+            <span class="n">E</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">title</span><span class="p">)),</span>
+            <span class="n">content_tag</span><span class="p">,</span>
+            <span class="n">E</span><span class="o">.</span><span class="n">updated</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">_strftime</span><span class="p">(</span><span class="n">now</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">add_link_to_entry</span><span class="p">(</span>
+            <span class="n">entry</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">href</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;subsection&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">entry</span></div>
+
+<div class="viewcode-block" id="COPPAGate.gate_tag"><a class="viewcode-back" href="../../api.html#api.custom_index.COPPAGate.gate_tag">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">gate_tag</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">restriction</span><span class="p">,</span> <span class="n">met_url</span><span class="p">,</span> <span class="n">not_met_url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a simplified:gate tag explaining the boolean option</span>
+<span class="sd">        the client is faced with.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">SIMPLIFIED</span><span class="o">.</span><span class="n">gate</span><span class="p">()</span>
+        <span class="n">tag</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s1">&#39;restriction-met&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">met_url</span>
+        <span class="n">tag</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s1">&#39;restriction-not-met&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">not_met_url</span>
+        <span class="n">tag</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s1">&#39;restriction&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">restriction</span>
+        <span class="k">return</span> <span class="n">tag</span></div></div>
+
+<span class="n">CustomIndexView</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">COPPAGate</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

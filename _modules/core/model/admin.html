@@ -1,0 +1,304 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.admin &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.admin</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># Admin, AdminRole</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
+
+<span class="kn">import</span> <span class="nn">bcrypt</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+
+<div class="viewcode-block" id="Admin"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin">[docs]</a><span class="k">class</span> <span class="nc">Admin</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;admins&#39;</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">email</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Admins who log in with OAuth will have a credential.</span>
+    <span class="n">credential</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># Admins can also log in with a local password.</span>
+    <span class="n">password_hashed</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># An Admin may have many roles.</span>
+    <span class="n">roles</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;AdminRole&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;admin&quot;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span><span class="p">)</span>
+
+    <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+    <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+<div class="viewcode-block" id="Admin.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">email</span></div>
+
+<div class="viewcode-block" id="Admin.update_credentials"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.update_credentials">[docs]</a>    <span class="k">def</span> <span class="nf">update_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">credential</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">credential</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="n">credential</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">password</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Password comparison is only with Admin.authenticate&quot;</span><span class="p">)</span>
+
+    <span class="nd">@password</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">password_hashed</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">bcrypt</span><span class="o">.</span><span class="n">hashpw</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">bcrypt</span><span class="o">.</span><span class="n">gensalt</span><span class="p">()))</span>
+
+<div class="viewcode-block" id="Admin.has_password"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.has_password">[docs]</a>    <span class="k">def</span> <span class="nf">has_password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">password_hashed</span> <span class="o">==</span> <span class="n">bcrypt</span><span class="o">.</span><span class="n">hashpw</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">password_hashed</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Admin.authenticate"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.authenticate">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">authenticate</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds an authenticated Admin by email and password</span>
+<span class="sd">        :return: Admin or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Admin</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">email</span><span class="p">)),</span> <span class="kc">False</span>
+
+        <span class="n">match</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Admin</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">email</span><span class="p">),</span> <span class="n">lookup_hook</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">match</span><span class="o">.</span><span class="n">has_password</span><span class="p">(</span><span class="n">password</span><span class="p">):</span>
+            <span class="c1"># Admin with this email was found, but password is invalid.</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">match</span></div>
+
+<div class="viewcode-block" id="Admin.with_password"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.with_password">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">with_password</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get Admins that have a password.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Admin</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Admin</span><span class="o">.</span><span class="n">password_hashed</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Admin.is_system_admin"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.is_system_admin">[docs]</a>    <span class="k">def</span> <span class="nf">is_system_admin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">AdminRole</span><span class="p">,</span> <span class="n">admin</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">AdminRole</span><span class="o">.</span><span class="n">SYSTEM_ADMIN</span><span class="p">),</span> <span class="kc">False</span>
+        <span class="n">role</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">SYSTEM_ADMIN</span><span class="p">),</span> <span class="n">lookup_hook</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">role</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Admin.is_sitewide_library_manager"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.is_sitewide_library_manager">[docs]</a>    <span class="k">def</span> <span class="nf">is_sitewide_library_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_system_admin</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">AdminRole</span><span class="p">,</span> <span class="n">admin</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">AdminRole</span><span class="o">.</span><span class="n">SITEWIDE_LIBRARY_MANAGER</span><span class="p">),</span> <span class="kc">False</span>
+        <span class="n">role</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">SITEWIDE_LIBRARY_MANAGER</span><span class="p">),</span> <span class="n">lookup_hook</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">role</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Admin.is_sitewide_librarian"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.is_sitewide_librarian">[docs]</a>    <span class="k">def</span> <span class="nf">is_sitewide_librarian</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_sitewide_library_manager</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">AdminRole</span><span class="p">,</span> <span class="n">admin</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">AdminRole</span><span class="o">.</span><span class="n">SITEWIDE_LIBRARIAN</span><span class="p">),</span> <span class="kc">False</span>
+        <span class="n">role</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">SITEWIDE_LIBRARIAN</span><span class="p">),</span> <span class="n">lookup_hook</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">role</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Admin.is_library_manager"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.is_library_manager">[docs]</a>    <span class="k">def</span> <span class="nf">is_library_manager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># First check if the admin is a manager of _all_ libraries.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_sitewide_library_manager</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="c1"># If not, they could stil be a manager of _this_ library.</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">AdminRole</span><span class="p">,</span> <span class="n">admin</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">AdminRole</span><span class="o">.</span><span class="n">LIBRARY_MANAGER</span><span class="p">),</span> <span class="kc">False</span>
+        <span class="n">role</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">LIBRARY_MANAGER</span><span class="p">),</span> <span class="n">lookup_hook</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">role</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Admin.is_librarian"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.is_librarian">[docs]</a>    <span class="k">def</span> <span class="nf">is_librarian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># If the admin is a library manager, they can do everything a librarian can do.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_library_manager</span><span class="p">(</span><span class="n">library</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="c1"># Check if the admin is a librarian for _all_ libraries.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_sitewide_librarian</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="c1"># If not, they might be a librarian of _this_ library.</span>
+        <span class="k">def</span> <span class="nf">lookup_hook</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">AdminRole</span><span class="p">,</span> <span class="n">admin</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">AdminRole</span><span class="o">.</span><span class="n">LIBRARIAN</span><span class="p">),</span> <span class="kc">False</span>
+        <span class="n">role</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">by_cache_key</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">LIBRARIAN</span><span class="p">),</span> <span class="n">lookup_hook</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">role</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Admin.can_see_collection"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.can_see_collection">[docs]</a>    <span class="k">def</span> <span class="nf">can_see_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_system_admin</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="n">collection</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_librarian</span><span class="p">(</span><span class="n">library</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Admin.add_role"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.add_role">[docs]</a>    <span class="k">def</span> <span class="nf">add_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">role</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">AdminRole</span><span class="p">,</span> <span class="n">admin</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">role</span></div>
+
+<div class="viewcode-block" id="Admin.remove_role"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.remove_role">[docs]</a>    <span class="k">def</span> <span class="nf">remove_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">role</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">AdminRole</span><span class="p">,</span> <span class="n">admin</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">role</span><span class="p">:</span>
+            <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">role</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;Admin: email=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">email</span></div>
+
+<div class="viewcode-block" id="AdminRole"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.AdminRole">[docs]</a><span class="k">class</span> <span class="nc">AdminRole</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;adminroles&#39;</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">admin_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s2">&quot;admins.id&quot;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s2">&quot;libraries.id&quot;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">role</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;admin_id&#39;</span><span class="p">,</span> <span class="s1">&#39;library_id&#39;</span><span class="p">,</span> <span class="s1">&#39;role&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">SYSTEM_ADMIN</span> <span class="o">=</span> <span class="s2">&quot;system&quot;</span>
+    <span class="n">SITEWIDE_LIBRARY_MANAGER</span> <span class="o">=</span> <span class="s2">&quot;manager-all&quot;</span>
+    <span class="n">LIBRARY_MANAGER</span> <span class="o">=</span> <span class="s2">&quot;manager&quot;</span>
+    <span class="n">SITEWIDE_LIBRARIAN</span> <span class="o">=</span> <span class="s2">&quot;librarian-all&quot;</span>
+    <span class="n">LIBRARIAN</span> <span class="o">=</span> <span class="s2">&quot;librarian&quot;</span>
+
+    <span class="n">ROLES</span> <span class="o">=</span> <span class="p">[</span><span class="n">SYSTEM_ADMIN</span><span class="p">,</span> <span class="n">SITEWIDE_LIBRARY_MANAGER</span><span class="p">,</span> <span class="n">LIBRARY_MANAGER</span><span class="p">,</span> <span class="n">SITEWIDE_LIBRARIAN</span><span class="p">,</span> <span class="n">LIBRARIAN</span><span class="p">]</span>
+
+    <span class="n">_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+    <span class="n">_id_cache</span> <span class="o">=</span> <span class="n">HasFullTableCache</span><span class="o">.</span><span class="n">RESET</span>
+
+<div class="viewcode-block" id="AdminRole.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.AdminRole.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">admin_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AdminRole.to_dict"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.AdminRole.to_dict">[docs]</a>    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;AdminRole: role=</span><span class="si">%s</span><span class="s2"> library=</span><span class="si">%s</span><span class="s2"> admin=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin</span><span class="o">.</span><span class="n">email</span><span class="p">)</span></div>
+
+
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_adminroles_admin_id_library_id_role&quot;</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">admin_id</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">library_id</span><span class="p">,</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">role</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

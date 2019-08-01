@@ -1,0 +1,609 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.registry &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.registry</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">feedparser</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="n">NoResultFound</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">create</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="k">import</span> <span class="n">LibraryInputScript</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">ProblemDetail</span><span class="p">,</span>
+    <span class="n">JSON_MEDIA_TYPE</span> <span class="k">as</span> <span class="n">PROBLEM_DETAIL_JSON_MEDIA_TYPE</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="k">import</span> <span class="n">AuthdataUtility</span>
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">api.controller</span> <span class="k">import</span> <span class="n">CirculationManager</span>
+<span class="kn">from</span> <span class="nn">api.problem_details</span> <span class="k">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="RemoteRegistry"><a class="viewcode-back" href="../../api.html#api.registry.RemoteRegistry">[docs]</a><span class="k">class</span> <span class="nc">RemoteRegistry</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A circulation manager&#39;s view of a remote service that supports</span>
+<span class="sd">    the OPDS Directory Registration Protocol:</span>
+
+<span class="sd">    https://github.com/NYPL-Simplified/Simplified/wiki/OPDS-Directory-Registration-Protocol</span>
+
+<span class="sd">    In practical terms, this may be a library registry (which has</span>
+<span class="sd">    DISCOVERY_GOAL and wants to help patrons find their libraries) or</span>
+<span class="sd">    it may be a shared ODL collection (which has LICENSE_GOAL).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">DEFAULT_LIBRARY_REGISTRY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://libraryregistry.librarysimplified.org/&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">integration</span> <span class="o">=</span> <span class="n">integration</span>
+
+<div class="viewcode-block" id="RemoteRegistry.for_integration_id"><a class="viewcode-back" href="../../api.html#api.registry.RemoteRegistry.for_integration_id">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_integration_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">integration_id</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find a LibraryRegistry object configured</span>
+<span class="sd">        by the given ExternalIntegration ID.</span>
+
+<span class="sd">        :param goal: The ExternalIntegration&#39;s .goal must be this goal.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span>
+                              <span class="n">goal</span><span class="o">=</span><span class="n">goal</span><span class="p">,</span>
+                              <span class="nb">id</span><span class="o">=</span><span class="n">integration_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteRegistry.for_protocol_and_goal"><a class="viewcode-back" href="../../api.html#api.registry.RemoteRegistry.for_protocol_and_goal">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_protocol_and_goal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all LibraryRegistry objects with the given protocol and goal.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">goal</span><span class="p">,</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">protocol</span><span class="o">==</span><span class="n">protocol</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">yield</span> <span class="bp">cls</span><span class="p">(</span><span class="n">i</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteRegistry.for_protocol_goal_and_url"><a class="viewcode-back" href="../../api.html#api.registry.RemoteRegistry.for_protocol_goal_and_url">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_protocol_goal_and_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get a LibraryRegistry for the given protocol, goal, and</span>
+<span class="sd">        URL. Create the corresponding ExternalIntegration if necessary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">with_setting_value</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">URL</span><span class="p">,</span> <span class="n">url</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">NoResultFound</span><span class="p">:</span>
+            <span class="n">integration</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="n">integration</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="n">goal</span>
+            <span class="p">)</span>
+            <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">URL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">url</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">registrations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all of this site&#39;s successful registrations with</span>
+<span class="sd">        this RemoteRegistry.</span>
+
+<span class="sd">        :yield: A sequence of Registration objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">Registration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Registration"><a class="viewcode-back" href="../../api.html#api.registry.Registration">[docs]</a><span class="k">class</span> <span class="nc">Registration</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A library&#39;s registration for a particular registry.</span>
+
+<span class="sd">    The registration does not correspond to one specific data model</span>
+<span class="sd">    object -- it&#39;s a relationship between a Library and an</span>
+<span class="sd">    ExternalIntegration, and a set of ConfigurationSettings that</span>
+<span class="sd">    configure the relationship between the two.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># A library may be succesfully registered with a registry, or the</span>
+    <span class="c1"># registration may have failed.</span>
+    <span class="n">LIBRARY_REGISTRATION_STATUS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;library-registration-status&quot;</span>
+    <span class="n">SUCCESS_STATUS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;success&quot;</span>
+    <span class="n">FAILURE_STATUS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;failure&quot;</span>
+
+    <span class="c1"># A library may be registered in a &#39;testing&#39; stage or a</span>
+    <span class="c1"># &#39;production&#39; stage. This represents the _library&#39;s_ opinion</span>
+    <span class="c1"># about whether the integration is ready for production. The</span>
+    <span class="c1"># library won&#39;t actually be in production (whatever that means for</span>
+    <span class="c1"># a given integration) until the _remote_ also thinks it should.</span>
+    <span class="c1">#</span>
+    <span class="c1"># TODO: Registration through the admin interface always happens in</span>
+    <span class="c1"># &#39;production&#39; because there is no UI for specifying which stage</span>
+    <span class="c1"># to use.  When registration happens through a script, the admin gets</span>
+    <span class="c1"># to specify &#39;testing&#39; or &#39;production&#39;.</span>
+    <span class="n">LIBRARY_REGISTRATION_STAGE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;library-registration-stage&quot;</span>
+    <span class="n">TESTING_STAGE</span> <span class="o">=</span> <span class="s2">&quot;testing&quot;</span>
+    <span class="n">PRODUCTION_STAGE</span> <span class="o">=</span> <span class="s2">&quot;production&quot;</span>
+    <span class="n">VALID_REGISTRATION_STAGES</span> <span class="o">=</span> <span class="p">[</span><span class="n">TESTING_STAGE</span><span class="p">,</span> <span class="n">PRODUCTION_STAGE</span><span class="p">]</span>
+
+    <span class="c1"># A registry may provide access to a web client. If so, we&#39;ll store</span>
+    <span class="c1"># the URL so we can enable CORS headers in requests from that client,</span>
+    <span class="c1"># and use it in MARC records so the library&#39;s main catalog can link</span>
+    <span class="c1"># to it.</span>
+    <span class="n">LIBRARY_REGISTRATION_WEB_CLIENT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;library-registration-web-client&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">registry</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">registry</span> <span class="o">=</span> <span class="n">registry</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">integration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integration</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">library</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">libraries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+
+        <span class="c1"># Find or create all the ConfigurationSettings that configure</span>
+        <span class="c1"># this relationship between library and registry.</span>
+        <span class="c1"># Has the registration succeeded? (Initial value: no.)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_REGISTRATION_STATUS</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FAILURE_STATUS</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Does the library want to be in the testing or production stage?</span>
+        <span class="c1"># (Initial value: testing.)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stage_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_REGISTRATION_STAGE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">TESTING_STAGE</span>
+        <span class="p">)</span>
+
+        <span class="c1"># If the registry provides a web client for the library, it will</span>
+        <span class="c1"># be stored in this setting.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">web_client_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_REGISTRATION_WEB_CLIENT</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Registration.setting"><a class="viewcode-back" href="../../api.html#api.registry.Registration.setting">[docs]</a>    <span class="k">def</span> <span class="nf">setting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a ConfigurationSetting that configures this</span>
+<span class="sd">        relationship between library and registry.</span>
+
+<span class="sd">        :param key: Name of the ConfigurationSetting.</span>
+<span class="sd">        :return: A 2-tuple (ConfigurationSetting, is_new)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">setting</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">default_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">default_value</span>
+        <span class="k">return</span> <span class="n">setting</span></div>
+
+<div class="viewcode-block" id="Registration.push"><a class="viewcode-back" href="../../api.html#api.registry.Registration.push">[docs]</a>    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">url_for</span><span class="p">,</span> <span class="n">catalog_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">debuggable_get</span><span class="p">,</span>
+             <span class="n">do_post</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">debuggable_post</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attempt to register a library with a RemoteRegistry.</span>
+
+<span class="sd">        NOTE: This method is designed to be used in a</span>
+<span class="sd">        controller. Other callers may use this method, but they must be</span>
+<span class="sd">        able to render a ProblemDetail when there&#39;s a failure.</span>
+
+<span class="sd">        NOTE: The application server must be running when this method</span>
+<span class="sd">        is called, because part of the OPDS Directory Registration</span>
+<span class="sd">        Protocol is the remote server retrieving the library&#39;s</span>
+<span class="sd">        Authentication For OPDS document.</span>
+
+<span class="sd">        :param stage: Either TESTING_STAGE or PRODUCTION_STAGE</span>
+<span class="sd">        :param url_for: Flask url_for() or equivalent, used to generate URLs</span>
+<span class="sd">            for the application server.</span>
+<span class="sd">        :param do_get: Mockable method to make a GET request.</span>
+<span class="sd">        :param do_post: Mockable method to make a POST request.</span>
+
+<span class="sd">        :return: A ProblemDetail if there was a problem; otherwise True.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Assume that the registration will fail.</span>
+        <span class="c1">#</span>
+        <span class="c1"># TODO: If a registration has previously succeeded, failure to</span>
+        <span class="c1"># re-register probably means a maintenance of the status quo,</span>
+        <span class="c1"># not a change of success to failure. But we don&#39;t have any way</span>
+        <span class="c1"># of being sure.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_field</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FAILURE_STATUS</span>
+
+        <span class="k">if</span> <span class="n">stage</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">VALID_REGISTRATION_STAGES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INVALID_INPUT</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%r</span><span class="s2"> is not a valid registration stage&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">stage</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Verify that a public/private key pair exists for this library.</span>
+        <span class="c1"># This key pair is created during initialization of the</span>
+        <span class="c1"># LibraryAuthenticator, so this should always be present.</span>
+        <span class="c1">#</span>
+        <span class="c1"># We can&#39;t just create the key pair here because the process</span>
+        <span class="c1"># of pushing a registration involves the other site making a</span>
+        <span class="c1"># request to the circulation manager. This means the key pair</span>
+        <span class="c1"># needs to be committed to the database _before_ the push</span>
+        <span class="c1"># attempt starts.</span>
+        <span class="n">key_pair</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+            <span class="n">Configuration</span><span class="o">.</span><span class="n">KEY_PAIR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">key_pair</span><span class="p">:</span>
+            <span class="c1"># TODO: We could create the key pair _here_. The database</span>
+            <span class="c1"># session will be committed at the end of this request,</span>
+            <span class="c1"># so the push attempt would succeed if repeated.</span>
+            <span class="k">return</span> <span class="n">SHARED_SECRET_DECRYPTION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library </span><span class="si">%(library)s</span><span class="s2"> has no key pair set.&quot;</span><span class="p">,</span>
+                  <span class="n">library</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">public_key</span><span class="p">,</span> <span class="n">private_key</span> <span class="o">=</span> <span class="n">key_pair</span>
+        <span class="n">cipher</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">cipher</span><span class="p">(</span><span class="n">private_key</span><span class="p">)</span>
+
+        <span class="c1"># Before we can start the registration protocol, we must fetch</span>
+        <span class="c1"># the remote catalog&#39;s URL and extract the link to the</span>
+        <span class="c1"># registration resource that kicks off the protocol.</span>
+        <span class="n">catalog_url</span> <span class="o">=</span> <span class="n">catalog_url</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">url</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">catalog_url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">response</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_catalog_information</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="n">register_url</span><span class="p">,</span> <span class="n">vendor_id</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="c1"># Store the vendor id as a ConfigurationSetting on the integration</span>
+        <span class="c1"># -- it&#39;ll be the same value for all libraries.</span>
+        <span class="k">if</span> <span class="n">vendor_id</span><span class="p">:</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_externalintegration</span><span class="p">(</span>
+                <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">VENDOR_ID_KEY</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">vendor_id</span>
+
+        <span class="c1"># Build the document we&#39;ll be sending to the registration URL.</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_registration_payload</span><span class="p">(</span><span class="n">url_for</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">payload</span>
+
+        <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_registration_headers</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">headers</span>
+
+        <span class="c1"># Send the document.</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_registration_request</span><span class="p">(</span>
+            <span class="n">register_url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">do_post</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">response</span>
+        <span class="n">catalog</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+
+        <span class="c1"># Process the result.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_registration_result</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span> <span class="n">cipher</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span></div>
+
+    <span class="n">OPDS_1_PREFIX</span> <span class="o">=</span> <span class="s2">&quot;application/atom+xml;profile=opds-catalog&quot;</span>
+    <span class="n">OPDS_2_TYPE</span> <span class="o">=</span> <span class="s2">&quot;application/opds+json&quot;</span>
+
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_extract_catalog_information</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;From an OPDS catalog, extract information that&#39;s essential to</span>
+<span class="sd">        kickstarting the OPDS Directory Registration Protocol.</span>
+
+<span class="sd">        :param response: A requests-style Response object.</span>
+
+<span class="sd">        :return A ProblemDetail if there&#39;s a problem, otherwise a</span>
+<span class="sd">        2-tuple (registration URL, Adobe vendor ID).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># The catalog URL must be either an OPDS 2 catalog or an OPDS 1 feed.</span>
+        <span class="nb">type</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="ow">and</span> <span class="nb">type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">OPDS_2_TYPE</span><span class="p">):</span>
+            <span class="c1"># This is an OPDS 2 catalog.</span>
+            <span class="n">catalog</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">links</span> <span class="o">=</span> <span class="n">catalog</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="n">vendor_id</span> <span class="o">=</span> <span class="n">catalog</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;adobe_vendor_id&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span> <span class="ow">and</span> <span class="nb">type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">OPDS_1_PREFIX</span><span class="p">):</span>
+            <span class="c1"># This is an OPDS 1 feed.</span>
+            <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">links</span> <span class="o">=</span> <span class="n">feed</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feed&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="n">vendor_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;The service at </span><span class="si">%(url)s</span><span class="s2"> did not return OPDS.&quot;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">url</span><span class="p">))</span>
+
+        <span class="n">register_url</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;register&quot;</span><span class="p">:</span>
+                <span class="n">register_url</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">register_url</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">REMOTE_INTEGRATION_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;The service at </span><span class="si">%(url)s</span><span class="s2"> did not provide a register link.&quot;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">url</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">register_url</span><span class="p">,</span> <span class="n">vendor_id</span>
+
+    <span class="k">def</span> <span class="nf">_create_registration_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url_for</span><span class="p">,</span> <span class="n">stage</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Collect the key-value pairs to be sent when kicking off the</span>
+<span class="sd">        registration protocol.</span>
+
+<span class="sd">        :param url_for: An implementation of Flask url_for.</span>
+<span class="sd">        :param state: The registrant&#39;s opinion about what stage this</span>
+<span class="sd">           registration should be in.</span>
+<span class="sd">        :return: A dictionary suitable for passing into requests.post.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">auth_document_url</span> <span class="o">=</span> <span class="n">url_for</span><span class="p">(</span>
+            <span class="s2">&quot;authentication_document&quot;</span><span class="p">,</span>
+            <span class="n">library_short_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
+        <span class="p">)</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">auth_document_url</span><span class="p">,</span> <span class="n">stage</span><span class="o">=</span><span class="n">stage</span><span class="p">)</span>
+
+        <span class="c1"># Find the email address the administrator should use if they notice</span>
+        <span class="c1"># a problem with the way the library is using an integration.</span>
+        <span class="n">contact</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">configuration_contact_uri</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">contact</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s1">&#39;contact&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">contact</span>
+        <span class="k">return</span> <span class="n">payload</span>
+
+    <span class="k">def</span> <span class="nf">_create_registration_headers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">shared_secret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">shared_secret</span><span class="p">:</span>
+            <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Authorization&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Bearer </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">shared_secret</span>
+        <span class="k">return</span> <span class="n">headers</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_send_registration_request</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">register_url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">do_post</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Send the request that actually kicks off the OPDS Directory</span>
+<span class="sd">        Registration Protocol.</span>
+
+<span class="sd">        :return: Either a ProblemDetail or a requests-like Response object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Allow 400 and 401 so we can provide a more useful error message.</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">do_post</span><span class="p">(</span>
+            <span class="n">register_url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">payload</span><span class="o">=</span><span class="n">payload</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+            <span class="n">allowed_response_codes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;2xx&quot;</span><span class="p">,</span> <span class="s2">&quot;3xx&quot;</span><span class="p">,</span> <span class="s2">&quot;400&quot;</span><span class="p">,</span> <span class="s2">&quot;401&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">400</span><span class="p">,</span> <span class="mi">401</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">PROBLEM_DETAIL_JSON_MEDIA_TYPE</span><span class="p">:</span>
+                <span class="n">problem</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote service returned: </span><span class="se">\&quot;</span><span class="si">%(problem)s</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;detail&quot;</span><span class="p">)))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote service returned: </span><span class="se">\&quot;</span><span class="si">%(problem)s</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">problem</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">response</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_decrypt_shared_secret</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">cipher</span><span class="p">,</span> <span class="n">shared_secret</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attempt to decrypt an encrypted shared secret.</span>
+
+<span class="sd">        :param cipher: A Cipher object.</span>
+
+<span class="sd">        :return: The decrypted shared secret, or a ProblemDetail if</span>
+<span class="sd">        it could not be decrypted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">cipher</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SHARED_SECRET_DECRYPTION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Could not decrypt shared secret </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="n">shared_secret</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">shared_secret</span>
+
+    <span class="k">def</span> <span class="nf">_process_registration_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">catalog</span><span class="p">,</span> <span class="n">cipher</span><span class="p">,</span> <span class="n">desired_stage</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;We just sent out a registration request and got an OPDS catalog</span>
+<span class="sd">        in return. Process that catalog.</span>
+
+<span class="sd">        :param catalog: A dictionary derived from an OPDS 2 catalog.</span>
+<span class="sd">        :param cipher: A Cipher object.</span>
+<span class="sd">        :param desired_stage: Our opinion, as communicated to the</span>
+<span class="sd">            server, about whether this library is ready to go into</span>
+<span class="sd">            production.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Since every library has a public key, the catalog should have provided</span>
+        <span class="c1"># credentials for future authenticated communication,</span>
+        <span class="c1"># e.g. through Short Client Tokens or authenticated API</span>
+        <span class="c1"># requests.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">INTEGRATION_ERROR</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span>
+                <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Remote service served </span><span class="si">%(representation)r</span><span class="s2">, which I can&#39;t make sense of as an OPDS document.&quot;</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="n">catalog</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">catalog</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">short_name</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;short_name&quot;</span><span class="p">)</span>
+        <span class="n">shared_secret</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;shared_secret&quot;</span><span class="p">)</span>
+        <span class="n">links</span> <span class="o">=</span> <span class="n">catalog</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;links&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+        <span class="n">web_client_url</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;self&quot;</span> <span class="ow">and</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;text/html&quot;</span><span class="p">:</span>
+                <span class="n">web_client_url</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">short_name</span><span class="p">:</span>
+             <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">)</span>
+             <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">short_name</span>
+        <span class="k">if</span> <span class="n">shared_secret</span><span class="p">:</span>
+            <span class="n">shared_secret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decrypt_shared_secret</span><span class="p">(</span>
+                <span class="n">cipher</span><span class="p">,</span> <span class="n">shared_secret</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">shared_secret</span>
+
+            <span class="n">setting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">)</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">shared_secret</span>
+
+        <span class="c1"># We have successfully completed the registration.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_field</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUCCESS_STATUS</span>
+
+        <span class="c1"># Our opinion about the proper stage of this library was succesfully</span>
+        <span class="c1"># communicated to the registry.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stage_field</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">desired_stage</span>
+
+        <span class="c1"># Store the web client URL as a ConfigurationSetting.</span>
+        <span class="k">if</span> <span class="n">web_client_url</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">web_client_field</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">web_client_url</span>
+
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="LibraryRegistrationScript"><a class="viewcode-back" href="../../api.html#api.registry.LibraryRegistrationScript">[docs]</a><span class="k">class</span> <span class="nc">LibraryRegistrationScript</span><span class="p">(</span><span class="n">LibraryInputScript</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Register local libraries with a remote library registry.&quot;&quot;&quot;</span>
+
+    <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_REGISTRATION</span>
+    <span class="n">GOAL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">DISCOVERY_GOAL</span>
+
+<div class="viewcode-block" id="LibraryRegistrationScript.arg_parser"><a class="viewcode-back" href="../../api.html#api.registry.LibraryRegistrationScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="n">LibraryInputScript</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s1">&#39;--registry-url&#39;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Register libraries with the given registry.&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="n">RemoteRegistry</span><span class="o">.</span><span class="n">DEFAULT_LIBRARY_REGISTRY_URL</span>
+        <span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s1">&#39;--stage&#39;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Register these libraries in the &#39;testing&#39; stage or the &#39;production&#39; stage.&quot;</span><span class="p">,</span>
+            <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="n">Registration</span><span class="o">.</span><span class="n">TESTING_STAGE</span><span class="p">,</span> <span class="n">Registration</span><span class="o">.</span><span class="n">PRODUCTION_STAGE</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">parser</span></div>
+
+<div class="viewcode-block" id="LibraryRegistrationScript.do_run"><a class="viewcode-back" href="../../api.html#api.registry.LibraryRegistrationScript.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">in_unit_test</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="p">)</span>
+
+        <span class="n">url</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">registry_url</span>
+        <span class="n">registry</span> <span class="o">=</span> <span class="n">RemoteRegistry</span><span class="o">.</span><span class="n">for_protocol_goal_and_url</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PROTOCOL</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">GOAL</span><span class="p">,</span> <span class="n">url</span>
+        <span class="p">)</span>
+        <span class="n">stage</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">stage</span>
+
+        <span class="c1"># Set up an application context so we have access to url_for.</span>
+        <span class="kn">from</span> <span class="nn">api.app</span> <span class="k">import</span> <span class="n">app</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">manager</span> <span class="o">=</span> <span class="n">CirculationManager</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="n">in_unit_test</span><span class="p">)</span>
+        <span class="n">base_url</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">test_request_context</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="n">base_url</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">push</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="n">parsed</span><span class="o">.</span><span class="n">libraries</span><span class="p">:</span>
+            <span class="n">registration</span> <span class="o">=</span> <span class="n">Registration</span><span class="p">(</span><span class="n">registry</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
+            <span class="n">library_stage</span> <span class="o">=</span> <span class="n">stage</span> <span class="ow">or</span> <span class="n">registration</span><span class="o">.</span><span class="n">stage_field</span><span class="o">.</span><span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">process_library</span><span class="p">(</span>
+                <span class="n">registration</span><span class="p">,</span> <span class="n">library_stage</span><span class="p">,</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">url_for</span>
+            <span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+        <span class="c1"># For testing purposes, return the application object that was</span>
+        <span class="c1"># created.</span>
+        <span class="k">return</span> <span class="n">app</span></div>
+
+<div class="viewcode-block" id="LibraryRegistrationScript.process_library"><a class="viewcode-back" href="../../api.html#api.registry.LibraryRegistrationScript.process_library">[docs]</a>    <span class="k">def</span> <span class="nf">process_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">registration</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">url_for</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Push one Library&#39;s registration to the given RemoteRegistry.&quot;&quot;&quot;</span>
+
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span>
+            <span class="s2">&quot;Registration of library </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">registration</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Registering with </span><span class="si">%s</span><span class="s2"> as </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">registration</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">stage</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">registration</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">url_for</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Exception during registration&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">response</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Could not complete registration. Problem detail document: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">data</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Success.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

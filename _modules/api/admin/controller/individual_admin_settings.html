@@ -1,0 +1,339 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.admin.controller.individual_admin_settings &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.admin.controller.individual_admin_settings</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">SettingsController</span>
+<span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Admin</span><span class="p">,</span>
+    <span class="n">AdminRole</span><span class="p">,</span>
+    <span class="n">Library</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="k">import</span> <span class="n">Validator</span>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController">[docs]</a><span class="k">class</span> <span class="nc">IndividualAdminSettingsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">admins</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">admin</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Admin</span><span class="p">):</span>
+            <span class="n">roles</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">admin</span><span class="o">.</span><span class="n">roles</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">admin</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">admin</span><span class="o">.</span><span class="n">is_librarian</span><span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">):</span>
+                        <span class="k">continue</span>
+                    <span class="n">roles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">roles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="o">.</span><span class="n">role</span><span class="p">))</span>
+            <span class="n">admins</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">email</span><span class="o">=</span><span class="n">admin</span><span class="o">.</span><span class="n">email</span><span class="p">,</span> <span class="n">roles</span><span class="o">=</span><span class="n">roles</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">individualAdmins</span><span class="o">=</span><span class="n">admins</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.process_post"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.process_post">[docs]</a>    <span class="k">def</span> <span class="nf">process_post</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">email</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;email&quot;</span><span class="p">)</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_form_fields</span><span class="p">(</span><span class="n">email</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">error</span>
+
+        <span class="c1"># If there are no admins yet, anyone can create the first system admin.</span>
+        <span class="n">settingUp</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Admin</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">settingUp</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;password&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">INCOMPLETE_CONFIGURATION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;The password field cannot be blank.&quot;</span><span class="p">))</span>
+
+        <span class="n">admin</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Admin</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="n">email</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_permissions</span><span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">settingUp</span><span class="p">)</span>
+
+        <span class="n">roles</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;roles&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">roles</span><span class="p">:</span>
+            <span class="n">roles</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">roles</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">roles</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">roles_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_roles</span><span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">roles</span><span class="p">,</span> <span class="n">settingUp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">roles_error</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">roles_error</span>
+
+        <span class="n">password</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;password&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle_password</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="n">admin</span><span class="p">,</span> <span class="n">is_new</span><span class="p">,</span> <span class="n">settingUp</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">response</span><span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">is_new</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.check_permissions"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.check_permissions">[docs]</a>    <span class="k">def</span> <span class="nf">check_permissions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">admin</span><span class="p">,</span> <span class="n">settingUp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Before going any further, check that the user actually has permission</span>
+<span class="sd">         to create/edit this type of admin&quot;&quot;&quot;</span>
+
+         <span class="c1"># For readability: the person who is submitting the form is referred to as &quot;user&quot;</span>
+         <span class="c1"># rather than as something that could be confused with &quot;admin&quot; (the admin</span>
+         <span class="c1"># which the user is submitting the form in order to create/edit.)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">settingUp</span><span class="p">:</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">admin</span>
+
+            <span class="c1"># System admin has all permissions.</span>
+            <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">is_system_admin</span><span class="p">():</span>
+                <span class="k">return</span>
+
+            <span class="c1"># If we&#39;ve hit this point, then the user isn&#39;t a system admin.  If the</span>
+            <span class="c1"># admin is a system admin, the user won&#39;t be able to do anything.</span>
+            <span class="k">if</span> <span class="n">admin</span><span class="o">.</span><span class="n">is_system_admin</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="n">AdminNotAuthorized</span><span class="p">()</span>
+
+            <span class="c1"># By this point, we know no one is a system admin.</span>
+            <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">is_sitewide_library_manager</span><span class="p">():</span>
+                <span class="k">return</span>
+
+            <span class="c1"># The user isn&#39;t a system admin or a sitewide manager.</span>
+            <span class="k">if</span> <span class="n">admin</span><span class="o">.</span><span class="n">is_sitewide_library_manager</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="n">AdminNotAuthorized</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.validate_form_fields"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.validate_form_fields">[docs]</a>    <span class="k">def</span> <span class="nf">validate_form_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check that 1) the user has entered something into the required email field,</span>
+<span class="sd">        and 2) if so, the input is formatted as a valid email address.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">email</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">INCOMPLETE_CONFIGURATION</span>
+        <span class="n">email_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_formats</span><span class="p">(</span><span class="n">email</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">email_error</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">email_error</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.validate_role_exists"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.validate_role_exists">[docs]</a>    <span class="k">def</span> <span class="nf">validate_role_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">ROLES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">UNKNOWN_ROLE</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.look_up_library_for_role"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.look_up_library_for_role">[docs]</a>    <span class="k">def</span> <span class="nf">look_up_library_for_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If the role is affiliated with a particular library, as opposed to being</span>
+<span class="sd">        sitewide, find the library (and check that it actually exists).&quot;&quot;&quot;</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">library_short_name</span> <span class="o">=</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;library&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">library_short_name</span><span class="p">:</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">Library</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">library</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">LIBRARY_NOT_FOUND</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library </span><span class="se">\&quot;</span><span class="si">%(short_name)s</span><span class="se">\&quot;</span><span class="s2"> does not exist.&quot;</span><span class="p">,</span> <span class="n">short_name</span><span class="o">=</span><span class="n">library_short_name</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">library</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.handle_roles"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.handle_roles">[docs]</a>    <span class="k">def</span> <span class="nf">handle_roles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">admin</span><span class="p">,</span> <span class="n">roles</span><span class="p">,</span> <span class="n">settingUp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compare the admin&#39;s existing set of roles against the roles submitted in the form, and,</span>
+<span class="sd">        unless there&#39;s a problem with the roles or the permissions, modify the admin&#39;s roles accordingly&quot;&quot;&quot;</span>
+
+        <span class="c1"># User = person submitting the form; admin = person who the form is about</span>
+
+        <span class="k">if</span> <span class="n">settingUp</span><span class="p">:</span>
+            <span class="c1"># There are no admins yet; the user and the new system admin are the same person.</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">admin</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">admin</span>
+
+        <span class="n">old_roles</span> <span class="o">=</span> <span class="n">admin</span><span class="o">.</span><span class="n">roles</span>
+        <span class="n">old_roles_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">((</span><span class="n">role</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">)</span> <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">old_roles</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">roles</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_role_exists</span><span class="p">(</span><span class="n">role</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">error</span>
+
+            <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_library_for_role</span><span class="p">(</span><span class="n">role</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">library</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">),</span> <span class="n">library</span><span class="p">)</span> <span class="ow">in</span> <span class="n">old_roles_set</span><span class="p">:</span>
+               <span class="c1"># The admin already has this role.</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">require_library_manager</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">SYSTEM_ADMIN</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">settingUp</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">settingUp</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">require_sitewide_library_manager</span><span class="p">()</span>
+            <span class="n">admin</span><span class="o">.</span><span class="n">add_role</span><span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">),</span> <span class="n">library</span><span class="p">)</span>
+
+        <span class="n">new_roles</span> <span class="o">=</span> <span class="nb">set</span><span class="p">((</span><span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;role&quot;</span><span class="p">),</span> <span class="n">role</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;library&quot;</span><span class="p">))</span> <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">roles</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">old_roles</span><span class="p">:</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">:</span>
+                <span class="n">library</span> <span class="o">=</span> <span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span> <span class="ow">in</span> <span class="n">new_roles</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">library</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">require_sitewide_library_manager</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">user</span> <span class="ow">and</span> <span class="n">user</span><span class="o">.</span><span class="n">is_librarian</span><span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">):</span>
+                    <span class="c1"># A librarian can see roles for the library, but only a library manager</span>
+                    <span class="c1"># can delete them.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">require_library_manager</span><span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+                    <span class="n">admin</span><span class="o">.</span><span class="n">remove_role</span><span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># An admin who isn&#39;t a librarian for the library won&#39;t be able to see</span>
+                    <span class="c1"># its roles, so might make requests that change other roles without</span>
+                    <span class="c1"># including this library&#39;s roles. Leave the non-visible roles alone.</span>
+                    <span class="k">continue</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.handle_password"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.handle_password">[docs]</a>    <span class="k">def</span> <span class="nf">handle_password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">admin</span><span class="p">,</span> <span class="n">is_new</span><span class="p">,</span> <span class="n">settingUp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check that the user has permission to change this type of admin&#39;s password&quot;&quot;&quot;</span>
+
+        <span class="c1"># User = person submitting the form; admin = person who the form is about</span>
+        <span class="k">if</span> <span class="n">settingUp</span><span class="p">:</span>
+            <span class="c1"># There are no admins yet; the user and the new system admin are the same person.</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">admin</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">user</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">admin</span>
+
+        <span class="k">if</span> <span class="n">password</span><span class="p">:</span>
+            <span class="c1"># If the admin we&#39;re editing has a sitewide manager role, we&#39;ve already verified</span>
+            <span class="c1"># the current admin&#39;s role in check_permissions. Otherwise, an admin can only change that</span>
+            <span class="c1"># admin&#39;s password if they are a library manager of one of that admin&#39;s</span>
+            <span class="c1"># libraries, or if they are editing a new admin or an admin who has no</span>
+            <span class="c1"># roles yet.</span>
+            <span class="c1"># TODO: set up password reset emails instead.</span>
+            <span class="c1"># NOTE: librarians can change their own passwords via SignInController.change_password(),</span>
+            <span class="c1"># but not via this controller; this is because they don&#39;t have access to the</span>
+            <span class="c1"># IndividualAdmins create/edit form.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_new</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">admin</span><span class="o">.</span><span class="n">is_sitewide_library_manager</span><span class="p">():</span>
+                <span class="n">can_change_pw</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">admin</span><span class="o">.</span><span class="n">roles</span><span class="p">:</span>
+                    <span class="n">can_change_pw</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">if</span> <span class="n">admin</span><span class="o">.</span><span class="n">is_sitewide_librarian</span><span class="p">():</span>
+                    <span class="c1"># A manager of any library can change a sitewide librarian&#39;s password.</span>
+                    <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">is_sitewide_library_manager</span><span class="p">():</span>
+                        <span class="n">can_change_pw</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">user</span><span class="o">.</span><span class="n">roles</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">role</span><span class="o">.</span><span class="n">role</span> <span class="o">==</span> <span class="n">AdminRole</span><span class="o">.</span><span class="n">LIBRARY_MANAGER</span><span class="p">:</span>
+                                <span class="n">can_change_pw</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">admin</span><span class="o">.</span><span class="n">roles</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">is_library_manager</span><span class="p">(</span><span class="n">role</span><span class="o">.</span><span class="n">library</span><span class="p">):</span>
+                            <span class="n">can_change_pw</span> <span class="o">=</span> <span class="kc">True</span>
+                            <span class="k">break</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">can_change_pw</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">AdminNotAuthorized</span><span class="p">()</span>
+            <span class="n">admin</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">password</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">ProgrammingError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">MISSING_PGCRYPTO_EXTENSION</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.response"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.response">[docs]</a>    <span class="k">def</span> <span class="nf">response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">admin</span><span class="p">,</span> <span class="n">is_new</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">admin</span><span class="o">.</span><span class="n">email</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">admin</span><span class="o">.</span><span class="n">email</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IndividualAdminSettingsController.process_delete"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.process_delete">[docs]</a>    <span class="k">def</span> <span class="nf">process_delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">require_sitewide_library_manager</span><span class="p">()</span>
+        <span class="n">admin</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Admin</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="n">email</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">admin</span><span class="o">.</span><span class="n">is_system_admin</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">admin</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MISSING_ADMIN</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">admin</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Deleted&quot;</span><span class="p">)),</span> <span class="mi">200</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  <li><a href="../controller.html">api.admin.controller</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

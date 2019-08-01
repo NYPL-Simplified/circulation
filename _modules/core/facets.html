@@ -1,0 +1,273 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.facets &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.facets</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<div class="viewcode-block" id="FacetConstants"><a class="viewcode-back" href="../../core.html#core.facets.FacetConstants">[docs]</a><span class="k">class</span> <span class="nc">FacetConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="c1"># A special constant, basically an additional rel, indicating that</span>
+    <span class="c1"># an OPDS facet group represents different entry points into a</span>
+    <span class="c1"># WorkList.</span>
+    <span class="n">ENTRY_POINT_REL</span> <span class="o">=</span> <span class="s1">&#39;http://librarysimplified.org/terms/rel/entrypoint&#39;</span>
+    <span class="n">ENTRY_POINT_FACET_GROUP_NAME</span> <span class="o">=</span> <span class="s1">&#39;entrypoint&#39;</span>
+
+    <span class="c1"># Subset the collection, roughly, by quality.</span>
+    <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="o">=</span> <span class="s1">&#39;collection&#39;</span>
+    <span class="n">COLLECTION_FULL</span> <span class="o">=</span> <span class="s2">&quot;full&quot;</span>
+    <span class="n">COLLECTION_MAIN</span> <span class="o">=</span> <span class="s2">&quot;main&quot;</span>
+    <span class="n">COLLECTION_FEATURED</span> <span class="o">=</span> <span class="s2">&quot;featured&quot;</span>
+    <span class="n">COLLECTION_FACETS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">COLLECTION_FULL</span><span class="p">,</span>
+        <span class="n">COLLECTION_MAIN</span><span class="p">,</span>
+        <span class="n">COLLECTION_FEATURED</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Subset the collection by availability.</span>
+    <span class="n">AVAILABILITY_FACET_GROUP_NAME</span> <span class="o">=</span> <span class="s1">&#39;available&#39;</span>
+    <span class="n">AVAILABLE_NOW</span> <span class="o">=</span> <span class="s2">&quot;now&quot;</span>
+    <span class="n">AVAILABLE_ALL</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span>
+    <span class="n">AVAILABLE_OPEN_ACCESS</span> <span class="o">=</span> <span class="s2">&quot;always&quot;</span>
+    <span class="n">AVAILABILITY_FACETS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">AVAILABLE_NOW</span><span class="p">,</span>
+        <span class="n">AVAILABLE_ALL</span><span class="p">,</span>
+        <span class="n">AVAILABLE_OPEN_ACCESS</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># The names of the order facets.</span>
+    <span class="n">ORDER_FACET_GROUP_NAME</span> <span class="o">=</span> <span class="s1">&#39;order&#39;</span>
+    <span class="n">ORDER_TITLE</span> <span class="o">=</span> <span class="s1">&#39;title&#39;</span>
+    <span class="n">ORDER_AUTHOR</span> <span class="o">=</span> <span class="s1">&#39;author&#39;</span>
+    <span class="n">ORDER_LAST_UPDATE</span> <span class="o">=</span> <span class="s1">&#39;last_update&#39;</span>
+    <span class="n">ORDER_ADDED_TO_COLLECTION</span> <span class="o">=</span> <span class="s1">&#39;added&#39;</span>
+    <span class="n">ORDER_SERIES_POSITION</span> <span class="o">=</span> <span class="s1">&#39;series&#39;</span>
+    <span class="n">ORDER_WORK_ID</span> <span class="o">=</span> <span class="s1">&#39;work_id&#39;</span>
+    <span class="n">ORDER_RANDOM</span> <span class="o">=</span> <span class="s1">&#39;random&#39;</span>
+    <span class="c1"># Some order facets, like series and work id,</span>
+    <span class="c1"># only make sense in certain contexts.</span>
+    <span class="c1"># These are the options that can be enabled</span>
+    <span class="c1"># for all feeds as a library-wide setting.</span>
+    <span class="n">ORDER_FACETS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ORDER_TITLE</span><span class="p">,</span>
+        <span class="n">ORDER_AUTHOR</span><span class="p">,</span>
+        <span class="n">ORDER_ADDED_TO_COLLECTION</span><span class="p">,</span>
+        <span class="n">ORDER_RANDOM</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">ORDER_ASCENDING</span> <span class="o">=</span> <span class="s2">&quot;asc&quot;</span>
+    <span class="n">ORDER_DESCENDING</span> <span class="o">=</span> <span class="s2">&quot;desc&quot;</span>
+
+    <span class="c1"># Most facets should be ordered in ascending order by default (A&gt;-Z), but</span>
+    <span class="c1"># these dates should be ordered descending by default (new-&gt;old).</span>
+    <span class="n">ORDER_DESCENDING_BY_DEFAULT</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ORDER_ADDED_TO_COLLECTION</span><span class="p">,</span> <span class="n">ORDER_LAST_UPDATE</span>
+    <span class="p">]</span>
+
+    <span class="n">FACETS_BY_GROUP</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">COLLECTION_FACET_GROUP_NAME</span><span class="p">:</span> <span class="n">COLLECTION_FACETS</span><span class="p">,</span>
+        <span class="n">AVAILABILITY_FACET_GROUP_NAME</span><span class="p">:</span> <span class="n">AVAILABILITY_FACETS</span><span class="p">,</span>
+        <span class="n">ORDER_FACET_GROUP_NAME</span><span class="p">:</span> <span class="n">ORDER_FACETS</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">GROUP_DISPLAY_TITLES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ORDER_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Sort by&quot;</span><span class="p">),</span>
+        <span class="n">AVAILABILITY_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Availability&quot;</span><span class="p">),</span>
+        <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Collection&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="n">GROUP_DESCRIPTIONS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ORDER_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Allow patrons to sort by&quot;</span><span class="p">),</span>
+        <span class="n">AVAILABILITY_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Allow patrons to filter availability to&quot;</span><span class="p">),</span>
+        <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Allow patrons to filter collection to&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="n">FACET_DISPLAY_TITLES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ORDER_TITLE</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Title&#39;</span><span class="p">),</span>
+        <span class="n">ORDER_AUTHOR</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Author&#39;</span><span class="p">),</span>
+        <span class="n">ORDER_LAST_UPDATE</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Last Update&#39;</span><span class="p">),</span>
+        <span class="n">ORDER_ADDED_TO_COLLECTION</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Recently Added&#39;</span><span class="p">),</span>
+        <span class="n">ORDER_SERIES_POSITION</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Series Position&#39;</span><span class="p">),</span>
+        <span class="n">ORDER_WORK_ID</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Work ID&#39;</span><span class="p">),</span>
+        <span class="n">ORDER_RANDOM</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Random&#39;</span><span class="p">),</span>
+
+        <span class="n">AVAILABLE_NOW</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Available now&quot;</span><span class="p">),</span>
+        <span class="n">AVAILABLE_ALL</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;All&quot;</span><span class="p">),</span>
+        <span class="n">AVAILABLE_OPEN_ACCESS</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Yours to keep&quot;</span><span class="p">),</span>
+
+        <span class="n">COLLECTION_FULL</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Everything&quot;</span><span class="p">),</span>
+        <span class="n">COLLECTION_MAIN</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Main Collection&quot;</span><span class="p">),</span>
+        <span class="n">COLLECTION_FEATURED</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Popular Books&quot;</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Unless a library offers an alternate configuration, patrons will</span>
+    <span class="c1"># see these facet groups.</span>
+    <span class="n">DEFAULT_ENABLED_FACETS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ORDER_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="n">ORDER_AUTHOR</span><span class="p">,</span> <span class="n">ORDER_TITLE</span><span class="p">,</span> <span class="n">ORDER_ADDED_TO_COLLECTION</span>
+        <span class="p">],</span>
+        <span class="n">AVAILABILITY_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="n">AVAILABLE_ALL</span><span class="p">,</span> <span class="n">AVAILABLE_NOW</span><span class="p">,</span> <span class="n">AVAILABLE_OPEN_ACCESS</span>
+        <span class="p">],</span>
+        <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="n">COLLECTION_FULL</span><span class="p">,</span> <span class="n">COLLECTION_MAIN</span><span class="p">,</span> <span class="n">COLLECTION_FEATURED</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Unless a library offers an alternate configuration, these</span>
+    <span class="c1"># facets will be the default selection for the facet groups.</span>
+    <span class="n">DEFAULT_FACET</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ORDER_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">ORDER_AUTHOR</span><span class="p">,</span>
+        <span class="n">AVAILABILITY_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">AVAILABLE_ALL</span><span class="p">,</span>
+        <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">COLLECTION_MAIN</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ORDER_TITLE</span> <span class="p">:</span> <span class="s2">&quot;sort_title&quot;</span><span class="p">,</span>
+        <span class="n">ORDER_AUTHOR</span> <span class="p">:</span> <span class="s2">&quot;sort_author&quot;</span><span class="p">,</span>
+        <span class="n">ORDER_LAST_UPDATE</span> <span class="p">:</span> <span class="s1">&#39;last_update_time&#39;</span><span class="p">,</span>
+        <span class="n">ORDER_ADDED_TO_COLLECTION</span> <span class="p">:</span> <span class="s1">&#39;licensepools.availability_time&#39;</span><span class="p">,</span>
+        <span class="n">ORDER_SERIES_POSITION</span> <span class="p">:</span> <span class="p">[</span><span class="s1">&#39;series_position&#39;</span><span class="p">,</span> <span class="s1">&#39;sort_title&#39;</span><span class="p">],</span>
+        <span class="n">ORDER_WORK_ID</span> <span class="p">:</span> <span class="s1">&#39;_id&#39;</span><span class="p">,</span>
+        <span class="n">ORDER_RANDOM</span> <span class="p">:</span> <span class="s1">&#39;random&#39;</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="FacetConfig"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig">[docs]</a><span class="k">class</span> <span class="nc">FacetConfig</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A class that implements the facet-related methods of</span>
+<span class="sd">    Library, and allows modifications to the enabled</span>
+<span class="sd">    and default facets. For use when a controller needs to</span>
+<span class="sd">    use a facet configuration different from the site-wide</span>
+<span class="sd">    facets.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="FacetConfig.from_library"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig.from_library">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_library</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+
+        <span class="n">enabled_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_ENABLED_FACETS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">enabled_facets</span><span class="p">[</span><span class="n">group</span><span class="p">]</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">enabled_facets</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+
+        <span class="n">default_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">default_facets</span><span class="p">[</span><span class="n">group</span><span class="p">]</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">FacetConfig</span><span class="p">(</span><span class="n">enabled_facets</span><span class="p">,</span> <span class="n">default_facets</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enabled_facets</span><span class="p">,</span> <span class="n">default_facets</span><span class="p">,</span> <span class="n">entrypoints</span><span class="o">=</span><span class="p">[]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enabled_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">enabled_facets</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">default_facets</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">entrypoints</span> <span class="o">=</span> <span class="n">entrypoints</span>
+
+<div class="viewcode-block" id="FacetConfig.enabled_facets"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig.enabled_facets">[docs]</a>    <span class="k">def</span> <span class="nf">enabled_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enabled_facets</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FacetConfig.default_facet"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig.default_facet">[docs]</a>    <span class="k">def</span> <span class="nf">default_facet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_facets</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FacetConfig.enable_facet"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig.enable_facet">[docs]</a>    <span class="k">def</span> <span class="nf">enable_facet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">facet</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enabled_facets</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">group_name</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">if</span> <span class="n">facet</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enabled_facets</span><span class="p">[</span><span class="n">group_name</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_enabled_facets</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">facet</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="FacetConfig.set_default_facet"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig.set_default_facet">[docs]</a>    <span class="k">def</span> <span class="nf">set_default_facet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">facet</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add `facet` to the list of possible values for `group_name`, even</span>
+<span class="sd">        if the library does not have that facet configured.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enable_facet</span><span class="p">(</span><span class="n">group_name</span><span class="p">,</span> <span class="n">facet</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_facets</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">facet</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

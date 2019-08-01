@@ -1,0 +1,742 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>api.config &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for api.config</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">contextlib</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="k">import</span> <span class="n">deepcopy</span>
+
+<span class="kn">from</span> <span class="nn">Crypto.PublicKey</span> <span class="k">import</span> <span class="n">RSA</span>
+<span class="kn">from</span> <span class="nn">Crypto.Cipher</span> <span class="k">import</span> <span class="n">PKCS1_OAEP</span>
+
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Configuration</span> <span class="k">as</span> <span class="n">CoreConfiguration</span><span class="p">,</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">IntegrationException</span><span class="p">,</span>
+    <span class="n">empty_config</span> <span class="k">as</span> <span class="n">core_empty_config</span><span class="p">,</span>
+    <span class="n">temp_config</span> <span class="k">as</span> <span class="n">core_temp_config</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">MoneyUtility</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="n">Facets</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="n">ConfigurationSetting</span>
+
+<div class="viewcode-block" id="Configuration"><a class="viewcode-back" href="../../api.html#api.config.Configuration">[docs]</a><span class="k">class</span> <span class="nc">Configuration</span><span class="p">(</span><span class="n">CoreConfiguration</span><span class="p">):</span>
+
+    <span class="n">LENDING_POLICY</span> <span class="o">=</span> <span class="s2">&quot;lending&quot;</span>
+
+    <span class="n">DEFAULT_OPDS_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;simple_opds_entry&quot;</span>
+
+    <span class="c1"># The name of the sitewide url that points to the patron web catalog.</span>
+    <span class="n">PATRON_WEB_CLIENT_URL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Patron Web Client&quot;</span>
+
+    <span class="c1"># The name of the sitewide secret used to sign cookies for admin login.</span>
+    <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;secret_key&quot;</span>
+
+    <span class="c1"># The name of the setting that controls how long static files are cached.</span>
+    <span class="n">STATIC_FILE_CACHE_TIME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;static_file_cache_time&quot;</span>
+
+    <span class="c1"># A short description of the library, used in its Authentication</span>
+    <span class="c1"># for OPDS document.</span>
+    <span class="n">LIBRARY_DESCRIPTION</span> <span class="o">=</span> <span class="s1">&#39;library_description&#39;</span>
+
+    <span class="c1"># The name of the per-library setting that sets the maximum amount</span>
+    <span class="c1"># of fines a patron can have before losing lending privileges.</span>
+    <span class="n">MAX_OUTSTANDING_FINES</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;max_outstanding_fines&quot;</span>
+
+    <span class="c1"># The name of the per-library settings that set the maximum amounts</span>
+    <span class="c1"># of books a patron can have on loan or on hold at once.</span>
+    <span class="c1"># (Note: depending on distributor settings, a patron may be able</span>
+    <span class="c1"># to exceed the limits by checking out books directly from a distributor&#39;s</span>
+    <span class="c1"># app. They may also get a limit exceeded error before they reach these</span>
+    <span class="c1"># limits if a distributor has a smaller limit.)</span>
+    <span class="n">LOAN_LIMIT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;loan_limit&quot;</span>
+    <span class="n">HOLD_LIMIT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;hold_limit&quot;</span>
+
+    <span class="c1"># The name of the per-library setting that sets the default email</span>
+    <span class="c1"># address to use when notifying patrons of changes.</span>
+    <span class="n">DEFAULT_NOTIFICATION_EMAIL_ADDRESS</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;default_notification_email_address&quot;</span>
+
+    <span class="c1"># The name of the per-library setting that sets the email address</span>
+    <span class="c1"># of the Designated Agent for copyright complaints</span>
+    <span class="n">COPYRIGHT_DESIGNATED_AGENT_EMAIL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;copyright_designated_agent_email_address&quot;</span>
+
+    <span class="c1"># This is the link relation used to indicate</span>
+    <span class="n">COPYRIGHT_DESIGNATED_AGENT_REL</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/rel/designated-agent/copyright&quot;</span>
+
+    <span class="c1"># The name of the per-library setting that sets the contact address</span>
+    <span class="c1"># for problems with the library configuration itself.</span>
+    <span class="n">CONFIGURATION_CONTACT_EMAIL</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;configuration_contact_email_address&quot;</span>
+
+    <span class="c1"># Name of the site-wide ConfigurationSetting containing the secret</span>
+    <span class="c1"># used to sign bearer tokens.</span>
+    <span class="n">BEARER_TOKEN_SIGNING_SECRET</span> <span class="o">=</span> <span class="s2">&quot;bearer_token_signing_secret&quot;</span>
+
+    <span class="c1"># Names of per-library ConfigurationSettings that control</span>
+    <span class="c1"># how detailed the lane configuration gets for various languages.</span>
+    <span class="n">LARGE_COLLECTION_LANGUAGES</span> <span class="o">=</span> <span class="s2">&quot;large_collections&quot;</span>
+    <span class="n">SMALL_COLLECTION_LANGUAGES</span> <span class="o">=</span> <span class="s2">&quot;small_collections&quot;</span>
+    <span class="n">TINY_COLLECTION_LANGUAGES</span> <span class="o">=</span> <span class="s2">&quot;tiny_collections&quot;</span>
+
+    <span class="n">LANGUAGE_DESCRIPTION</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;Each value can be either the full name of a language or an &lt;a href=&quot;https://www.loc.gov/standards/iso639-2/php/code_list.php&quot; target=&quot;_blank&quot;&gt;ISO-639-2&lt;/a&gt; language code.&#39;</span><span class="p">)</span>
+
+    <span class="n">HIDDEN_CONTENT_TYPES</span> <span class="o">=</span> <span class="s2">&quot;hidden_content_types&quot;</span>
+
+    <span class="c1"># The color scheme for native mobile applications to use for this library.</span>
+    <span class="n">COLOR_SCHEME</span> <span class="o">=</span> <span class="s2">&quot;color_scheme&quot;</span>
+    <span class="n">DEFAULT_COLOR_SCHEME</span> <span class="o">=</span> <span class="s2">&quot;blue&quot;</span>
+
+    <span class="c1"># The color options for web applications to use for this library.</span>
+    <span class="n">WEB_BACKGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;web-background-color&quot;</span>
+    <span class="n">WEB_FOREGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;web-foreground-color&quot;</span>
+    <span class="n">DEFAULT_WEB_BACKGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;#000000&quot;</span>
+    <span class="n">DEFAULT_WEB_FOREGROUND_COLOR</span> <span class="o">=</span> <span class="s2">&quot;#ffffff&quot;</span>
+
+    <span class="c1"># A link to a CSS file for customizing the catalog display in web applications.</span>
+    <span class="n">WEB_CSS_FILE</span> <span class="o">=</span> <span class="s2">&quot;web-css-file&quot;</span>
+
+    <span class="c1"># Header links and labels for web applications to display for this library.</span>
+    <span class="c1"># TODO: It&#39;s very awkward to have these as separate settings, and separate</span>
+    <span class="c1"># lists of inputs in the UI.</span>
+    <span class="n">WEB_HEADER_LINKS</span> <span class="o">=</span> <span class="s2">&quot;web-header-links&quot;</span>
+    <span class="n">WEB_HEADER_LABELS</span> <span class="o">=</span> <span class="s2">&quot;web-header-labels&quot;</span>
+
+    <span class="c1"># The library-wide logo setting.</span>
+    <span class="n">LOGO</span> <span class="o">=</span> <span class="s2">&quot;logo&quot;</span>
+
+    <span class="c1"># Settings for geographic areas associated with the library.</span>
+    <span class="n">LIBRARY_FOCUS_AREA</span> <span class="o">=</span> <span class="s2">&quot;focus_area&quot;</span>
+    <span class="n">LIBRARY_SERVICE_AREA</span> <span class="o">=</span> <span class="s2">&quot;service_area&quot;</span>
+    <span class="n">AREA_INPUT_INSTRUCTIONS</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span>
+        <span class="sd">&quot;&quot;&quot;&lt;ol&gt;Accepted formats:</span>
+<span class="sd">            &lt;li&gt;US zipcode or Canadian FSA&lt;/li&gt;</span>
+<span class="sd">            &lt;li&gt;Two-letter US state abbreviation&lt;/li&gt;</span>
+<span class="sd">            &lt;li&gt;City, US state abbreviation&lt;i&gt;e.g. &quot;Boston, MA&quot;&lt;/i&gt;&lt;/li&gt;</span>
+<span class="sd">            &lt;li&gt;County, US state abbreviation&lt;i&gt;e.g. &quot;Litchfield County, CT&quot;&lt;/i&gt;&lt;/li&gt;</span>
+<span class="sd">            &lt;li&gt;Canadian province name or two-letter abbreviation&lt;/li&gt;</span>
+<span class="sd">            &lt;li&gt;City, Canadian province name/abbreviation&lt;i&gt;e.g. &quot;Stratford, Ontario&quot;/&quot;Stratford, ON&quot;&lt;/i&gt;&lt;/li&gt;</span>
+<span class="sd">        &lt;/ol&gt;&quot;&quot;&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Names of the library-wide link settings.</span>
+    <span class="n">TERMS_OF_SERVICE</span> <span class="o">=</span> <span class="s1">&#39;terms-of-service&#39;</span>
+    <span class="n">PRIVACY_POLICY</span> <span class="o">=</span> <span class="s1">&#39;privacy-policy&#39;</span>
+    <span class="n">COPYRIGHT</span> <span class="o">=</span> <span class="s1">&#39;copyright&#39;</span>
+    <span class="n">ABOUT</span> <span class="o">=</span> <span class="s1">&#39;about&#39;</span>
+    <span class="n">LICENSE</span> <span class="o">=</span> <span class="s1">&#39;license&#39;</span>
+    <span class="n">REGISTER</span> <span class="o">=</span> <span class="s1">&#39;register&#39;</span>
+
+    <span class="c1"># A library with this many titles in a given language will be given</span>
+    <span class="c1"># a large, detailed lane configuration for that language.</span>
+    <span class="n">LARGE_COLLECTION_CUTOFF</span> <span class="o">=</span> <span class="mi">10000</span>
+    <span class="c1"># A library with this many titles in a given language will be</span>
+    <span class="c1"># given separate fiction and nonfiction lanes for that language.</span>
+    <span class="n">SMALL_COLLECTION_CUTOFF</span> <span class="o">=</span> <span class="mi">500</span>
+    <span class="c1"># A library with fewer titles than that will be given a single</span>
+    <span class="c1"># lane containing all books in that language.</span>
+
+    <span class="c1"># These are link relations that are valid in Authentication for</span>
+    <span class="c1"># OPDS documents but are not registered with IANA.</span>
+    <span class="n">AUTHENTICATION_FOR_OPDS_LINKS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;register&#39;</span><span class="p">]</span>
+
+    <span class="c1"># We support three different ways of integrating help processes.</span>
+    <span class="c1"># All three of these will be sent out as links with rel=&#39;help&#39;</span>
+    <span class="n">HELP_EMAIL</span> <span class="o">=</span> <span class="s1">&#39;help-email&#39;</span>
+    <span class="n">HELP_WEB</span> <span class="o">=</span> <span class="s1">&#39;help-web&#39;</span>
+    <span class="n">HELP_URI</span> <span class="o">=</span> <span class="s1">&#39;help-uri&#39;</span>
+    <span class="n">HELP_LINKS</span> <span class="o">=</span> <span class="p">[</span><span class="n">HELP_EMAIL</span><span class="p">,</span> <span class="n">HELP_WEB</span><span class="p">,</span> <span class="n">HELP_URI</span><span class="p">]</span>
+
+    <span class="c1"># Features of an OPDS client which a library may want to enable or</span>
+    <span class="c1"># disable.</span>
+    <span class="n">RESERVATIONS_FEATURE</span> <span class="o">=</span> <span class="s2">&quot;https://librarysimplified.org/rel/policy/reservations&quot;</span>
+
+    <span class="c1"># Name of the library-wide public key configuration setting for</span>
+    <span class="c1"># negotiating a shared secret with a library registry. The setting</span>
+    <span class="c1"># is automatically generated and not editable by admins.</span>
+    <span class="c1">#</span>
+    <span class="n">KEY_PAIR</span> <span class="o">=</span> <span class="s2">&quot;key-pair&quot;</span>
+
+    <span class="n">SITEWIDE_SETTINGS</span> <span class="o">=</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">SITEWIDE_SETTINGS</span> <span class="o">+</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">BEARER_TOKEN_SIGNING_SECRET</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Internal signing secret for OAuth bearer tokens&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">SECRET_KEY</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Internal secret key for admin interface cookies&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PATRON_WEB_CLIENT_URL</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;URL of the web catalog for patrons&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;allowed&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;*&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You can set this to &#39;*&#39; in development, but you must use a real URL in production in order to prevent unauthorized CORS requests.&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">STATIC_FILE_CACHE_TIME</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Cache time for static images and JS and CSS files (in seconds)&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">LIBRARY_SETTINGS</span> <span class="o">+</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LIBRARY_DESCRIPTION</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A short description of this library&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This will be shown to people who aren&#39;t sure they&#39;ve chosen the right library.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Basic Information&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HELP_EMAIL</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron support email address&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;An email address a patron can use if they need help, e.g. &#39;simplyehelp@yourlibrary.org&#39;.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HELP_WEB</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron support web site&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A URL for patrons to get help.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HELP_URI</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron support custom integration URI&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A custom help integration like Helpstack, e.g. &#39;helpstack:nypl.desk.com&#39;.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">COPYRIGHT_DESIGNATED_AGENT_EMAIL</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Copyright designated agent email&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.&lt;br/&gt;If no value is specified here, the general patron support address will be used.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">CONFIGURATION_CONTACT_EMAIL</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A point of contact for the organization reponsible for configuring this library&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library&#39;s use of that integration.&lt;br/&gt;If no value is specified here, the general patron support address will be used.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">DEFAULT_NOTIFICATION_EMAIL_ADDRESS</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Default email address to use when sending vendor hold notifications&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but &lt;a href=&quot;https://confluence.nypl.org/display/SIM/About+Hold+Notifications&quot; target=&quot;_blank&quot;&gt;cannot be forwarded to patrons&lt;/a&gt; because they contain vendor-specific instructions.&#39;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">COLOR_SCHEME</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Mobile color scheme&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This tells mobile applications what color scheme to use when rendering this library&#39;s OPDS feed.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;amber&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Amber&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Black&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Blue&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;bluegray&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Blue Gray&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;brown&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Brown&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;cyan&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Cyan&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;darkorange&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Dark Orange&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;darkpurple&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Dark Purple&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Green&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Gray&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;indigo&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Indigo&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;lightblue&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Light Blue&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;orange&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Orange&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;pink&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Pink&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Purple&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Red&quot;</span><span class="p">)),</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;teal&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Teal&quot;</span><span class="p">)),</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_COLOR_SCHEME</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_BACKGROUND_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web background color&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This tells web applications what background color to use. Must have sufficient contrast with the foreground color.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;color-picker&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_BACKGROUND_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_FOREGROUND_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web foreground color&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This tells web applications what foreground color to use. Must have sufficient contrast with the background color.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;color-picker&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_WEB_FOREGROUND_COLOR</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_CSS_FILE</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Custom CSS file for web&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Give web applications a CSS file to customize the catalog display.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_HEADER_LINKS</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web header links&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;This gives web applications a list of links to display in the header. Specify labels for each link in the same order under &#39;Web header labels&#39;.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">WEB_HEADER_LABELS</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Web header labels&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Labels for each link under &#39;Web header links&#39;.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOGO</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Logo image&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HIDDEN_CONTENT_TYPES</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Hidden content types&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s1">&#39;A list of content types to hide from all clients, e.g. &lt;code&gt;[&quot;application/pdf&quot;]&lt;/code&gt;. This can be left blank except to solve specific problems.&#39;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Client Interface Customization&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LIBRARY_FOCUS_AREA</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Focus area&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The library focuses on serving patrons in this geographic area. In most cases this will be a city name like &lt;code&gt;Springfield, OR&lt;/code&gt;.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Geographic Areas&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;geographic&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;instructions&quot;</span><span class="p">:</span> <span class="n">AREA_INPUT_INSTRUCTIONS</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LIBRARY_SERVICE_AREA</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Service area&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like &lt;code&gt;OR&lt;/code&gt;).&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Geographic Areas&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;geographic&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;instructions&quot;</span><span class="p">:</span> <span class="n">AREA_INPUT_INSTRUCTIONS</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">MAX_OUTSTANDING_FINES</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Maximum amount in fines a patron can have before losing lending privileges&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOAN_LIMIT</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Maximum number of books a patron can have on loan at once&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor&#39;s app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HOLD_LIMIT</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Maximum number of books a patron can have on hold at once&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor&#39;s app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Loans, Holds, &amp; Fines&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TERMS_OF_SERVICE</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Terms of Service URL&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PRIVACY_POLICY</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Privacy Policy URL&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">COPYRIGHT</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Copyright URL&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ABOUT</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;About URL&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LICENSE</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;License URL&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Links&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">REGISTER</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron registration URL&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A URL where someone who doesn&#39;t have a library card yet can sign up for one.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Patron Support&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LARGE_COLLECTION_LANGUAGES</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;The primary languages represented in this library&#39;s collection&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;language-code&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">LANGUAGE_DESCRIPTION</span><span class="p">,</span>
+            <span class="s2">&quot;optional&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Languages&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">SMALL_COLLECTION_LANGUAGES</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Other major languages represented in this library&#39;s collection&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;language-code&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">LANGUAGE_DESCRIPTION</span><span class="p">,</span>
+            <span class="s2">&quot;optional&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Languages&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TINY_COLLECTION_LANGUAGES</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Other languages in this library&#39;s collection&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;language-code&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">LANGUAGE_DESCRIPTION</span><span class="p">,</span>
+            <span class="s2">&quot;optional&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Languages&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="Configuration.lending_policy"><a class="viewcode-back" href="../../api.html#api.config.Configuration.lending_policy">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">lending_policy</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">policy</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">LENDING_POLICY</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_collection_languages</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up a list of languages in a library configuration.</span>
+
+<span class="sd">        If the value is not set, estimate a value (and all related</span>
+<span class="sd">        values) by looking at the library&#39;s collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">setting</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">json_value</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">pass</span>
+
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We have no value or a bad value. Estimate a better value.</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">estimate_language_collections_for_library</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="Configuration.large_collection_languages"><a class="viewcode-back" href="../../api.html#api.config.Configuration.large_collection_languages">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">large_collection_languages</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_collection_languages</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">LARGE_COLLECTION_LANGUAGES</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Configuration.small_collection_languages"><a class="viewcode-back" href="../../api.html#api.config.Configuration.small_collection_languages">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">small_collection_languages</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_collection_languages</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SMALL_COLLECTION_LANGUAGES</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Configuration.tiny_collection_languages"><a class="viewcode-back" href="../../api.html#api.config.Configuration.tiny_collection_languages">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">tiny_collection_languages</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_collection_languages</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">TINY_COLLECTION_LANGUAGES</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Configuration.max_outstanding_fines"><a class="viewcode-back" href="../../api.html#api.config.Configuration.max_outstanding_fines">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">max_outstanding_fines</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="n">max_fines</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">MAX_OUTSTANDING_FINES</span><span class="p">,</span> <span class="n">library</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_fines</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">MoneyUtility</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">max_fines</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Configuration.load"><a class="viewcode-back" href="../../api.html#api.config.Configuration.load">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">instance</span> <span class="o">=</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">instance</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">instance</span></div>
+
+<div class="viewcode-block" id="Configuration.estimate_language_collections_for_library"><a class="viewcode-back" href="../../api.html#api.config.Configuration.estimate_language_collections_for_library">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">estimate_language_collections_for_library</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Guess at appropriate values for the given library for</span>
+<span class="sd">        LARGE_COLLECTION_LANGUAGES, SMALL_COLLECTION_LANGUAGES, and</span>
+<span class="sd">        TINY_COLLECTION_LANGUAGES. Set configuration values</span>
+<span class="sd">        appropriately, overriding any previous values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">holdings</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">estimated_holdings_by_language</span><span class="p">()</span>
+        <span class="n">large</span><span class="p">,</span> <span class="n">small</span><span class="p">,</span> <span class="n">tiny</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">classify_holdings</span><span class="p">(</span><span class="n">holdings</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">setting</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">LARGE_COLLECTION_LANGUAGES</span><span class="p">,</span> <span class="n">large</span><span class="p">),</span>
+                <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SMALL_COLLECTION_LANGUAGES</span><span class="p">,</span> <span class="n">small</span><span class="p">),</span>
+                <span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">TINY_COLLECTION_LANGUAGES</span><span class="p">,</span> <span class="n">tiny</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span>
+                <span class="n">setting</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Configuration.classify_holdings"><a class="viewcode-back" href="../../api.html#api.config.Configuration.classify_holdings">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">classify_holdings</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">works_by_language</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Divide languages into &#39;large&#39;, &#39;small&#39;, and &#39;tiny&#39; colletions based</span>
+<span class="sd">        on the number of works available for each.</span>
+
+<span class="sd">        :param works_by_language: A Counter mapping languages to the</span>
+<span class="sd">            number of active works available for that language.  The</span>
+<span class="sd">            output of `Library.estimated_holdings_by_language` is a good</span>
+<span class="sd">            thing to pass in.</span>
+
+<span class="sd">        :return: a 3-tuple of lists (large, small, tiny).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">large</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">small</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">tiny</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">large</span><span class="p">,</span> <span class="n">small</span><span class="p">,</span> <span class="n">tiny</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">works_by_language</span><span class="p">:</span>
+            <span class="c1"># In the absence of any information, assume we have an</span>
+            <span class="c1"># English collection and nothing else.</span>
+            <span class="n">large</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;eng&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+
+        <span class="c1"># The single most common language always gets a large</span>
+        <span class="c1"># collection.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Otherwise, it depends on how many works are in the</span>
+        <span class="c1"># collection.</span>
+        <span class="k">for</span> <span class="n">language</span><span class="p">,</span> <span class="n">num_works</span> <span class="ow">in</span> <span class="n">works_by_language</span><span class="o">.</span><span class="n">most_common</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">large</span><span class="p">:</span>
+                <span class="n">bucket</span> <span class="o">=</span> <span class="n">large</span>
+            <span class="k">elif</span> <span class="n">num_works</span> <span class="o">&gt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">LARGE_COLLECTION_CUTOFF</span><span class="p">:</span>
+                <span class="n">bucket</span> <span class="o">=</span> <span class="n">large</span>
+            <span class="k">elif</span> <span class="n">num_works</span> <span class="o">&gt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SMALL_COLLECTION_CUTOFF</span><span class="p">:</span>
+                <span class="n">bucket</span> <span class="o">=</span> <span class="n">small</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">bucket</span> <span class="o">=</span> <span class="n">tiny</span>
+            <span class="n">bucket</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">language</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_as_mailto</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Turn an email address into a mailto: URI.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;mailto:&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="s2">&quot;mailto:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="Configuration.help_uris"><a class="viewcode-back" href="../../api.html#api.config.Configuration.help_uris">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">help_uris</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all the URIs that might help patrons get help from</span>
+<span class="sd">        this library.</span>
+
+<span class="sd">        :yield: A sequence of 2-tuples (media type, URL)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">HELP_LINKS</span><span class="p">:</span>
+            <span class="n">setting</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="nb">type</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">HELP_EMAIL</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_as_mailto</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">HELP_WEB</span><span class="p">:</span>
+                <span class="nb">type</span> <span class="o">=</span> <span class="s1">&#39;text/html&#39;</span>
+            <span class="k">yield</span> <span class="nb">type</span><span class="p">,</span> <span class="n">value</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_email_uri_with_fallback</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to find a certain email address configured for the given</span>
+<span class="sd">        purpose. If not available, use the general patron support</span>
+<span class="sd">        address.</span>
+
+<span class="sd">        :param key: The specific email address to look for.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="p">[</span><span class="n">key</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">HELP_EMAIL</span><span class="p">]:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library</span><span class="p">(</span><span class="n">setting</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_as_mailto</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Configuration.copyright_designated_agent_uri"><a class="viewcode-back" href="../../api.html#api.config.Configuration.copyright_designated_agent_uri">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">copyright_designated_agent_uri</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_email_uri_with_fallback</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">COPYRIGHT_DESIGNATED_AGENT_EMAIL</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Configuration.configuration_contact_uri"><a class="viewcode-back" href="../../api.html#api.config.Configuration.configuration_contact_uri">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">configuration_contact_uri</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_email_uri_with_fallback</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">CONFIGURATION_CONTACT_EMAIL</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Configuration.key_pair"><a class="viewcode-back" href="../../api.html#api.config.Configuration.key_pair">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">key_pair</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">setting</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Look up a public-private key pair in a ConfigurationSetting.</span>
+
+<span class="sd">        If the value is missing or incorrect, a new key pair is</span>
+<span class="sd">        created and stored.</span>
+
+<span class="sd">        TODO: This could go into ConfigurationSetting or core Configuration.</span>
+
+<span class="sd">        :param public_setting: A ConfigurationSetting for the public key.</span>
+<span class="sd">        :param private_setting: A ConfigurationSetting for the private key.</span>
+
+<span class="sd">        :return: A 2-tuple (public key, private key)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">public</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">private</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">public</span><span class="p">,</span> <span class="n">private</span> <span class="o">=</span> <span class="n">setting</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">public</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">private</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">RSA</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="mi">2048</span><span class="p">)</span>
+            <span class="n">encryptor</span> <span class="o">=</span> <span class="n">PKCS1_OAEP</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">public</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">publickey</span><span class="p">()</span><span class="o">.</span><span class="n">exportKey</span><span class="p">()</span>
+            <span class="n">private</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">exportKey</span><span class="p">()</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">([</span><span class="n">public</span><span class="p">,</span> <span class="n">private</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">public</span><span class="p">,</span> <span class="n">private</span></div>
+
+<div class="viewcode-block" id="Configuration.cipher"><a class="viewcode-back" href="../../api.html#api.config.Configuration.cipher">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">cipher</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a Cipher for a public or private key.</span>
+
+<span class="sd">        This just wraps some hard-to-remember Crypto code.</span>
+
+<span class="sd">        :param key: A string containing the key.</span>
+
+<span class="sd">        :return: A Cipher object which will support either</span>
+<span class="sd">            encrypt() (public key) or decrypt() (private key).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">PKCS1_OAEP</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">RSA</span><span class="o">.</span><span class="n">import_key</span><span class="p">(</span><span class="n">key</span><span class="p">))</span></div></div>
+
+
+<div class="viewcode-block" id="empty_config"><a class="viewcode-back" href="../../api.html#api.config.empty_config">[docs]</a><span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+<span class="k">def</span> <span class="nf">empty_config</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">core_empty_config</span><span class="p">({},</span> <span class="p">[</span><span class="n">CoreConfiguration</span><span class="p">,</span> <span class="n">Configuration</span><span class="p">])</span> <span class="k">as</span> <span class="n">i</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">i</span></div>
+
+<div class="viewcode-block" id="temp_config"><a class="viewcode-back" href="../../api.html#api.config.temp_config">[docs]</a><span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+<span class="k">def</span> <span class="nf">temp_config</span><span class="p">(</span><span class="n">new_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">replacement_classes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">all_replacement_classes</span> <span class="o">=</span> <span class="p">[</span><span class="n">CoreConfiguration</span><span class="p">,</span> <span class="n">Configuration</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">replacement_classes</span><span class="p">:</span>
+        <span class="n">all_replacement_classes</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">replacement_classes</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">core_temp_config</span><span class="p">(</span><span class="n">new_config</span><span class="p">,</span> <span class="n">all_replacement_classes</span><span class="p">)</span> <span class="k">as</span> <span class="n">i</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">i</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

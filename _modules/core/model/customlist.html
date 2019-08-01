@@ -1,0 +1,491 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.model.customlist &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.model.customlist</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+<span class="c1"># CustomList, CustomListEntry</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Base</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+<span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Boolean</span><span class="p">,</span>
+    <span class="n">Column</span><span class="p">,</span>
+    <span class="n">DateTime</span><span class="p">,</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Integer</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
+    <span class="n">UniqueConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+
+<div class="viewcode-block" id="CustomList"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList">[docs]</a><span class="k">class</span> <span class="nc">CustomList</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A custom grouping of Editions.&quot;&quot;&quot;</span>
+
+    <span class="n">STAFF_PICKS_NAME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Staff Picks&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;customlists&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">primary_language</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">data_source_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;datasources.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">foreign_identifier</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">description</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+    <span class="n">created</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">updated</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">responsible_party</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># How many titles are in this list? This is calculated and</span>
+    <span class="c1"># cached when the list contents change.</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">entries</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;CustomListEntry&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;customlist&quot;</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;data_source_id&#39;</span><span class="p">,</span> <span class="s1">&#39;foreign_identifier&#39;</span><span class="p">),</span>
+        <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;library_id&#39;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># TODO: It should be possible to associate a CustomList with an</span>
+    <span class="c1"># audience, fiction status, and subject, but there is no planned</span>
+    <span class="c1"># interface for managing this.</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s1">&#39;&lt;Custom List name=&quot;</span><span class="si">%s</span><span class="s1">&quot; foreign_identifier=&quot;</span><span class="si">%s</span><span class="s1">&quot; [</span><span class="si">%d</span><span class="s1"> entries]&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">foreign_identifier</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">)))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CustomList.all_from_data_sources"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList.all_from_data_sources">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">all_from_data_sources</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">data_sources</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;All custom lists from the given data sources.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_sources</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">data_sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">data_sources</span><span class="p">]</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">data_sources</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+                <span class="n">ds</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">ds</span><span class="p">)</span>
+            <span class="n">ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">CustomList</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CustomList</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">ids</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="CustomList.find"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList.find">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">find</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">foreign_identifier_or_name</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds a foreign list in the database by its foreign_identifier</span>
+<span class="sd">        or its name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">source_name</span> <span class="o">=</span> <span class="n">data_source</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
+            <span class="n">source_name</span> <span class="o">=</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">foreign_identifier</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">foreign_identifier_or_name</span><span class="p">)</span>
+
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">source_name</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">CustomList</span><span class="o">.</span><span class="n">data_source</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">DataSource</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="n">unicode</span><span class="p">(</span><span class="n">source_name</span><span class="p">))</span>
+
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">or_</span><span class="p">(</span><span class="n">CustomList</span><span class="o">.</span><span class="n">foreign_identifier</span><span class="o">==</span><span class="n">foreign_identifier</span><span class="p">,</span>
+                <span class="n">CustomList</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="n">foreign_identifier</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CustomList</span><span class="o">.</span><span class="n">library_id</span><span class="o">==</span><span class="n">library</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CustomList</span><span class="o">.</span><span class="n">library_id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">custom_lists</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">custom_lists</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">custom_lists</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">featured_works</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">editions</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">edition</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">featured</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">editions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[</span><span class="n">ed</span><span class="o">.</span><span class="n">primary_identifier</span> <span class="k">for</span> <span class="n">ed</span> <span class="ow">in</span> <span class="n">editions</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">Work</span><span class="o">.</span><span class="n">from_identifiers</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CustomList.add_entry"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList.add_entry">[docs]</a>    <span class="k">def</span> <span class="nf">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_or_edition</span><span class="p">,</span> <span class="n">annotation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">first_appearance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">featured</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">update_external_index</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add a work to a CustomList.</span>
+<span class="sd">        :param update_external_index: When a Work is added to a list,</span>
+<span class="sd">        its external index needs to be updated. The only reason not to</span>
+<span class="sd">        do this is when the current database session already contains</span>
+<span class="sd">        a new WorkCoverageRecord for this purpose (e.g. because the</span>
+<span class="sd">        Work was just created) and creating another one would violate</span>
+<span class="sd">        the workcoveragerecords table&#39;s unique constraint.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">first_appearance</span> <span class="o">=</span> <span class="n">first_appearance</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">edition</span> <span class="o">=</span> <span class="n">work_or_edition</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">,</span> <span class="n">Work</span><span class="p">):</span>
+            <span class="n">edition</span> <span class="o">=</span> <span class="n">work_or_edition</span><span class="o">.</span><span class="n">presentation_edition</span>
+
+        <span class="n">existing</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries_for_work</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">existing</span><span class="p">:</span>
+            <span class="n">was_new</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="n">existing</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">entry</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">equivalent_entries</span><span class="o">=</span><span class="n">existing</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">edition</span> <span class="o">=</span> <span class="n">edition</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">entry</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">CustomListEntry</span><span class="p">,</span>
+                <span class="n">customlist</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">edition</span><span class="o">=</span><span class="n">edition</span><span class="p">,</span>
+                <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">first_appearance</span><span class="o">=</span><span class="n">first_appearance</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">most_recent_appearance</span>
+            <span class="ow">or</span> <span class="n">entry</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">&lt;</span> <span class="n">first_appearance</span><span class="p">):</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="n">first_appearance</span>
+        <span class="k">if</span> <span class="n">annotation</span><span class="p">:</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">work</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">work</span>
+        <span class="k">if</span> <span class="n">featured</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">featured</span> <span class="o">=</span> <span class="n">featured</span>
+
+        <span class="k">if</span> <span class="n">was_new</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Make sure the Work&#39;s search document is updated to reflect its new</span>
+        <span class="c1"># list membership.</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">work</span> <span class="ow">and</span> <span class="n">update_external_index</span><span class="p">:</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">entry</span><span class="p">,</span> <span class="n">was_new</span></div>
+
+<div class="viewcode-block" id="CustomList.remove_entry"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList.remove_entry">[docs]</a>    <span class="k">def</span> <span class="nf">remove_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_or_edition</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove the entry for a particular Work or Edition and/or any of its</span>
+<span class="sd">        equivalent Editions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">existing_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries_for_work</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">existing_entries</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+                <span class="c1"># Make sure the Work&#39;s search document is updated to</span>
+                <span class="c1"># reflect its new list membership.</span>
+                <span class="n">entry</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span>
+
+            <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">existing_entries</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">-=</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing_entries</span><span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="CustomList.entries_for_work"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList.entries_for_work">[docs]</a>    <span class="k">def</span> <span class="nf">entries_for_work</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_or_edition</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find all of the entries in the list representing a particular</span>
+<span class="sd">        Edition or Work.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">,</span> <span class="n">Work</span><span class="p">):</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">work_or_edition</span>
+            <span class="n">edition</span> <span class="o">=</span> <span class="n">work_or_edition</span><span class="o">.</span><span class="n">presentation_edition</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">edition</span> <span class="o">=</span> <span class="n">work_or_edition</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">work</span>
+
+        <span class="n">equivalent_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">edition</span><span class="o">.</span><span class="n">equivalent_editions</span><span class="p">()]</span>
+
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">)</span>
+        <span class="n">clauses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">equivalent_ids</span><span class="p">:</span>
+            <span class="n">clauses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CustomListEntry</span><span class="o">.</span><span class="n">edition_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">equivalent_ids</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">work</span><span class="p">:</span>
+            <span class="n">clauses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CustomListEntry</span><span class="o">.</span><span class="n">work</span><span class="o">==</span><span class="n">work</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">clauses</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># This shouldn&#39;t happen, but if it does, there can be</span>
+            <span class="c1"># no matching results.</span>
+            <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">CustomListEntry</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">clauses</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">clause</span> <span class="o">=</span> <span class="n">clauses</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span><span class="o">*</span><span class="n">clauses</span><span class="p">)</span>
+
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">CustomListEntry</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">CustomListEntry</span><span class="o">.</span><span class="n">customlist</span><span class="o">==</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">clause</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
+<div class="viewcode-block" id="CustomList.update_size"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList.update_size">[docs]</a>    <span class="k">def</span> <span class="nf">update_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="CustomListEntry"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomListEntry">[docs]</a><span class="k">class</span> <span class="nc">CustomListEntry</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;customlistentries&#39;</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">list_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;customlists.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">edition_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;editions.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">work_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;works.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">featured</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">annotation</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">)</span>
+
+    <span class="c1"># These two fields are for best-seller lists. Even after a book</span>
+    <span class="c1"># drops off the list, the fact that it once was on the list is</span>
+    <span class="c1"># still relevant.</span>
+    <span class="n">first_appearance</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">DateTime</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CustomListEntry.set_work"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomListEntry.set_work">[docs]</a>    <span class="k">def</span> <span class="nf">set_work</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If possible, identify a locally known Work that is the same</span>
+<span class="sd">        title as the title identified by this CustomListEntry.</span>
+
+<span class="sd">        :param policy: A PresentationCalculationPolicy, used to</span>
+<span class="sd">           determine how far to go when looking for equivalent</span>
+<span class="sd">           Identifiers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">edition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edition</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">edition</span><span class="p">:</span>
+            <span class="c1"># This shouldn&#39;t happen, but no edition means no work</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span>
+
+        <span class="n">new_work</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">..metadata_layer</span> <span class="k">import</span> <span class="n">Metadata</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="n">Metadata</span><span class="o">.</span><span class="n">from_edition</span><span class="p">(</span><span class="n">edition</span><span class="p">)</span>
+
+        <span class="c1"># Try to guess based on metadata, if we can get a high-quality</span>
+        <span class="c1"># guess.</span>
+        <span class="n">potential_license_pools</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">guess_license_pools</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">lp</span><span class="p">,</span> <span class="n">quality</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span>
+                <span class="n">potential_license_pools</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">lp</span><span class="o">.</span><span class="n">deliverable</span> <span class="ow">and</span> <span class="n">lp</span><span class="o">.</span><span class="n">work</span> <span class="ow">and</span> <span class="n">quality</span> <span class="o">&gt;=</span> <span class="mf">0.8</span><span class="p">:</span>
+                <span class="c1"># This work has at least one deliverable LicensePool</span>
+                <span class="c1"># associated with it, so it&#39;s likely to be real</span>
+                <span class="c1"># data and not leftover junk.</span>
+                <span class="n">new_work</span> <span class="o">=</span> <span class="n">lp</span><span class="o">.</span><span class="n">work</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">new_work</span><span class="p">:</span>
+            <span class="c1"># Try using the less reliable, more expensive method of</span>
+            <span class="c1"># matching based on equivalent identifiers.</span>
+            <span class="n">equivalent_identifier_id_subquery</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span>
+            <span class="p">)</span>
+            <span class="n">pool_q</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">equivalent_identifier_id_subquery</span><span class="p">))</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span><span class="o">.</span><span class="n">desc</span><span class="p">(),</span>
+                    <span class="n">LicensePool</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span><span class="o">.</span><span class="n">asc</span><span class="p">())</span>
+            <span class="n">pools</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pool_q</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">deliverable</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="n">pools</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">deliverable</span> <span class="ow">and</span> <span class="n">pool</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+                    <span class="n">new_work</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">work</span>
+                    <span class="k">break</span>
+
+        <span class="n">old_work</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span>
+        <span class="k">if</span> <span class="n">old_work</span> <span class="o">!=</span> <span class="n">new_work</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">old_work</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Changing work for list entry </span><span class="si">%r</span><span class="s2"> to </span><span class="si">%r</span><span class="s2"> (was </span><span class="si">%r</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">edition</span><span class="p">,</span> <span class="n">new_work</span><span class="p">,</span> <span class="n">old_work</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Setting work for list entry </span><span class="si">%r</span><span class="s2"> to </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">edition</span><span class="p">,</span> <span class="n">new_work</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="n">new_work</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span></div>
+
+<div class="viewcode-block" id="CustomListEntry.update"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomListEntry.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">equivalent_entries</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Combines any number of equivalent entries into a single entry</span>
+<span class="sd">        and updates the edition being used to represent the Work.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">work</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">equivalent_entries</span><span class="p">:</span>
+            <span class="c1"># There are no entries to compare against. Leave it be.</span>
+            <span class="k">return</span>
+        <span class="n">equivalent_entries</span> <span class="o">+=</span> <span class="p">[</span><span class="bp">self</span><span class="p">]</span>
+        <span class="n">equivalent_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">equivalent_entries</span><span class="p">))</span>
+
+        <span class="c1"># Confirm that all the entries are from the same CustomList.</span>
+        <span class="n">list_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">e</span><span class="o">.</span><span class="n">list_id</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">equivalent_entries</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">list_ids</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot combine entries on different CustomLists.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Confirm that all the entries are equivalent.</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s2">&quot;Cannot combine entries that represent different Works.&quot;</span>
+        <span class="n">equivalents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">equivalent_editions</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">equivalent_entry</span> <span class="ow">in</span> <span class="n">equivalent_entries</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">equivalent_entry</span><span class="o">.</span><span class="n">edition</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">equivalents</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+
+        <span class="c1"># And get a Work if one exists.</span>
+        <span class="n">works</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">equivalent_entries</span><span class="p">:</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">edition</span><span class="o">.</span><span class="n">work</span>
+            <span class="k">if</span> <span class="n">work</span><span class="p">:</span>
+                <span class="n">works</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
+        <span class="n">works</span> <span class="o">=</span> <span class="p">[</span><span class="n">w</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">works</span> <span class="k">if</span> <span class="n">w</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">works</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">works</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># This shouldn&#39;t happen, given all the Editions are equivalent.</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+            <span class="p">[</span><span class="n">work</span><span class="p">]</span> <span class="o">=</span> <span class="n">works</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_appearance</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">first_appearance</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">equivalent_entries</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">equivalent_entries</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="n">annotations</span> <span class="o">=</span> <span class="p">[</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">annotation</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">equivalent_entries</span>
+                       <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">annotation</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">annotations</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">annotations</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Just pick the longest one?</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">annotations</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="n">annotations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Reset the entry&#39;s edition to be the Work&#39;s presentation edition.</span>
+        <span class="k">if</span> <span class="n">work</span><span class="p">:</span>
+            <span class="n">best_edition</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">best_edition</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">best_edition</span><span class="p">:</span>
+            <span class="n">work</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">()</span>
+            <span class="n">best_edition</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span>
+        <span class="k">if</span> <span class="n">best_edition</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">best_edition</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">edition</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Changing edition for list entry </span><span class="si">%r</span><span class="s2"> to </span><span class="si">%r</span><span class="s2"> from </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="p">,</span> <span class="n">best_edition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">edition</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">edition</span> <span class="o">=</span> <span class="n">best_edition</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_work</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">equivalent_entries</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">entry</span> <span class="o">!=</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">commit</span></div></div>
+
+<span class="c1"># TODO: This was originally designed to speed up queries against the</span>
+<span class="c1"># materialized view that use custom list membership as a way to cut</span>
+<span class="c1"># down on the result set. Now that we&#39;ve removed the materialized</span>
+<span class="c1"># view, is this still necessary? It might still be necessary for</span>
+<span class="c1"># similar queries against Work.</span>
+<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_customlistentries_work_id_list_id&quot;</span><span class="p">,</span> <span class="n">CustomListEntry</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span> <span class="n">CustomListEntry</span><span class="o">.</span><span class="n">list_id</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../model.html">core.model</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

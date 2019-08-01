@@ -1,1 +1,0 @@
-<PatronCirculation xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><PatronId>foo</PatronId><PatronLibraryId>a4aaa</PatronLibraryId><Checkouts></Checkouts><Holds></Holds><Reserves></Reserves></PatronCirculation>

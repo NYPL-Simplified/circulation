@@ -1,0 +1,247 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>core.mirror &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for core.mirror</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
+
+<div class="viewcode-block" id="MirrorUploader"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader">[docs]</a><span class="k">class</span> <span class="nc">MirrorUploader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Handles the job of uploading a representation&#39;s content to</span>
+<span class="sd">    a mirror that we control.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">STORAGE_GOAL</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;storage&#39;</span>
+
+    <span class="c1"># Depending on the .protocol of an ExternalIntegration with</span>
+    <span class="c1"># .goal=STORAGE, a different subclass might be initialized by</span>
+    <span class="c1"># sitewide() or for_collection(). A subclass that wants to take</span>
+    <span class="c1"># advantage of this should add a mapping here from its .protocol</span>
+    <span class="c1"># to itself.</span>
+    <span class="n">IMPLEMENTATION_REGISTRY</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="MirrorUploader.sitewide"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.sitewide">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">sitewide</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a MirrorUploader from a sitewide configuration.</span>
+
+<span class="sd">        :return: A MirrorUploader.</span>
+
+<span class="sd">        :raise: CannotLoadConfiguration if no integration with</span>
+<span class="sd">            goal==STORAGE_GOAL is configured, or if multiple integrations</span>
+<span class="sd">            are so configured.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">sitewide_integration</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">implementation</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.sitewide_integration"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.sitewide_integration">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">sitewide_integration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the ExternalIntegration for the site-wide mirror.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">ExternalIntegration</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">STORAGE_GOAL</span>
+        <span class="p">)</span>
+        <span class="n">integrations</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;No storage integration is configured.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">integrations</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># If there are multiple integrations configured, none of</span>
+            <span class="c1"># them can be the &#39;site-wide&#39; configuration.</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s1">&#39;Multiple storage integrations are configured&#39;</span>
+            <span class="p">)</span>
+
+        <span class="p">[</span><span class="n">integration</span><span class="p">]</span> <span class="o">=</span> <span class="n">integrations</span>
+        <span class="k">return</span> <span class="n">integration</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.for_collection"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.for_collection">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_collection</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">use_sitewide</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a MirrorUploader for the given Collection.</span>
+
+<span class="sd">        :param collection: Use the mirror configuration for this Collection.</span>
+
+<span class="sd">        :param use_sitewide: If there&#39;s no mirror for this specific Collection,</span>
+<span class="sd">            should we return a sitewide mirror instead?</span>
+
+<span class="sd">        :return: A MirrorUploader, or None if the Collection has no</span>
+<span class="sd">            mirror integration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">mirror_integration</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">use_sitewide</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">Session</span>
+                    <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">implementation</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.implementation"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.implementation">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">implementation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Instantiate the appropriate implementation of MirrorUploader</span>
+<span class="sd">        for the given ExternalIntegration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">implementation_class</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IMPLEMENTATION_REGISTRY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">cls</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">implementation_class</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Instantiate a MirrorUploader from an ExternalIntegration.</span>
+
+<span class="sd">        :param integration: An ExternalIntegration configuring the credentials</span>
+<span class="sd">           used to upload things.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">goal</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">STORAGE_GOAL</span><span class="p">:</span>
+            <span class="c1"># This collection&#39;s &#39;mirror integration&#39; isn&#39;t intended to</span>
+            <span class="c1"># be used to mirror anything.</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot create an MirrorUploader from an integration with goal=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
+                <span class="n">integration</span><span class="o">.</span><span class="n">goal</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Subclasses will override this to further configure the client</span>
+        <span class="c1"># based on the credentials in the ExternalIntegration.</span>
+
+<div class="viewcode-block" id="MirrorUploader.do_upload"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.do_upload">[docs]</a>    <span class="k">def</span> <span class="nf">do_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.mirror_one"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.mirror_one">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representation</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mirror a single Representation.&quot;&quot;&quot;</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">exception</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_upload</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span>
+        <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="n">exception</span>
+        <span class="k">if</span> <span class="n">exception</span><span class="p">:</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirrored_at</span> <span class="o">=</span> <span class="n">now</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.mirror_batch"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.mirror_batch">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">representations</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mirror a batch of Representations at once.&quot;&quot;&quot;</span>
+
+        <span class="k">for</span> <span class="n">representation</span> <span class="ow">in</span> <span class="n">representations</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mirror_one</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.book_url"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.book_url">[docs]</a>    <span class="k">def</span> <span class="nf">book_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="n">open_access</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The URL of the hosted EPUB file for the given identifier.</span>
+
+<span class="sd">        This does not upload anything to the URL, but it is expected</span>
+<span class="sd">        that calling mirror() on a certain Representation object will</span>
+<span class="sd">        make that representation end up at that URL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MirrorUploader.cover_image_url"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.cover_image_url">[docs]</a>    <span class="k">def</span> <span class="nf">cover_image_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">scaled_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The URL of the hosted cover image for the given identifier.</span>
+
+<span class="sd">        This does not upload anything to the URL, but it is expected</span>
+<span class="sd">        that calling mirror() on a certain Representation object will</span>
+<span class="sd">        make that representation end up at that URL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
