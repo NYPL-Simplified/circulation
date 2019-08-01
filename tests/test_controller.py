@@ -505,7 +505,7 @@ class TestCirculationManager(CirculationControllerTest):
 
             @property
             def setup_search(self):
-                raise CannotLoadConfiguration("doomed!")
+                raise Exception("doomed!")
 
         circulation = BadSearch(self._db, testing=True)
 
@@ -3372,7 +3372,7 @@ class TestFeedController(CirculationControllerTest):
 
             @property
             def setup_search(self):
-                raise CannotLoadConfiguration("doomed!")
+                raise Exception("doomed!")
 
         circulation = BadSearch(self._db, testing=True)
 
