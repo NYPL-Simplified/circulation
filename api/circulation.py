@@ -162,7 +162,7 @@ class DeliveryMechanismInfo(CirculationInfo):
 
 
 class FulfillmentInfo(CirculationInfo):
-    """A record of a technique that can be used right now to fulfill
+    """A record of a technique that can be *used right* now to fulfill
     a loan.
     """
 
