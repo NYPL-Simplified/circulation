@@ -41,3 +41,14 @@ env:
 
 script:
   - ./verbose-test
+  - cd docs && make html
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  keep-history: true
+  github_token: $GITHUB_TOKEN
+  on:
+    branch: travis-sphinx-doc
+  local_dir: docs/html/ 
+
