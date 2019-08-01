@@ -829,7 +829,7 @@ class MockSIPClient(SIPClient):
                  target_server=None, target_port=None, location_code=None, institution_id=''):
         super(MockSIPClient, self).__init__(
             None, None, login_user_id=login_user_id,
-            login_password=login_password, separator=separator
+            login_password=login_password, separator=separator, institution_id=institution_id
         )
 
         self.requests = []
