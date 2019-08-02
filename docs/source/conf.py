@@ -19,9 +19,9 @@ sys.path.insert(0, os.path.abspath('../../'))
 
 # -- Project information -----------------------------------------------------
 
-project = u'Simplified Circulation'
-copyright = u'2019, NYPL Simplified'
-author = u'NYPL Simplified'
+project = u'Library Simplified Circulation Manager'
+copyright = u'2019, The New York Public Library, Astor, Lenox, and Tilden Foundations'
+author = u'Library Simplified'
 
 # The short X.Y version
 version = u''
@@ -66,7 +66,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['../../core/tests/', '../../tests/']
+exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
@@ -104,7 +104,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'SimplifiedCirculationdoc'
+htmlhelp_basename = 'LibrarySimplifiedCirculationManagerdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -131,8 +131,9 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'SimplifiedCirculation.tex', u'Simplified Circulation Documentation',
-     u'NYPL Simplified', 'manual'),
+    (master_doc, 'LibrarySimplifiedCirculationManager.tex',
+     u'Library Simplified Circulation Manager Documentation',
+     u'Library Simplified', 'manual'),
 ]
 
 
@@ -141,7 +142,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'simplifiedcirculation', u'Simplified Circulation Documentation',
+    (master_doc, 'librarysimplifiedcirculationmanager',
+     u'Library Simplified Circulation Manager Documentation',
      [author], 1)
 ]
 
@@ -152,8 +154,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'SimplifiedCirculation', u'Simplified Circulation Documentation',
-     author, 'SimplifiedCirculation', 'One line description of project.',
+    (master_doc, 'LibrarySimplifiedCirculationManager',
+     u'Library Simplified Circulation Manager Documentation',
+     author, 'LibrarySimplifiedCirculationManager', 'One line description of project.',
      'Miscellaneous'),
 ]
 
