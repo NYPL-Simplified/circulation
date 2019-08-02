@@ -34,6 +34,7 @@ before_script:
   - psql -c 'create user simplified_test;' -U postgres
   - psql -c 'create database simplified_circulation_test;' -U postgres
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
+  - cd docs && make html && cd ..
 
 env:
   global:
@@ -41,7 +42,6 @@ env:
 
 script:
   - ./verbose-test
-  - cd docs && make html
 
 deploy:
   provider: pages
@@ -49,6 +49,6 @@ deploy:
   keep-history: true
   github_token: $GITHUB_TOKEN
   on:
-    branch: travis-sphinx-doc
-  local_dir: docs/build/html/ 
+    branch: master
+  local_dir: docs/build/html/
 

@@ -554,10 +554,10 @@ class CirculationManagerController(BaseCirculationManagerController):
         """Turn user input into one or more LicensePool objects.
 
         :param library: The LicensePools must be associated with one of this
-            Library's Collections.
+        Library's Collections.
         :param identifier_type: A type of identifier, e.g. "ISBN"
         :param identifier: An identifier string, used with `identifier_type`
-            to look up an Identifier.
+        to look up an Identifier.
         """
         _db = Session.object_session(library)
         pools = _db.query(LicensePool).join(LicensePool.collection).join(

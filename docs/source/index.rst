@@ -1,5 +1,5 @@
-Welcome to Simplified Circulation's documentation!
-==================================================
+Welcome to Library Simplified Circulation Manager's documentation!
+==================================================================
 
 .. toctree::
    :maxdepth: 2
