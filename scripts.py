@@ -1096,7 +1096,7 @@ class DisappearingBookReportScript(Script):
         :param licensepool: A LicensePool.
 
         :return: a 3-tuple (last_seen, title_removal_events,
-        license_removal_events).
+            license_removal_events).
 
         `last_seen` is the latest point at which we knew the book was
         circulating. If we never knew the book to be circulating, this
@@ -1477,7 +1477,7 @@ class DirectoryImportScript(TimestampScript):
         """Load an actual copy of a book from disk.
 
         :return: A CirculationData that contains the book as an open-access
-        download, or None if no such book can be found.
+            download, or None if no such book can be found.
         """
         ignore, book_media_type, book_content = self._locate_file(
             identifier.identifier, ebook_directory,
@@ -1523,38 +1523,38 @@ class DirectoryImportScript(TimestampScript):
         return circulation_data
 
     def load_cover_link(self, identifier, data_source, cover_directory, mirror):
-       """Load an actual book cover from disk.
+        """Load an actual book cover from disk.
+        
+        :return: A LinkData containing a cover of the book, or None
+            if no book cover can be found.
+        """
+        cover_filename, cover_media_type, cover_content = self._locate_file(
+            identifier.identifier, cover_directory,
+            Representation.COMMON_IMAGE_EXTENSIONS, "cover image"
+        )
 
-       :return: A LinkData containing a cover of the book, or None
-       if no book cover can be found.
-       """
-       cover_filename, cover_media_type, cover_content = self._locate_file(
-           identifier.identifier, cover_directory,
-           Representation.COMMON_IMAGE_EXTENSIONS, "cover image"
-       )
+        if not cover_content:
+            return None
+        cover_filename = (
+            identifier.identifier
+            + '.' + Representation.FILE_EXTENSIONS[cover_media_type]
+        )
 
-       if not cover_content:
-           return None
-       cover_filename = (
-           identifier.identifier
-           + '.' + Representation.FILE_EXTENSIONS[cover_media_type]
-       )
+        if mirror:
+            cover_url = mirror.cover_image_url(
+                data_source, identifier, cover_filename
+            )
+        else:
+            # This is a dry run and we won't be mirroring anything.
+            cover_url = cover_filename
 
-       if mirror:
-           cover_url = mirror.cover_image_url(
-               data_source, identifier, cover_filename
-           )
-       else:
-           # This is a dry run and we won't be mirroring anything.
-           cover_url = cover_filename
-
-       cover_link = LinkData(
-           rel=Hyperlink.IMAGE,
-           href=cover_url,
-           media_type=cover_media_type,
-           content=cover_content,
-       )
-       return cover_link
+        cover_link = LinkData(
+            rel=Hyperlink.IMAGE,
+            href=cover_url,
+            media_type=cover_media_type,
+            content=cover_content,
+        )
+        return cover_link
 
     @classmethod
     def _locate_file(cls, base_filename, directory, extensions,
@@ -1569,15 +1569,15 @@ class DirectoryImportScript(TimestampScript):
         acceptable.
 
         :param file_type: Human-readable description of the type of
-        file we're looking for. This is used only in a log warning if
-        no file can be found.
+            file we're looking for. This is used only in a log warning if
+            no file can be found.
 
         :param mock_filesystem_operations: A test may pass in a
-        2-tuple of functions to replace os.path.exists and the 'open'
-        function.
+            2-tuple of functions to replace os.path.exists and the 'open'
+            function.
 
         :return: A 3-tuple. (None, None, None) if no file can be
-        found; otherwise (filename, media_type, contents).
+            found; otherwise (filename, media_type, contents).
         """
         if mock_filesystem_operations:
             exists_f, open_f = mock_filesystem_operations

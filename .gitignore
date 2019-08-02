@@ -49,11 +49,16 @@ coverage.xml
 *.log
 *.pot
 
-# Sphinx documentation
-docs/_build/
-
 *~
 .env
 
 # Special Elasticsearch 6 environment
 es6
+
+# Sphinx documentation
+# Only need to have three files to build the documentation.
+docs/**/
+!docs/source
+docs/source/*
+!docs/source/conf.py
+!docs/source/index.rst

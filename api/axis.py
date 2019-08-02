@@ -549,7 +549,7 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
         """Find Axis 360 books that changed recently.
 
         :progress: A TimestampData representing the time previously
-        covered by this Monitor.
+            covered by this Monitor.
         """
         count = 0
         for bibliographic, circulation in self.api.recent_activity(start):
@@ -1253,7 +1253,7 @@ class HoldReleaseResponseParser(ResponseParser):
 
     def post_process(self, i):
         """Unlike other ResponseParser subclasses, we don't return any type of
-        *Info object, so there's no need to do any post-processing.
+            \*Info object, so there's no need to do any post-processing.
         """
         return i
 
