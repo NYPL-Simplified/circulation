@@ -1119,6 +1119,10 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
 
     SETTINGS = []
 
+    # Each library and authentication mechanism may have an ILS-assigned
+    # branch or institution ID used in the SIP2 AO field.
+    INSTITUTION_ID = "institution_id"
+
     # Each library and authentication mechanism may have a regular
     # expression for deriving a patron's external type from their
     # authentication identifier.
@@ -1188,6 +1192,9 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
                            "using the method chosen in <em>Library Identifier Restriction Type</em>. " +
                            "This value is not used if <em>Library Identifier Restriction Type</em> " +
                            "is set to 'No restriction'."),
+        },
+        { "key": INSTITUTION_ID, "label": _("Institution ID"),
+          "description": _("A specific identifier for the library or branch, if used in patron authentication")
         }
     ]
 
@@ -1262,6 +1269,10 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
                 self.library_identifier_restriction = restriction.strip()
             else:
                 self.library_identifier_restriction = restriction
+
+        self.institution_id = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.INSTITUTION_ID, library, integration
+        ).value or ''
 
     @classmethod
     def _restriction_matches(cls, field, restriction, match_type):
