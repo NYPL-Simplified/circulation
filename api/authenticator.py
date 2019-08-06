@@ -526,7 +526,7 @@ class LibraryAuthenticator(object):
         configured ExternalIntegrations.
 
         :param custom_catalog_source: The lookup class for CustomPatronCatalogs.
-        Intended for mocking during tests.
+            Intended for mocking during tests.
         """
 
         custom_catalog = custom_catalog_source.for_library(library)
@@ -658,7 +658,7 @@ class LibraryAuthenticator(object):
         object, and register it.
 
         :param integration: An ExternalIntegration that configures
-        a way of authenticating patrons.
+            a way of authenticating patrons.
         """
         if integration.goal != integration.PATRON_AUTH_GOAL:
             raise CannotLoadConfiguration(
@@ -735,13 +735,13 @@ class LibraryAuthenticator(object):
         """Go from an Authorization header value to a Patron object.
 
         :param header: If Basic Auth is in use, this is a dictionary
-        with 'user' and 'password' components, derived from the HTTP
-        header `Authorization`. Otherwise, this is the literal value
-        of the `Authorization` HTTP header.
+            with 'user' and 'password' components, derived from the HTTP
+            header `Authorization`. Otherwise, this is the literal value
+            of the `Authorization` HTTP header.
 
         :return: A Patron, if one can be authenticated. None, if the
-        credentials do not authenticate any particular patron. A
-        ProblemDetail if an error occurs.
+            credentials do not authenticate any particular patron. A
+            ProblemDetail if an error occurs.
         """
         if (self.basic_auth_provider
             and isinstance(header, dict) and 'username' in header):
@@ -1341,8 +1341,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         transparently at this point.
 
         :return: A Patron if one can be authenticated; a ProblemDetail
-        if an error occurs; None if the credentials are missing or
-        wrong.
+            if an error occurs; None if the credentials are missing or wrong.
         """
         patron = self.authenticate(_db, header)
         if not isinstance(patron, Patron):
@@ -1392,9 +1391,8 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         """Authenticate a patron based on a WWW-Authenticate header
         (or equivalent).
 
-        :return: A Patron if one can be authenticated; a ProblemDetail
-        if an error occurs; None if the credentials are missing or
-        wrong.
+        :return: A Patron if one can be authenticated; a ProblemDetail if an
+            error occurs; None if the credentials are missing or wrong.
         """
         raise NotImplementedError()
 
@@ -1424,7 +1422,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         present in the object that was passed in.
 
         :param patron_or_patrondata: Either a Patron object, a PatronData
-        object, or None (if no further information could be provided).
+            object, or None (if no further information could be provided).
 
         :return: An updated PatronData object.
 
@@ -1773,8 +1771,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         :param credentials: A dictionary with keys `username` and `password`.
 
         :return: A Patron if one can be authenticated; a ProblemDetail
-        if an error occurs; None if the credentials are missing or
-        wrong.
+            if an error occurs; None if the credentials are missing or wrong.
         """
         username = credentials.get('username')
         password = credentials.get('password')
@@ -1928,7 +1925,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         """Does the source of truth approve of these credentials?
 
         :return: If the credentials are valid, but nothing more is
-        known about the patron, return True.
+            known about the patron, return True.
 
         If the credentials are valid, _and_ enough information came
         back in the request to also create a PatronInfo object, you
@@ -1943,13 +1940,13 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         """Try to find a Patron object in the local database.
 
         :param username: An HTTP Basic Auth username. May or may not
-        correspond to the `Patron.username` field.
+            correspond to the `Patron.username` field.
 
         :param patrondata: A PatronData object recently obtained from
-        the source of truth, possibly as a side effect of validating
-        the username and password. This may make it possible to
-        identify the patron more precisely. Or it may be None, in
-        which case it's no help at all.
+            the source of truth, possibly as a side effect of validating
+            the username and password. This may make it possible to
+            identify the patron more precisely. Or it may be None, in
+            which case it's no help at all.
         """
 
         # We're going to try a number of different strategies to look
@@ -2155,14 +2152,14 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     def authenticated_patron(self, _db, token):
         """Go from an OAuth provider token to an authenticated Patron.
 
-        :param token: The provider token extracted from the
-        Authorization header. This is _not_ the bearer token found in
-        the Authorization header; it's the provider-specific token
-        embedded in that token.
+        :param token: The provider token extracted from the Authorization
+            header. This is _not_ the bearer token found in
+            the Authorization header; it's the provider-specific token
+            embedded in that token.
 
         :return: A Patron, if one can be authenticated. None, if the
-        credentials do not authenticate any particular patron. A
-        ProblemDetail if an error occurs.
+            credentials do not authenticate any particular patron. A
+            ProblemDetail if an error occurs.
         """
         data_source, ignore = self.token_data_source(_db)
         credential = Credential.lookup_by_token(
@@ -2191,6 +2188,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
 
         By default, there is no way to ask an OAuth provider for
         information about a specific patron after the fact.
+
         """
         return None
 
@@ -2199,7 +2197,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         the patron with a login form.
 
         :param state: A state variable to be propagated through to the OAuth
-        callback.
+            callback.
         """
         template = self.EXTERNAL_AUTHENTICATE_URL
         arguments = self.external_authenticate_url_parameters(state, _db)
@@ -2224,18 +2222,17 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         appropriate database records.
 
         :param code: The authorization code generated by the
-        authorization server, as per section 4.1.2 of RFC 6749. This
-        method will exchange the authorization code for an access
-        token.
+            authorization server, as per section 4.1.2 of RFC 6749. This
+            method will exchange the authorization code for an access token.
 
         :return: A ProblemDetail if there's a problem. Otherwise, a
-        3-tuple (Credential, Patron, PatronData). The Credential
-        contains the access token provided by the OAuth provider. The
-        Patron object represents the authenticated Patron, and the
-        PatronData object includes information about the patron
-        obtained from the OAuth provider which cannot be stored in the
-        circulation manager's database, but which should be passed on
-        to the client.
+            3-tuple (Credential, Patron, PatronData). The Credential
+            contains the access token provided by the OAuth provider. The
+            Patron object represents the authenticated Patron, and the
+            PatronData object includes information about the patron
+            obtained from the OAuth provider which cannot be stored in the
+            circulation manager's database, but which should be passed on
+            to the client.
 
         """
         # Ask the OAuth provider to verify the code that was passed
@@ -2280,7 +2277,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         authenticated correctly with the OAuth provider.
 
         :return: A ProblemDetail if there's a problem; otherwise, the
-        bearer token.
+            bearer token.
         """
         raise NotImplementedError()
 
@@ -2288,8 +2285,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """Use a bearer token to look up as much information as possible about
         a patron.
 
-        :return: A ProblemDetail if there's a problem. Otherwise, a
-        PatronData.
+        :return: A ProblemDetail if there's a problem. Otherwise, a PatronData.
         """
         raise NotImplementedError()
 
@@ -2381,10 +2377,10 @@ class OAuthController(object):
         authenticated with one of our OAuth providers.
 
         :return: A redirect to the `redirect_uri` kept in
-        `params['state']`, with the bearer token encoded into the
-        fragment identifier as `access_token` and useful information
-        about the patron encoded into the fragment identifier as
-        `patron_info`. For example, if params is
+            `params['state']`, with the bearer token encoded into the
+            fragment identifier as `access_token` and useful information
+            about the patron encoded into the fragment identifier as
+            `patron_info`. For example, if params is
 
             dict(state="http://oauthprovider.org/success")
 
