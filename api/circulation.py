@@ -1,5 +1,5 @@
 from nose.tools import set_trace
-from circulation_exceptions import *
+from .circulation_exceptions import *
 import datetime
 from collections import defaultdict
 from threading import Thread
@@ -30,8 +30,8 @@ from core.model import (
     RightsStatus,
     Session,
 )
-from util.patron import PatronUtility
-from config import Configuration
+from .util.patron import PatronUtility
+from .config import Configuration
 import sys
 
 class CirculationInfo(object):
@@ -404,7 +404,7 @@ class CirculationAPI(object):
                 api = None
                 try:
                     api = api_map[collection.protocol](_db, collection)
-                except CannotLoadConfiguration, e:
+                except CannotLoadConfiguration as e:
                     self.log.error(
                         "Error loading configuration for %s: %s",
                         collection.name, e.message
@@ -423,14 +423,14 @@ class CirculationAPI(object):
         """When you see a Collection that implements protocol X, instantiate
         API class Y to handle that collection.
         """
-        from overdrive import OverdriveAPI
-        from odilo import OdiloAPI
-        from bibliotheca import BibliothecaAPI
-        from axis import Axis360API
-        from rbdigital import RBDigitalAPI
-        from enki import EnkiAPI
-        from opds_for_distributors import OPDSForDistributorsAPI
-        from odl import ODLAPI, SharedODLAPI
+        from .overdrive import OverdriveAPI
+        from .odilo import OdiloAPI
+        from .bibliotheca import BibliothecaAPI
+        from .axis import Axis360API
+        from .rbdigital import RBDigitalAPI
+        from .enki import EnkiAPI
+        from .opds_for_distributors import OPDSForDistributorsAPI
+        from .odl import ODLAPI, SharedODLAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.ODILO : OdiloAPI,
@@ -598,7 +598,7 @@ class CirculationAPI(object):
                     # copies available, update availability information
                     # immediately.
                     api.update_availability(licensepool)
-            except NoLicenses, e:
+            except NoLicenses as e:
                 # Since the patron incorrectly believed there were
                 # licenses available, update availability information
                 # immediately.
@@ -648,13 +648,13 @@ class CirculationAPI(object):
                     patron, pin, licensepool,
                     hold_notification_email
                 )
-            except AlreadyOnHold, e:
+            except AlreadyOnHold as e:
                 hold_info = HoldInfo(
                     licensepool.collection, licensepool.data_source,
                     licensepool.identifier.type, licensepool.identifier.identifier,
                     None, None, None
                 )
-            except CannotHold, e:
+            except CannotHold as e:
                 if at_loan_limit:
                     raise PatronLoanLimitReached()
                 else:
@@ -867,7 +867,7 @@ class CirculationAPI(object):
                 api = self.api_for_license_pool(licensepool)
                 try:
                     api.checkin(patron, pin, licensepool)
-                except NotCheckedOut, e:
+                except NotCheckedOut as e:
                     # The book wasn't checked out in the first
                     # place. Everything's fine.
                     pass
@@ -900,7 +900,7 @@ class CirculationAPI(object):
             api = self.api_for_license_pool(licensepool)
             try:
                 api.release_hold(patron, pin, licensepool)
-            except NotOnHold, e:
+            except NotOnHold as e:
                 # The book wasn't on hold in the first place. Everything's
                 # fine.
                 pass
@@ -947,7 +947,7 @@ class CirculationAPI(object):
                 try:
                     self.activity = self.api.patron_activity(
                         self.patron, self.pin)
-                except Exception, e:
+                except Exception as e:
                     self.exception = e
                     self.trace = sys.exc_info()
                 after = time.time()
@@ -958,7 +958,7 @@ class CirculationAPI(object):
 
         threads = []
         before = time.time()
-        for api in self.api_for_collection.values():
+        for api in list(self.api_for_collection.values()):
             thread = PatronActivityThread(api, patron, pin)
             threads.append(thread)
         for thread in threads:
@@ -1124,7 +1124,7 @@ class CirculationAPI(object):
             # borrowing a book and syncing their bookshelf at the same time,
             # and the local loan was created after we got the remote loans.
             # If the loan's start date is less than a minute ago, we'll keep it.
-            for loan in local_loans_by_identifier.values():
+            for loan in list(local_loans_by_identifier.values()):
                 if loan.license_pool.collection_id in self.collection_ids_for_sync:
                     one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
                     if loan.start < one_minute_ago:
@@ -1136,7 +1136,7 @@ class CirculationAPI(object):
             # Every hold remaining in holds_by_identifier is a hold that
             # the provider doesn't know about, which means it's expired
             # and we should get rid of it.
-            for hold in local_holds_by_identifier.values():
+            for hold in list(local_holds_by_identifier.values()):
                 if hold.license_pool.collection_id in self.collection_ids_for_sync:
                     self._db.delete(hold)
 
@@ -1244,7 +1244,7 @@ class BaseCirculationAPI(object):
     @classmethod
     def _library_authenticator(self, library):
         """Create a LibraryAuthenticator for the given library."""
-        from authenticator import LibraryAuthenticator
+        from .authenticator import LibraryAuthenticator
         _db = Session.object_session(library)
         return LibraryAuthenticator.from_config(_db, library)
 
@@ -1275,7 +1275,7 @@ class BaseCirculationAPI(object):
         for authenticator in library_authenticator.providers:
             try:
                 patrondata = authenticator.remote_patron_lookup(patron)
-            except NotImplementedError, e:
+            except NotImplementedError as e:
                 continue
             if patrondata and patrondata.email_address:
                 email_address = patrondata.email_address

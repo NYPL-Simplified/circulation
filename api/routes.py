@@ -13,17 +13,17 @@ from flask import (
 from flask_cors.core import get_cors_options, set_cors_headers
 from werkzeug.exceptions import HTTPException
 
-from app import app, babel
+from .app import app, babel
 
-from config import Configuration
+from .config import Configuration
 from core.app_server import (
     ErrorHandler,
     returns_problem_detail,
 )
 from core.model import ConfigurationSetting
 from core.util.problem_detail import ProblemDetail
-from controller import CirculationManager
-from problem_details import REMOTE_INTEGRATION_FAILED
+from .controller import CirculationManager
+from .problem_details import REMOTE_INTEGRATION_FAILED
 from flask_babel import lazy_gettext as _
 
 @app.before_first_request
@@ -36,7 +36,7 @@ def initialize_circulation_manager():
         if getattr(app, 'manager', None) is None:
             try:
                 app.manager = CirculationManager(app._db)
-            except Exception, e:
+            except Exception as e:
                 logging.error(
                     "Error instantiating circulation manager!", exc_info=e
                 )

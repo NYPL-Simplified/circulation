@@ -106,9 +106,9 @@ class Registration(object):
 
     # A library may be succesfully registered with a registry, or the
     # registration may have failed.
-    LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
-    SUCCESS_STATUS = u"success"
-    FAILURE_STATUS = u"failure"
+    LIBRARY_REGISTRATION_STATUS = "library-registration-status"
+    SUCCESS_STATUS = "success"
+    FAILURE_STATUS = "failure"
 
     # A library may be registered in a 'testing' stage or a
     # 'production' stage. This represents the _library's_ opinion
@@ -120,7 +120,7 @@ class Registration(object):
     # 'production' because there is no UI for specifying which stage
     # to use.  When registration happens through a script, the admin gets
     # to specify 'testing' or 'production'.
-    LIBRARY_REGISTRATION_STAGE = u"library-registration-stage"
+    LIBRARY_REGISTRATION_STAGE = "library-registration-stage"
     TESTING_STAGE = "testing"
     PRODUCTION_STAGE = "production"
     VALID_REGISTRATION_STAGES = [TESTING_STAGE, PRODUCTION_STAGE]
@@ -129,7 +129,7 @@ class Registration(object):
     # the URL so we can enable CORS headers in requests from that client,
     # and use it in MARC records so the library's main catalog can link
     # to it.
-    LIBRARY_REGISTRATION_WEB_CLIENT = u"library-registration-web-client"
+    LIBRARY_REGISTRATION_WEB_CLIENT = "library-registration-web-client"
 
     def __init__(self, registry, library):
         self.registry = registry
@@ -369,7 +369,7 @@ class Registration(object):
         """
         try:
             shared_secret = cipher.decrypt(base64.b64decode(shared_secret))
-        except ValueError, e:
+        except ValueError as e:
             return SHARED_SECRET_DECRYPTION_ERROR.detailed(
                 _("Could not decrypt shared secret %s") % shared_secret
             )
@@ -494,7 +494,7 @@ class LibraryRegistrationScript(LibraryInputScript):
         )
         try:
             result = registration.push(stage, url_for)
-        except Exception, e:
+        except Exception as e:
             logger.error("Exception during registration", exc_info=e)
             return False
         if isinstance(result, ProblemDetail):

@@ -1,14 +1,14 @@
 import json
 from lxml import etree
 
-from cStringIO import StringIO
+from io import StringIO
 import itertools
 from datetime import datetime, timedelta
 import os
 import re
 import logging
 import base64
-import urlparse
+import urllib.parse
 import time
 import hmac
 import hashlib
@@ -20,17 +20,17 @@ from nose.tools import set_trace
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
-from web_publication_manifest import (
+from .web_publication_manifest import (
     FindawayManifest,
     SpineItem,
 )
-from circulation import (
+from .circulation import (
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
     BaseCirculationAPI,
 )
-from selftest import (
+from .selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -80,7 +80,7 @@ from core.util.http import (
     HTTP
 )
 
-from circulation_exceptions import *
+from .circulation_exceptions import *
 from core.analytics import Analytics
 
 from core.metadata_layer import (
@@ -139,7 +139,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         (None, findaway_drm) : 'MP3'
     }
     internal_format_to_delivery_mechanism = dict(
-        [v,k] for k, v in delivery_mechanism_to_internal_format.items()
+        [v,k] for k, v in list(delivery_mechanism_to_internal_format.items())
     )
 
     def __init__(self, _db, collection):
@@ -209,7 +209,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
     def full_url(self, path):
         if not path.startswith("/cirrus"):
             path = self.full_path(path)
-        return urlparse.urljoin(self.base_url, path)
+        return urllib.parse.urljoin(self.base_url, path)
 
     def full_path(self, path):
         if not path.startswith("/"):
@@ -277,7 +277,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         :param identifiers: A list containing either Identifier
             objects or Bibliotheca identifier strings.
         """
-        if any(isinstance(identifiers, x) for x in (Identifier, basestring)):
+        if any(isinstance(identifiers, x) for x in (Identifier, str)):
             identifiers = [identifiers]
         identifier_strings = []
         for i in identifiers:
@@ -338,7 +338,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             self._db.commit()
         try:
             events = EventParser().process_all(response.content)
-        except Exception, e:
+        except Exception as e:
             self.log.error(
                 "Error parsing Bibliotheca response content: %s", response.content,
                 exc_info=e
@@ -441,7 +441,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 content_type, content = (
                     content_transformation(pool, content)
                 )
-            except Exception, e:
+            except Exception as e:
                 self.log.error(
                     "Error transforming fulfillment document: %s",
                     response.content, exc_info=e
@@ -534,7 +534,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license document via Bibliotheca, or a dictionary
             representing such a document loaded into JSON form.
         """
-        if isinstance(findaway_license, basestring):
+        if isinstance(findaway_license, str):
             findaway_license = json.loads(findaway_license)
 
         kwargs = {}
@@ -579,7 +579,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license_pool=license_pool, spine_items=spine_items, **kwargs
         )
 
-        return DeliveryMechanism.FINDAWAY_DRM, unicode(manifest)
+        return DeliveryMechanism.FINDAWAY_DRM, str(manifest)
 
 
 class DummyBibliothecaAPIResponse(object):
@@ -598,14 +598,14 @@ class MockBibliothecaAPI(BibliothecaAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test Bibliotheca Collection", create_method_kwargs=dict(
-                external_account_id=u'c',
+                external_account_id='c',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.BIBLIOTHECA
         )
-        integration.username = u'a'
-        integration.password = u'b'
+        integration.username = 'a'
+        integration.password = 'b'
         integration.url = "http://bibliotheca.test"
         library.collections.append(collection)
         return collection
@@ -750,7 +750,7 @@ class ItemListParser(XMLParser):
         for format in formats:
             try:
                 published_date = datetime.strptime(published, format)
-            except ValueError, e:
+            except ValueError as e:
                 pass
 
         links = []
@@ -873,7 +873,7 @@ class BibliothecaParser(XMLParser):
                 value = datetime.strptime(
                     value, self.INPUT_TIME_FORMAT
                 )
-            except ValueError, e:
+            except ValueError as e:
                 logging.error(
                     'Unable to parse Bibliotheca date: "%s"', value,
                     exc_info=e
@@ -926,7 +926,7 @@ class ErrorParser(BibliothecaParser):
             for i in super(ErrorParser, self).process_all(
                     string, "//Error"):
                 return i
-        except Exception, e:
+        except Exception as e:
             # The server sent us an error with an incorrect or
             # nonstandard syntax.
             return RemoteInitiatedServerError(
@@ -1287,7 +1287,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
         if cli_date:
             try:
-                if isinstance(cli_date, basestring):
+                if isinstance(cli_date, str):
                     date = cli_date
                 else:
                     date = cli_date[0]

@@ -1,10 +1,10 @@
 from flask_babel import lazy_gettext as _
 import logging
-from authenticator import (
+from .authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
-from config import CannotLoadConfiguration
+from .config import CannotLoadConfiguration
 from core.model import ExternalIntegration
 from lxml import etree
 from core.util.http import HTTP

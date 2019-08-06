@@ -8,7 +8,7 @@ import contextlib
 import datetime
 import flask
 import json
-from StringIO import StringIO
+from io import StringIO
 
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
@@ -148,7 +148,7 @@ class TestLaneScript(DatabaseTest):
         super(TestLaneScript, self).setup()
         base_url_setting = ConfigurationSetting.sitewide(
             self._db, Configuration.BASE_URL_KEY)
-        base_url_setting.value = u'http://test-circulation-manager/'
+        base_url_setting.value = 'http://test-circulation-manager/'
         for k, v in [
                 (Configuration.LARGE_COLLECTION_LANGUAGES, []),
                 (Configuration.SMALL_COLLECTION_LANGUAGES, []),
@@ -697,7 +697,7 @@ class TestInstanceInitializationScript(DatabaseTest):
         # not yet meen initialized. But we can test it by calling it
         # directly.
         timestamp = get_one(
-            self._db, Timestamp, service=u"Database Migration",
+            self._db, Timestamp, service="Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
         )
         eq_(None, timestamp)
@@ -713,7 +713,7 @@ class TestInstanceInitializationScript(DatabaseTest):
 
         # It initializes the database.
         timestamp = get_one(
-            self._db, Timestamp, service=u"Database Migration",
+            self._db, Timestamp, service="Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
         )
         assert timestamp
@@ -768,7 +768,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
             output
         )
         eq_(
-            u'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n',
+            'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n',
             output.getvalue()
         )
         [integration] = self._default_library.integrations
@@ -784,7 +784,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
             self._db, "http://foo/", "newid", "newname", "newsecret",
             output
         )
-        expect = u'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
+        expect = 'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
         eq_(expect, output.getvalue())
         expect_settings = [
             ('password', 'newsecret'), ('username', 'newname'),
@@ -996,7 +996,7 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata = Metadata(
             DataSource.GUTENBERG,
             primary_identifier=identifier,
-            title=u"A book"
+            title="A book"
         )
         metadata.annotated = False
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)

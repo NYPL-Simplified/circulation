@@ -120,4 +120,4 @@ class DiscoveryServiceLibraryRegistrationsController(SettingsController):
         if isinstance(registered, ProblemDetail):
             return registered
 
-        return Response(unicode(_("Success")), 200)
+        return Response(str(_("Success")), 200)

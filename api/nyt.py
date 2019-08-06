@@ -12,7 +12,7 @@ from sqlalchemy.orm.exc import (
 )
 from flask_babel import lazy_gettext as _
 
-from config import (
+from .config import (
     CannotLoadConfiguration,
     IntegrationException,
 )
@@ -95,7 +95,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
                 metadata_client = MetadataWranglerOPDSLookup.from_config(
                     self._db
                 )
-            except CannotLoadConfiguration, e:
+            except CannotLoadConfiguration as e:
                 self.log.error(
                     "Metadata wrangler integration is not configured, proceeding without one."
                 )
@@ -164,7 +164,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
 
     def best_seller_list(self, list_info, date=None):
         """Create (but don't update) a NYTBestSellerList object."""
-        if isinstance(list_info, basestring):
+        if isinstance(list_info, str):
             list_info = self.list_info(list_info)
         return NYTBestSellerList(list_info, self.metadata_client)
 
@@ -247,7 +247,7 @@ class NYTBestSellerList(list):
                     self.items_by_isbn[key] = item
                     self.append(item)
                     # self.log.debug("Newly seen ISBN: %r, %s", key, len(self))
-            except ValueError, e:
+            except ValueError as e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
                 self.log.error("No identifier for %r", li_data)
@@ -302,13 +302,13 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             bestsellers_date = NYTAPI.parse_date(data.get('bestsellers_date'))
             first_appearance = bestsellers_date
             most_recent_appearance = bestsellers_date
-        except ValueError, e:
+        except ValueError as e:
             first_appearance = None
             most_recent_appearance = None
 
         try:
             published_date = NYTAPI.parse_date(data.get('published_date'))
-        except ValueError, e:
+        except ValueError as e:
             published_date = None
 
         details = data['book_details']

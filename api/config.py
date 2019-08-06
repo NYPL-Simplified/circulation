@@ -27,13 +27,13 @@ class Configuration(CoreConfiguration):
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     # The name of the sitewide url that points to the patron web catalog.
-    PATRON_WEB_CLIENT_URL = u"Patron Web Client"
+    PATRON_WEB_CLIENT_URL = "Patron Web Client"
 
     # The name of the sitewide secret used to sign cookies for admin login.
-    SECRET_KEY = u"secret_key"
+    SECRET_KEY = "secret_key"
 
     # The name of the setting that controls how long static files are cached.
-    STATIC_FILE_CACHE_TIME = u"static_file_cache_time"
+    STATIC_FILE_CACHE_TIME = "static_file_cache_time"
 
     # A short description of the library, used in its Authentication
     # for OPDS document.
@@ -41,7 +41,7 @@ class Configuration(CoreConfiguration):
 
     # The name of the per-library setting that sets the maximum amount
     # of fines a patron can have before losing lending privileges.
-    MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
+    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
 
     # The name of the per-library settings that set the maximum amounts
     # of books a patron can have on loan or on hold at once.
@@ -49,23 +49,23 @@ class Configuration(CoreConfiguration):
     # to exceed the limits by checking out books directly from a distributor's
     # app. They may also get a limit exceeded error before they reach these
     # limits if a distributor has a smaller limit.)
-    LOAN_LIMIT = u"loan_limit"
-    HOLD_LIMIT = u"hold_limit"
+    LOAN_LIMIT = "loan_limit"
+    HOLD_LIMIT = "hold_limit"
 
     # The name of the per-library setting that sets the default email
     # address to use when notifying patrons of changes.
-    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
+    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
 
     # The name of the per-library setting that sets the email address
     # of the Designated Agent for copyright complaints
-    COPYRIGHT_DESIGNATED_AGENT_EMAIL = u"copyright_designated_agent_email_address"
+    COPYRIGHT_DESIGNATED_AGENT_EMAIL = "copyright_designated_agent_email_address"
 
     # This is the link relation used to indicate
     COPYRIGHT_DESIGNATED_AGENT_REL = "http://librarysimplified.org/rel/designated-agent/copyright"
 
     # The name of the per-library setting that sets the contact address
     # for problems with the library configuration itself.
-    CONFIGURATION_CONTACT_EMAIL = u"configuration_contact_email_address"
+    CONFIGURATION_CONTACT_EMAIL = "configuration_contact_email_address"
 
     # Name of the site-wide ConfigurationSetting containing the secret
     # used to sign bearer tokens.
@@ -602,7 +602,7 @@ class Configuration(CoreConfiguration):
 
         try:
             public, private = setting.json_value
-        except Exception, e:
+        except Exception as e:
             pass
 
         if not public or not private:

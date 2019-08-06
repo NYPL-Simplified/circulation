@@ -5,7 +5,7 @@ import os
 import sys
 from lxml import etree
 from nose.tools import set_trace
-from StringIO import StringIO
+from io import StringIO
 
 from sqlalchemy import (
     and_,
@@ -37,7 +37,7 @@ from core.opds_import import (
 )
 from core.util.http import RemoteIntegrationException
 
-from odl import (
+from .odl import (
     ODLAPI,
     SharedODLAPI,
 )
@@ -273,8 +273,8 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
         identifiers_by_urn, _failures = Identifier.parse_urns(
             self._db, urns, autocreate=False
         )
-        urns = identifiers_by_urn.keys()
-        identifiers = identifiers_by_urn.values()
+        urns = list(identifiers_by_urn.keys())
+        identifiers = list(identifiers_by_urn.values())
 
         self.importer.build_identifier_mapping(urns)
         mapped_identifiers = list()

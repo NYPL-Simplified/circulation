@@ -13,7 +13,7 @@ from nose.tools import (
     set_trace,
 )
 
-from StringIO import StringIO
+from io import StringIO
 
 from api.authenticator import BasicAuthenticationProvider
 
@@ -281,7 +281,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         response = self.api.search(mediatype='ebook', author="Alexander Mccall Smith", title="Tea Time for the Traditionally Built")
         response_dictionary = response.json()
         eq_(1, response_dictionary['pageCount'])
-        eq_(u'Tea Time for the Traditionally Built', response_dictionary['items'][0]['item']['title'])
+        eq_('Tea Time for the Traditionally Built', response_dictionary['items'][0]['item']['title'])
 
     def test_get_all_available_through_search(self):
         datastr, datadict = self.api.get_data("response_search_five_items_1.json")
@@ -292,7 +292,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         eq_(5, response_dictionary['resultSetCount'])
         eq_(5, len(response_dictionary['items']))
         returned_titles = [iteminterest['item']['title'] for iteminterest in response_dictionary['items']]
-        assert (u'Unusual Uses for Olive Oil' in returned_titles)
+        assert ('Unusual Uses for Olive Oil' in returned_titles)
 
     def test_get_all_catalog(self):
         datastr, datadict = self.api.get_data("response_catalog_all_sample.json")
@@ -300,7 +300,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         catalog = self.api.get_all_catalog()
         eq_(
-            [u'Tricks', u'Emperor Mage: The Immortals', u'In-Flight Russian'],
+            ['Tricks', 'Emperor Mage: The Immortals', 'In-Flight Russian'],
             [x['title'] for x in catalog]
         )
 
@@ -737,7 +737,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         response_list = self.api.get_ebook_availability_info()
-        eq_(u'9781420128567', response_list[0]['isbn'])
+        eq_('9781420128567', response_list[0]['isbn'])
         eq_(False, response_list[0]['availability'])
 
     def test_get_metadata_by_isbn(self):
@@ -758,8 +758,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(status_code=200, content=datastr)
         response_dictionary = self.api.get_metadata_by_isbn('9780307378101')
-        eq_(u'9780307378101', response_dictionary['isbn'])
-        eq_(u'Anchor', response_dictionary['publisher'])
+        eq_('9780307378101', response_dictionary['isbn'])
+        eq_('Anchor', response_dictionary['publisher'])
 
     def test_populate_all_catalog(self):
         # Test the method that retrieves the entire catalog from RBdigital
@@ -1048,7 +1048,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # request has not been queued yet.)
 
         # Let's queue it up now.
-        download_url  = u"http://download_url/"
+        download_url  = "http://download_url/"
         epub_manifest = json.dumps({ "url": download_url,
                                      "type": Representation.EPUB_MEDIA_TYPE })
         self.api.queue_response(status_code=200, content=epub_manifest)
@@ -1056,9 +1056,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # Since the book being fulfilled is an EPUB, the
         # FulfillmentInfo returned contains a direct link to the EPUB.
         eq_(Identifier.RB_DIGITAL_ID, found_fulfillment.identifier_type)
-        eq_(u'9781426893483', found_fulfillment.identifier)
+        eq_('9781426893483', found_fulfillment.identifier)
         eq_(download_url, found_fulfillment.content_link)
-        eq_(u'application/epub+zip', found_fulfillment.content_type)
+        eq_('application/epub+zip', found_fulfillment.content_type)
         eq_(None, found_fulfillment.content)
 
         # The fulfillment link expires in about 14 minutes -- rather
@@ -1207,12 +1207,12 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         patron_activity = self.api.patron_activity(patron, None)
 
         eq_(Identifier.RB_DIGITAL_ID, patron_activity[0].identifier_type)
-        eq_(u'9781456103859', patron_activity[0].identifier)
+        eq_('9781456103859', patron_activity[0].identifier)
         eq_(None, patron_activity[0].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[0].end_date)
 
         eq_(Identifier.RB_DIGITAL_ID, patron_activity[1].identifier_type)
-        eq_(u'9781426893483', patron_activity[1].identifier)
+        eq_('9781426893483', patron_activity[1].identifier)
         eq_(None, patron_activity[1].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[1].end_date)
 
@@ -1507,16 +1507,16 @@ class TestAudiobookManifest(RBDigitalAPITest):
 
         # We know about a lot of metadata.
         eq_('http://bib.schema.org/Audiobook', manifest.metadata['@type'])
-        eq_(u'Sharyn McCrumb', manifest.metadata['author'])
-        eq_(u'Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...', manifest.metadata['description'])
+        eq_('Sharyn McCrumb', manifest.metadata['author'])
+        eq_('Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...', manifest.metadata['description'])
         eq_(52710.0, manifest.metadata['duration'])
-        eq_(u'9781449871789', manifest.metadata['identifier'])
-        eq_(u'Barbara Rosenblat', manifest.metadata['narrator'])
-        eq_(u'Recorded Books, Inc.', manifest.metadata['publisher'])
-        eq_(u'', manifest.metadata['rbdigital:encryptionKey'])
+        eq_('9781449871789', manifest.metadata['identifier'])
+        eq_('Barbara Rosenblat', manifest.metadata['narrator'])
+        eq_('Recorded Books, Inc.', manifest.metadata['publisher'])
+        eq_('', manifest.metadata['rbdigital:encryptionKey'])
         eq_(False, manifest.metadata['rbdigital:hasDrm'])
         eq_(316314528, manifest.metadata['schema:contentSize'])
-        eq_(u'The Ballad of Frankie Silver', manifest.metadata['title'])
+        eq_('The Ballad of Frankie Silver', manifest.metadata['title'])
 
         # We know about 21 items in the reading order.
         eq_(21, len(manifest.readingOrder))
@@ -1614,26 +1614,26 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
         eq_(27, metadata.published.day)
 
         [author1, author2, narrator] = metadata.contributors
-        eq_(u"Mccall Smith, Alexander", author1.sort_name)
-        eq_(u"Alexander Mccall Smith", author1.display_name)
+        eq_("Mccall Smith, Alexander", author1.sort_name)
+        eq_("Alexander Mccall Smith", author1.display_name)
         eq_([Contributor.AUTHOR_ROLE], author1.roles)
-        eq_(u"Wilder, Thornton", author2.sort_name)
-        eq_(u"Thornton Wilder", author2.display_name)
+        eq_("Wilder, Thornton", author2.sort_name)
+        eq_("Thornton Wilder", author2.display_name)
         eq_([Contributor.AUTHOR_ROLE], author2.roles)
 
-        eq_(u"Guskin, Laura Flanagan", narrator.sort_name)
-        eq_(u"Laura Flanagan Guskin", narrator.display_name)
+        eq_("Guskin, Laura Flanagan", narrator.sort_name)
+        eq_("Laura Flanagan Guskin", narrator.display_name)
         eq_([Contributor.NARRATOR_ROLE], narrator.roles)
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
 
-        eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, 100),
+        eq_([(None, "FICTION / Humorous / General", Subject.BISAC, 100),
 
-            (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, 500),
+            ('adult', None, Classifier.RBDIGITAL_AUDIENCE, 500),
 
-            (u'humorous-fiction', None, Subject.RBDIGITAL, 200),
-            (u'mystery', None, Subject.RBDIGITAL, 200),
-            (u'womens-fiction', None, Subject.RBDIGITAL, 200)
+            ('humorous-fiction', None, Subject.RBDIGITAL, 200),
+            ('mystery', None, Subject.RBDIGITAL, 200),
+            ('womens-fiction', None, Subject.RBDIGITAL, 200)
          ],
             [(x.identifier, x.name, x.type, x.weight) for x in subjects]
         )

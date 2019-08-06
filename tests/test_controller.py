@@ -166,7 +166,7 @@ from api.testing import (
 from lxml import etree
 import random
 import json
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from core.analytics import Analytics
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from api.registry import Registration
@@ -202,7 +202,7 @@ class ControllerTest(VendorIDTest):
             "" : "http://cdn"
         }
         base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
-        base_url.value = u'http://test-circulation-manager/'
+        base_url.value = 'http://test-circulation-manager/'
 
         # NOTE: Any reference to self._default_library below this
         # point in this method will cause the tests in
@@ -272,7 +272,7 @@ class ControllerTest(VendorIDTest):
         # Set a convenient default lane.
         [self.english_adult_fiction] = [
             x for x in self.library.lanes
-            if x.display_name=='Fiction' and x.languages==[u'eng']
+            if x.display_name=='Fiction' and x.languages==['eng']
         ]
 
         return self.manager
@@ -701,11 +701,11 @@ class TestBaseController(CirculationControllerTest):
         # Without quotes, some iOS versions don't recognize the header value.
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
-        base_url.value = u'http://url'
+        base_url.value = 'http://url'
 
         with self.request_context_with_library("/"):
             response = self.controller.authenticate()
-            eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+            eq_(response.headers['WWW-Authenticate'], 'Basic realm="Library card"')
 
         with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
             response = self.controller.authenticate()
@@ -790,7 +790,7 @@ class TestBaseController(CirculationControllerTest):
             self._default_library, "bad identifier type", i1.identifier
         )
         eq_(NO_LICENSES.uri, problem_detail.uri)
-        expect = u"The item you're asking about (bad identifier type/%s) isn't in this collection." % i1.identifier
+        expect = "The item you're asking about (bad identifier type/%s) isn't in this collection." % i1.identifier
         eq_(expect, problem_detail.detail)
 
         # Try an identifier that would work except that it's not in a
@@ -1133,7 +1133,7 @@ class TestIndexController(CirculationControllerTest):
         key_setting.value = None
         ConfigurationSetting.for_library(
             Configuration.KEY_PAIR, self.library
-        ).value = u'ignore me'
+        ).value = 'ignore me'
 
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
@@ -1940,9 +1940,9 @@ class TestLoanController(CirculationControllerTest):
             borrow_link = [x for x in bibliotheca_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
             bibliotheca_revoke_links = [x for x in bibliotheca_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
 
-            assert urllib.quote("%s/fulfill" % overdrive_pool.id) in fulfill_link
-            assert urllib.quote("%s/revoke" % overdrive_pool.id) in revoke_link
-            assert urllib.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
+            assert urllib.parse.quote("%s/fulfill" % overdrive_pool.id) in fulfill_link
+            assert urllib.parse.quote("%s/revoke" % overdrive_pool.id) in revoke_link
+            assert urllib.parse.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
             eq_(0, len(bibliotheca_revoke_links))
 
 
@@ -2046,7 +2046,7 @@ class TestAnnotationController(CirculationControllerTest):
             for method in ['GET', 'HEAD', 'OPTIONS']:
                 assert method in allow_header
 
-            assert 'Accept-Post' not in response.headers.keys()
+            assert 'Accept-Post' not in list(response.headers.keys())
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
             expected_etag = 'W/"%s"' % annotation.timestamp
             eq_(expected_etag, response.headers['ETag'])
@@ -2359,8 +2359,8 @@ class TestWorkController(CirculationControllerTest):
         # created during the original request.
         library = self._default_library
         route, url_kwargs = lane.url_arguments
-        url_kwargs.update(dict(facets.items()))
-        url_kwargs.update(dict(pagination.items()))
+        url_kwargs.update(dict(list(facets.items())))
+        url_kwargs.update(dict(list(pagination.items())))
         with self.request_context_with_library(""):
             expect_url = self.manager.opds_feeds.url_for(
                 route, lane_identifier=None,
@@ -2509,8 +2509,8 @@ class TestWorkController(CirculationControllerTest):
         # context, _plus_ the Facets, Pagination and Lane created
         # during the original request.
         route, url_kwargs = lane.url_arguments
-        url_kwargs.update(dict(facets.items()))
-        url_kwargs.update(dict(pagination.items()))
+        url_kwargs.update(dict(list(facets.items())))
+        url_kwargs.update(dict(list(pagination.items())))
         with self.request_context_with_library(""):
             expect_url = self.manager.work_controller.url_for(
                 route, library_short_name=library.short_name,
@@ -2623,7 +2623,7 @@ class TestWorkController(CirculationControllerTest):
             'Around the World'
         ]
         eq_("Same author and series", same_series_entry['title'])
-        expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
+        expected_series_link = 'series/%s/eng/Adult' % urllib.parse.quote("Around the World")
         assert same_series_href.endswith(expected_series_link)
 
         # Here's the sublane for books by this contributor.
@@ -2631,7 +2631,7 @@ class TestWorkController(CirculationControllerTest):
             'John Bull'
         ]
         eq_("Same author and series", same_contributor_entry['title'])
-        expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
+        expected_contributor_link = urllib.parse.quote('contributor/John Bull/eng/')
         assert same_contributor_href.endswith(expected_contributor_link)
 
         # Here's the sublane for recommendations from NoveList.
@@ -2640,7 +2640,7 @@ class TestWorkController(CirculationControllerTest):
         ]
         eq_("Same author and series", recommended_entry['title'])
         work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
-        expected = urllib.quote(work_url + 'recommendations')
+        expected = urllib.parse.quote(work_url + 'recommendations')
         eq_(True, recommended_href.endswith(expected))
 
         # Finally, let's pass in a mock feed class so we can look at the
@@ -2701,7 +2701,7 @@ class TestWorkController(CirculationControllerTest):
         # created during the original request.
         library = self._default_library
         route, url_kwargs = lane.url_arguments
-        url_kwargs.update(dict(facets.items()))
+        url_kwargs.update(dict(list(facets.items())))
         with self.request_context_with_library(""):
             expect_url = self.manager.work_controller.url_for(
                 route, lane_identifier=None,
@@ -2913,7 +2913,7 @@ class TestFeedController(CirculationControllerTest):
 
     BOOKS = list(CirculationControllerTest.BOOKS) + [
         ["english_2", "Totally American", "Uncle Sam", "eng", False],
-        ["french_1", u"Très Français", "Marianne", "fre", False],
+        ["french_1", "Très Français", "Marianne", "fre", False],
     ]
 
     def test_feed(self):
@@ -2991,7 +2991,7 @@ class TestFeedController(CirculationControllerTest):
             for i in links:
                 rel = i['rel']
                 href = i['href']
-                if isinstance(by_rel.get(rel), basestring):
+                if isinstance(by_rel.get(rel), str):
                     by_rel[rel] = [by_rel[rel]]
                 if isinstance(by_rel.get(rel), list):
                     by_rel[rel].append(href)
@@ -3015,7 +3015,7 @@ class TestFeedController(CirculationControllerTest):
             expected_pagination_key = [
                 last_item.sort_title, last_item.sort_author, last_item.id
             ]
-            expect = "key=%s" % urllib.quote_plus(
+            expect = "key=%s" % urllib.parse.quote_plus(
                 json.dumps(expected_pagination_key)
             )
             assert expect in next_link
@@ -3244,7 +3244,7 @@ class TestFeedController(CirculationControllerTest):
         # term, you get an OpenSearch document.
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.search(None)
-            eq_(response.headers['Content-Type'], u'application/opensearchdescription+xml')
+            eq_(response.headers['Content-Type'], 'application/opensearchdescription+xml')
             assert "OpenSearchDescription" in response.data
 
     def test_search(self):
@@ -3336,7 +3336,7 @@ class TestFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.url_for(
                 'lane_search', lane_identifier=None,
                 library_short_name=library.short_name,
-                q=query, **dict(facets.items())
+                q=query, **dict(list(facets.items()))
             )
         eq_(expect_url, kwargs.pop('url'))
 
@@ -3382,7 +3382,7 @@ class TestFeedController(CirculationControllerTest):
         with self.request_context_with_library("/?q=t"):
             problem = circulation.opds_feeds.search(None)
             eq_(REMOTE_INTEGRATION_FAILED.uri, problem.uri)
-            eq_(u'The search index for this site is not properly configured.',
+            eq_('The search index for this site is not properly configured.',
                 problem.detail)
 
 
@@ -3896,7 +3896,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             # We got a URL Template (see test_link_template_header())
             # that explains how to address any particular device ID.
             expect = self.controller.link_template_header
-            for k, v in expect.items():
+            for k, v in list(expect.items()):
                 assert response.headers[k] == v
 
     def device_id_list_handler_bad_auth(self):

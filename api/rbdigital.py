@@ -14,16 +14,16 @@ from sqlalchemy.orm.session import Session
 import string
 import uuid
 
-from circulation import (
+from .circulation import (
     APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
 )
-from circulation_exceptions import *
+from .circulation_exceptions import *
 
-from config import Configuration
+from .config import Configuration
 
 from core.analytics import Analytics
 
@@ -91,7 +91,7 @@ from core.util.web_publication_manifest import (
     AudiobookManifest as CoreAudiobookManifest
 )
 
-from selftest import (
+from .selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -266,7 +266,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 params=None, verbosity='complete'):
         """Make an HTTP request.
         """
-        if verbosity not in self.RESPONSE_VERBOSITY.values():
+        if verbosity not in list(self.RESPONSE_VERBOSITY.values()):
             verbosity = self.RESPONSE_VERBOSITY[2]
 
         headers = dict(extra_headers)
@@ -418,7 +418,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
 
-        except Exception, e:
+        except Exception as e:
             self.log.error("Item circulation request failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
@@ -495,7 +495,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # successful holds return a numeric transaction id
         try:
             transaction_id = int(resp_obj)
-        except Exception, e:
+        except Exception as e:
             self.log.error("Item hold request failed: %r", e, exc_info=e)
             raise CannotHold(e.message)
 
@@ -936,7 +936,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         message = resp_dict.get('message', None)
         try:
             self.validate_response(response, message, action=action)
-        except (PatronNotFoundOnRemote, NotFoundOnRemote), e:
+        except (PatronNotFoundOnRemote, NotFoundOnRemote) as e:
             # That's okay.
             return None
 
@@ -970,7 +970,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 # if we failed, then we got back a dictionary with an error message
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
-        except Exception, e:
+        except Exception as e:
             self.log.error("Patron checkouts failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
@@ -1051,7 +1051,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 # if we failed, then we got back a dictionary with an error message
                 if isinstance(resp_obj, dict):
                     message = resp_obj.get('message', None)
-        except Exception, e:
+        except Exception as e:
             self.log.error("Patron holds failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
@@ -1212,7 +1212,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             respdict = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException("availability_search", "RBDigital availability response not parseable.")
 
         if not respdict:
@@ -1254,7 +1254,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             resplist = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException(url, "RBDigital all catalog response not parseable.")
 
         return response.json()
@@ -1275,13 +1275,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         six_months = datetime.timedelta(days=180)
 
         # from_date must be real, and less than 6 months ago
-        if from_date and isinstance(from_date, basestring):
+        if from_date and isinstance(from_date, str):
             from_date = datetime.datetime.strptime(from_date[:10], self.DATE_FORMAT)
             if (from_date > today) or ((today-from_date) > six_months):
                 raise ValueError("from_date %s must be real, in the past, and less than 6 months ago." % from_date)
 
         # to_date must be real, and not in the future or too far in the past
-        if to_date and isinstance(to_date, basestring):
+        if to_date and isinstance(to_date, str):
             to_date = datetime.datetime.strptime(to_date[:10], self.DATE_FORMAT)
             if (to_date > today) or ((today - to_date) > six_months):
                 raise ValueError("to_date %s must be real, and neither in the future nor too far in the past." % to_date)
@@ -1337,7 +1337,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             resplist = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException(url, "RBDigital availability response not parseable.")
         return resplist
 
@@ -1360,7 +1360,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         try:
             respdict = response.json()
-        except Exception, e:
+        except Exception as e:
             raise BadResponseException(url, "RBDigital isbn search response not parseable.")
 
         if not respdict:
@@ -1576,7 +1576,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
 
         try:
             part = int(part)
-        except ValueError, e:
+        except ValueError as e:
             raise CannotPartiallyFulfill(
                 _('"%(part)s" is not a valid part number', part=part),
             )
@@ -1625,7 +1625,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
             self.manifest = AudiobookManifest(
                 self.key, self.fulfill_part_url
             )
-            self._content = unicode(self.manifest)
+            self._content = str(self.manifest)
         else:
             # We have some other kind of file. The download link
             # points to an access document for that file.
@@ -1678,13 +1678,13 @@ class MockRBDigitalAPI(RBDigitalAPI):
             _db, Collection,
             name="Test RBDigital Collection",
             create_method_kwargs=dict(
-                external_account_id=u'library_id_123',
+                external_account_id='library_id_123',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.RB_DIGITAL
         )
-        integration.password = u'abcdef123hijklm'
+        integration.password = 'abcdef123hijklm'
         library.collections.append(collection)
         for library in _db.query(Library):
             for key, value in (

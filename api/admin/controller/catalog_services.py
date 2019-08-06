@@ -82,9 +82,9 @@ class CatalogServicesController(SettingsController):
             return storage_protocol_error
 
         if is_new:
-            return Response(unicode(service.id), 201)
+            return Response(str(service.id), 201)
         else:
-            return Response(unicode(service.id), 200)
+            return Response(str(service.id), 200)
 
     def validate_form_fields(self, protocol):
         """Verify that the protocol which the user has selected is in the list

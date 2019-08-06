@@ -73,11 +73,11 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
-            username=u'abc', password=u'def', url=self._url
+            username='abc', password='def', url=self._url
         )
 
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
 
         self.lookup = MockMetadataWranglerOPDSLookup.from_config(
@@ -108,11 +108,11 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         )
 
         # The 'next' links found in the OPDS feed are returned.
-        eq_([u'http://next-link/'], next_links)
+        eq_(['http://next-link/'], next_links)
 
         # Insofar as is possible, all <entry> tags are converted into
         # Editions.
-        eq_([u'9781594632556'], [x.primary_identifier.identifier
+        eq_(['9781594632556'], [x.primary_identifier.identifier
                                  for x in editions])
 
         # The earliest time found in the OPDS feed is returned as a
@@ -143,7 +143,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
             collection=self.collection
         )
         lp.identifier.type = Identifier.BIBLIOTHECA_ID
-        isbn = Identifier.parse_urn(self._db, u'urn:isbn:9781594632556')[0]
+        isbn = Identifier.parse_urn(self._db, 'urn:isbn:9781594632556')[0]
         lp.identifier.equivalent_to(
             DataSource.lookup(self._db, DataSource.BIBLIOTHECA), isbn, 1
         )
@@ -249,8 +249,8 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # seen before; then we stopped.
         first, second, third = self.monitor.imports
         eq_((None, None), first)
-        eq_((None, u'http://next-link/'), second)
-        eq_((None, u'http://different-link/'), third)
+        eq_((None, 'http://next-link/'), second)
+        eq_((None, 'http://different-link/'), third)
 
         eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp.finish)
 
@@ -305,11 +305,11 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
-            username=u'abc', password=u'def', url=self._url
+            username='abc', password='def', url=self._url
         )
 
         self.collection = self._collection(
-            protocol=ExternalIntegration.OVERDRIVE, external_account_id=u'lib'
+            protocol=ExternalIntegration.OVERDRIVE, external_account_id='lib'
         )
 
         self.lookup = MockMetadataWranglerOPDSLookup.from_config(
@@ -337,20 +337,20 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         # Create an Overdrive ID to match the one in the feed.
         overdrive = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID,
-            foreign_id=u'4981c34f-d518-48ff-9659-2601b2b9bdc1'
+            foreign_id='4981c34f-d518-48ff-9659-2601b2b9bdc1'
         )
 
         # Create an ISBN to match the one in the feed.
         isbn = self._identifier(
-            identifier_type=Identifier.ISBN, foreign_id=u'9781602835740'
+            identifier_type=Identifier.ISBN, foreign_id='9781602835740'
         )
 
         # Create a Axis 360 ID equivalent to the other ISBN in the feed.
         axis_360 = self._identifier(
-            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'fake'
+            identifier_type=Identifier.AXIS_360_ID, foreign_id='fake'
         )
         axis_360_isbn = self._identifier(
-            identifier_type=Identifier.ISBN, foreign_id=u'9781569478295'
+            identifier_type=Identifier.ISBN, foreign_id='9781569478295'
         )
         axis_source = DataSource.lookup(self._db, DataSource.AXIS_360)
         axis_360.equivalent_to(axis_source, axis_360_isbn, 1)

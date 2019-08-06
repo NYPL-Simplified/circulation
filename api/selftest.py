@@ -2,9 +2,9 @@ from nose.tools import set_trace
 import sys
 from sqlalchemy.orm.session import Session
 
-from authenticator import LibraryAuthenticator
-from circulation import CirculationAPI
-from feedbooks import (
+from .authenticator import LibraryAuthenticator
+from .circulation import CirculationAPI
+from .feedbooks import (
     FeedbooksOPDSImporter,
     FeedbooksImportMonitor,
 )
@@ -70,9 +70,9 @@ class HasSelfTests(CoreHasSelfTests):
                     continue
 
                 yield (library, patron, password)
-            except IntegrationException, e:
+            except IntegrationException as e:
                 yield self.test_failure(task, e)
-            except Exception, e:
+            except Exception as e:
                 yield self.test_failure(
                     task, "Exception getting default patron: %r" % e
                 )
@@ -97,7 +97,7 @@ class RunSelfTestsScript(LibraryInputScript):
             for collection in library.collections:
                 try:
                     self.test_collection(collection, api_map)
-                except Exception, e:
+                except Exception as e:
                     self.out.write("  Exception while running self-test: %r\n" % e)
 
     def test_collection(self, collection, api_map, extra_args=None):
@@ -134,7 +134,7 @@ class RunSelfTestsScript(LibraryInputScript):
                 success, result.name, result.duration
             )
         )
-        if isinstance(result.result, basestring):
+        if isinstance(result.result, str):
             self.out.write("   Result: %s\n" % result.result)
         if result.exception:
             self.out.write("   Exception: %r\n" % result.exception)

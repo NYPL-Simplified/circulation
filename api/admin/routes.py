@@ -18,8 +18,8 @@ from core.model import (
     Library,
 )
 
-from controller import setup_admin_controllers
-from templates import (
+from .controller import setup_admin_controllers
+from .templates import (
     admin_sign_in_again as sign_in_again_template,
 )
 from api.routes import (
@@ -27,9 +27,9 @@ from api.routes import (
     library_route,
 )
 
-import csv, codecs, cStringIO
-from StringIO import StringIO
-import urllib
+import csv, codecs, io
+from io import StringIO
+import urllib.request, urllib.parse, urllib.error
 from datetime import timedelta
 
 # An admin's session will expire after this amount of time and
@@ -61,7 +61,7 @@ def requires_admin(f):
             # setting_up needs to stay in the arguments for
             # the next decorator. Otherwise, it should be
             # removed before the route function.
-            if f.func_dict.get("requires_csrf_token"):
+            if f.__dict__.get("requires_csrf_token"):
                 setting_up = kwargs.get('setting_up')
             else:
                 setting_up = kwargs.pop('setting_up')
@@ -79,7 +79,7 @@ def requires_admin(f):
     return decorated
 
 def requires_csrf_token(f):
-    f.func_dict["requires_csrf_token"] = True
+    f.__dict__["requires_csrf_token"] = True
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'setting_up' in kwargs:

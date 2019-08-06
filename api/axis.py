@@ -75,23 +75,23 @@ from core.util.http import (
 )
 
 
-from authenticator import Authenticator
+from .authenticator import Authenticator
 
-from circulation import (
+from .circulation import (
     APIAwareFulfillmentInfo,
     LoanInfo,
     FulfillmentInfo,
     HoldInfo,
     BaseCirculationAPI
 )
-from circulation_exceptions import *
+from .circulation_exceptions import *
 
-from selftest import (
+from .selftest import (
     HasCollectionSelfTests,
     SelfTestResult,
 )
 
-from web_publication_manifest import (
+from .web_publication_manifest import (
     FindawayManifest,
     SpineItem,
 )
@@ -121,7 +121,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
           "default": PRODUCTION_BASE_URL,
           "required": True,
           "format": "url",
-          "allowed": SERVER_NICKNAMES.keys(),
+          "allowed": list(SERVER_NICKNAMES.keys()),
         },
     ] + BaseCirculationAPI.SETTINGS
 
@@ -196,7 +196,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     @property
     def authorization_headers(self):
-        authorization = u":".join([self.username, self.password, self.library_id])
+        authorization = ":".join([self.username, self.password, self.library_id])
         authorization = authorization.encode("utf_16_le")
         authorization = base64.standard_b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
@@ -319,7 +319,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         try:
             return CheckoutResponseParser(
                 licensepool.collection).process_all(response.content)
-        except etree.XMLSyntaxError, e:
+        except etree.XMLSyntaxError as e:
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
             )
@@ -600,15 +600,15 @@ class MockAxis360API(Axis360API):
             _db, Collection,
             name=name,    
             create_method_kwargs=dict(
-                external_account_id=u'c',
+                external_account_id='c',
             )
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.AXIS_360
         )
-        integration.username = u'a'
-        integration.password = u'b'
-        integration.url = u"http://axis.test/"
+        integration.username = 'a'
+        integration.password = 'b'
+        integration.url = "http://axis.test/"
         library.collections.append(collection)
         return collection
 
@@ -1232,7 +1232,7 @@ class HoldResponseParser(ResponseParser):
             try:
                 queue_position = int(queue_position.text)
             except ValueError:
-                print "Invalid queue position: %s" % queue_position
+                print("Invalid queue position: %s" % queue_position)
                 queue_position = None
 
         hold_start = datetime.utcnow()
@@ -1408,7 +1408,7 @@ class JSONResponseParser(ResponseParser):
         else:
             try:
                 parsed = json.loads(data)
-            except ValueError, e:
+            except ValueError as e:
                 # It's not JSON.
                 raise RemoteInitiatedServerError(
                     "Invalid response from Axis 360 (was expecting JSON): %s" % data,
@@ -1530,6 +1530,6 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
         response = self.api.get_fulfillment_info(transaction_id)
         parser = AudiobookFulfillmentInfoResponseParser(self.api)
         manifest, expires = parser.parse(response.content, license_pool)
-        self._content = unicode(manifest)
+        self._content = str(manifest)
         self._content_type = DeliveryMechanism.FINDAWAY_DRM
         self._content_expires = expires

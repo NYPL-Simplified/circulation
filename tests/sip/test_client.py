@@ -99,7 +99,7 @@ class TestSIPClient(object):
             connection, kwargs = wrap_socket.called_with
             assert isinstance(connection, MockSocket)
             eq_(set(['keyfile', 'certfile']), set(kwargs.keys()))
-            for tmpfile in kwargs.values():
+            for tmpfile in list(kwargs.values()):
                 assert tmpfile.startswith("/tmp")
                 # By the time the SSL socket has been wrapped, the
                 # temporary file has already been removed.  Because of

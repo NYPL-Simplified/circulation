@@ -294,11 +294,11 @@ class MetadataWranglerCoverageProviderTest(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
-            username=u'abc', password=u'def'
+            username='abc', password='def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
         self.provider = self.create_provider()
         self.lookup_client = self.provider.lookup_client
@@ -307,13 +307,13 @@ class MetadataWranglerCoverageProviderTest(DatabaseTest):
         """Creates three Identifiers to use for testing with sample OPDS files."""
 
         # An identifier directly represented in the OPDS response.
-        valid_id = self._identifier(foreign_id=u'2020110')
+        valid_id = self._identifier(foreign_id='2020110')
 
         # An identifier mapped to an identifier represented in the OPDS
         # response.
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
         mapped_id = self._identifier(
-            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'0015187876'
+            identifier_type=Identifier.AXIS_360_ID, foreign_id='0015187876'
         )
         equivalent_id = self._identifier(
             identifier_type=Identifier.ISBN, foreign_id='9781936460236'
@@ -444,7 +444,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # This happens if the 'server' sends data with the wrong media
         # type.
         self.lookup_client.queue_response(
-            200, {'content-type': 'json/application'}, u'{ "title": "It broke." }'
+            200, {'content-type': 'json/application'}, '{ "title": "It broke." }'
         )
 
         id1 = self._identifier()
@@ -684,11 +684,11 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
-            username=u'abc', password=u'def'
+            username='abc', password='def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
         self.lookup = MockMetadataWranglerOPDSLookup.from_config(
             self._db, collection=self.collection
@@ -822,11 +822,11 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
-            username=u'abc', password=u'def'
+            username='abc', password='def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id='lib'
         )
         self.provider = self.create_provider()
 
@@ -891,7 +891,7 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
 
         # An OPDS feed of metadata was sent to the metadata wrangler.
         assert metadata_client.metadata_feed != None
-        feed = feedparser.parse(unicode(metadata_client.metadata_feed))
+        feed = feedparser.parse(str(metadata_client.metadata_feed))
         urns = [entry.get("id") for entry in feed.get("entries", [])]
         # Only the identifier work a work ends up in the feed.
         eq_([pool.identifier.urn], urns)

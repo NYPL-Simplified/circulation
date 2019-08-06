@@ -90,9 +90,9 @@ class SitewideServicesController(SettingsController):
         service.name = name
 
         if is_new:
-            return Response(unicode(service.id), 201)
+            return Response(str(service.id), 201)
         else:
-            return Response(unicode(service.id), 200)
+            return Response(str(service.id), 200)
 
     def validate_form_fields(self, protocols, **fields):
         """The 'name' and 'protocol' fields cannot be blank, and the protocol must
@@ -142,7 +142,7 @@ class StorageServicesController(SitewideServicesController):
         detail = _("You tried to create a new storage service, but a storage service is already configured.")
         return self._manage_sitewide_service(
             ExternalIntegration.STORAGE_GOAL,
-            MirrorUploader.IMPLEMENTATION_REGISTRY.values(),
+            list(MirrorUploader.IMPLEMENTATION_REGISTRY.values()),
             'storage_services', detail
         )
 

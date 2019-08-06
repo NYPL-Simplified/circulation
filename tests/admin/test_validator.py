@@ -7,7 +7,7 @@ import json
 from api.admin.validator import Validator
 from api.config import Configuration
 from api.shared_collection import BaseSharedCollectionAPI
-from StringIO import StringIO
+from io import StringIO
 from werkzeug import MultiDict
 
 class TestValidator():

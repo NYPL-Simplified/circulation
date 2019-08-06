@@ -20,7 +20,7 @@ from api.routes import (
     h as error_handler_object,
 )
 
-from test_controller import ControllerTest
+from .test_controller import ControllerTest
 
 class MockApp(object):
     """Pretends to be a Flask application with a configured

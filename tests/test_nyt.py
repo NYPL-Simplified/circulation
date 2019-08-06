@@ -124,7 +124,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
     def test_list_of_lists(self):
         all_lists = self.api.list_of_lists()
-        eq_([u'copyright', u'num_results', u'results', u'status'],
+        eq_(['copyright', 'num_results', 'results', 'status'],
             sorted(all_lists.keys()))
         eq_(47, len(all_lists['results']))
 
@@ -151,7 +151,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         try:
             self.api.request("some path")
             raise Exception("Expected an IntegrationException!")
-        except IntegrationException, e:
+        except IntegrationException as e:
             eq_("Unknown API error (status 500)", e.message)
             assert e.debug_message.startswith("Response from")
             assert e.debug_message.endswith("was: 'bad value'")
@@ -290,8 +290,8 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 
     def test_to_edition_sets_sort_author_name_if_obvious(self):
         [contributor], ignore = Contributor.lookup(
-            self._db, u"Hawkins, Paula")
-        contributor.display_name = u"Paula Hawkins"
+            self._db, "Hawkins, Paula")
+        contributor.display_name = "Paula Hawkins"
 
         title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
         edition = title.to_edition(self._db, self.metadata_client)

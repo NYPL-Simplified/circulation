@@ -5,19 +5,19 @@ import json
 import pytz
 import requests
 import flask
-import urlparse
+import urllib.parse
 from flask_babel import lazy_gettext as _
 
 from sqlalchemy.orm import contains_eager
 
-from circulation import (
+from .circulation import (
     DeliveryMechanismInfo,
     LoanInfo,
     HoldInfo,
     FulfillmentInfo,
     BaseCirculationAPI,
 )
-from selftest import (
+from .selftest import (
     HasSelfTests,
     SelfTestResult,
 )
@@ -53,7 +53,7 @@ from core.util.http import HTTP
 from core.metadata_layer import ReplacementPolicy
 from core.scripts import Script
 
-from circulation_exceptions import *
+from .circulation_exceptions import *
 from core.analytics import Analytics
 
 class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
@@ -389,15 +389,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         """
         if not location:
             return None
-        parsed = urlparse.urlparse(location)
-        query = urlparse.parse_qs(parsed.query)
+        parsed = urllib.parse.urlparse(location)
+        query = urllib.parse.parse_qs(parsed.query)
         urls = query.get('loanEarlyReturnUrl')
         if urls:
             return urls[0]
 
     def fill_out_form(self, **values):
         fields = []
-        for k, v in values.items():
+        for k, v in list(values.items()):
             fields.append(dict(name=k, value=v))
         headers = {"Content-Type": "application/json; charset=utf-8"}
         return headers, json.dumps(dict(fields=fields))
@@ -447,7 +447,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 patron, pin, licensepool.identifier.identifier, internal_format)
             if internal_format in self.STREAMING_FORMATS:
                 media_type += DeliveryMechanism.STREAMING_PROFILE
-        except FormatNotAvailable, e:
+        except FormatNotAvailable as e:
 
             # It's possible the available formats for this book have changed and we
             # have an inaccurate delivery mechanism. Try to update the formats, but
@@ -456,7 +456,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
             try:
                 self.update_formats(licensepool)
-            except Exception, e2:
+            except Exception as e2:
                 self.log.error("Could not update formats for Overdrive ID %s" % licensepool.identifier.identifier)
 
             raise e
@@ -497,7 +497,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             try:
                 download_link = self.extract_download_link(
                     response, self.DEFAULT_ERROR_URL)
-            except IOError, e:
+            except IOError as e:
                 # Get the loan fresh and see if that solves the problem.
                 loan = self.get_loan(patron, pin, overdrive_id)
 
@@ -597,7 +597,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         try:
             loans = self.get_patron_checkouts(patron, pin)
             holds = self.get_patron_holds(patron, pin)
-        except PatronAuthorizationFailedException, e:
+        except PatronAuthorizationFailedException as e:
             # This frequently happens because Overdrive performs
             # checks for blocked or expired accounts upon initial
             # authorization, where the circulation manager would let
@@ -808,7 +808,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         raise CannotReleaseHold(response.content)
 
     def circulation_lookup(self, book):
-        if isinstance(book, basestring):
+        if isinstance(book, str):
             book_id = book
             circulation_link = self.AVAILABILITY_ENDPOINT % dict(
                 collection_token=self.collection_token,
@@ -855,7 +855,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             book, (status_code, headers, content) = self.circulation_lookup(
                 book_id
             )
-        except Exception, e:
+        except Exception as e:
             status_code = None
             self.log.error(
                 "HTTP exception communicating with Overdrive",
@@ -869,7 +869,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             )
             return None, None, False
 
-        if isinstance(content, basestring):
+        if isinstance(content, str):
             content = json.loads(content)
         book.update(content)
 
@@ -1082,7 +1082,7 @@ class NewTitlesOverdriveCollectionMonitor(OverdriveCirculationMonitor):
 
         try:
             date_added = dateutil.parser.parse(date_added)
-        except ValueError, e:
+        except ValueError as e:
             # The date format is unparseable -- shouldn't happen.
             self.log.error("Got invalid date: %s", date_added)
             return False
@@ -1175,36 +1175,36 @@ class OverdriveAdvantageAccountListScript(Script):
         )
         for collection in collections:
             self.explain_main_collection(collection)
-            print
+            print()
 
     def explain_main_collection(self, collection):
         """Explain an Overdrive collection and all of its Advantage
         collections.
         """
         api = OverdriveAPI(self._db, collection)
-        print "Main Overdrive collection: %s" % collection.name
-        print "\n".join(collection.explain())
-        print "A few of the titles in the main collection:"
+        print("Main Overdrive collection: %s" % collection.name)
+        print("\n".join(collection.explain()))
+        print("A few of the titles in the main collection:")
         for i, book in enumerate(api.all_ids()):
-            print "", book['title']
+            print("", book['title'])
             if i > 10:
                 break
         advantage_accounts = list(api.get_advantage_accounts())
-        print "%d associated Overdrive Advantage account(s)." % len(
+        print("%d associated Overdrive Advantage account(s)." % len(
             advantage_accounts
-        )
+        ))
         for advantage_collection in advantage_accounts:
             self.explain_advantage_collection(advantage_collection)
-            print
+            print()
 
     def explain_advantage_collection(self, collection):
         """Explain a single Overdrive Advantage collection."""
         parent_collection, child = collection.to_collection(self._db)
-        print " Overdrive Advantage collection: %s" % child.name
-        print " " + ("\n ".join(child.explain()))
-        print " A few of the titles in this Advantage collection:"
+        print(" Overdrive Advantage collection: %s" % child.name)
+        print(" " + ("\n ".join(child.explain())))
+        print(" A few of the titles in this Advantage collection:")
         child_api = OverdriveAPI(self._db, child)
         for i, book in enumerate(child_api.all_ids()):
-            print " ", book['title']
+            print(" ", book['title'])
             if i > 10:
                 break

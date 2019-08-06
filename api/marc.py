@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from pymarc import Field
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 from core.marc import (
     Annotator,
@@ -66,7 +66,7 @@ class LibraryAnnotator(Annotator):
                     tag="856",
                     indicators=["4", "0"],
                     subfields=[
-                        "u", setting + "/book/" + urllib.quote(identifier.type + "/" + identifier.identifier, safe='')
+                        "u", setting + "/book/" + urllib.parse.quote(identifier.type + "/" + identifier.identifier, safe='')
                     ]))
 
 

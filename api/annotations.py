@@ -14,7 +14,7 @@ from core.app_server import (
     url_for,
 )
 
-from problem_details import *
+from .problem_details import *
 
 def load_document(url):
     """Retrieves JSON-LD for the given URL from a local
@@ -137,7 +137,7 @@ class AnnotationParser(object):
             if 'id' in data and data['id'] is None:
                 del data['id']
             data = jsonld.expand(data)
-        except ValueError, e:
+        except ValueError as e:
             return INVALID_ANNOTATION_FORMAT
 
         if not data or not len(data) == 1:
@@ -157,7 +157,7 @@ class AnnotationParser(object):
 
         try:
             identifier, ignore = Identifier.parse_urn(_db, source)
-        except ValueError, e:
+        except ValueError as e:
             return INVALID_ANNOTATION_TARGET
 
         motivation = data.get("http://www.w3.org/ns/oa#motivatedBy")

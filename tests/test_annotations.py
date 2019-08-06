@@ -7,7 +7,7 @@ import datetime
 from pyld import jsonld
 
 from . import DatabaseTest
-from test_controller import ControllerTest
+from .test_controller import ControllerTest
 
 from core.model import (
     Annotation,

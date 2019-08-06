@@ -2,7 +2,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from StringIO import StringIO
+from io import StringIO
 import os
 
 from . import sample_data

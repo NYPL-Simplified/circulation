@@ -1,8 +1,8 @@
 import flask
 from flask import Response
 from core.util.problem_detail import ProblemDetail
-from circulation_exceptions import *
-from problem_details import *
+from .circulation_exceptions import *
+from .problem_details import *
 from flask_babel import lazy_gettext as _
 from core.model import Library, get_one
 
@@ -40,7 +40,7 @@ class BaseCirculationManagerController(object):
 
         try:
             patron = self.authenticated_patron(header)
-        except RemoteInitiatedServerError,e:
+        except RemoteInitiatedServerError as e:
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _("Error in authentication service")
             )

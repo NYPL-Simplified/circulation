@@ -108,9 +108,9 @@ class PatronAuthServicesController(SettingsController):
             return library_error
 
         if is_new:
-            return Response(unicode(auth_service.id), 201)
+            return Response(str(auth_service.id), 201)
         else:
-            return Response(unicode(auth_service.id), 200)
+            return Response(str(auth_service.id), 200)
 
     def _find_protocol_class(self, service_object):
         [protocol_class] = [p for p in self.provider_apis if p.__module__ == service_object.protocol]
@@ -156,7 +156,7 @@ class PatronAuthServicesController(SettingsController):
         if value:
             try:
                 re.compile(value)
-            except Exception, e:
+            except Exception as e:
                 return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
     def check_identifier_restriction(self, library, auth_service):
@@ -172,7 +172,7 @@ class PatronAuthServicesController(SettingsController):
         if identifier_restriction and identifier_restriction_type == AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX:
             try:
                 re.compile(identifier_restriction)
-            except Exception, e:
+            except Exception as e:
                 return INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION
 
     def check_libraries(self, auth_service):

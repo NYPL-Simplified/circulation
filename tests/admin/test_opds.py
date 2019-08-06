@@ -39,7 +39,7 @@ class TestOPDS(DatabaseTest):
         lp.identifier.add_measurement(staff_data_source, Measurement.RATING, 3, weight=1000)
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
         rating = entry['schema_rating']
         eq_(3, float(rating['schema:ratingvalue']))
         eq_(Measurement.RATING, rating['additionaltype'])
@@ -52,7 +52,7 @@ class TestOPDS(DatabaseTest):
 
         # If the metadata wrangler isn't configured, the link is left out.
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
         eq_([],
             [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/refresh"])
 
@@ -64,7 +64,7 @@ class TestOPDS(DatabaseTest):
             password="pw")
         integration.collections += [self._default_collection]
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
         [refresh_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/refresh"]
         assert lp.identifier.identifier in refresh_link["href"]
 
@@ -75,7 +75,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
         [suppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
         assert lp.identifier.identifier in suppress_link["href"]
         unsuppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
@@ -85,7 +85,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
         [unsuppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
         assert lp.identifier.identifier in unsuppress_link["href"]
         suppress_links = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
@@ -96,7 +96,7 @@ class TestOPDS(DatabaseTest):
         lp = work.license_pools[0]
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
         [edit_link] = [x for x in entry['links'] if x['rel'] == "edit"]
         assert lp.identifier.identifier in edit_link["href"]
 
@@ -105,7 +105,7 @@ class TestOPDS(DatabaseTest):
         lp = work.license_pools[0]
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
 
         # Since there's no storage integration, the change cover link isn't included.
         eq_([], [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"])
@@ -115,7 +115,7 @@ class TestOPDS(DatabaseTest):
         storage.password = "pass"
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
+        [entry] = feedparser.parse(str(feed))['entries']
 
         [change_cover_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"]
         assert lp.identifier.identifier in change_cover_link["href"]
@@ -181,7 +181,7 @@ class TestOPDS(DatabaseTest):
             )
 
         first_page = make_page(pagination)
-        parsed = feedparser.parse(unicode(first_page))
+        parsed = feedparser.parse(str(first_page))
         eq_(1, len(parsed['entries']))
         eq_(work1.title, parsed['entries'][0]['title'])
         # Verify that the entry has acquisition links.
@@ -206,7 +206,7 @@ class TestOPDS(DatabaseTest):
 
         # Now get the second page and make sure it has a 'previous' link.
         second_page = make_page(pagination.next_page)
-        parsed = feedparser.parse(unicode(second_page))
+        parsed = feedparser.parse(str(second_page))
         [previous] = self.links(parsed, 'previous')
         eq_(annotator.complaints_url(facets, pagination), previous['href'])
         eq_(1, len(parsed['entries']))
@@ -240,7 +240,7 @@ class TestOPDS(DatabaseTest):
             )
 
         first_page = make_page(pagination)
-        parsed = feedparser.parse(unicode(first_page))
+        parsed = feedparser.parse(str(first_page))
         eq_(1, len(parsed['entries']))
         assert parsed['entries'][0].title in titles
         titles.remove(parsed['entries'][0].title)
@@ -263,7 +263,7 @@ class TestOPDS(DatabaseTest):
 
         # Now get the second page and make sure it has a 'previous' link.
         second_page = make_page(pagination.next_page)
-        parsed = feedparser.parse(unicode(second_page))
+        parsed = feedparser.parse(str(second_page))
         [previous] = self.links(parsed, 'previous')
         eq_(annotator.suppressed_url(pagination), previous['href'])
         eq_(1, len(parsed['entries']))
@@ -271,7 +271,7 @@ class TestOPDS(DatabaseTest):
 
         # The third page is empty.
         third_page = make_page(pagination.next_page.next_page)
-        parsed = feedparser.parse(unicode(third_page))
+        parsed = feedparser.parse(str(third_page))
         [previous] = self.links(parsed, 'previous')
         eq_(annotator.suppressed_url(pagination.next_page), previous['href'])
         eq_(0, len(parsed['entries']))
