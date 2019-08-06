@@ -428,16 +428,16 @@ class TestVendorIDModel(VendorIDTest):
 
 class TestVendorIDRequestParsers(object):
 
-    username_sign_in_request = """<signInRequest method="standard" xmlns="http://ns.adobe.com/adept">
+    username_sign_in_request = b"""<signInRequest method="standard" xmlns="http://ns.adobe.com/adept">
 <username>Vendor username</username>
 <password>Vendor password</password>
 </signInRequest>"""
 
-    authdata_sign_in_request = """<signInRequest method="authData" xmlns="http://ns.adobe.com/adept">
+    authdata_sign_in_request = b"""<signInRequest method="authData" xmlns="http://ns.adobe.com/adept">
 <authData> dGhpcyBkYXRhIHdhcyBiYXNlNjQgZW5jb2RlZA== </authData>
 </signInRequest>"""
 
-    accountinfo_request = """<accountInfoRequest method="standard" xmlns="http://ns.adobe.com/adept">
+    accountinfo_request = b"""<accountInfoRequest method="standard" xmlns="http://ns.adobe.com/adept">
 <user>urn:uuid:0xxxxxxx-xxxx-1xxx-xxxx-yyyyyyyyyyyy</user>
 </accountInfoRequest >"""
 
@@ -528,7 +528,7 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_success(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("The secret token"))
+            authdata=base64.b64encode(b"The secret token").decode("utf8"))
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>test-uuid</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
@@ -542,14 +542,14 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_failure(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("incorrect"))
+            authdata=base64.b64encode(b"incorrect").decode("utf8"))
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect token."/>', result)
 
     def test_failure_send_login_request_to_accountinfo(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("incorrect"))
+            authdata=base64.b64encode(b"incorrect").decode("utf8"))
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Request document in wrong format."/>', result)
@@ -740,6 +740,7 @@ class TestAuthdataUtility(VendorIDTest):
         vendor_id, authdata = self.authdata.encode(patron_identifier)
         eq_("The Vendor ID", vendor_id)
 
+        authdata = authdata.encode("utf8")
         # A mischievious party in the middle decodes our authdata
         # without telling us.
         authdata = base64.decodestring(authdata)
@@ -880,7 +881,7 @@ class TestAuthdataUtility(VendorIDTest):
         # The signature comes from signing the token with the
         # secret associated with this library.
         expect_signature = self.authdata.short_token_signer.sign(
-            token, self.authdata.short_token_signing_key
+            token.encode("utf8"), self.authdata.short_token_signing_key
         )
         eq_(expect_signature, signature)
 
@@ -906,7 +907,7 @@ class TestAuthdataUtility(VendorIDTest):
         # If our secret for a library doesn't match the other
         # library's short token signing key, we can't decode the
         # authdata.
-        foreign_authdata.short_token_signing_key = 'A new secret'
+        foreign_authdata.short_token_signing_key = b'A new secret'
         vendor_id, token = foreign_authdata.encode_short_client_token(
             patron_identifier
         )
@@ -980,11 +981,11 @@ class TestAuthdataUtility(VendorIDTest):
         # newline stripped.
         eq_(
             encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n",
-            base64.encodestring(value)
+            base64.encodestring(value.encode("utf8")).decode("utf8")
         )
 
         # We can reverse the encoding to get the original value.
-        eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
+        eq_(value.encode("utf8"), AuthdataUtility.adobe_base64_decode(encoded))
 
     def test__encode_short_client_token_uses_adobe_base64_encoding(self):
         class MockSigner(object):
@@ -1003,7 +1004,7 @@ class TestAuthdataUtility(VendorIDTest):
     def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 
         # The base64 encoding of this signature has a plus sign in it.
-        signature = 'LbU}66%\\-4zt>R>_)\n2Q'
+        signature = b'LbU}66%\\-4zt>R>_)\n2Q'
         encoded_signature = AuthdataUtility.adobe_base64_encode(signature)
 
         # We replace the plus sign with a colon.
@@ -1171,4 +1172,4 @@ class TestAdobeVendorIDController(VendorIDTest):
         # The authdata returned is the one stored as a Credential
         # for the Patron.
         [credential] = patron.credentials
-        eq_(credential.credential, response.data)
+        eq_(credential.credential, response.data.decode("utf8"))

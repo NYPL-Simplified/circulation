@@ -304,6 +304,10 @@ class AdobeSignInRequestParser(AdobeRequestParser):
     STANDARD = 'standard'
     AUTH_DATA = 'authData'
 
+    @classmethod
+    def _safe_base64_decode(cls, string):
+        return base64.b64decode(string).decode("utf8")
+
     def process_one(self, tag, namespaces):
         method = tag.attrib.get('method')
 
@@ -314,7 +318,7 @@ class AdobeSignInRequestParser(AdobeRequestParser):
             self._add(data, tag, 'username', namespaces)
             self._add(data, tag, 'password', namespaces)
         elif method == self.AUTH_DATA:
-            self._add(data, tag, self.AUTH_DATA, namespaces, base64.b64decode)
+            self._add(data, tag, self.AUTH_DATA, namespaces, self._safe_base64_decode)
         else:
             raise ValueError("Unknown signin method: %s" % method)
         return data
@@ -792,9 +796,20 @@ class AuthdataUtility(object):
             payload['iat'] = self.numericdate(iat) # Issued At
         if exp:
             payload['exp'] = self.numericdate(exp) # Expiration Time
-        return base64.encodestring(
+        return self._safe_base64_encode(
             jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
         )
+
+    @classmethod
+    def _safe_base64_encode(cls, x):
+        """Can be called on a unicode string or a byte string and get back
+            the unicode string with the base64 encoded string.
+        """
+        if isinstance(x, str):
+            x = x.encode("utf8")
+
+        encoded = base64.encodestring(x)
+        return encoded.decode("utf8")
 
     @classmethod
     def adobe_base64_encode(cls, str):
@@ -805,13 +820,16 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = base64.encodestring(str)
+        encoded = cls._safe_base64_encode(str)
         return encoded.replace("+", ":").replace("/", ";").replace("=", "@").strip()
 
     @classmethod
-    def adobe_base64_decode(cls, str):
+    def adobe_base64_decode(cls, string):
         """Undoes adobe_base64_encode."""
-        encoded = str.replace(":", "+").replace(";", "/").replace("@", "=")
+        if isinstance(string, str):
+            string = string.encode("utf8")
+
+        encoded = string.replace(b":", b"+").replace(b";", b"/").replace(b"@", b"=")
         return base64.decodestring(encoded)
 
     def decode(self, authdata):
@@ -830,7 +848,7 @@ class AuthdataUtility(object):
         # try to decode it ourselves and verify it that way.
         potential_tokens = [authdata]
         try:
-            decoded = base64.decodestring(authdata)
+            decoded = base64.decodestring(authdata.encode("utf8"))
             potential_tokens.append(decoded)
         except Exception as e:
             # Do nothing -- the authdata was not encoded to begin with.
@@ -850,6 +868,9 @@ class AuthdataUtility(object):
         raise exceptions[-1]
 
     def _decode(self, authdata):
+        if isinstance(authdata, str):
+            authdata = authdata.encode("utf8")
+
         # First, decode the authdata without checking the signature.
         decoded = jwt.decode(
             authdata, algorithm=self.ALGORITHM,
@@ -922,8 +943,9 @@ class AuthdataUtility(object):
     def _encode_short_client_token(self, library_short_name,
                                    patron_identifier, expires):
         base = library_short_name + "|" + str(expires) + "|" + patron_identifier
+
         signature = self.short_token_signer.sign(
-            base, self.short_token_signing_key
+            base.encode("utf8"), self.short_token_signing_key
         )
         signature = self.adobe_base64_encode(signature)
         if len(base) > 80:
@@ -1003,7 +1025,9 @@ class AuthdataUtility(object):
 
         # Sign the token and check against the provided signature.
         key = self.short_token_signer.prepare_key(secret)
-        actual_signature = self.short_token_signer.sign(token, key)
+        if isinstance(key, str):
+            key = key.encode("utf8")
+        actual_signature = self.short_token_signer.sign(token.encode("utf8"), key)
 
         if actual_signature != supposed_signature:
             raise ValueError(
