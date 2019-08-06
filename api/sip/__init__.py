@@ -127,7 +127,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 sip = SIPClient(
                     target_server=self.server, target_port=self.port,
                     login_user_id=self.login_user_id, login_password=self.login_password,
-                    location_code=self.location_code, separator=self.field_separator,
+                    location_code=self.location_code, institution_id=self.institution_id, separator=self.field_separator,
                     use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key
                 )
             sip.connect()
@@ -173,7 +173,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             sip = SIPClient(
                 target_server=self.server, target_port=self.port,
                 login_user_id=self.login_user_id, login_password=self.login_password,
-                location_code=self.location_code, separator=self.field_separator,
+                location_code=self.location_code, institution_id=self.institution_id, separator=self.field_separator,
                 use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key
             )
         

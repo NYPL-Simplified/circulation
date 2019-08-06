@@ -238,7 +238,7 @@ class SIPClient(Constants):
     ]
 
     def __init__(self, target_server, target_port, login_user_id=None,
-                 login_password=None, location_code=None, separator=None,
+                 login_password=None, location_code=None, institution_id='', separator=None,
                  use_ssl=False, ssl_cert=None, ssl_key=None
     ):
         """Initialize a client for (but do not connect to) a SIP2 server.
@@ -256,6 +256,7 @@ class SIPClient(Constants):
         if target_port:
             self.target_port = int(target_port)
         self.location_code = location_code
+        self.institution_id = institution_id
         self.separator = separator or '|'
 
         self.use_ssl = use_ssl or ssl_cert or ssl_key
@@ -434,7 +435,7 @@ class SIPClient(Constants):
         )
 
     def end_session_message(
-            self, patron_identifier, patron_password="", institution_id="",
+            self, patron_identifier, patron_password="",
             terminal_password="",
     ):
         """
@@ -456,7 +457,7 @@ class SIPClient(Constants):
         timestamp = self.now()
 
         message = (code + timestamp +
-                   "AO" + institution_id + self.separator +
+                   "AO" + self.institution_id + self.separator +
                    "AA" + patron_identifier + self.separator +
                    "AC" + terminal_password
         )
@@ -478,7 +479,7 @@ class SIPClient(Constants):
         )
 
     def patron_information_request(
-            self, patron_identifier, patron_password="", institution_id="",
+            self, patron_identifier, patron_password="",
             terminal_password="",
             language=None, summary=None
     ):
@@ -504,7 +505,7 @@ class SIPClient(Constants):
         summary = summary or self.summary()
 
         message = (code + language + timestamp + summary
-                   + "AO" + institution_id + self.separator +
+                   + "AO" + self.institution_id + self.separator +
                    "AA" + patron_identifier + self.separator +
                    "AC" + terminal_password
         )
@@ -833,10 +834,10 @@ class MockSIPClient(SIPClient):
     """
 
     def __init__(self, login_user_id=None, login_password=None, separator="|",
-                 target_server=None, target_port=None, location_code=None):
+                 target_server=None, target_port=None, location_code=None, institution_id=''):
         super(MockSIPClient, self).__init__(
             None, None, login_user_id=login_user_id,
-            login_password=login_password, separator=separator
+            login_password=login_password, separator=separator, institution_id=institution_id
         )
 
         self.requests = []
