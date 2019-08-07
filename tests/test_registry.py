@@ -310,7 +310,7 @@ class TestRegistration(DatabaseTest):
         results = registration._process_registration_result_called_with
         message, cipher, actual_stage = results
         eq_("you did it!", message)
-        eq_(cipher._key.exportKey(), private_key)
+        eq_(cipher._key.exportKey(), private_key.encode("utf8"))
         eq_(actual_stage, stage)
 
         # If a nonexistent stage is provided a ProblemDetail is the result.

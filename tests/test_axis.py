@@ -165,7 +165,7 @@ class TestAxis360API(Axis360Test):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         eq_("Asking for circulation events for the last five minutes",
             recent_circulation_events.name)
@@ -203,7 +203,7 @@ class TestAxis360API(Axis360Test):
         [failure] = api._run_self_tests(self._db)
         eq_("Refreshing bearer token", failure.name)
         eq_(False, failure.success)
-        eq_("no way", failure.exception.message)
+        eq_("no way", str(failure.exception))
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()

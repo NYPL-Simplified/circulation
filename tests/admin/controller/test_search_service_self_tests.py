@@ -68,7 +68,7 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             response = m(search_service.id)
             eq_(response._status, "200 OK")
-            eq_("Successfully ran new self tests", response.data)
+            eq_("Successfully ran new self tests", response.data.decode("utf8"))
 
         # run_self_tests was called with the database twice (the
         # second time to be used in the ExternalSearchIntegration

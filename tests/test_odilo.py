@@ -318,7 +318,7 @@ class TestOdiloAPI(OdiloAPITest):
         )
         eq_(False, loans_failure.success)
         eq_("Library has no test patron configured.",
-            loans_failure.exception.message)
+            str(loans_failure.exception))
 
     def test_run_self_tests_short_circuit(self):
         """If OdiloAPI.check_creds can't get credentials, the rest of
@@ -333,7 +333,7 @@ class TestOdiloAPI(OdiloAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api._run_self_tests(self._db)
-        eq_("Failure!", check_creds.exception.message)
+        eq_("Failure!", str(check_creds.exception))
 
 
 class TestOdiloCirculationAPI(OdiloAPITest):

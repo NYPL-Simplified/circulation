@@ -281,7 +281,7 @@ class TestIndividualAdmins(SettingsControllerTest):
 
         # The admin was created.
         admin_match = Admin.authenticate(self._db, "admin@nypl.org", "pass")
-        eq_(admin_match.email, response.response[0])
+        eq_(admin_match.email, response.response[0].decode("utf8"))
         assert admin_match
         assert admin_match.has_password("pass")
 
@@ -326,7 +326,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             response = self.manager.admin_individual_admin_settings_controller.process_post()
             eq_(response.status_code, 200)
 
-        eq_(admin.email, response.response[0])
+        eq_(admin.email, response.response[0].decode("utf8"))
 
         # The password was changed.
         old_password_match = Admin.authenticate(self._db, "admin@nypl.org", "password")
@@ -416,7 +416,7 @@ class TestIndividualAdmins(SettingsControllerTest):
 
         # The admin was created.
         admin_match = Admin.authenticate(self._db, "first_admin@nypl.org", "pass")
-        eq_(admin_match.email, response.response[0])
+        eq_(admin_match.email, response.response[0].decode("utf8"))
         assert admin_match
         assert admin_match.has_password("pass")
 

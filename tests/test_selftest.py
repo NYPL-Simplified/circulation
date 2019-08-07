@@ -41,7 +41,7 @@ class TestHasSelfTests(DatabaseTest):
         eq_("Acquiring test patron credentials.", result.name)
         eq_(False, result.success)
         eq_("Collection is not associated with any libraries.",
-            result.exception.message)
+            str(result.exception))
         eq_(
             "Add the collection to a library that has a patron authentication service.",
             result.exception.debug_message
@@ -79,7 +79,7 @@ class TestHasSelfTests(DatabaseTest):
             "Acquiring test patron credentials for library %s" % no_default_patron.name,
             failure.name
         )
-        eq_("Library has no test patron configured.", failure.exception.message)
+        eq_("Library has no test patron configured.", str(failure.exception))
         eq_("You can specify a test patron when you configure the library's patron authentication service.", failure.exception.debug_message)
 
         # The test patron for the library that has one was looked up,

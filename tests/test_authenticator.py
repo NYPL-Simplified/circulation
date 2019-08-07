@@ -1887,7 +1887,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         [result] = list(provider._run_self_tests(_db))
         eq_(_db, provider.called_with)
         eq_(False, result.success)
-        eq_("Nope", result.exception.message)
+        eq_("Nope", str(result.exception))
 
         # If we can authenticate a test patron, the patron and their
         # password are passed into the next test.
