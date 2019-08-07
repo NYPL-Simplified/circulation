@@ -10,7 +10,7 @@ import re
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
-from StringIO import StringIO
+from io import BytesIO
 import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -2270,7 +2270,7 @@ class TestSettingsController(SettingsControllerTest):
                 (Configuration.HELP_EMAIL, "help@example.com")
             ])
             flask.request.files = MultiDict([
-                (Configuration.LOGO, StringIO())
+                (Configuration.LOGO, BytesIO())
             ])
             response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
             eq_(response, None)

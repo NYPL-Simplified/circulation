@@ -177,9 +177,9 @@ class ControllerTest(VendorIDTest):
     # Authorization headers that will succeed (or fail) against the
     # SimpleAuthenticationProvider set up in ControllerTest.setup().
     valid_auth = 'Basic ' + base64.b64encode(
-        'unittestuser:unittestpassword'
-    )
-    invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
+        b'unittestuser:unittestpassword'
+    ).decode("utf8")
+    invalid_auth = 'Basic ' + base64.b64encode(b'user1:password2').decode("utf8")
 
     valid_credentials = dict(
         username="unittestuser", password="unittestpassword"
