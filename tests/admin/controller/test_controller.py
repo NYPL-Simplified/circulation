@@ -10,7 +10,7 @@ import re
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
-from io import BytesIO
+from io import StringIO
 import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -123,9 +123,7 @@ class AdminControllerTest(CirculationControllerTest):
         admin = self.admin
         if 'admin' in kwargs:
             admin = kwargs.pop('admin')
-        with self.app.test_request_context(route, *args, **kwargs) as c:
-            flask.request.form = {}
-            flask.request.files = {}
+        with self.test_request_context(route, *args, **kwargs) as c:
             self._db.begin_nested()
             flask.request.admin = admin
             yield c
@@ -137,8 +135,6 @@ class AdminControllerTest(CirculationControllerTest):
         if 'admin' in kwargs:
             admin = kwargs.pop('admin')
         with self.request_context_with_library(route, *args, **kwargs) as c:
-            flask.request.form = {}
-            flask.request.files = {}
             self._db.begin_nested()
             flask.request.admin = admin
             yield c
@@ -2270,7 +2266,7 @@ class TestSettingsController(SettingsControllerTest):
                 (Configuration.HELP_EMAIL, "help@example.com")
             ])
             flask.request.files = MultiDict([
-                (Configuration.LOGO, BytesIO())
+                (Configuration.LOGO, StringIO())
             ])
             response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
             eq_(response, None)

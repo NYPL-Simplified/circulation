@@ -385,7 +385,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             self._db.delete(admin)
 
         # Creating an admin that's not a system admin will fail.
-        with self.app.test_request_context("/", method="POST"):
+        with self.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "first_admin@nypl.org"),
                 ("password", "pass"),
@@ -395,7 +395,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             self._db.rollback()
 
         # The password is required.
-        with self.app.test_request_context("/", method="POST"):
+        with self.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "first_admin@nypl.org"),
                 ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
@@ -405,7 +405,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         # Creating a system admin with a password works.
-        with self.app.test_request_context("/", method="POST"):
+        with self.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "first_admin@nypl.org"),
                 ("password", "pass"),

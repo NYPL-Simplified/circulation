@@ -326,9 +326,26 @@ class ControllerTest(VendorIDTest):
             library = kwargs.pop('library')
         else:
             library = self._default_library
-        with self.app.test_request_context(route, *args, **kwargs) as c:
+        with self.test_request_context(route, *args, **kwargs) as c:
             flask.request.library = library
             yield c
+    
+    @contextmanager
+    def test_request_context(self, *args, **kwargs):
+        """Setting up a test_request_context as though the form for the request
+        has already been processed. This allows to mock the input using the same
+        data structure that flask uses instead of having to mock the body of the
+        HTTP request.
+
+        `form` should be a MultiDict object.
+        `files` should be a MultiDict object.
+        """
+        with self.app.test_request_context(*args, **kwargs) as ctx:
+            flask.request.stream = {}
+            flask.request.form = {}
+            flask.request.files = {}
+
+            yield ctx
 
 
 class CirculationControllerTest(ControllerTest):
