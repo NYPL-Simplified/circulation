@@ -735,7 +735,7 @@ class TestExceptionHandler(RouteTest):
             eq_(value_error, routes.h.handled)
 
             # The Response is created was passed along.
-            eq_("handled it", result.data)
+            eq_("handled it", result.data.decode("utf8"))
             eq_(500, result.status_code)
 
         # werkzeug HTTPExceptions are _not_ run through

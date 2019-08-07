@@ -2399,7 +2399,7 @@ class TestWorkController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.work_controller.permalink(self.identifier.type, self.identifier.identifier)
             annotator = LibraryAnnotator(None, None, self._default_library)
-            expect = etree.tostring(
+            expect = etree.tounicode(
                 AcquisitionFeed.single_entry(
                     self._db, self.english_1, annotator
                 )

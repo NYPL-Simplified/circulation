@@ -27,6 +27,7 @@ from api.registry import (
     Registration,
     LibraryRegistrationScript,
 )
+import binascii
 
 class TestRemoteRegistry(DatabaseTest):
 
@@ -515,7 +516,7 @@ class TestRegistration(DatabaseTest):
         key2 = RSA.generate(2048)
         encryptor2 = PKCS1_OAEP.new(key2)
 
-        shared_secret = os.urandom(24).encode('hex')
+        shared_secret = binascii.hexlify(os.urandom(24))
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
 
         # Success.
@@ -527,7 +528,7 @@ class TestRegistration(DatabaseTest):
         problem = m(encryptor2, encrypted_secret)
         assert isinstance(problem, ProblemDetail)
         eq_(SHARED_SECRET_DECRYPTION_ERROR.uri, problem.uri)
-        assert encrypted_secret in problem.detail
+        assert encrypted_secret.decode("utf8") in problem.detail
 
     def test__process_registration_result(self):
         reg = self.registration
@@ -652,7 +653,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
             # library registry.
             eq_(
                 RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL,
-                x[0].integration.url
+                i[0].integration.url
             )
 
     def test_process_library(self):

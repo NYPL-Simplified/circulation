@@ -128,7 +128,8 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
 
         def refresh(credential):
             headers = dict()
-            auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
+            creds = "%s:%s" % (self.username, self.password)
+            auth_header = "Basic %s" % base64.b64encode(creds.encode("utf8")).decode("utf8")
             headers['Authorization'] = auth_header
             headers['Content-Type'] = "application/x-www-form-urlencoded"
             body = dict(grant_type='client_credentials')

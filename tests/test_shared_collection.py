@@ -167,7 +167,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # An IntegrationClient has been created.
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
         decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
-        eq_(client.shared_secret, decrypted_secret)
+        eq_(client.shared_secret, decrypted_secret.decode("utf8"))
 
     def test_borrow(self):
         # This client is registered, but isn't one of the allowed URLs for the collection

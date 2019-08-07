@@ -104,7 +104,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         # that a simplified:message that a normal OPDSImporter would
         # consider a 'failure' should actually be considered a
         # success.
-        for failure_or_identifier in sorted(error_messages_by_id.values()):
+        for failure_or_identifier in error_messages_by_id.values():
             if isinstance(failure_or_identifier, CoverageFailure):
                 failure_or_identifier.collection = self.collection_or_not
             results.append(failure_or_identifier)

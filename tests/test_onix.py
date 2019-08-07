@@ -2,7 +2,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from io import StringIO
+from io import BytesIO
 import os
 
 from . import sample_data
@@ -23,7 +23,7 @@ class TestONIXExtractor(object):
         """Parse an ONIX file into Metadata objects."""
 
         file = self.sample_data("onix_example.xml")
-        metadata_records = ONIXExtractor().parse(StringIO(file), "MIT Press")
+        metadata_records = ONIXExtractor().parse(BytesIO(file), "MIT Press")
 
         eq_(1, len(metadata_records))
 

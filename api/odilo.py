@@ -391,10 +391,9 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
         if not self.client_key or not self.client_secret or not self.library_api_base_url:
             raise CannotLoadConfiguration("Odilo configuration is incomplete.")
 
-        # Use utf8 instead of unicode encoding
         settings = [self.client_key, self.client_secret, self.library_api_base_url]
         self.client_key, self.client_secret, self.library_api_base_url = (
-            setting.encode('utf8') for setting in settings
+            setting for setting in settings
         )
 
         # Get set up with up-to-date credentials from the API.

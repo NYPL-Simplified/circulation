@@ -139,8 +139,8 @@ class SharedCollectionAPI(object):
             client, ignore = IntegrationClient.register(self._db, start_url)
 
         shared_secret = client.shared_secret
-        encrypted_secret = encryptor.encrypt(str(shared_secret))
-        return dict(metadata=dict(shared_secret=base64.b64encode(encrypted_secret)))
+        encrypted_secret = encryptor.encrypt(shared_secret.encode("utf8"))
+        return dict(metadata=dict(shared_secret=base64.b64encode(encrypted_secret).decode("utf8")))
 
     def check_client_authorization(self, collection, client):
         """Verify that an IntegrationClient is whitelisted for access to the collection."""

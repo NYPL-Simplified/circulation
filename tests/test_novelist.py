@@ -242,7 +242,7 @@ class TestNoveListAPI(DatabaseTest):
 
         # If a recent Representation exists, it is returned.
         representation, is_new = self._representation(url=url)
-        representation.content = 'content'
+        representation.content = b'content'
         representation.fetched_at = datetime.datetime.utcnow() - datetime.timedelta(days=3)
         result = self.novelist.cached_representation(url)
         eq_(representation, result)

@@ -233,7 +233,7 @@ class TestCOPPAGate(DatabaseTest):
 
     def test_navigation_entry(self):
         """navigation_entry creates an OPDS entry with a subsection link."""
-        entry = etree.tostring(
+        entry = etree.tounicode(
             COPPAGate.navigation_entry(
                 "some href", "some title", "some content"
             )
@@ -243,7 +243,7 @@ class TestCOPPAGate(DatabaseTest):
                 '<id>some href</id>',
                 '<title>some title</title>',
                 '<content type="text">some content</content>',
-                '<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>',
+                '<link href="some href" rel="subsection" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>',
                 '<updated',
         ):
             assert expect in entry

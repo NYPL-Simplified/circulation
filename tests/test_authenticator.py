@@ -1070,7 +1070,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # A token is created and signed with the bearer token.
         token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
-        eq_("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvYXV0aDEiLCJ0b2tlbiI6InNvbWUgdG9rZW4ifQ.Ve-bbEN4mdWQdR-VA6gbrK2xOz2KRbmPhttmTTCA0ng",
+        eq_("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6InNvbWUgdG9rZW4iLCJpc3MiOiJvYXV0aDEifQ.toy4qdoziL99SN4q9DRMdN-3a0v81CfVjwJVFNUt_mk",
             token1
         )
 
@@ -2633,7 +2633,7 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(provider=self.oauth1.NAME)
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
-        expected_state = dict(redirect_uri="", provider=self.oauth1.NAME)
+        expected_state = dict(provider=self.oauth1.NAME, redirect_uri="")
         expected_state = urllib.parse.quote(json.dumps(expected_state))
         eq_("http://oauth1.com/?state=" + expected_state, response.location)
 
