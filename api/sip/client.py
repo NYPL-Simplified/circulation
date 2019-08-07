@@ -184,6 +184,9 @@ class SIPClient(Constants):
 
     log = logging.getLogger("SIPClient")
 
+    # Maximum retries of a SIP message before failing.
+    MAXIMUM_RETRIES = 5
+
     # These are the subfield names associated with the 'patron status'
     # field as specified in the SIP2 spec.
     CHARGE_PRIVILEGES_DENIED = 'charge privileges denied'
@@ -391,7 +394,12 @@ class SIPClient(Constants):
         original_message = message_creator(*args, **kwargs)
         message_with_checksum = self.append_checksum(original_message)
         parsed = None
+        retries = 0
         while not parsed:
+            if retries >= self.MAXIMUM_RETRIES:
+                # Only retry MAXIMUM_RETRIES times in case we we are sending
+                # a message the ILS doesn't like, so we don't retry forever
+                raise IOError('Maximum SIP retries reached')
             self.send(message_with_checksum)
             response = self.read_message()
             try:
@@ -403,6 +411,7 @@ class SIPClient(Constants):
                 message_with_checksum = self.append_checksum(
                     original_message, include_sequence_number=False
                 )
+            retries += 1
         return parsed
 
     def login_message(self, login_user_id, login_password, location_code="",
