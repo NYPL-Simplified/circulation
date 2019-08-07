@@ -123,6 +123,9 @@ from api.admin.template_styles import *
 
 from core.selftest import HasSelfTests
 
+from api.admin.controller.sitewide_services import *
+from api.admin.controller.catalog_services import *
+
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
@@ -173,14 +176,12 @@ def setup_admin_controllers(manager):
     manager.admin_library_settings_controller = LibrarySettingsController(manager)
     from api.admin.controller.individual_admin_settings import IndividualAdminSettingsController
     manager.admin_individual_admin_settings_controller = IndividualAdminSettingsController(manager)
-    from api.admin.controller.sitewide_services import *
     manager.admin_sitewide_services_controller = SitewideServicesController(manager)
     manager.admin_logging_services_controller = LoggingServicesController(manager)
     from api.admin.controller.search_service_self_tests import SearchServiceSelfTestsController
     manager.admin_search_service_self_tests_controller = SearchServiceSelfTestsController(manager)
     manager.admin_search_services_controller = SearchServicesController(manager)
     manager.admin_storage_services_controller = StorageServicesController(manager)
-    from api.admin.controller.catalog_services import *
     manager.admin_catalog_services_controller = CatalogServicesController(manager)
 
 class AdminController(object):
