@@ -751,16 +751,30 @@ class TestAuthdataUtility(VendorIDTest):
 
     def test_encode(self):
         """Test that _encode gives a known value with known input."""
+
+        # Three pieces of data go into our JWT.
         patron_identifier = "Patron identifier"
         now = datetime.datetime(2016, 1, 1, 12, 0, 0)
         expires = datetime.datetime(2018, 1, 1, 12, 0, 0)
+
+        raw_jwt = b'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwic3ViIjoiUGF0cm9uIGlkZW50aWZpZXIiLCJpYXQiOjE0NTE2NDk2MDAuMCwiZXhwIjoxNTE0ODA4MDAwLjB9.Ua11tFCpC4XAgwhR6jFyoxfHy4s1zt2Owg4dOoCefYA'
+        base64_encoded_jwt = base64.encodestring(raw_jwt).decode("utf8")
+
+        # Encoding the three pieces of data gets a known value.
         authdata = self.authdata._encode(
             self.authdata.library_uri, patron_identifier, now, expires
         )
-        eq_(
-            base64.encodestring('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw'),
-            authdata
-        )
+        eq_(base64_encoded_jwt, authdata)
+
+        # We can't call self.authdata._decode to peek into raw_jwt,
+        # because it expired in 2018.  But if you're debugging this
+        # test and you need to look at the pieces that make up
+        # raw_jwt, you can call PyJWT._load(), like so:
+        from jwt.api_jwt import _jwt_global_obj
+        loaded_jwt = _jwt_global_obj._load(raw_jwt)
+        payload = loaded_jwt[0]
+        payload_dict = json.loads(payload)
+        eq_("Patron identifier", payload_dict['sub'])
 
     def test_decode_from_another_library(self):
 
