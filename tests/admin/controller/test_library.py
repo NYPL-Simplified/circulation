@@ -28,7 +28,7 @@ from core.model import (
 from core.testing import MockRequestsResponse
 from api.admin.controller.library_settings import LibrarySettingsController
 from api.admin.geographic_validator import GeographicValidator
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest):
 

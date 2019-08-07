@@ -16,7 +16,7 @@ from core.model import (
     get_one,
 )
 
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestIndividualAdmins(SettingsControllerTest):
 

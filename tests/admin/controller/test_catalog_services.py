@@ -16,7 +16,7 @@ from core.model import (
     create,
     get_one,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 from core.s3 import S3Uploader
 
 class TestCatalogServicesController(SettingsControllerTest):

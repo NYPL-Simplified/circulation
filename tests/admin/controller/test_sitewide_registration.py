@@ -16,7 +16,7 @@ from core.model import (
 )
 from core.testing import MockRequestsResponse
 from core.util.problem_detail import ProblemDetail
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestSitewideRegistration(SettingsControllerTest):
 

@@ -17,7 +17,7 @@ from core.model import (
     get_one,
     Library,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestAnalyticsServices(SettingsControllerTest):
 

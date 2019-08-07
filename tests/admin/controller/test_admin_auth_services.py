@@ -14,7 +14,7 @@ from core.model import (
     ExternalIntegration,
     get_one,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestAdminAuthServices(SettingsControllerTest):
     def test_admin_auth_services_get_with_no_services(self):

@@ -20,7 +20,7 @@ from core.model import (
 )
 from werkzeug import MultiDict
 
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestCollectionSettings(SettingsControllerTest):
     def test_collections_get_with_no_collections(self):
