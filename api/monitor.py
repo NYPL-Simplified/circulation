@@ -107,7 +107,7 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
         since the last time this monitor ran.
 
         :param progress: A TimestampData representing the span of time
-        covered during the previous run of this monitor.
+            covered during the previous run of this monitor.
 
         :return: A modified TimestampData.
         """

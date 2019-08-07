@@ -247,12 +247,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         """Check out a book on behalf of a patron.
 
         :param patron: a Patron object for the patron who wants
-        to check out the book.
+            to check out the book.
 
         :param pin: The patron's alleged password.
 
         :param licensepool: Identifier of the book to be checked out is
-        attached to this licensepool.
+            attached to this licensepool.
 
         :param internal_format: Represents the patron's desired book format.
 
@@ -645,7 +645,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         into a LoanInfo object.
 
         :return: A LoanInfo object if the book can be fulfilled
-        by the default Library Simplified client, and None otherwise.
+            by the default Library Simplified client, and None otherwise.
         """
         overdrive_identifier = checkout['reserveId'].lower()
         start = cls._pd(checkout.get('checkoutDate'))
@@ -789,8 +789,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         """Release a patron's hold on a book.
 
         :raises CannotReleaseHold: If there is an error communicating
-        with Overdrive, or Overdrive refuses to release the hold for
-        any reason.
+            with Overdrive, or Overdrive refuses to release the hold for
+            any reason.
         """
         url = self.HOLD_ENDPOINT % dict(
             product_id=licensepool.identifier.identifier)
@@ -1024,7 +1024,7 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
         """Find Overdrive books that changed recently.
 
         :progress: A TimestampData representing the time previously
-        covered by this Monitor.
+            covered by this Monitor.
         """
         overdrive_data_source = DataSource.lookup(
             self._db, DataSource.OVERDRIVE

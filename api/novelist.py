@@ -555,7 +555,7 @@ class NoveListAPI(object):
             the existing object if available,
             a new object if the item wasn't found before,
             if the item is ready to the added to the list of books to send
-        )
+            )
         """
         if not object:
             return (None, None, None, False)
