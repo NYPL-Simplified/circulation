@@ -143,8 +143,8 @@ class TestCOPPAGate(DatabaseTest):
         # which has been cached as .navigation_feed.
         eq_("200 OK", response.status)
         eq_(OPDSFeed.NAVIGATION_FEED_TYPE, response.headers['Content-Type'])
-        eq_("fake feed", response.data)
-        eq_(response.data, gate.navigation_feed)
+        eq_("fake feed", response.data.decode("utf8"))
+        eq_(response.data.decode("utf8"), gate.navigation_feed)
 
     def test__navigation_feed(self):
         """Test the code that builds an OPDS navigation feed."""

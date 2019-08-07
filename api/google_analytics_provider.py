@@ -1,3 +1,8 @@
+from nose.tools import (
+    eq_,
+    set_trace,
+    assert_raises_regexp,
+)
 from .config import CannotLoadConfiguration
 import uuid
 import unicodedata
@@ -100,8 +105,8 @@ class GoogleAnalyticsProvider(object):
                     'cd11': work.top_genre(),
                     'cd12': "true" if license_pool.open_access else "false",
                 })
-        # urlencode doesn't like unicode strings so we convert them to utf8
-        fields = {k: unicodedata.normalize("NFKD", str(v)).encode("utf8") for k, v in fields.items()}
+
+        fields = {k: unicodedata.normalize("NFKD", str(v)) for k, v in fields.items()}
 
         params = re.sub(r"=None(&?)", r"=\1", urllib.parse.urlencode(fields))
         self.post(self.url, params)
