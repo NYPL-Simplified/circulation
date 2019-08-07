@@ -164,10 +164,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 "Bibliotheca configuration is incomplete."
             )
 
-        # Use utf8 instead of unicode encoding
         settings = [self.account_id, self.account_key, self.library_id]
         self.account_id, self.account_key, self.library_id = (
-            setting.encode('utf8') for setting in settings
+            setting for setting in settings
         )
 
         self.item_list_parser = ItemListParser()
@@ -198,13 +197,20 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         return auth, now
 
     def signature(self, method, path):
+        """Create a signature for a request.
+
+        :return: A Unicode string.
+        """
         now = self.now()
         signature_components = [now, method, path]
-        signature_string = "\n".join(signature_components)
-        digest = hmac.new(self.account_key, msg=signature_string,
-                    digestmod=hashlib.sha256).digest()
+        signature_string = "\n".join(signature_components).encode("utf8")
+        key = self.account_key.encode("utf8")
+        digest = hmac.new(
+            key, msg=signature_string,
+            digestmod=hashlib.sha256
+        ).digest()
         signature = base64.standard_b64encode(digest)
-        return signature, now
+        return signature.decode("utf8"), now
 
     def full_url(self, path):
         if not path.startswith("/cirrus"):

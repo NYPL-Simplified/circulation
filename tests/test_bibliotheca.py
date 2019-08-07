@@ -183,9 +183,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
-        """Confirm a known correct result for the Bibliotheca request signing
-        algorithm.
-        """
+        # Confirm a known correct result for the Bibliotheca request signing
+        # algorithm.
         self.api.queue_response(200)
         response = self.api.request("some_url")
         [request] = self.api.requests
