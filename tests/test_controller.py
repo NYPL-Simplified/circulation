@@ -1359,8 +1359,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
-            eq_(["I am an ACSM file"],
-                response.response)
+            eq_("I am an ACSM file", response.data.decode("utf8"))
             eq_(http.requests, [fulfillable_mechanism.resource.url])
 
             # But we can't use some other mechanism -- we're stuck with
