@@ -49,7 +49,7 @@ class BaseODLTest(object):
     @classmethod
     def get_data(cls, filename):
         path = os.path.join(cls.resource_path, filename)
-        return open(path).read()
+        return open(path, 'rb').read()
 
 class TestODLAPI(DatabaseTest, BaseODLTest):
 

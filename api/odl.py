@@ -189,7 +189,9 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         username = self.username
         password = self.password
         headers = dict(headers or {})
-        auth_header = "Basic %s" % base64.b64encode("%s:%s" % (username, password))
+        auth_header = "Basic %s" % base64.b64encode(
+            "%s:%s" % (username, password)
+        ).decode("utf8")
         headers['Authorization'] = auth_header
 
         return HTTP.get_with_timeout(url, headers=headers)
