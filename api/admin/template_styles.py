@@ -20,6 +20,7 @@ error_style = body_style + """
     border-color: #D0343A;
 """
 input_style = """
+    border-radius: .25em;
     display: block;
     padding: 10px;
     border: 1px solid #403d37;
@@ -37,8 +38,9 @@ section_style = """
     align-items: center;
 """
 button_style = """
-    background: #3a7dfd;
+    background: #1B7FA7;
     border-color: transparent;
+    border-radius: .25em;
     color: #fff;
     padding: 10px;
     font-size: 1rem;
@@ -49,10 +51,11 @@ button_style = """
 """
 
 link_style = """
-    background: #3a7dfd;
+    background: #1B7FA7;
     text-align: center;
     text-decoration: none;
-    border-color: #3a7dfd;
+    border-color: #1B7FA7;
+    border-radius: .25em;
     color: #fff;
     padding: 10px;
     font-size: 1rem;
