@@ -1446,7 +1446,8 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         def do_get(url, headers=None, allowed_response_codes=None):
             eq_("test url", url)
             eq_("test header value", headers.get("test_key"))
-            eq_("Bearer " + base64.b64encode("secret"), headers.get("Authorization"))
+            eq_("Bearer " + base64.b64encode(b"secret").decode("utf8"),
+                headers.get("Authorization"))
             eq_(["200"], allowed_response_codes)
         api._get("test url", headers=dict(test_key="test header value"),
                  patron=self.patron, allowed_response_codes=["200"],
