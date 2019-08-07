@@ -46,7 +46,7 @@ def initialize_database(autoinitialize=True):
     logging.getLogger().info("Application debug mode==%r" % app.debug)
 
 from . import routes
-from . import admin.routes
+from .admin import routes
 
 def run(url=None):
     base_url = url or 'http://localhost:6500/'
