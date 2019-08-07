@@ -1118,7 +1118,7 @@ class TestIndexController(CirculationControllerTest):
             response = self.manager.index_controller.authentication_document()
             eq_(200, response.status_code)
             eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, response.headers['Content-Type'])
-            data = response.data
+            data = response.data.decode("utf8")
             eq_(self.manager.auth.create_authentication_document(), data)
 
             # Make sure we got the A4OPDS document for the right library.
@@ -1140,7 +1140,7 @@ class TestIndexController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_('application/opds+json', response.headers.get('Content-Type'))
 
-        data = json.loads(response.data)
+        data = json.loads(response.data.decode("utf8"))
         eq_('RSA', data.get('public_key', {}).get('type'))
         eq_('public key', data.get('public_key', {}).get('value'))
 
@@ -1158,7 +1158,7 @@ class TestIndexController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_('application/opds+json', response.headers.get('Content-Type'))
 
-        data = json.loads(response.data)
+        data = json.loads(response.data.decode("utf8"))
         eq_('http://test-circulation-manager/', data.get('id'))
         key = data.get('public_key')
         eq_('RSA', key['type'])
@@ -1457,7 +1457,7 @@ class TestLoanController(CirculationControllerTest):
 
             # We get an OPDS entry.
             eq_(200, response.status_code)
-            opds_entries = feedparser.parse(response.response[0])['entries']
+            opds_entries = feedparser.parse(response.response[0].decode("utf8"))['entries']
             eq_(1, len(opds_entries))
             links = opds_entries[0]['links']
 
@@ -1516,7 +1516,7 @@ class TestLoanController(CirculationControllerTest):
                 pool.id, streaming_mechanism.delivery_mechanism.id
             )
             eq_(200, response.status_code)
-            opds_entries = feedparser.parse(response.response[0])['entries']
+            opds_entries = feedparser.parse(response.response[0].decode("utf8"))['entries']
             eq_(1, len(opds_entries))
             links = opds_entries[0]['links']
 
@@ -1766,7 +1766,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, self.mech2.delivery_mechanism.id
             )
 
-            eq_("here's your book", response.data)
+            eq_("here's your book", response.data.decode("utf8"))
             eq_([], self._db.query(Loan).all())
 
     def test_revoke_loan(self):
@@ -1894,7 +1894,7 @@ class TestLoanController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
-            assert not "<entry>" in response.data
+            assert not "<entry>" in response.data.decode("utf8")
             assert response.headers['Cache-Control'].startswith('private,')
 
         overdrive_edition, overdrive_pool = self._edition(
@@ -1941,7 +1941,7 @@ class TestLoanController(CirculationControllerTest):
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.sync()
 
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             entries = feed['entries']
 
             overdrive_entry = [entry for entry in entries if entry['title'] == overdrive_book.title][0]
@@ -1978,7 +1978,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given an annotation container with no items.
-            container = json.loads(response.data)
+            container = json.loads(response.data.decode("utf8"))
             eq_([], container['first']['items'])
             eq_(0, container['total'])
 
@@ -2010,7 +2010,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given an annotation container with one item.
-            container = json.loads(response.data)
+            container = json.loads(response.data.decode("utf8"))
             eq_(1, container['total'])
             item = container['first']['items'][0]
             eq_(annotation.motivation, item['motivation'])
@@ -2053,7 +2053,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given an annotation container with one item.
-            container = json.loads(response.data)
+            container = json.loads(response.data.decode("utf8"))
             eq_(1, container['total'])
             item = container['first']['items'][0]
             eq_(annotation.motivation, item['motivation'])
@@ -2105,7 +2105,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(data['target']['selector'], selector)
 
             # The response contains the annotation in the db.
-            item = json.loads(response.data)
+            item = json.loads(response.data.decode("utf8"))
             assert str(annotation.id) in item['id']
             eq_(annotation.motivation, item['motivation'])
 
@@ -2127,7 +2127,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(200, response.status_code)
 
             # We've been given a single annotation item.
-            item = json.loads(response.data)
+            item = json.loads(response.data.decode("utf8"))
             assert str(annotation.id) in item['id']
             eq_(annotation.motivation, item['motivation'])
 
@@ -2269,7 +2269,7 @@ class TestWorkController(CirculationControllerTest):
             response = m(contributor, 'eng,spa', 'Children,Young Adult')
         eq_(200, response.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['Content-Type'])
-        feed = feedparser.parse(response.data)
+        feed = feedparser.parse(response.data.decode("utf8"))
 
         # The feed is named after the person we looked up.
         eq_(contributor, feed['feed']['title'])
@@ -2333,7 +2333,7 @@ class TestWorkController(CirculationControllerTest):
         # method is served as an OPDS feed.
         eq_(200, response.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.data.decode("utf8"))
 
         # Now check all the keyword arguments that were passed into
         # page().
@@ -2406,7 +2406,7 @@ class TestWorkController(CirculationControllerTest):
                 )
             )
         eq_(200, response.status_code)
-        eq_(expect, response.data)
+        eq_(expect, response.data.decode("utf8"))
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_recommendations(self):
@@ -2472,7 +2472,7 @@ class TestWorkController(CirculationControllerTest):
         # A feed is returned with the data from the
         # ExternalSearchIndex.
         eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
+        feed = feedparser.parse(response.data.decode("utf8"))
         eq_('Recommended Books', feed['feed']['title'])
         [entry] = feed.entries
         eq_(self.english_1.title, entry['title'])
@@ -2620,7 +2620,7 @@ class TestWorkController(CirculationControllerTest):
                 )
         eq_(200, response.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
-        feed = feedparser.parse(response.data)
+        feed = feedparser.parse(response.data.decode("utf8"))
         eq_("Related Books", feed['feed']['title'])
 
         # The feed contains three entries: one for each sublane.
@@ -2677,7 +2677,7 @@ class TestWorkController(CirculationControllerTest):
 
         eq_(200, response.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.data.decode("utf8"))
 
         # Verify that groups() was called with the arguments we expect.
         kwargs = Mock.called_with
@@ -2736,7 +2736,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_("text/uri-list", response.headers['Content-Type'])
         for i in Complaint.VALID_TYPES:
-            assert i in response.data
+            assert i in response.data.decode("utf8")
 
     def test_report_problem_post_success(self):
         error_type = random.choice(list(Complaint.VALID_TYPES))
@@ -2794,7 +2794,7 @@ class TestWorkController(CirculationControllerTest):
                 series_name, "eng,spa", "Children,Young Adult",
             )
         eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
+        feed = feedparser.parse(response.data.decode("utf8"))
 
         # The book we added to the mock search engine is in the feed.
         # This demonstrates that series() asks the search engine for
@@ -2863,7 +2863,7 @@ class TestWorkController(CirculationControllerTest):
         # method is served as an OPDS feed.
         eq_(200, response.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.data.decode("utf8"))
 
         kwargs = self.called_with
         eq_(self._db, kwargs.pop('_db'))
@@ -2996,7 +2996,7 @@ class TestFeedController(CirculationControllerTest):
             # So we'll need to do a more detailed test to make sure
             # the right arguments are being passed _into_ the search
             # index.
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             eq_(set([x.title for x in self.works]),
                 set([x['title'] for x in feed['entries']]))
 
@@ -3079,7 +3079,7 @@ class TestFeedController(CirculationControllerTest):
         # method is served as an OPDS feed.
         eq_(200, response.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.data.decode("utf8"))
 
         # Now check all the keyword arguments that were passed into
         # page().
@@ -3165,7 +3165,7 @@ class TestFeedController(CirculationControllerTest):
             eq_(200, response.status_code)
             eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
                 response.headers['content-type'])
-            eq_("An OPDS feed", response.data)
+            eq_("An OPDS feed", response.data.decode("utf8"))
 
             # While we're in request context, generate the URL we
             # expect to be used for this feed.
@@ -3219,7 +3219,7 @@ class TestFeedController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.navigation(lane.id)
 
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             entries = feed['entries']
             # The default top-level lane is "World Languages", which contains
             # sublanes for English, Spanish, Chinese, and French.
@@ -3262,7 +3262,7 @@ class TestFeedController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.search(None)
             eq_(response.headers['Content-Type'], 'application/opensearchdescription+xml')
-            assert "OpenSearchDescription" in response.data
+            assert "OpenSearchDescription" in response.data.decode("utf8")
 
     def test_search(self):
         # Test the search() controller method.
@@ -3625,7 +3625,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         # The result of page() was served as an OPDS feed.
         eq_(200, response.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
-        eq_("An OPDS feed", response.data)
+        eq_("An OPDS feed", response.data.decode("utf8"))
 
         # Verify the arguments passed in to page().
         out_kwargs = self.page_called_with
@@ -3673,7 +3673,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         del in_kwargs['feed_class']
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds._crawlable_feed(**in_kwargs)
-        feed = feedparser.parse(response.data)
+        feed = feedparser.parse(response.data.decode("utf8"))
 
         # There is one entry with the expected title.
         [entry] = feed['entries']
@@ -3727,7 +3727,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.data.decode("utf8")
             assert ("Download MARC files for %s" % library.name) in html
 
             assert "<h3>All Books</h3>" in html
@@ -3751,7 +3751,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.data.decode("utf8")
             assert ("Download MARC files for %s" % library.name) in html
             assert "MARC files aren't ready" in html
 
@@ -3761,7 +3761,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.data.decode("utf8")
             assert ("Download MARC files for %s" % library.name) in html
             assert ("No MARC exporter is currently configured") in html
 
@@ -3781,7 +3781,7 @@ class TestMARCRecordController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
-            html = response.data
+            html = response.data.decode("utf8")
             assert ("Download MARC files for %s" % library.name) in html
             assert "No MARC exporter is currently configured" in html
             assert '<h3>All Books</h3>' in html
@@ -3908,7 +3908,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             # We got a list of device IDs.
             eq_(self.controller.DEVICE_ID_LIST_MEDIA_TYPE,
                 response.headers['Content-Type'])
-            eq_("device1\ndevice2", response.data)
+            eq_("device1\ndevice2", response.data.decode("utf8"))
 
             # We got a URL Template (see test_link_template_header())
             # that explains how to address any particular device ID.
@@ -4069,7 +4069,7 @@ class TestSharedCollectionController(ControllerTest):
             response = self.manager.shared_collection_controller.info(self.collection.name)
             eq_(200, response.status_code)
             assert response.headers.get("Content-Type").startswith("application/opds+json")
-            links = json.loads(response.data).get("links")
+            links = json.loads(response.data.decode("utf8")).get("links")
             [register_link] = [link for link in links if link.get("rel") == "register"]
             assert "/collections/%s/register" % self.collection.name in register_link.get("href")
 
@@ -4104,7 +4104,7 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_register(dict(shared_secret="secret"))
             response = self.manager.shared_collection_controller.register(self.collection.name)
             eq_(200, response.status_code)
-            eq_("secret", json.loads(response.data).get("shared_secret"))
+            eq_("secret", json.loads(response.data.decode("utf8")).get("shared_secret"))
 
     def test_loan_info(self):
         now = datetime.datetime.utcnow()
@@ -4142,7 +4142,7 @@ class TestSharedCollectionController(ControllerTest):
             # This loan is ours.
             response = self.manager.shared_collection_controller.loan_info(self.collection.name, loan.id)
             eq_(200, response.status_code)
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             [entry] = feed.get("entries")
             availability = entry.get("opds_availability")
             since = availability.get("since")
@@ -4196,7 +4196,7 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_borrow(loan)
             response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
             eq_(201, response.status_code)
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             [entry] = feed.get("entries")
             availability = entry.get("opds_availability")
             since = availability.get("since")
@@ -4231,7 +4231,7 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_borrow(loan)
             response = self.manager.shared_collection_controller.borrow(self.collection.name, None, None, hold.id)
             eq_(201, response.status_code)
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             [entry] = feed.get("entries")
             availability = entry.get("opds_availability")
             since = availability.get("since")
@@ -4250,7 +4250,7 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_borrow(hold)
             response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
             eq_(201, response.status_code)
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             [entry] = feed.get("entries")
             availability = entry.get("opds_availability")
             since = availability.get("since")
@@ -4364,7 +4364,7 @@ class TestSharedCollectionController(ControllerTest):
                 return MockRequestsResponse(200, content="Content")
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id, do_get=do_get_success)
             eq_(200, response.status_code)
-            eq_("Content", response.data)
+            eq_("Content", response.data.decode("utf8"))
             eq_("text/html", response.headers.get("Content-Type"))
 
             fulfillment_info.content_link = None
@@ -4372,7 +4372,7 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_fulfill(fulfillment_info)
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id)
             eq_(200, response.status_code)
-            eq_("Content", response.data)
+            eq_("Content", response.data.decode("utf8"))
             eq_("text/html", response.headers.get("Content-Type"))
 
     def test_hold_info(self):
@@ -4411,7 +4411,7 @@ class TestSharedCollectionController(ControllerTest):
             # This hold is ours.
             response = self.manager.shared_collection_controller.hold_info(self.collection.name, hold.id)
             eq_(200, response.status_code)
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             [entry] = feed.get("entries")
             availability = entry.get("opds_availability")
             since = availability.get("since")
@@ -4477,7 +4477,7 @@ class TestURLLookupController(ControllerTest):
         with self.request_context_with_library("/?urn=%s" % urn):
             route_name = "work"
             response = self.manager.urn_lookup.work_lookup(route_name)
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
 
             # The route name we passed into work_lookup shows up in
             # the feed-level link with rel="self".
@@ -4519,7 +4519,7 @@ class TestProfileController(ControllerTest):
             patron.synchronize_annotations = True
             response = self.manager.profiles.protocol()
             eq_("200 OK", response.status)
-            data = json.loads(response.data)
+            data = json.loads(response.data.decode("utf8"))
             settings = data['settings']
             eq_(True, settings[ProfileStorage.SYNCHRONIZE_ANNOTATIONS])
 

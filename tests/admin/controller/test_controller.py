@@ -180,7 +180,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            assert "Your admin account doesn't have access to any libraries" in response.data
+            assert "Your admin account doesn't have access to any libraries" in response.data.decode("utf8")
 
         # Unless there aren't any libraries yet. In that case, an admin needs to
         # get in to create one.
@@ -191,7 +191,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            assert "<body>" in response.data
+            assert "<body>" in response.data.decode("utf8")
 
         l1 = self._library(short_name="L1")
         l2 = self._library(short_name="L2")
@@ -512,10 +512,10 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" not in response.data
-            assert "Password" not in response.data
+            assert "GOOGLE REDIRECT" in response.data.decode("utf8")
+            assert "Sign in with Google" in response.data.decode("utf8")
+            assert "Email" not in response.data.decode("utf8")
+            assert "Password" not in response.data.decode("utf8")
 
         # If there are multiple auth providers, the login page
         # shows them all.
@@ -523,10 +523,10 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" in response.data
-            assert "Password" in response.data
+            assert "GOOGLE REDIRECT" in response.data.decode("utf8")
+            assert "Sign in with Google" in response.data.decode("utf8")
+            assert "Email" in response.data.decode("utf8")
+            assert "Password" in response.data.decode("utf8")
 
         # Redirects to the redirect parameter if an admin is signed in.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
@@ -936,7 +936,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.complaints()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             entries = feed['entries']
 
             eq_(len(entries), 2)
@@ -954,7 +954,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.suppressed()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             entries = feed['entries']
             eq_(1, len(entries))
             eq_(suppressed_work.title, entries[0]['title'])
@@ -1103,7 +1103,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(201, response.status_code)
 
             [list] = self._db.query(CustomList).all()
-            eq_(list.id, int(response.response[0]))
+            eq_(list.id, int(response.response[0].decode("utf8")))
             eq_(self._default_library, list.library)
             eq_("List", list.name)
             eq_(1, len(list.entries))
@@ -1202,7 +1202,7 @@ class TestCustomListsController(AdminControllerTest):
 
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
         eq_(200, response.status_code)
-        eq_(list.id, int(response.response[0]))
+        eq_(list.id, int(response.response[0].decode("utf8")))
 
         eq_("new name", list.name)
         eq_(set([w2, w3]),
@@ -1500,7 +1500,7 @@ class TestLanesController(AdminControllerTest):
             eq_(201, response.status_code)
 
             [lane] = self._db.query(Lane).filter(Lane.display_name=="lane")
-            eq_(lane.id, int(response.response[0]))
+            eq_(lane.id, int(response.response[0].decode("utf8")))
             eq_(self._default_library, lane.library)
             eq_("lane", lane.display_name)
             eq_(parent, lane.parent)
@@ -1542,7 +1542,7 @@ class TestLanesController(AdminControllerTest):
 
             response = self.manager.admin_lanes_controller.lanes()
             eq_(200, response.status_code)
-            eq_(lane.id, int(response.response[0]))
+            eq_(lane.id, int(response.response[0].decode("utf8")))
 
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)

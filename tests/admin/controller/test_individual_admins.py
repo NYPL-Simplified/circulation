@@ -300,7 +300,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         admin_match = Admin.authenticate(self._db, "admin2@nypl.org", "pass")
-        eq_(admin_match.email, response.response[0])
+        eq_(admin_match.email, response.response[0].decode("utf8"))
         assert admin_match
         assert admin_match.has_password("pass")
 

@@ -123,7 +123,7 @@ class TestCDNServices(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CDN_GOAL)
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.response[0].decode("utf8")))
         eq_(ExternalIntegration.CDN, service.protocol)
         eq_("http://cdn_url", service.url)
         eq_("mirrored domain", service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
@@ -148,7 +148,7 @@ class TestCDNServices(SettingsControllerTest):
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
             eq_(response.status_code, 200)
 
-        eq_(cdn_service.id, int(response.response[0]))
+        eq_(cdn_service.id, int(response.response[0].decode("utf8")))
         eq_(ExternalIntegration.CDN, cdn_service.protocol)
         eq_("http://new_cdn_url", cdn_service.url)
         eq_("new mirrored domain", cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)

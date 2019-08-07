@@ -259,7 +259,7 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
-        eq_(library.uuid, response.response[0])
+        eq_(library.uuid, response.response[0].decode("utf8"))
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
         eq_("5", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
@@ -330,7 +330,7 @@ class TestLibrarySettings(SettingsControllerTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
 
-        eq_(library.uuid, response.response[0])
+        eq_(library.uuid, response.response[0].decode("utf8"))
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
 

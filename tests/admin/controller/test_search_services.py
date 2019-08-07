@@ -141,7 +141,7 @@ class TestSearchServices(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.SEARCH_GOAL)
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.response[0].decode("utf8")))
         eq_(ExternalIntegration.ELASTICSEARCH, service.protocol)
         eq_("http://search_url", service.url)
         eq_("works-index-prefix", service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)
@@ -169,7 +169,7 @@ class TestSearchServices(SettingsControllerTest):
             response = self.manager.admin_search_services_controller.process_services()
             eq_(response.status_code, 200)
 
-        eq_(search_service.id, int(response.response[0]))
+        eq_(search_service.id, int(response.response[0].decode("utf8")))
         eq_(ExternalIntegration.ELASTICSEARCH, search_service.protocol)
         eq_("http://new_search_url", search_service.url)
         eq_("new-works-index-prefix", search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)

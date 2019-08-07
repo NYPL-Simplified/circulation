@@ -209,7 +209,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CATALOG_GOAL)
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.response[0].decode("utf8")))
         eq_(ME.NAME, service.protocol)
         eq_("exporter name", service.name)
         eq_(ExternalIntegration.S3, service.setting(ME.STORAGE_PROTOCOL).value)
@@ -250,7 +250,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
             eq_(response.status_code, 200)
 
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.response[0].decode("utf8")))
         eq_(ME.NAME, service.protocol)
         eq_("exporter name", service.name)
         eq_(ExternalIntegration.S3, service.setting(ME.STORAGE_PROTOCOL).value)

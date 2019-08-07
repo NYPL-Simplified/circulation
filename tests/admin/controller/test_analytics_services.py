@@ -205,7 +205,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.ANALYTICS_GOAL)
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.response[0].decode("utf8")))
         eq_(GoogleAnalyticsProvider.__module__, service.protocol)
         eq_("http://test", service.url)
         eq_([library], service.libraries)
@@ -249,7 +249,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response.status_code, 200)
 
-        eq_(ga_service.id, int(response.response[0]))
+        eq_(ga_service.id, int(response.response[0].decode("utf8")))
         eq_(GoogleAnalyticsProvider.__module__, ga_service.protocol)
         eq_("http://test", ga_service.url)
         eq_([l2], ga_service.libraries)

@@ -181,7 +181,7 @@ class TestMetadataServices(SettingsControllerTest):
             self._db, ExternalIntegration,
             goal=ExternalIntegration.METADATA_GOAL
         )
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.response[0].decode("utf8")))
         eq_(ExternalIntegration.NOVELIST, service.protocol)
         eq_("user", service.username)
         eq_("pass", service.password)
