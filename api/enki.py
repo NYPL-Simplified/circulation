@@ -548,7 +548,7 @@ class BibliographicParser(object):
         if isinstance(json_data, str):
             json_data = json.loads(json_data)
         returned_titles = json_data.get("result", {}).get("titles", [])
-	for book in returned_titles:
+        for book in returned_titles:
             data = self.extract_bibliographic(book)
             if data:
                 yield data
