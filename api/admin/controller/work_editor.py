@@ -774,7 +774,7 @@ class WorkController(AdminCirculationManagerController):
         title_position = flask.request.form.get("title_position")
 
         if image_url and not image_file:
-            image_file = StringIO(urllib.request.urlopen(image_url).read())
+            image_file = BytesIO(urllib.request.urlopen(image_url).read())
 
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
@@ -799,7 +799,7 @@ class WorkController(AdminCirculationManagerController):
         cover_url = flask.request.form.get("cover_url")
         if title_position in self.TITLE_POSITIONS:
             original_href = cover_url
-            original_buffer = StringIO()
+            original_buffer = BytesIO()
             image.save(original_buffer, format="PNG")
             original_content = original_buffer.getvalue()
             if not original_href:
@@ -862,7 +862,7 @@ class WorkController(AdminCirculationManagerController):
 
         original, derivation_settings, cover_href, cover_rights_explanation = self._original_cover_info(image, work, data_source, rights_uri, rights_explanation)
 
-        buffer = StringIO()
+        buffer = BytesIO()
         image.save(buffer, format="PNG")
         content = buffer.getvalue()
 
