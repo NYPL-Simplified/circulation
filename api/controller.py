@@ -935,7 +935,7 @@ class OPDSFeedController(CirculationManagerController):
         # We'll call this one way if there is no query string in the
         # request arguments, and another way if there is a query
         # string.
-        make_url_kwargs = dict(list(facets.items()))
+        make_url_kwargs = dict(facets.items())
         make_url = lambda: self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,

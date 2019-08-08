@@ -3367,11 +3367,19 @@ class TestFeedController(CirculationControllerTest):
         # context, _plus_ the SearchFacets object created during the
         # original request.
         library = self._default_library
+
+        # To get exactly the same URL as the controller got, we need
+        # to build the dictionary of keyword arguments in the same
+        # order. The controller gets the facet arguments first, then
+        # adds the query if one was provided. We need to do the same
+        # thing here.
+        url_kwargs = dict(facets.items())
+        url_kwargs['q'] = query
         with self.request_context_with_library(""):
             expect_url = self.manager.opds_feeds.url_for(
                 'lane_search', lane_identifier=None,
                 library_short_name=library.short_name,
-                q=query, **dict(list(facets.items()))
+                **url_kwargs
             )
         eq_(expect_url, kwargs.pop('url'))
 
