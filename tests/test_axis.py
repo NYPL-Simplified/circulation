@@ -771,9 +771,8 @@ class TestReaper(Axis360Test):
 class TestParsers(Axis360Test):
 
     def test_bibliographic_parser(self):
-        """Make sure the bibliographic information gets properly
-        collated in preparation for creating Edition objects.
-        """
+        # Make sure the bibliographic information gets properly
+        # collated in preparation for creating Edition objects.
         data = self.sample_data("tiny_collection.xml")
 
         [bib1, av1], [bib2, av2] = BibliographicParser(
@@ -830,7 +829,7 @@ class TestParsers(Axis360Test):
 
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
-        subjects = sorted(bib2.subjects, key = lambda x: x.identifier if x else "")
+        subjects = sorted(bib2.subjects, key = lambda x: x.identifier or "")
         eq_([Subject.BISAC, Subject.BISAC, Subject.BISAC,
              Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
         general_fiction, women_sleuths, romantic_suspense = sorted([
