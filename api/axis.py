@@ -177,12 +177,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
                 "Axis 360 configuration is incomplete."
             )
 
-        # Use utf8 instead of unicode encoding
-        settings = [self.library_id, self.username, self.password]
-        self.library_id, self.username, self.password = (
-            setting.encode('utf8') for setting in settings
-        )
-
         self.token = None
         self.collection_id = collection.id
 
@@ -199,7 +193,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         authorization = ":".join([self.username, self.password, self.library_id])
         authorization = authorization.encode("utf_16_le")
         authorization = base64.standard_b64encode(authorization)
-        return dict(Authorization="Basic " + authorization)
+        return dict(Authorization="Basic " + authorization.decode("utf_16_le"))
 
     def external_integration(self, _db):
         return self.collection.external_integration

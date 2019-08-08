@@ -298,8 +298,8 @@ class TestAxis360API(Axis360Test):
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
-        new_identifier = pool.identifier.identifier.encode("ascii")
-        data = data.replace("0012533119", new_identifier)
+        new_identifier = pool.identifier.identifier
+        data = data.replace(b"0012533119", new_identifier.encode("utf8"))
 
         self.api.queue_response(200, content=data)
 
@@ -459,7 +459,7 @@ class TestAxis360API(Axis360Test):
         data = self.sample_data("availability_with_loans.xml")
         # Modify the sample data so that it appears to be talking
         # about one of the books we're going to request.
-        data = data.replace("0012533119", id1.identifier.encode("ascii"))
+        data = data.replace(b"0012533119", id1.identifier.encode("utf8"))
         self.api.queue_response(200, {}, data)
         results = [x for x in self.api._fetch_remote_availability([id1, id2])]
 
@@ -830,7 +830,7 @@ class TestParsers(Axis360Test):
 
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
-        subjects = sorted(bib2.subjects, key = lambda x: x.identifier)
+        subjects = sorted(bib2.subjects, key = lambda x: x.identifier if x else "")
         eq_([Subject.BISAC, Subject.BISAC, Subject.BISAC,
              Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
         general_fiction, women_sleuths, romantic_suspense = sorted([
@@ -866,7 +866,7 @@ class TestParsers(Axis360Test):
 
     def test_bibliographic_parser_unsupported_format(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        data = data.replace('Acoustik', 'Blio')
+        data = data.replace(b'Acoustik', b'Blio')
 
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 
