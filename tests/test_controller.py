@@ -4055,7 +4055,8 @@ class TestSharedCollectionController(ControllerTest):
             headers = kwargs.pop('headers')
         else:
             headers = dict()
-        headers['Authorization'] = "Bearer " + base64.b64encode(client.shared_secret)
+        b64_secret = base64.b64encode(client.shared_secret.encode("utf8"))
+        headers['Authorization'] = "Bearer " + b64_secret.decode("utf8")
         kwargs['headers'] = headers
         with self.app.test_request_context(route, *args, **kwargs) as c:
             yield c
