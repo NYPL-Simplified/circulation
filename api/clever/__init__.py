@@ -142,9 +142,9 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             bearer token.
         """
         payload = self._remote_exchange_payload(_db, code)
-        authorization = base64.b64encode(
-            self.client_id + ":" + self.client_secret
-        )
+        base_authorization = self.client_id + ":" + self.client_secret
+        authorization = base64.b64encode(base_authorization.encode("utf8"))
+        authorization = authorization.decode("utf8")
         headers = {
             'Authorization': 'Basic %s' % authorization,
             'Content-Type': 'application/json',
