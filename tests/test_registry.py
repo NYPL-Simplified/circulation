@@ -5,7 +5,6 @@ from nose.tools import (
 import json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-import base64
 import os
 from . import (
     DatabaseTest
@@ -19,6 +18,10 @@ from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
+from core.util.binary import (
+    base64,
+    random_string,
+)
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
 from api.problem_details import *
@@ -27,7 +30,6 @@ from api.registry import (
     Registration,
     LibraryRegistrationScript,
 )
-import binascii
 
 class TestRemoteRegistry(DatabaseTest):
 
@@ -516,7 +518,7 @@ class TestRegistration(DatabaseTest):
         key2 = RSA.generate(2048)
         encryptor2 = PKCS1_OAEP.new(key2)
 
-        shared_secret = binascii.hexlify(os.urandom(24))
+        shared_secret = random_string(24).encode("utf8")
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
 
         # Success.
@@ -528,7 +530,7 @@ class TestRegistration(DatabaseTest):
         problem = m(encryptor2, encrypted_secret)
         assert isinstance(problem, ProblemDetail)
         eq_(SHARED_SECRET_DECRYPTION_ERROR.uri, problem.uri)
-        assert encrypted_secret.decode("utf8") in problem.detail
+        assert encrypted_secret in problem.detail
 
     def test__process_registration_result(self):
         reg = self.registration

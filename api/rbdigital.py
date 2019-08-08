@@ -1,4 +1,3 @@
-import binascii
 from collections import defaultdict
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -76,6 +75,7 @@ from core.monitor import (
 
 from core.testing import DatabaseTest
 from core.util import LanguageCodes
+from core.util.binary import random_string
 from core.util.http import (
     BadResponseException,
     HTTP,
@@ -877,7 +877,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # account with the patron's email address, they'll be able to
         # recover their password. If not, at least we didn't claim
         # their barcode, and they can make a new account if they want.
-        post_args['password'] = binascii.hexlify(os.urandom(8))
+        post_args['password'] = random_string(8)
         return post_args
 
     def dummy_patron_identifier(self, authorization_identifier):

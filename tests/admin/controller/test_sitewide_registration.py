@@ -3,8 +3,6 @@ from nose.tools import (
     eq_,
     assert_raises
 )
-import base64
-import binascii
 import flask
 import json
 import jwt
@@ -16,6 +14,10 @@ from core.model import (
     ExternalIntegration,
 )
 from core.testing import MockRequestsResponse
+from core.util.binary import (
+    base64, 
+    random_string,
+)
 from core.util.problem_detail import ProblemDetail
 from .test_controller import SettingsControllerTest
 
@@ -162,9 +164,8 @@ class TestSitewideRegistration(SettingsControllerTest):
         )
 
         # A registration document with an encrypted secret
-        shared_secret = binascii.hexlify(os.urandom(24))
-        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret)).decode("utf8")
-        shared_secret = shared_secret.decode("utf8")
+        shared_secret = random_string(24)
+        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret.encode("utf8")))
         registration = dict(
             id = metadata_wrangler_service.url,
             metadata = dict(shared_secret=encrypted_secret)

@@ -371,7 +371,7 @@ class Registration(object):
             shared_secret = cipher.decrypt(base64.b64decode(shared_secret))
         except ValueError as e:
             return SHARED_SECRET_DECRYPTION_ERROR.detailed(
-                _("Could not decrypt shared secret %s") % shared_secret.decode("utf8")
+                _("Could not decrypt shared secret %s") % shared_secret
             )
         return shared_secret
 
