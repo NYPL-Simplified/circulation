@@ -19,7 +19,7 @@ from .config import (
 from api.base_controller import BaseCirculationManagerController
 from .problem_details import *
 from sqlalchemy.orm.session import Session
-from core.util.binary import UnicodeAwareBase64
+
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
@@ -36,13 +36,12 @@ from core.model import (
 )
 from core.scripts import Script
 
-# We're going to use this base64 encoder most of the time, when we want to put in Unicode
-# and get a bytestring.
-base64 = UnicodeAwareBase64(encoding="utf8", decode_to_unicode=False)
-
-# We're going to use this base64 encoder when we want to put in
-# Unicode and get back Unicode.
-base64_unicode = UnicodeAwareBase64(encoding="utf8", decode_to_unicode=True)
+# We're going to use core's UnicodeAwareBase64 encoder most of the
+# time, when we want to put in Unicode and get back Unicode. We'll use
+# the standard library's base64 in one case, when we want to get back
+# a bytestring.
+import base64 as stdlib_base64
+from core.util.binary import base64
 
 class AdobeVendorIDController(object):
 
@@ -323,7 +322,7 @@ class AdobeSignInRequestParser(AdobeRequestParser):
             self._add(data, tag, 'username', namespaces)
             self._add(data, tag, 'password', namespaces)
         elif method == self.AUTH_DATA:
-            self._add(data, tag, self.AUTH_DATA, namespaces, base64_unicode.b64decode)
+            self._add(data, tag, self.AUTH_DATA, namespaces, base64.b64decode)
         else:
             raise ValueError("Unknown signin method: %s" % method)
         return data
@@ -821,7 +820,15 @@ class AuthdataUtility(object):
     def adobe_base64_decode(cls, string):
         """Undoes adobe_base64_encode."""
         encoded = string.replace(":", "+").replace(";", "/").replace("@", "=")
-        return base64.b64decode(encoded)
+
+        # It's likely that the output of b64decode will be a binary
+        # string.  Usually we want decoded output to be converted to a
+        # Unicode string, but here we only want to convert input from
+        # Unicode to binary. So we spend a little extra code and use
+        # the standard library's b64decode.
+        if isinstance(encoded, str):
+            encoded = encoded.encode("utf8")
+        return stdlib_base64.b64decode(encoded)
 
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
