@@ -1,6 +1,5 @@
 from nose.tools import set_trace
 
-import base64
 import datetime
 import feedparser
 import json
@@ -35,6 +34,7 @@ from .circulation import (
     LoanInfo,
     FulfillmentInfo,
 )
+from core.util.binary import base64
 from core.util.http import HTTP
 from core.testing import (
     DatabaseTest,
@@ -129,7 +129,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
         def refresh(credential):
             headers = dict()
             creds = "%s:%s" % (self.username, self.password)
-            auth_header = "Basic %s" % base64.b64encode(creds.encode("utf8")).decode("utf8")
+            auth_header = "Basic %s" % base64.b64encode(creds)
             headers['Authorization'] = auth_header
             headers['Content-Type'] = "application/x-www-form-urlencoded"
             body = dict(grant_type='client_credentials')

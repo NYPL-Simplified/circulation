@@ -1,6 +1,5 @@
 from nose.tools import set_trace
 
-import base64
 import json
 import uuid
 import datetime
@@ -59,6 +58,7 @@ from .circulation import (
     HoldInfo,
 )
 from core.analytics import Analytics
+from core.util.binary import base64
 from core.util.http import (
     HTTP,
     BadResponseException,
@@ -191,7 +191,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         headers = dict(headers or {})
         auth_header = "Basic %s" % base64.b64encode(
             "%s:%s" % (username, password)
-        ).decode("utf8")
+        )
         headers['Authorization'] = auth_header
 
         return HTTP.get_with_timeout(url, headers=headers)
@@ -1022,9 +1022,7 @@ class SharedODLAPI(BaseCirculationAPI):
         if not shared_secret:
             raise LibraryAuthorizationFailedException(_("Library %(library)s is not registered with the collection.", library=patron.library.name))
         headers = dict(headers or {})
-        auth_header = 'Bearer ' + base64.b64encode(
-            shared_secret.encode("utf8")
-        ).decode("utf8")
+        auth_header = 'Bearer ' + base64.b64encode(shared_secret)
         headers['Authorization'] = auth_header
 
         return do_get(url, headers=headers, allowed_response_codes=allowed_response_codes)

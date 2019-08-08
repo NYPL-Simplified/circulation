@@ -1,4 +1,3 @@
-import base64
 import json
 from nose.tools import (
     set_trace,
@@ -17,6 +16,7 @@ import datetime
 
 from api.problem_details import *
 from api.adobe_vendor_id import (
+    base64,
     AdobeSignInRequestParser,
     AdobeAccountInfoRequestParser,
     AdobeVendorIDController,
@@ -528,7 +528,8 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_success(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode(b"The secret token").decode("utf8"))
+            authdata=base64.b64encode("The secret token")
+        )
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>test-uuid</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
@@ -542,14 +543,16 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_failure(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode(b"incorrect").decode("utf8"))
+            authdata=base64.b64encode("incorrect")
+        )
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect token."/>', result)
 
     def test_failure_send_login_request_to_accountinfo(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode(b"incorrect").decode("utf8"))
+            authdata=base64.b64encode("incorrect")
+        )
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Request document in wrong format."/>', result)
@@ -757,14 +760,8 @@ class TestAuthdataUtility(VendorIDTest):
         now = datetime.datetime(2016, 1, 1, 12, 0, 0)
         expires = datetime.datetime(2018, 1, 1, 12, 0, 0)
 
-        raw_jwt = b'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwic3ViIjoiUGF0cm9uIGlkZW50aWZpZXIiLCJpYXQiOjE0NTE2NDk2MDAuMCwiZXhwIjoxNTE0ODA4MDAwLjB9.Ua11tFCpC4XAgwhR6jFyoxfHy4s1zt2Owg4dOoCefYA'
-        base64_encoded_jwt = base64.encodestring(raw_jwt).decode("utf8")
-
-        # Encoding the three pieces of data gets a known value.
-        authdata = self.authdata._encode(
-            self.authdata.library_uri, patron_identifier, now, expires
-        )
-        eq_(base64_encoded_jwt, authdata)
+        raw_jwt = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwic3ViIjoiUGF0cm9uIGlkZW50aWZpZXIiLCJpYXQiOjE0NTE2NDk2MDAuMCwiZXhwIjoxNTE0ODA4MDAwLjB9.Ua11tFCpC4XAgwhR6jFyoxfHy4s1zt2Owg4dOoCefYA'
+        base64_encoded_jwt = base64.b64encode(raw_jwt).strip()
 
         # We can't call self.authdata._decode to peek into raw_jwt,
         # because it expired in 2018.  But if you're debugging this
@@ -775,6 +772,13 @@ class TestAuthdataUtility(VendorIDTest):
         payload = loaded_jwt[0]
         payload_dict = json.loads(payload)
         eq_("Patron identifier", payload_dict['sub'])
+
+        # Encoding the three pieces of data gets a known value.
+        authdata = self.authdata._encode(
+            self.authdata.library_uri, patron_identifier, now, expires
+        )
+        eq_(base64_encoded_jwt, authdata)
+
 
     def test_decode_from_another_library(self):
 
@@ -984,7 +988,7 @@ class TestAuthdataUtility(VendorIDTest):
         """Test our special variant of base64 encoding designed to avoid
         triggering an Adobe bug.
         """
-        value = "!\tFN6~'Es52?X!#)Z*_S"
+        value = b"!\tFN6~'Es52?X!#)Z*_S"
 
         encoded = AuthdataUtility.adobe_base64_encode(value)
         eq_('IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', encoded)
@@ -995,11 +999,11 @@ class TestAuthdataUtility(VendorIDTest):
         # newline stripped.
         eq_(
             encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n",
-            base64.encodestring(value.encode("utf8")).decode("utf8")
+            base64.encodestring(value)
         )
 
         # We can reverse the encoding to get the original value.
-        eq_(value.encode("utf8"), AuthdataUtility.adobe_base64_decode(encoded))
+        eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
 
     def test__encode_short_client_token_uses_adobe_base64_encoding(self):
         class MockSigner(object):

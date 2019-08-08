@@ -3,7 +3,6 @@ from nose.tools import set_trace
 import json
 import logging
 import uuid
-import base64
 import os
 import datetime
 import jwt
@@ -20,6 +19,7 @@ from .config import (
 from api.base_controller import BaseCirculationManagerController
 from .problem_details import *
 from sqlalchemy.orm.session import Session
+from core.util.binary import UnicodeAwareBase64
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
@@ -35,6 +35,14 @@ from core.model import (
     Patron,
 )
 from core.scripts import Script
+
+# We're going to use this base64 encoder most of the time, when we want to put in Unicode
+# and get a bytestring.
+base64 = UnicodeAwareBase64(encoding="utf8", decode_to_unicode=False)
+
+# We're going to use this base64 encoder when we want to put in
+# Unicode and get back Unicode.
+base64_unicode = UnicodeAwareBase64(encoding="utf8", decode_to_unicode=True)
 
 class AdobeVendorIDController(object):
 
@@ -305,10 +313,6 @@ class AdobeSignInRequestParser(AdobeRequestParser):
     STANDARD = 'standard'
     AUTH_DATA = 'authData'
 
-    @classmethod
-    def _safe_base64_decode(cls, string):
-        return base64.b64decode(string).decode("utf8")
-
     def process_one(self, tag, namespaces):
         method = tag.attrib.get('method')
 
@@ -319,7 +323,7 @@ class AdobeSignInRequestParser(AdobeRequestParser):
             self._add(data, tag, 'username', namespaces)
             self._add(data, tag, 'password', namespaces)
         elif method == self.AUTH_DATA:
-            self._add(data, tag, self.AUTH_DATA, namespaces, self._safe_base64_decode)
+            self._add(data, tag, self.AUTH_DATA, namespaces, base64_unicode.b64decode)
         else:
             raise ValueError("Unknown signin method: %s" % method)
         return data
@@ -797,20 +801,9 @@ class AuthdataUtility(object):
             payload['iat'] = self.numericdate(iat) # Issued At
         if exp:
             payload['exp'] = self.numericdate(exp) # Expiration Time
-        return self._safe_base64_encode(
+        return base64.b64encode(
             jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
         )
-
-    @classmethod
-    def _safe_base64_encode(cls, x):
-        """Can be called on a unicode string or a byte string and get back
-            the unicode string with the base64 encoded string.
-        """
-        if isinstance(x, str):
-            x = x.encode("utf8")
-
-        encoded = base64.encodestring(x)
-        return encoded.decode("utf8")
 
     @classmethod
     def adobe_base64_encode(cls, str):
@@ -821,17 +814,14 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = cls._safe_base64_encode(str)
+        encoded = base64.b64encode(str)
         return encoded.replace("+", ":").replace("/", ";").replace("=", "@").strip()
 
     @classmethod
     def adobe_base64_decode(cls, string):
         """Undoes adobe_base64_encode."""
-        if isinstance(string, str):
-            string = string.encode("utf8")
-
-        encoded = string.replace(b":", b"+").replace(b";", b"/").replace(b"@", b"=")
-        return base64.decodestring(encoded)
+        encoded = string.replace(":", "+").replace(";", "/").replace("@", "=")
+        return base64.b64decode(encoded)
 
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
@@ -849,7 +839,7 @@ class AuthdataUtility(object):
         # try to decode it ourselves and verify it that way.
         potential_tokens = [authdata]
         try:
-            decoded = base64.decodestring(authdata.encode("utf8"))
+            decoded = base64.b64decode(authdata)
             potential_tokens.append(decoded)
         except Exception as e:
             # Do nothing -- the authdata was not encoded to begin with.

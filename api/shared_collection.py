@@ -1,7 +1,6 @@
 from nose.tools import set_trace
 import logging
 import flask
-import base64
 import json
 from flask_babel import lazy_gettext as _
 
@@ -14,6 +13,7 @@ from core.model import (
 from .circulation_exceptions import *
 from .config import Configuration
 from core.config import CannotLoadConfiguration
+from core.util.binary import base64
 from core.util.http import HTTP
 
 class SharedCollectionAPI(object):
@@ -140,7 +140,7 @@ class SharedCollectionAPI(object):
 
         shared_secret = client.shared_secret
         encrypted_secret = encryptor.encrypt(shared_secret.encode("utf8"))
-        return dict(metadata=dict(shared_secret=base64.b64encode(encrypted_secret).decode("utf8")))
+        return dict(metadata=dict(shared_secret=base64.b64encode(encrypted_secret)))
 
     def check_client_authorization(self, collection, client):
         """Verify that an IntegrationClient is whitelisted for access to the collection."""

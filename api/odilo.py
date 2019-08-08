@@ -1,5 +1,4 @@
 # coding=utf-8
-import base64
 import datetime
 import json
 import isbnlib
@@ -73,6 +72,7 @@ from core.config import (
 
 from core.testing import DatabaseTest
 
+from core.util.binary import base64
 from core.util.http import (
     HTTP,
     BadResponseException,

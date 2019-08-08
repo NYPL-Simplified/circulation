@@ -1,4 +1,3 @@
-import base64
 import binascii
 from collections import defaultdict
 import datetime
@@ -77,7 +76,6 @@ from core.monitor import (
 
 from core.testing import DatabaseTest
 from core.util import LanguageCodes
-
 from core.util.http import (
     BadResponseException,
     HTTP,
