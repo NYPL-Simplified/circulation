@@ -150,7 +150,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'settingUp: true' in html
 
     def test_not_setting_up(self):
@@ -159,7 +159,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'settingUp: false' in html
 
     def test_redirect_to_sign_in(self):
@@ -220,7 +220,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
 
             # The CSRF token value is random, but the cookie and the html have the same value.
             html_csrf_re = re.compile('csrfToken: \"([^\"]*)\"')
@@ -240,7 +240,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
 
@@ -251,7 +251,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'showCircEventsDownload: false' in html
 
         # Create the local analytics integration.
@@ -265,7 +265,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'showCircEventsDownload: true' in html
 
     def test_roles(self):
@@ -276,7 +276,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert "\"role\": \"librarian-all\"" in html
             assert "\"role\": \"manager\", \"library\": \"%s\"" % self._default_library.short_name in html
 
