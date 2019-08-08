@@ -4,6 +4,7 @@ from nose.tools import (
     assert_raises
 )
 import base64
+import binascii
 import flask
 import json
 import jwt
@@ -78,7 +79,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             assert response.detail.startswith(
                 "Remote service returned a problem detail document:"
             )
-            assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
+            assert str(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
 
         # If no registration link is available, a ProblemDetail is returned
         catalog = dict(id=self._url, links=[])
@@ -161,8 +162,9 @@ class TestSitewideRegistration(SettingsControllerTest):
         )
 
         # A registration document with an encrypted secret
-        shared_secret = os.urandom(24).encode('hex')
-        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
+        shared_secret = binascii.hexlify(os.urandom(24))
+        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret)).decode("utf8")
+        shared_secret = shared_secret.decode("utf8")
         registration = dict(
             id = metadata_wrangler_service.url,
             metadata = dict(shared_secret=encrypted_secret)

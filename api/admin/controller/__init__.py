@@ -1787,7 +1787,7 @@ class SitewideRegistrationController(SettingsController):
         ignore, private_key = self.manager.sitewide_key_pair
         decryptor = Configuration.cipher(private_key)
         shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
-        integration.password = str(shared_secret)
+        integration.password = shared_secret.decode("utf8")
 
     def get_catalog(self, do_get, url):
         """Get the catalog for this service."""
