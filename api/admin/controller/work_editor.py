@@ -58,7 +58,7 @@ from datetime import date, datetime, timedelta
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
-from io import StringIO
+from io import BytesIO
 import textwrap
 import urllib.request, urllib.parse, urllib.error
 
@@ -742,7 +742,11 @@ class WorkController(AdminCirculationManagerController):
         return image
 
     def preview_book_cover(self, identifier_type, identifier):
-        """Return a preview of the submitted cover image information."""
+        """Return a preview of the submitted cover image information.
+
+        :return: A Response in which the entity-body is a Unicode string containing
+        a base64-encoded image.
+        """
         self.require_librarian(flask.request.library)
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -752,10 +756,10 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(image, ProblemDetail):
             return image
 
-        buffer = StringIO()
+        buffer = BytesIO()
         image.save(buffer, format="PNG")
         b64 = base64.b64encode(buffer.getvalue())
-        value = "data:image/png;base64,%s" % b64
+        value = "data:image/png;base64,%s" % b64.decode("utf8")
 
         return Response(value, 200)
 
