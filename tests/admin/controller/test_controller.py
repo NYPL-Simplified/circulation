@@ -858,9 +858,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(set(response.keys()), set(["coverage_provider", "monitor", "script", "other"]))
 
         cp_service = response["coverage_provider"]
-        cp_name, cp_collection = cp_service.items()[0]
+        [(cp_name, cp_collection)] = cp_service.items()
         eq_(cp_name, "test_cp")
-        cp_collection_name, [cp_timestamp] = cp_collection.items()[0]
+        [(cp_collection_name, [cp_timestamp])] = cp_collection.items()
         eq_(cp_collection_name, self.collection.name)
         eq_(cp_timestamp.get("exception"), None)
         eq_(cp_timestamp.get("start"), self.start)
@@ -868,9 +868,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(cp_timestamp.get("achievements"), None)
 
         monitor_service = response["monitor"]
-        monitor_name, monitor_collection = monitor_service.items()[0]
+        [(monitor_name, monitor_collection)] = monitor_service.items()
         eq_(monitor_name, "test_monitor")
-        monitor_collection_name, [monitor_timestamp] = monitor_collection.items()[0]
+        [(monitor_collection_name, [monitor_timestamp])] = monitor_collection.items()
         eq_(monitor_collection_name, self.collection.name)
         eq_(monitor_timestamp.get("exception"), "stack trace string")
         eq_(monitor_timestamp.get("start"), self.start)
@@ -878,9 +878,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(monitor_timestamp.get("achievements"), None)
 
         script_service = response["script"]
-        script_name, script_collection = script_service.items()[0]
+        [(script_name, script_collection)] = script_service.items()
         eq_(script_name, "test_script")
-        script_collection_name, [script_timestamp] = script_collection.items()[0]
+        [(script_collection_name, [script_timestamp])] = script_collection.items()
         eq_(script_collection_name, "No associated collection")
         eq_(script_timestamp.get("exception"), None)
         eq_(script_timestamp.get("duration"), duration)
@@ -888,9 +888,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(script_timestamp.get("achievements"), "ran a script")
 
         other_service = response["other"]
-        other_name, other_collection = other_service.items()[0]
+        [(other_name, other_collection)] = other_service.items()
         eq_(other_name, "test_other")
-        other_collection_name, [other_timestamp] = other_collection.items()[0]
+        [(other_collection_name, [other_timestamp])] = other_collection.items()
         eq_(other_collection_name, "No associated collection")
         eq_(other_timestamp.get("exception"), None)
         eq_(other_timestamp.get("duration"), duration)
