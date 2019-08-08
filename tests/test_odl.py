@@ -7,7 +7,6 @@ import os
 import json
 import datetime
 import re
-import base64
 import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 
@@ -37,6 +36,7 @@ from api.odl import (
     SharedODLImporter,
 )
 from api.circulation_exceptions import *
+from core.util.binary import base64
 from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,
@@ -1446,7 +1446,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         def do_get(url, headers=None, allowed_response_codes=None):
             eq_("test url", url)
             eq_("test header value", headers.get("test_key"))
-            eq_("Bearer " + base64.b64encode(b"secret").decode("utf8"),
+            eq_("Bearer " + base64.b64encode("secret"),
                 headers.get("Authorization"))
             eq_(["200"], allowed_response_codes)
         api._get("test url", headers=dict(test_key="test header value"),

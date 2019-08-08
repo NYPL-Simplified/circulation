@@ -145,7 +145,6 @@ from api.adobe_vendor_id import (
 )
 from api.odl import MockODLAPI
 from api.shared_collection import SharedCollectionAPI
-import base64
 import feedparser
 from core.opds import (
     AcquisitionFeed,
@@ -170,6 +169,7 @@ import json
 import urllib.request, urllib.parse, urllib.error
 from core.analytics import Analytics
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
+from core.util.binary import base64
 from api.registry import Registration
 
 class ControllerTest(VendorIDTest):
@@ -177,10 +177,8 @@ class ControllerTest(VendorIDTest):
 
     # Authorization headers that will succeed (or fail) against the
     # SimpleAuthenticationProvider set up in ControllerTest.setup().
-    valid_auth = 'Basic ' + base64.b64encode(
-        b'unittestuser:unittestpassword'
-    ).decode("utf8")
-    invalid_auth = 'Basic ' + base64.b64encode(b'user1:password2').decode("utf8")
+    valid_auth = 'Basic ' + base64.b64encode('unittestuser:unittestpassword')
+    invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
 
     valid_credentials = dict(
         username="unittestuser", password="unittestpassword"
@@ -4082,8 +4080,8 @@ class TestSharedCollectionController(ControllerTest):
             headers = kwargs.pop('headers')
         else:
             headers = dict()
-        b64_secret = base64.b64encode(client.shared_secret.encode("utf8"))
-        headers['Authorization'] = "Bearer " + b64_secret.decode("utf8")
+        b64_secret = base64.b64encode(client.shared_secret)
+        headers['Authorization'] = "Bearer " + b64_secret
         kwargs['headers'] = headers
         with self.app.test_request_context(route, *args, **kwargs) as c:
             yield c

@@ -3,7 +3,6 @@ from nose.tools import (
     set_trace,
     eq_,
 )
-import base64
 import json
 import flask
 from Crypto.PublicKey import RSA
@@ -14,7 +13,6 @@ from api.shared_collection import (
     SharedCollectionAPI,
     BaseSharedCollectionAPI,
 )
-from core.config import CannotLoadConfiguration
 from api.odl import ODLAPI
 from core.model import (
     ConfigurationSetting,
@@ -27,7 +25,9 @@ from core.model import (
 from api.circulation import FulfillmentInfo
 
 from . import DatabaseTest
+from core.config import CannotLoadConfiguration
 from core.testing import MockRequestsResponse
+from core.util.binary import base64
 
 class MockAPI(BaseSharedCollectionAPI):
     def __init__(self, _db, collection):
@@ -167,7 +167,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # An IntegrationClient has been created.
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
         decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
-        eq_(client.shared_secret, decrypted_secret.decode("utf8"))
+        eq_(client.shared_secret, decrypted_secret)
 
     def test_borrow(self):
         # This client is registered, but isn't one of the allowed URLs for the collection

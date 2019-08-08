@@ -1,4 +1,3 @@
-import base64
 from collections import defaultdict
 import contextlib
 import datetime

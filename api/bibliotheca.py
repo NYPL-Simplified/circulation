@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 import os
 import re
 import logging
-import base64
 import urllib.parse
 import time
 import hmac
@@ -74,6 +73,7 @@ from core.monitor import (
     IdentifierSweepMonitor,
     TimelineMonitor,
 )
+from core.util.binary import base64
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     BadResponseException,
@@ -210,7 +210,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             digestmod=hashlib.sha256
         ).digest()
         signature = base64.standard_b64encode(digest)
-        return signature.decode("utf8"), now
+        return signature, now
 
     def full_url(self, path):
         if not path.startswith("/cirrus"):

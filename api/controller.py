@@ -5,7 +5,6 @@ import sys
 import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 import datetime
-import base64
 from wsgiref.handlers import format_date_time
 from time import mktime
 import os
@@ -86,6 +85,7 @@ from core.opds import (
     AcquisitionFeed,
     NavigationFeed,
 )
+from core.util.binary import base64
 from core.util.opds_writer import (
      OPDSFeed,
 )
