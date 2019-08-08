@@ -9,6 +9,7 @@ import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 import base64
 import flask
+import functools
 import json
 import math
 import operator
@@ -893,7 +894,7 @@ class TestWorkController(AdminControllerTest):
         image_histogram = original.histogram()
         expected_histogram = processed.histogram()
 
-        root_mean_square = math.sqrt(reduce(operator.add,
+        root_mean_square = math.sqrt(functools.reduce(operator.add,
                                             map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
         assert root_mean_square < 10
 
@@ -908,7 +909,7 @@ class TestWorkController(AdminControllerTest):
         image_histogram = processed.histogram()
         expected_histogram = expected_image.histogram()
 
-        root_mean_square = math.sqrt(reduce(operator.add,
+        root_mean_square = math.sqrt(functools.reduce(operator.add,
                                             map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
         assert root_mean_square < 10
 
