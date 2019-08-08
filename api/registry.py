@@ -368,6 +368,8 @@ class Registration(object):
         it could not be decrypted.
         """
         try:
+            # We don't want to use the base64 replacement from core.util.binary
+            # here, because cipher.decrypt will only take a bytestring.
             shared_secret = cipher.decrypt(base64.b64decode(shared_secret))
         except ValueError as e:
             return SHARED_SECRET_DECRYPTION_ERROR.detailed(
