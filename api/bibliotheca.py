@@ -1,7 +1,7 @@
 import json
 from lxml import etree
 
-from io import StringIO
+from io import BytesIO
 import itertools
 from datetime import datetime, timedelta
 import os
@@ -1022,7 +1022,7 @@ class PatronCirculationParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
-        root = etree.parse(StringIO(string), parser)
+        root = etree.parse(BytesIO(string), parser)
         sup = super(PatronCirculationParser, self)
         loans = sup.process_all(
             root, "//Checkouts/Item", handler=self.process_one_loan)
@@ -1076,7 +1076,7 @@ class DateResponseParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
-        root = etree.parse(StringIO(string), parser)
+        root = etree.parse(BytesIO(string), parser)
         m = root.xpath("/%s/%s" % (self.RESULT_TAG_NAME, self.DATE_TAG_NAME))
         if not m:
             return None
