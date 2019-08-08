@@ -1015,7 +1015,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(True, metadata.annotated)
 
         # Now let's try it with some files 'on disk'.
-        with open(self.sample_cover_path('test-book-cover.png', "rb")) as fh:
+        with open(self.sample_cover_path('test-book-cover.png'), "rb") as fh:
             image = fh.read()
         mock_filesystem = {
             'cover directory' : (
