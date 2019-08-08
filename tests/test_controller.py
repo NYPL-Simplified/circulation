@@ -3951,7 +3951,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             eq_(405, response.status_code)
 
     def test_device_id_list_handler_too_many_simultaneous_registrations(self):
-        """We only allow registration of one device ID at a time."""
+        # We only allow registration of one device ID at a time.
         headers = dict(self.auth)
         headers['Content-Type'] = self.controller.DEVICE_ID_LIST_MEDIA_TYPE
         with self.request_context_with_library(
