@@ -540,6 +540,8 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             license document via Bibliotheca, or a dictionary
             representing such a document loaded into JSON form.
         """
+        if isinstance(findaway_license, bytes):
+            findaway_license = findaway_license.decode("utf8")
         if isinstance(findaway_license, str):
             findaway_license = json.loads(findaway_license)
 
