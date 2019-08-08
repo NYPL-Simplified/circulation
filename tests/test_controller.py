@@ -352,13 +352,16 @@ class ControllerTest(VendorIDTest):
             # test_request_context, we want to leave that setup in
             # place.
 
-            # TODO: This needs some work. I'm not sure what the clue is that
-            # we want to set .stream et al.
-            if not flask.request.stream:
+            # TODO: Just referencing these fields seems to solve the
+            # problem: they never turn out to actually be None. It
+            # looks like all three values are filled in by Flask when
+            # we look up one of them, and we can put in mock values
+            # afterwards.
+            if flask.request.stream is None:
                 flask.request.stream = BytesIO()
-            if not flask.request.form:
+            if flask.request.form is None:
                 flask.request.form = {}
-            if not flask.request.files:
+            if flask.request.files is None:
                 flask.request.files = {}
 
             yield ctx
