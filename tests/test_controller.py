@@ -342,9 +342,24 @@ class ControllerTest(VendorIDTest):
         `files` should be a MultiDict object.
         """
         with self.app.test_request_context(*args, **kwargs) as ctx:
-            flask.request.stream = BytesIO()
-            flask.request.form = {}
-            flask.request.files = {}
+            # These variables represent data loaded from the request.
+            # It's common in test to set mocked values for these
+            # variables after the request has been set up. That's
+            # fine, but we need to make sure all three of these
+            # variables are set to sensible values beforehand, since
+            # most tests don't mock all three. And if there was any
+            # setup done by the `kwargs` we just passed into
+            # test_request_context, we want to leave that setup in
+            # place.
+
+            # TODO: This needs some work. I'm not sure what the clue is that
+            # we want to set .stream et al.
+            if not flask.request.stream:
+                flask.request.stream = BytesIO()
+            if not flask.request.form:
+                flask.request.form = {}
+            if not flask.request.files:
+                flask.request.files = {}
 
             yield ctx
 
@@ -4736,7 +4751,7 @@ class TestStaticFileController(CirculationControllerTest):
 
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "files", "images")
         filename = "blue.jpg"
-        with open(os.path.join(directory, filename)) as f:
+        with open(os.path.join(directory, filename), 'rb') as f:
             expected_content = f.read()
 
         with self.app.test_request_context("/"):
@@ -4753,7 +4768,7 @@ class TestStaticFileController(CirculationControllerTest):
     def test_image(self):
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
         filename = "CleverLoginButton280.png"
-        with open(os.path.join(directory, filename)) as f:
+        with open(os.path.join(directory, filename), 'rb') as f:
             expected_content = f.read()
 
         with self.app.test_request_context("/"):

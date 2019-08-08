@@ -770,9 +770,8 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
         eq_(sorted(results), sorted([valid_id, mapped_id]))
 
     def test_finalize_batch(self):
-        """Metadata Wrangler sync coverage records are deleted from the db
-        when the the batch is finalized if the item has been reaped.
-        """
+        # Metadata Wrangler sync coverage records are deleted from the db
+        # when the the batch is finalized if the item has been reaped.
 
         # Create an identifier that has been imported and one that's
         # been reaped.
@@ -806,7 +805,11 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest)
 
         # The syncing record has been deleted from the database
         assert doubly_sync_record not in remaining_records
-        eq_(sorted([sync_cr, reaped_cr, doubly_reap_record]), sorted(remaining_records))
+        sort_by = lambda x: x.id
+        eq_(
+            sorted([sync_cr, reaped_cr, doubly_reap_record], key=sort_by),
+            sorted(remaining_records, key=sort_by)
+        )
 
 
 class TestMetadataUploadCoverageProvider(DatabaseTest):

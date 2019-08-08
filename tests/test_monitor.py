@@ -238,7 +238,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         )
 
         # This introduces a loop.
-        data = data.replace("http://next-link/", "http://next-link/")
+        data = data.replace(b"http://next-link/", b"http://next-link/")
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
