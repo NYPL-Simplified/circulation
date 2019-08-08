@@ -690,17 +690,17 @@ class WorkController(AdminCirculationManagerController):
             package_dir = os.path.join(admin_dir, "../..")
             bold_font_path = os.path.join(package_dir, "resources/OpenSans-Bold.ttf")
             regular_font_path = os.path.join(package_dir, "resources/OpenSans-Regular.ttf")
-            font_size = image_width / 20
+            font_size = image_width // 20
             bold_font = ImageFont.truetype(bold_font_path, font_size)
             regular_font = ImageFont.truetype(regular_font_path, font_size)
 
-            padding = image_width / 40
+            padding = image_width // 40
 
             max_line_width = 0
             bold_char_width = bold_font.getsize("n")[0]
-            bold_char_count = image_width / bold_char_width
+            bold_char_count = image_width // bold_char_width
             regular_char_width = regular_font.getsize("n")[0]
-            regular_char_count = image_width / regular_char_width
+            regular_char_count = image_width // regular_char_width
             title_lines = textwrap.wrap(title, bold_char_count)
             author_lines = textwrap.wrap(author, regular_char_count)
             for lines, font in [(title_lines, bold_font), (author_lines, regular_font)]:
@@ -717,23 +717,23 @@ class WorkController(AdminCirculationManagerController):
 
             rectangle_width = max_line_width + 2 * padding
 
-            start_x = (image_width - rectangle_width) / 2
+            start_x = (image_width - rectangle_width) // 2
             if title_position == self.BOTTOM:
-                start_y = image_height - rectangle_height - image_height / 14
+                start_y = image_height - rectangle_height - image_height // 14
             elif title_position == self.CENTER:
-                start_y = (image_height - rectangle_height) / 2
+                start_y = (image_height - rectangle_height) // 2
             else:
-                start_y = image_height / 14
+                start_y = image_height // 14
 
             draw.rectangle([(start_x, start_y),
                             (start_x + rectangle_width, start_y + rectangle_height)],
                            fill=(255,255,255,255))
 
-            current_y = start_y + line_height / 2
+            current_y = start_y + line_height // 2
             for lines, font in [(title_lines, bold_font), (author_lines, regular_font)]:
                 for line in lines:
                     line_width, ignore = font.getsize(line)
-                    draw.text((start_x + (rectangle_width - line_width) / 2, current_y),
+                    draw.text((start_x + (rectangle_width - line_width) // 2, current_y),
                               line, font=font, fill=(0,0,0,255))
                     current_y += line_height
 
