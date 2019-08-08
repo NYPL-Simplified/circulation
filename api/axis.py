@@ -68,6 +68,7 @@ from core.opds_import import (
 from core.testing import DatabaseTest
 
 from core.util import LanguageCodes
+from core.util.binary import UnicodeAwareBase64
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     HTTP,
@@ -191,9 +192,14 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
     @property
     def authorization_headers(self):
         authorization = ":".join([self.username, self.password, self.library_id])
-        authorization = authorization.encode("utf_16_le")
+        # NOTE: Presumably we were asked to use UTF-16 LE when
+        # accessing this API, but I don't see it mentioned in the
+        # documentation. Anyway, that's why we're not using
+        # core.util.binary.base64 -- that assumes the proper encoding
+        # is UTF-8.
+        base64 = UnicodeAwareBase64(encoding="utf_16_le")
         authorization = base64.standard_b64encode(authorization)
-        return dict(Authorization="Basic " + authorization.decode("utf_16_le"))
+        return dict(Authorization="Basic " + authorization)
 
     def external_integration(self, _db):
         return self.collection.external_integration
