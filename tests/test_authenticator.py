@@ -684,11 +684,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # initialization_exceptions.
         not_configured = auth.initialization_exceptions[misconfigured.id]
         assert isinstance(not_configured, CannotLoadConfiguration)
-        eq_('First Book server not configured.', not_configured.message)
+        eq_('First Book server not configured.', str(not_configured))
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        eq_('No module named unknown protocol', not_found.message)
+        eq_('No module named unknown protocol', str(not_found))
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
