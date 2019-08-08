@@ -5,6 +5,7 @@ from nose.tools import (
     set_trace,
 )
 from contextlib import contextmanager
+from io import BytesIO
 import os
 import datetime
 import re
@@ -341,7 +342,7 @@ class ControllerTest(VendorIDTest):
         `files` should be a MultiDict object.
         """
         with self.app.test_request_context(*args, **kwargs) as ctx:
-            flask.request.stream = {}
+            flask.request.stream = BytesIO()
             flask.request.form = {}
             flask.request.files = {}
 
@@ -4504,14 +4505,14 @@ class TestProfileController(ControllerTest):
         self.auth = dict(Authorization=self.valid_auth)
 
     def test_controller_uses_circulation_patron_profile_storage(self):
-        """Verify that this controller uses circulation manager-specific extensions."""
+        # Verify that this controller uses circulation manager-specific extensions.
         with self.request_context_with_library(
                 "/", method='GET', headers=self.auth
         ):
             assert isinstance(self.manager.profiles._controller.storage, CirculationPatronProfileStorage)
 
     def test_get(self):
-        """Verify that a patron can see their own profile."""
+        # Verify that a patron can see their own profile.
         with self.request_context_with_library(
                 "/", method='GET', headers=self.auth
         ):
@@ -4524,7 +4525,7 @@ class TestProfileController(ControllerTest):
             eq_(True, settings[ProfileStorage.SYNCHRONIZE_ANNOTATIONS])
 
     def test_put(self):
-        """Verify that a patron can modify their own profile."""
+        # Verify that a patron can modify their own profile.
         payload = {
             'settings': {
                 ProfileStorage.SYNCHRONIZE_ANNOTATIONS: True
@@ -4578,9 +4579,8 @@ class TestProfileController(ControllerTest):
             eq_(0, len(request_patron.annotations))
 
     def test_problemdetail_on_error(self):
-        """Verify that an error results in a ProblemDetail being returned
-        from the controller.
-        """
+        # Verify that an error results in a ProblemDetail being returned
+        # from the controller.
         with self.request_context_with_library(
                 "/", method='PUT', headers=self.auth,
                 content_type="text/plain",
