@@ -224,15 +224,14 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         eq_(Timestamp.CLEAR_VALUE, new_timestamp.finish)
 
     def test_no_import_loop(self):
-        """We stop processing a feed's 'next' link if it links to a URL we've
-        already seen.
-        """
+        # We stop processing a feed's 'next' link if it links to a URL we've
+        # already seen.
 
         data = sample_data('metadata_updates_response.opds', 'opds')
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
-        data = data.replace("http://next-link/", "http://different-link/")
+        data = data.replace(b"http://next-link/", b"http://different-link/")
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )

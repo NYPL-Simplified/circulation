@@ -1056,7 +1056,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # The EPUB Representation was cleared out after the upload, to
         # save database space.
-        eq_("I'm an EPUB.", mirror.content[0])
+        eq_(b"I'm an EPUB.", mirror.content[0])
         eq_(None, epub.content)
 
     def test_annotate_metadata(self):
