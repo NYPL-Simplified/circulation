@@ -688,7 +688,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        eq_('No module named unknown protocol', str(not_found))
+        eq_("No module named 'unknown protocol'", str(not_found))
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
@@ -798,8 +798,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # But you can't create an Authenticator that uses OAuth
         # without providing a secret.
         assert_raises_regexp(
-            LibraryAuthenticator,
+            CannotLoadConfiguration,
             "OAuth providers are configured, but secret for signing bearer tokens is not.",
+            LibraryAuthenticator,
+            _db=self._db,
             library=self._default_library,
             oauth_providers=[oauth]
         )
