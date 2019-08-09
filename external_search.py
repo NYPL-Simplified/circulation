@@ -1320,7 +1320,21 @@ class Query(SearchBase):
     #
     # That said, this is a coefficient, not a weight -- a keyword
     # title match is better than a keyword subtitle match, etc.
-    KEYWORD_MATCH_COEFFICIENT = 1000
+    DEFAULT_KEYWORD_MATCH_COEFFICIENT = 1000
+
+    # Normally we weight keyword matches very highly, but for
+    # publishers and imprints, where a keyword match may also be a
+    # partial author match ("Plympton") or topic match ("Penguin"), we
+    # weight them much lower -- the author or topic is probably more
+    # important.
+    #
+    # Again, these are coefficients, not weights. A keyword publisher
+    # match is better than a keyword imprint match, even though they have
+    # the same keyword match coefficient.
+    KEYWORD_MATCH_COEFFICIENT_FOR_FIELD = dict(
+        publisher=2,
+        imprint=2,
+    )
 
     # A normal coefficient for a normal sort of match.
     BASELINE_COEFFICIENT = 1
@@ -1607,11 +1621,19 @@ class Query(SearchBase):
         base_weight = self.WEIGHT_FOR_FIELD[base_field]
 
         query_string = query_string or self.query_string
+
+        keyword_match_coefficient = (
+            self.KEYWORD_MATCH_COEFFICIENT_FOR_FIELD.get(
+                base_field,
+                self.DEFAULT_KEYWORD_MATCH_COEFFICIENT
+            )
+        )
+
         fields = [
             # A keyword match means the field value is a near-exact
             # match for the query string. This is one of the best
             # search results we can possibly return.
-            ('keyword', self.KEYWORD_MATCH_COEFFICIENT, Term),
+            ('keyword', keyword_match_coefficient, Term),
 
             # This is the baseline query -- a phrase match against a
             # single field. Most queries turn out to represent
