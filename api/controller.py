@@ -1951,7 +1951,7 @@ class SharedCollectionController(CirculationManagerController):
     def authenticated_client_from_request(self):
         header = flask.request.headers.get('Authorization')
         if header and 'bearer' in header.lower():
-            shared_secret = base64.b64decode(header.split(' ')[1]).decode("utf8")
+            shared_secret = base64.b64decode(header.split(' ')[1])
             client = IntegrationClient.authenticate(self._db, shared_secret)
             if client:
                 return client
