@@ -45,6 +45,7 @@ class IntegrationClient(Base):
     holds = relationship('Hold', backref='integration_client')
 
     def __repr__(self):
+        # TODO PYTHON3 repr is unicode string
         return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
 
     @classmethod

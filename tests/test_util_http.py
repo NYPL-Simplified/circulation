@@ -275,7 +275,7 @@ class TestBadResponseException(object):
     def test_helper_constructor(self):
         response = MockRequestsResponse(102, content="nonsense")
         exc = BadResponseException.from_response(
-            "http://url/", "Terrible response, just terrible", response
+            "http://url/", "Bad response from http://url/: Terrible response, just terrible", response
         )
 
         # Turn the exception into a problem detail document, and it's full

@@ -30,7 +30,6 @@ from licensing import (
 )
 from work import Work
 
-import base64
 from sqlalchemy import (
     Column,
     exists,
@@ -55,6 +54,8 @@ from sqlalchemy.sql.expression import (
     and_,
     or_,
 )
+
+from ..util.binary import base64
 
 class Collection(Base, HasFullTableCache):
 
@@ -163,6 +164,7 @@ class Collection(Base, HasFullTableCache):
     GLOBAL_COLLECTION_DATA_SOURCES = [DataSource.ENKI]
 
     def __repr__(self):
+        # TODO PYTHON3 repr is unicode string
         return (u'<Collection "%s"/"%s" ID=%d>' %
                 (self.name, self.protocol, self.id)).encode('utf8')
 
@@ -505,7 +507,7 @@ class Collection(Base, HasFullTableCache):
 
             if protocol == ExternalIntegration.OPDS_IMPORT:
                 # Share the feed URL so the Metadata Wrangler can find it.
-               collection.external_account_id = unicode(account_id)
+                collection.external_account_id = account_id
 
         if data_source:
             collection.data_source = data_source

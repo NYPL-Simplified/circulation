@@ -78,6 +78,7 @@ class Identifier(Base, IdentifierConstants):
     coverage_records = relationship("CoverageRecord", backref="identifier")
 
     def __repr__(self):
+        # TODO PYTHON3 repr is unicode string
         records = self.primarily_identifies
         if records and records[0].title:
             title = u' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
@@ -797,6 +798,7 @@ class Identifier(Base, IdentifierConstants):
     def __lt__(self, other):
         """A comparator for Identifiers, making them easy to sort in tests."""
         return (self.type, self.identifier) < (other.type, other.identifier)
+
 
 class Equivalency(Base):
     """An assertion that two Identifiers identify the same work.

@@ -212,6 +212,7 @@ class TestAnnotators(DatabaseTest):
         lcsh_uri = Subject.uri_lookup[Subject.LCSH]
         eq_([{'term': u'lcsh1', 'label': u'name2', rating_value: 2},
              {'term': u'lcsh2', 'label': u'name3', rating_value: 3}],
+            # TODO PYTHON3 should not be necessary to sort.
             sorted(category_tags[lcsh_uri]))
 
         genre_uri = Subject.uri_lookup[Subject.SIMPLIFIED_GENRE]
@@ -456,11 +457,13 @@ class TestOPDS(DatabaseTest):
 
         # A doubly-indirect acquisition link.
         a = m(rel, href, ["text/html", "text/plain", "application/pdf"])
-        eq_(etree.tounicode(a), '<link type="text/html" rel="http://opds-spec.org/acquisition/borrow" href="%s"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href)
+        # TODO PYTHON3 order of attrs is different
+        eq_(etree.tounicode(a), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href)
 
         # A direct acquisition link.
         b = m(rel, href, ["application/epub"])
-        eq_(etree.tounicode(b), '<link type="application/epub" rel="http://opds-spec.org/acquisition/borrow" href="%s"/>' % href)
+        # TODO PYTHON3 order of attrs is different
+        eq_(etree.tounicode(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
 
     def test_group_uri(self):
         work = self._work(with_open_access_download=True, authors="Alice")

@@ -131,6 +131,7 @@ class Edition(Base, EditionConstants):
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
     def __repr__(self):
+        # TODO PYTHON3 repr is unicode string
         id_repr = repr(self.primary_identifier).decode("utf8")
         a = (u"Edition %s [%r] (%s/%s/%s)" % (
             self.id, id_repr, self.title,

@@ -61,8 +61,17 @@ class CustomList(Base):
     # interface for managing this.
 
     def __repr__(self):
+        # TODO PYTHON3 repr is unicode string
         return (u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
             self.name, self.foreign_identifier, len(self.entries))).encode('utf8')
+
+    def __lt__(self, other):
+        """Comparator to make it easy to sort lists of CustomLists."""
+        return (
+            self.foreign_identifier, self.name
+        ) < (
+            other.foreign_identifier, other.name
+        )
 
     @classmethod
     def all_from_data_sources(cls, _db, data_sources):

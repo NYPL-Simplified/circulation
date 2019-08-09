@@ -153,7 +153,8 @@ class AtomFeed(object):
         )
 
 
-    def __str__(self):
+    # TODO PYTHON3 rename to __str__
+    def __unicode__(self):
         if self.feed is None:
             return None
 

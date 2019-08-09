@@ -286,5 +286,16 @@ class MediaTypes(object):
         ".htm" : TEXT_HTML_MEDIA_TYPE,
         ".jpeg" : JPEG_MEDIA_TYPE,
     }
+    # PYTHON3 TODO: This happens to work in Python 2, but in Python 3,
+    # items come out of MEDIA_TYPE_FOR_EXTENSION in the order they
+    # were inserted, so we need to take steps to ensure
+    # SCORM_MEDIA_TYPE doesn't claim '.zip'.
+    # 
     for media_type, extension in FILE_EXTENSIONS.items():
-        MEDIA_TYPE_FOR_EXTENSION['.' + extension] = media_type
+        extension = '.' + extension
+        # PYTHON3 TODO remove "or True"
+        if extension not in MEDIA_TYPE_FOR_EXTENSION or True:
+            # FILE_EXTENSIONS lists more common extensions first.  If
+            # multiple media types have the same extension, the most
+            # common media type will be used.
+            MEDIA_TYPE_FOR_EXTENSION[extension] = media_type

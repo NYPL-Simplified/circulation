@@ -7,7 +7,6 @@ from collections import (
     defaultdict,
     Counter,
 )
-import base64
 import datetime
 import dateutil
 import feedparser
@@ -59,6 +58,7 @@ from model import (
 )
 
 from coverage import CoverageFailure
+from util.binary import base64
 from util.http import (
     BadResponseException,
     HTTP,

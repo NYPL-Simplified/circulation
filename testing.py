@@ -13,6 +13,8 @@ from nose.tools import (
     set_trace,
     eq_,
 )
+# TODO PYTHON3
+# from psycopg2.errors import UndefinedTable
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from config import Configuration
@@ -110,10 +112,14 @@ def package_setup():
         try:
             engine.execute(statement)
         except ProgrammingError, e:
+            # TODO PYTHON3
+            # if isinstance(e.orig, UndefinedTable):
             if 'does not exist' in e.message:
                 # This is the first time running these tests
                 # on this server, and the tables don't exist yet.
                 pass
+            else:
+                raise e
 
 
 def package_teardown():
@@ -1376,10 +1382,12 @@ class MockRequestsResponse(object):
         content = self.content
         # The queued content might be a JSON string or it might
         # just be the object you'd get from loading a JSON string.
-        if isinstance(content, basestring):
+        if isinstance(content, (unicode, bytes)):
             content = json.loads(self.content)
         return content
 
     @property
     def text(self):
-        return self.content.decode("utf8")
+        if isinstance(self.content, bytes):
+            return self.content.decode("utf8")
+        return self.content

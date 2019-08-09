@@ -3,7 +3,7 @@ import logging
 import os, sys
 from lxml import etree
 from nose.tools import set_trace
-from StringIO import StringIO
+from io import BytesIO
 from zipfile import ZipFile
 
 from http import HTTP

@@ -313,6 +313,7 @@ class Work(Base):
         return complaints
 
     def __repr__(self):
+        # TODO PYTHON3 __repr__ is unicode string
         return (u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
                 self.id, self.title, self.author, ", ".join([g.name for g in self.genres]), self.language,
                 len(self.license_pools))).encode("utf8")

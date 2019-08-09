@@ -409,9 +409,14 @@ class TestCollection(DatabaseTest):
         assert_raises(ValueError, getattr, self.collection, 'metadata_identifier')
 
         def build_expected(protocol, unique_id):
-            encoded = [base64.b64encode(unicode(value), '-_')
-                       for value in [protocol, unique_id]]
-            return base64.b64encode(':'.join(encoded), '-_')
+            # util.binary.base64 takes care of encoding and decoding
+            # the strings we're base64-encoding, so we don't need to
+            # worry about that. However, we do need to pass in a
+            # bytestring for 'altchars', an extra argument that's
+            # passed right along to the standard library's base64
+            # implementation.
+            encoded = [base64.b64encode(value, b'-_') for value in [protocol, unique_id]]
+            joined = ':'.join(encoded)
 
         # With a unique identifier, we get back the expected identifier.
         self.collection.external_account_id = 'id'

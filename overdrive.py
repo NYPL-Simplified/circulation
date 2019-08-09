@@ -60,6 +60,7 @@ from util.http import (
     BadResponseException,
 )
 from util.worker_pools import RLock
+from util.binary import base64
 
 from testing import MockRequestsResponse
 

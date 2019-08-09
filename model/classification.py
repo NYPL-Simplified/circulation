@@ -145,6 +145,7 @@ class Subject(Base):
     )
 
     def __repr__(self):
+        # TODO PYTHON3 repr is unicode string
         if self.name:
             name = u' ("%s")' % self.name
         else:

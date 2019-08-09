@@ -151,6 +151,7 @@ class Contributor(Base):
     DEATH_DATE = 'deathDate'
 
     def __repr__(self):
+        # TODO PYTHON3 repr is unicode string
         extra = ""
         if self.lc:
             extra += " lc=%s" % self.lc

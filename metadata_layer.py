@@ -793,7 +793,7 @@ class MetaToModelUtility(object):
             )
             return
 
-        if int(representation.status_code / 100) not in (2,3):
+        if representation.status_code // 100 not in (2,3):
             self.log.info(
                 "Representation %s gave %s status code, not mirroring.",
                 representation.url, representation.status_code
@@ -2294,7 +2294,7 @@ class CSVMetadataImporter(object):
         Unicode.
         """
         value = row.get(name, default)
-        if isinstance(value, basestring):
+        if isinstance(value, bytes):
             value = value.decode("utf8")
         return value
 

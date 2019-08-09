@@ -218,14 +218,18 @@ class S3Uploader(MirrorUploader):
             url += "/"
         return url
 
+
     @classmethod
     def key_join(self, key):
         """Quote the path portions of an S3 key while leaving the path
         characters themselves alone.
 
-        :param key: Either a key, or a list of parts to be assembled into a key.
+        :param key: Either a key, or a list of parts to be
+        assembled into a key.
 
-        :return: A string that can be used as an S3 key.
+        :return: A bytestring that can be used as an S3 key.
+
+        TODO PYTHON3 This is rewritten to return a Unicode string.
         """
         if isinstance(key, basestring):
             parts = key.split('/')
