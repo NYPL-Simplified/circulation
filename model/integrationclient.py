@@ -20,6 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     relationship,
 )
+from ..util.binary import random_string
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.

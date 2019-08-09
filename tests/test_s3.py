@@ -134,7 +134,7 @@ class TestS3Uploader(S3UploaderTest):
 
     def test_key_join(self):
         """Test the code used to build S3 keys from parts."""
-        parts = ["Gutenberg", "Gutenberg ID", 1234, "Die Flügelmaus.epub"]
+        parts = ["Gutenberg", b"Gutenberg ID", 1234, "Die Flügelmaus.epub"]
         eq_('Gutenberg/Gutenberg+ID/1234/Die+Fl%C3%BCgelmaus.epub',
             S3Uploader.key_join(parts))
 
@@ -253,7 +253,9 @@ class TestS3Uploader(S3UploaderTest):
     def test_mirror_one(self):
         edition, pool = self._edition(with_license_pool=True)
         original_cover_location = "http://example.com/a-cover.png"
-        content = open(self.sample_cover_path("test-book-cover.png")).read()
+        content = open(
+            self.sample_cover_path("test-book-cover.png"), 'rb'
+        ).read()
         cover, ignore = pool.add_link(
             Hyperlink.IMAGE, original_cover_location, edition.data_source,
             Representation.PNG_MEDIA_TYPE,
@@ -296,7 +298,7 @@ class TestS3Uploader(S3UploaderTest):
         eq_(Representation.PNG_MEDIA_TYPE, args1['ContentType'])
         assert (datetime.datetime.utcnow() - cover_rep.mirrored_at).seconds < 10
 
-        eq_("i'm an epub", data2)
+        eq_(b"i'm an epub", data2)
         eq_("books-go", bucket2)
         eq_("here.epub", key2)
         eq_(Representation.EPUB_MEDIA_TYPE, args2['ContentType'])
@@ -377,8 +379,8 @@ class TestS3Uploader(S3UploaderTest):
         [[data, bucket, key, args, ignore]] = s3.client.uploads
 
         eq_(Representation.SVG_MEDIA_TYPE, args['ContentType'])
-        assert 'svg' in data
-        assert 'PNG' not in data
+        assert b'svg' in data
+        assert b'PNG' not in data
 
     def test_multipart_upload(self):
         class MockMultipartS3Upload(MultipartS3Upload):

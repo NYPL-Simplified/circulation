@@ -1140,6 +1140,7 @@ class MoneyUtility(object):
         currency = cls.DEFAULT_CURRENCY
         if not amount:
             amount = '0'
+        amount = str(amount)
         if amount[0] == '$':
             currency = 'USD'
             amount = amount[1:]

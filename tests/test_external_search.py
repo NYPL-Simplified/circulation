@@ -2419,12 +2419,6 @@ class TestQuery(DatabaseTest):
                 # works that match the filter an edge over works that
                 # don't.
                 (Mock.SUBSTRING_HYPOTHESES, 1.1),
-                ('author query 1', 2),
-                ('author query 2', 3),
-                ('topic query', 4),
-                ('multi match title+author', 5),
-                ('multi match title+subtitle', 5),
-                ('multi match title+series', 5),
             ]
         )
 

@@ -15,6 +15,7 @@ from constants import DataSourceConstants
 from hasfulltablecache import HasFullTableCache
 from library import Library
 from ..mirror import MirrorUploader
+from ..util.binary import random_string
 
 import json
 import logging
@@ -449,7 +450,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         """
         secret = ConfigurationSetting.sitewide(_db, key)
         if not secret.value:
-            secret.value = os.urandom(24).encode('hex')
+            secret.value = random_string(24)
             # Commit to get this in the database ASAP.
             _db.commit()
         return secret.value

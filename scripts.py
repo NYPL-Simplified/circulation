@@ -111,6 +111,7 @@ from util.worker_pools import (
     DatabaseWorker,
     DatabasePool,
 )
+from functools import cmp_to_key
 
 class Script(object):
 
@@ -2156,7 +2157,7 @@ class DatabaseMigrationScript(Script):
         one.
         """
 
-        def compare_migrations(first, second):
+        def compare_migrations(first):
             """Compares migrations according to ideal sorting order.
 
             - All Python migrations run after all SQL migrations.
@@ -2166,27 +2167,29 @@ class DatabaseMigrationScript(Script):
             - If two migrations with the same timestamp, have counters,
               migrations are sorted by counter (asc).
             """
-            if first.endswith('.py') and second.endswith('.sql'):
-                return 1
-            elif first.endswith('.sql') and second.endswith('.py'):
-                return -1
-            first_datestamp = int(first[:8])
-            second_datestamp = int(second[:8])
-            datestamp_difference = first_datestamp - second_datestamp
-            if datestamp_difference != 0:
-                return datestamp_difference
+            key = []
+            if first.endswith('.py'):
+                key.append(1)
+            else:
+                key.append(-1)
+
+            try:
+                key.append(int(first[:8]))
+            except ValueError:
+                key.append(-1)
 
             # Both migrations have the same timestamp, so compare using
             # their counters (default to 0 if no counter is included)
-            first_count = self.MIGRATION_WITH_COUNTER.search(first) or 0
-            second_count = self.MIGRATION_WITH_COUNTER.search(second) or 0
-            if not isinstance(first_count, int):
+            first_count = self.MIGRATION_WITH_COUNTER.search(first)
+            if first_count is not None:
                 first_count = int(first_count.groups()[0])
-            if not isinstance(second_count, int):
-                second_count = int(second_count.groups()[0])
-            return first_count - second_count
+            else:
+                first_count = 0
+            key.append(first_count)
 
-        return sorted(migrations, cmp=compare_migrations)
+            return key
+
+        return sorted(migrations, key=compare_migrations)
 
     @property
     def directories_by_priority(self):
@@ -2497,16 +2500,30 @@ class DatabaseMigrationScript(Script):
                 self._db, finish=last_run_date,
                 counter=counter, migration_name=migration_file
             )
+        
+        # Nothing to update
+        if self.overall_timestamp is None:
+            return
 
-        if (self.overall_timestamp and
-            (self.overall_timestamp.finish < last_run_date or
-            (self.overall_timestamp.finish==last_run_date and
-             self.overall_timestamp.counter < counter))
-        ):
-            self.overall_timestamp.update(
-                self._db, finish=last_run_date,
-                counter=counter, migration_name=migration_file
-            )
+        # The last script that ran had an earlier timestamp than the current script
+        if self.overall_timestamp.finish > last_run_date:
+            return
+
+        # The dates of the scrips are the same so compare the counters
+        if self.overall_timestamp.finish==last_run_date:
+            # The current script has no counter, so it's the same script that ran
+            # or an earlier script that ran
+            if counter is None:
+                return
+            # The previous script has a higher counter
+            if (self.overall_timestamp.counter is not None and
+                self.overall_timestamp.counter > counter):
+                return
+
+        self.overall_timestamp.update(
+            self._db, finish=last_run_date,
+            counter=counter, migration_name=migration_file
+        )
 
 
 class DatabaseMigrationInitializationScript(DatabaseMigrationScript):

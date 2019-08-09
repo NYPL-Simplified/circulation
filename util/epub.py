@@ -31,7 +31,7 @@ class EpubAccessor(object):
         if url and not content:
             # Get the epub from the url if no content has been made available.
             content = HTTP.get_with_timeout(url).content
-        content = StringIO(content)
+        content = BytesIO(content)
 
         with ZipFile(content) as zip_file:
             if not cls.CONTAINER_FILE in zip_file.namelist():

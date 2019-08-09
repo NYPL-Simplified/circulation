@@ -567,7 +567,7 @@ class MARCExporter(object):
         record = None
         existing_record = getattr(work, annotator.marc_cache_field)
         if existing_record and not force_create:
-            record = Record(data=existing_record.encode('utf-8'), force_utf8=True)
+            record = Record(data=existing_record, force_utf8=True)
 
         if not record:
             record = Record(leader=annotator.leader(work), force_utf8=True)
@@ -642,7 +642,7 @@ class MARCExporter(object):
         )
 
         with mirror.multipart_upload(representation, url) as upload:
-            this_batch = StringIO()
+            this_batch = BytesIO()
             this_batch_size = 0
             while pagination is not None:
                 # Retrieve one 'page' of works from the search index.
@@ -663,7 +663,7 @@ class MARCExporter(object):
                     # We've reached or exceeded the upload threshold.
                     # Upload one part of the multi-part document.
                     self._upload_batch(this_batch, upload)
-                    this_batch = StringIO()
+                    this_batch = BytesIO()
                     this_batch_size = 0
                 pagination = pagination.next_page
 

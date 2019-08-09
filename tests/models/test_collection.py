@@ -5,7 +5,6 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-import base64
 import datetime
 import json
 from .. import DatabaseTest
@@ -37,6 +36,8 @@ from ...model.licensing import (
     LicensePool,
 )
 from ...model.work import Work
+from ...util.binary import base64
+
 
 class TestCollection(DatabaseTest):
 

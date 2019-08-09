@@ -241,8 +241,8 @@ class TestCustomList(DatabaseTest):
             not_yet_equivalent.primary_identifier, 1
         )
         eq_(
-            sorted([entry, other_entry]),
-            sorted(list(custom_list.entries_for_work(not_yet_equivalent)))
+            set([entry, other_entry]),
+            set(custom_list.entries_for_work(not_yet_equivalent))
         )
 
     def test_update_size(self):

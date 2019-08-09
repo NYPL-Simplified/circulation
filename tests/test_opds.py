@@ -135,17 +135,17 @@ class TestBaseAnnotator(DatabaseTest):
         annotator.annotate_work_entry(work, pool, None, None, None, entry)
         [id, distributor, published, updated] = entry
 
-        id_tag = etree.tostring(id)
+        id_tag = etree.tounicode(id)
         assert 'id' in id_tag
         assert pool.identifier.urn in id_tag
 
-        assert 'ProviderName="Gutenberg"' in etree.tostring(distributor)
+        assert 'ProviderName="Gutenberg"' in etree.tounicode(distributor)
 
-        published_tag = etree.tostring(published)
+        published_tag = etree.tounicode(published)
         assert 'published' in published_tag
         assert '2015-01-01' in published_tag
 
-        updated_tag = etree.tostring(updated)
+        updated_tag = etree.tounicode(updated)
         assert 'updated' in updated_tag
         assert '2018-02-05' in updated_tag
 
@@ -157,8 +157,8 @@ class TestBaseAnnotator(DatabaseTest):
             updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651)
         )
         [id, distributor, published, updated] = entry
-        assert 'updated' in etree.tostring(updated)
-        assert '2017-01-02' in etree.tostring(updated)
+        assert 'updated' in etree.tounicode(updated)
+        assert '2017-01-02' in etree.tounicode(updated)
 
 class TestAnnotators(DatabaseTest):
 
@@ -249,7 +249,7 @@ class TestAnnotators(DatabaseTest):
 
         author_tag = VerboseAnnotator.detailed_author(c)
 
-        tag_string = etree.tostring(author_tag)
+        tag_string = etree.tounicode(author_tag)
         assert "<name>Givenname Familyname</" in tag_string
         assert "<simplified:sort_name>Familyname, Givenname</" in tag_string
         assert "<simplified:wikipedia_name>Givenname Familyname (Author)</" in tag_string
@@ -260,7 +260,7 @@ class TestAnnotators(DatabaseTest):
         work.presentation_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
         [same_tag] = VerboseAnnotator.authors(work, work.presentation_edition)
-        eq_(tag_string, etree.tostring(same_tag))
+        eq_(tag_string, etree.tounicode(same_tag))
 
     def test_duplicate_author_names_are_ignored(self):
         # Ignores duplicate author names
@@ -456,11 +456,11 @@ class TestOPDS(DatabaseTest):
 
         # A doubly-indirect acquisition link.
         a = m(rel, href, ["text/html", "text/plain", "application/pdf"])
-        eq_(etree.tostring(a), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href)
+        eq_(etree.tounicode(a), '<link type="text/html" rel="http://opds-spec.org/acquisition/borrow" href="%s"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href)
 
         # A direct acquisition link.
         b = m(rel, href, ["application/epub"])
-        eq_(etree.tostring(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
+        eq_(etree.tounicode(b), '<link type="application/epub" rel="http://opds-spec.org/acquisition/borrow" href="%s"/>' % href)
 
     def test_group_uri(self):
         work = self._work(with_open_access_download=True, authors="Alice")
@@ -896,9 +896,9 @@ class TestOPDS(DatabaseTest):
             assert str(m.message) in feed
 
     def test_precomposed_entries(self):
-        """Test the ability to include precomposed OPDS entries
-        in a feed.
-        """
+        # Test the ability to include precomposed OPDS entries
+        # in a feed.
+
         entry = AcquisitionFeed.E.entry()
         entry.text='foo'
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
@@ -1178,6 +1178,7 @@ class TestOPDS(DatabaseTest):
         # When a feed is created without a cache_type of NO_CACHE,
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
+        annotator = TestAnnotatorWithGroup()
         raw_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
             cache_type=AcquisitionFeed.NO_CACHE, search_engine=search_engine,
@@ -1189,7 +1190,7 @@ class TestOPDS(DatabaseTest):
         eq_(old_cache_count, self._db.query(CachedFeed).count())
         # The entries in the feed are the same as they were when
         # they were cached before.
-        eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
+        eq_(parsed.entries, feedparser.parse(raw_groups).entries)
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
         # Test that a page feed is returned when the requested groups
@@ -1606,7 +1607,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(
             self._db, work, TestAnnotator
         )
-        entry = etree.tostring(entry)
+        entry = etree.tounicode(entry)
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
@@ -1621,7 +1622,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
 
         expected = str(work.presentation_edition.issued.date())
-        assert expected in etree.tostring(entry)
+        assert expected in etree.tounicode(entry)
 
     def test_entry_cache_adds_missing_drm_namespace(self):
 
@@ -1648,7 +1649,7 @@ class TestAcquisitionFeed(DatabaseTest):
             self._db, work, AddDRMTagAnnotator
         )
         eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
-            etree.tostring(entry)
+            etree.tounicode(entry)
         )
 
     def test_error_when_work_has_no_identifier(self):
@@ -1713,18 +1714,18 @@ class TestAcquisitionFeed(DatabaseTest):
             work, pool, pool.presentation_edition, pool.identifier, feed,
             xml
         )
-        eq_(etree.tostring(xml), etree.tostring(entry))
+        eq_(etree.tounicode(xml), etree.tounicode(entry))
 
         # If we pass in use_cache=False, a new OPDS entry is created
         # from scratch, but the cache is not updated.
         entry = feed.create_entry(work, use_cache=False)
-        assert etree.tostring(entry) != tiny_entry
+        assert etree.tounicode(entry) != tiny_entry
         eq_(tiny_entry, work.simple_opds_entry)
 
         # If we pass in force_create, a new OPDS entry is created
         # and the cache is updated.
         entry = feed.create_entry(work, force_create=True)
-        entry_string = etree.tostring(entry)
+        entry_string = etree.tounicode(entry)
         assert entry_string != tiny_entry
         assert work.simple_opds_entry != tiny_entry
 
@@ -1735,7 +1736,7 @@ class TestAcquisitionFeed(DatabaseTest):
             work, pool, pool.presentation_edition, pool.identifier, feed,
             full_entry
         )
-        eq_(entry_string, etree.tostring(full_entry))
+        eq_(entry_string, etree.tounicode(full_entry))
 
     def test_exception_during_entry_creation_is_not_reraised(self):
         # This feed will raise an exception whenever it's asked
@@ -1967,7 +1968,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         if isinstance(entry, OPDSMessage):
             return feed, entry
         if entry:
-            entry = etree.tostring(entry)
+            entry = etree.tounicode(entry)
         return feed, entry
 
     def test_create_entry_uses_specified_identifier(self):

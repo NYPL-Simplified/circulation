@@ -43,7 +43,7 @@ class SelfTestResult(object):
         f = AtomFeed._strftime
         if self.exception:
             exception = { "class": self.exception.__class__.__name__,
-                          "message": self.exception.message,
+                          "message": str(self.exception),
                           "debug_message" : self.debug_message }
         else:
             exception = None
@@ -70,7 +70,7 @@ class SelfTestResult(object):
         if self.exception:
             if isinstance(self.exception, IntegrationException):
                 exception = " exception=%r debug=%r" % (
-                    self.exception.message,
+                    str(self.exception),
                     self.debug_message
                 )
             else:
@@ -261,7 +261,7 @@ class HasSelfTests(object):
         result.success = False
         if isinstance(message, Exception):
             exception = message
-            message = exception.message
+            message = str(exception)
             if not debug_message:
                 debug_message = traceback.format_exc()
         exception = IntegrationException(message, debug_message)

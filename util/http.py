@@ -69,7 +69,8 @@ class RemoteIntegrationException(IntegrationException):
         super(RemoteIntegrationException, self).__init__(message, debug_message)
 
     def __str__(self):
-        return self.internal_message % (self.url, self.message)
+        message = super(RemoteIntegrationException, self).__str__()
+        return self.internal_message % (self.url, message)
 
     def document_detail(self, debug=True):
         if debug:
@@ -107,7 +108,7 @@ class BadResponseException(RemoteIntegrationException):
 
     def document_debug_message(self, debug=True):
         if debug:
-            msg = self.message
+            msg = str(self)
             if self.debug_message:
                 msg += "\n\n" + self.debug_message
             return msg
@@ -322,7 +323,7 @@ class HTTP(object):
     @classmethod
     def series(cls, status_code):
         """Return the HTTP series for the given status code."""
-        return "%sxx" % (status_code / 100)
+        return "%sxx" % int(status_code / 100)
 
     @classmethod
     def debuggable_get(cls, url, **kwargs):

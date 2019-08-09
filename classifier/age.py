@@ -230,7 +230,7 @@ class AgeClassifier(Classifier):
                     if young > 99:
                         # This is not an age at all.
                         young = None
-                    if young > old:
+                    if (young is not None and old is not None and young > old):
                         young, old = old, young
                     return cls.range_tuple(young, old)
         return cls.range_tuple(None, None)

@@ -225,7 +225,7 @@ class S3Uploader(MirrorUploader):
 
         :param key: Either a key, or a list of parts to be assembled into a key.
 
-        :return: A bytestring that can be used as an S3 key.
+        :return: A string that can be used as an S3 key.
         """
         if isinstance(key, basestring):
             parts = key.split('/')

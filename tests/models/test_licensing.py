@@ -87,7 +87,7 @@ class TestDeliveryMechanism(DatabaseTest):
     def test_association_with_licensepool(self):
         ignore, with_download = self._edition(with_open_access_download=True)
         [lpmech] = with_download.delivery_mechanisms
-        eq_("Dummy content", lpmech.resource.representation.content)
+        eq_(b"Dummy content", lpmech.resource.representation.content)
         mech = lpmech.delivery_mechanism
         eq_(Representation.EPUB_MEDIA_TYPE, mech.content_type)
         eq_(mech.NO_DRM, mech.drm_scheme)

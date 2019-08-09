@@ -12,7 +12,7 @@ class JSONable(object):
     of a dictionary.
     """
 
-    def __unicode__(self):
+    def __str__(self):
         return json.dumps(self.as_dict)
 
     @property

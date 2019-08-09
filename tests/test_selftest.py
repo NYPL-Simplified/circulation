@@ -187,7 +187,7 @@ class TestHasSelfTests(DatabaseTest):
         )
         assert isinstance(result, SelfTestResult)
         eq_(False, result.success)
-        eq_("I don't work!", result.exception.message)
+        eq_("I don't work!", str(result.exception))
 
     def test_exception_in_has_self_tests(self):
         """An exception raised in has_self_tests itself is converted into a
@@ -208,7 +208,7 @@ class TestHasSelfTests(DatabaseTest):
         # The Exception was turned into an IntegrationException so that
         # its traceback could be included as debug_message.
         assert isinstance(failure.exception, IntegrationException)
-        eq_("oh no", failure.exception.message)
+        eq_("oh no", str(failure.exception))
         assert failure.exception.debug_message.startswith("Traceback")
 
     def test_run_test_success(self):
@@ -235,7 +235,7 @@ class TestHasSelfTests(DatabaseTest):
         eq_(False, result.success)
         eq_("An unsuccessful test", result.name)
         eq_(None, result.result)
-        eq_("arg1", result.exception.message)
+        eq_("arg1", str(result.exception))
         eq_("arg2", result.exception.debug_message)
         assert (result.end-result.start).total_seconds() < 1
 
@@ -250,13 +250,13 @@ class TestHasSelfTests(DatabaseTest):
         # ...which will be turned into an IntegrationException.
         eq_("a failure", result.name)
         assert isinstance(result.exception, IntegrationException)
-        eq_("argh", result.exception.message)
+        eq_("argh", str(result.exception))
         assert (result.start-now).total_seconds() < 1
 
         # ... or you can pass in arguments to an IntegrationException
         result = o.test_failure("another failure", "message", "debug")
         assert isinstance(result.exception, IntegrationException)
-        eq_("message", result.exception.message)
+        eq_("message", str(result.exception))
         eq_("debug", result.exception.debug_message)
 
         # Since no test code actually ran, the end time is the

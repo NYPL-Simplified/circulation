@@ -1,5 +1,5 @@
 from nose.tools import set_trace
-import md5
+from hashlib import md5
 import re
 import struct
 import unicodedata
@@ -9,7 +9,7 @@ class WorkIDCalculator(object):
     @classmethod
     def permanent_id(self, normalized_title, normalized_author,
                      grouping_category):
-        digest = md5.new()
+        digest = md5()
         for i in (normalized_title, normalized_author, grouping_category):
             if i == '' or i is None:
                 i = '--null--'

@@ -154,7 +154,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_("http://example.com/", image.resource.url)
 
         eq_(Hyperlink.DESCRIPTION, description.rel)
-        eq_("foo", description.resource.representation.content)
+        eq_(b"foo", description.resource.representation.content)
 
     def test_image_with_original_and_rights(self):
         edition = self._edition()
@@ -165,7 +165,7 @@ class TestMetadataImporter(DatabaseTest):
                             rights_uri=RightsStatus.PUBLIC_DOMAIN_USA,
                             rights_explanation="This image is from 1922",
                             )
-        image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
+        image_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
         derivative = LinkData(rel=Hyperlink.IMAGE,
                               href="generic uri",
                               content=image_data,
@@ -250,7 +250,7 @@ class TestMetadataImporter(DatabaseTest):
             edition.primary_identifier.links, key=lambda x:x.rel
         )
         eq_(Hyperlink.DESCRIPTION, description.rel)
-        eq_("A great book", description.resource.representation.content)
+        eq_(b"A great book", description.resource.representation.content)
         eq_([], image.resource.representation.thumbnails)
         eq_(None, description.resource.representation.thumbnail_of)
 
@@ -337,13 +337,13 @@ class TestMetadataImporter(DatabaseTest):
 
         mirror = MockS3Uploader()
         edition, pool = self._edition(with_license_pool=True)
-        content = open(self.sample_cover_path("test-book-cover.png")).read()
+        content = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
         l1 = LinkData(
             rel=Hyperlink.IMAGE, href="http://example.com/",
             media_type=Representation.JPEG_MEDIA_TYPE,
             content=content
         )
-        thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png")).read()
+        thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png"), "rb").read()
         l2 = LinkData(
             rel=Hyperlink.THUMBNAIL_IMAGE, href="http://example.com/thumb.jpg",
             media_type=Representation.JPEG_MEDIA_TYPE,
@@ -392,7 +392,7 @@ class TestMetadataImporter(DatabaseTest):
         # Make sure a thumbnail image is mirrored when there's no cover image.
         mirror = MockS3Uploader()
         edition, pool = self._edition(with_license_pool=True)
-        thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png")).read()
+        thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png"), "rb").read()
         l = LinkData(
             rel=Hyperlink.THUMBNAIL_IMAGE, href="http://example.com/thumb.png",
             media_type=Representation.PNG_MEDIA_TYPE,
@@ -494,7 +494,7 @@ class TestMetadataImporter(DatabaseTest):
 
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
 
-        content = open(self.sample_cover_path("test-book-cover.png")).read()
+        content = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
         link = LinkData(
             rel=Hyperlink.IMAGE,
             media_type=Representation.JPEG_MEDIA_TYPE,
@@ -548,7 +548,7 @@ class TestMetadataImporter(DatabaseTest):
 
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
 
-        content = open(self.sample_cover_path("test-book-cover.png")).read()
+        content = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
 
         # We thought this link was for an image file.
         link = LinkData(
@@ -1689,7 +1689,7 @@ class TestMARCExtractor(DatabaseTest):
         self.resource_path = os.path.join(base_path, "files", "marc")
 
     def sample_data(self, filename):
-        with open(os.path.join(self.resource_path, filename)) as fh:
+        with open(os.path.join(self.resource_path, filename), "rb") as fh:
             return fh.read()
 
     def test_parse_year(self):

@@ -27,7 +27,7 @@ class TestOPDSMessage(object):
     def test_tag(self):
         """Verify that an OPDSMessage becomes a reasonable XML tag."""
         a = OPDSMessage("urn", 200, "message")
-        text = etree.tostring(a.tag)
+        text = etree.tounicode(a.tag)
         eq_(text, str(a))
 
         # Verify that we start with a simplified:message tag.
@@ -51,11 +51,11 @@ class TestAtomFeed(object):
         entry = AtomFeed.E.entry()
         link_child = AtomFeed.E.link_child()
         AtomFeed.add_link_to_entry(entry, [link_child], **kwargs)
-        assert '<link extra="extra info" href="url" title="1"><link_child/></link>' in etree.tostring(entry)
+        assert '<link title="1" href="url" extra="extra info"><link_child/></link>' in etree.tounicode(entry)
 
     def test_contributor(self):
         kwargs = { '{%s}role' % AtomFeed.OPF_NS : 'ctb' }
-        tag = etree.tostring(AtomFeed.author(**kwargs))
+        tag = etree.tounicode(AtomFeed.author(**kwargs))
         assert tag.startswith('<author')
         assert 'xmlns:opf="http://www.idpf.org/2007/opf"' in tag
         assert tag.endswith('opf:role="ctb"/>')

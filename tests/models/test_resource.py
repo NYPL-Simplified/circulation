@@ -36,7 +36,7 @@ class TestHyperlink(DatabaseTest):
         eq_(True, is_new)
         rep = hyperlink.resource.representation
         eq_("text/plain", rep.media_type)
-        eq_("The content", rep.content)
+        eq_(b"The content", rep.content)
         eq_(Hyperlink.DESCRIPTION, hyperlink.rel)
         eq_(identifier, hyperlink.identifier)
         eq_(RightsStatus.CC_BY, hyperlink.resource.rights_status.uri)
@@ -255,17 +255,17 @@ class TestRepresentation(DatabaseTest):
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content("some text")
-        eq_("some text", representation.content_fh().read())
+        eq_(b"some text", representation.content_fh().read())
 
     def test_set_fetched_content_file_on_disk(self):
         filename = "set_fetched_content_file_on_disk.txt"
         path = os.path.join(self.tmp_data_dir, filename)
-        open(path, "w").write("some text")
+        open(path, "wb").write(b"some text")
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(None, filename)
         fh = representation.content_fh()
-        eq_("some text", fh.read())
+        eq_(b"some text", fh.read())
 
     def test_unicode_content_utf8_default(self):
         unicode_content = u"It’s complicated."
@@ -656,7 +656,8 @@ class TestCoverResource(DatabaseTest):
         sample_cover_path = self.sample_cover_path("test-book-cover.png")
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
-            content=open(sample_cover_path).read())
+            content=open(sample_cover_path, 'rb').read()
+        )
         full_rep = hyperlink.resource.representation
         full_rep.set_as_mirrored(mirror)
 
@@ -679,7 +680,8 @@ class TestCoverResource(DatabaseTest):
         sample_cover_path = self.sample_cover_path("tiny-image-cover.png")
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
-            open(sample_cover_path).read())
+            open(sample_cover_path, 'rb').read()
+        )
         full_rep = hyperlink.resource.representation
         full_rep.set_as_mirrored(mirror)
 
@@ -694,7 +696,8 @@ class TestCoverResource(DatabaseTest):
         sample_cover_path = self.sample_cover_path("tiny-image-cover.png")
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
-            open(sample_cover_path).read())
+            open(sample_cover_path, 'rb').read()
+        )
         full_rep = hyperlink.resource.representation
         full_rep.set_as_mirrored(mirror)
 

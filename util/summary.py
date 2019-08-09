@@ -74,7 +74,7 @@ class SummaryEvaluator(object):
 
     def add(self, summary, parser=None):
         parser_class = parser or TextBlob
-        if isinstance(summary, str):
+        if isinstance(summary, bytes):
             summary = summary.decode("utf8")
         if summary in self.blobs:
             # We already evaluated this summary. Don't count it more than once
@@ -117,7 +117,7 @@ class SummaryEvaluator(object):
             # Without NLTK, there's no need to evaluate the score.
             return 1
 
-        if isinstance(summary, str):
+        if isinstance(summary, bytes):
             summary = summary.decode("utf8")
         if summary in self.scores:
             return self.scores[summary]

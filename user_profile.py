@@ -33,7 +33,7 @@ class ProfileController(object):
             if hasattr(e, 'as_problem_detail_document'):
                 return e.as_problem_detail_document()
             else:
-                return INTERNAL_SERVER_ERROR.with_debug(e.message)
+                return INTERNAL_SERVER_ERROR.with_debug(str(e))
         if not isinstance(profile_document, dict):
             return INTERNAL_SERVER_ERROR.with_debug(
                 _("Profile document is not a JSON object: %r.") % (
@@ -93,7 +93,7 @@ class ProfileController(object):
                 if hasattr(e, 'as_problem_detail_document'):
                     return e.as_problem_detail_document()
                 else:
-                    return INTERNAL_SERVER_ERROR.with_debug(e.message)
+                    return INTERNAL_SERVER_ERROR.with_debug(str(e))
         return body, 200, {"Content-Type": "text/plain"}
 
 

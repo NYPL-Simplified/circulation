@@ -319,7 +319,7 @@ class Hold(Base, LoanAndHoldMixin):
             # other people will be notified that it's their turn,
             # they'll wait a while, get a reservation, and then keep
             # the book for a while, and so on.
-            cycles += queue_position / total_licenses
+            cycles += int(queue_position / total_licenses)
             if (total_licenses > 1 and queue_position % total_licenses == 0):
                 cycles -= 1
         return start + (cycle_period * cycles)
