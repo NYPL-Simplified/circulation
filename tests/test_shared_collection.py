@@ -3,6 +3,7 @@ from nose.tools import (
     set_trace,
     eq_,
 )
+import base64
 import json
 import flask
 from Crypto.PublicKey import RSA
@@ -27,7 +28,6 @@ from api.circulation import FulfillmentInfo
 from . import DatabaseTest
 from core.config import CannotLoadConfiguration
 from core.testing import MockRequestsResponse
-from core.util.binary import base64
 
 class MockAPI(BaseSharedCollectionAPI):
     def __init__(self, _db, collection):
@@ -166,7 +166,15 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         # An IntegrationClient has been created.
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
-        decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
+        shared_secret = response.get("metadata", {}).get("shared_secret")
+
+        # The encrypted shared secret is a bytestring, so we don't
+        # want to use core.util.binary.base64.
+        decrypted_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+
+        # However, we do want to convert the _decrypted_ shared secret
+        # into a Unicode string.
+        decrypted_secret = decrypted_secret.decode("utf8")
         eq_(client.shared_secret, decrypted_secret)
 
     def test_borrow(self):
