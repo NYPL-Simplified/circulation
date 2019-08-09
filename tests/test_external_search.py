@@ -418,7 +418,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.subtitle_match.presentation_edition.subtitle = "Match"
 
         self.summary_match = _work(title="SummaryM")
-        self.summary_match.summary_text = "It's a Match!"
+        self.summary_match.summary_text = "It's a Match! The story of a work whose summary contained an important keyword."
 
         self.publisher_match = _work(title="PublisherM")
         self.publisher_match.presentation_edition.publisher = "Match"
@@ -595,12 +595,12 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Search in publisher name.
         expect(self.moby_dick, "gutenberg")
 
-        # Title > subtitle > publisher > word found in summary
+        # Title > subtitle > word found in summary > publisher
         order = [
             self.title_match,
             self.subtitle_match,
-            self.publisher_match,
             self.summary_match,
+            self.publisher_match,
         ]
         expect(order, "match")
 
