@@ -418,7 +418,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.subtitle_match.presentation_edition.subtitle = "Match"
 
         self.summary_match = _work(title="SummaryM")
-        self.summary_match.summary_text = "Match"
+        self.summary_match.summary_text = "It's a Match!"
 
         self.publisher_match = _work(title="PublisherM")
         self.publisher_match.presentation_edition.publisher = "Match"
