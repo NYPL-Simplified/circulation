@@ -1717,7 +1717,8 @@ class TestPublisherMatch(SearchTest):
     def test_harlequin_historical(self):
         self.search(
             "harlequin historical",
-            Common(imprint="harlequin historical", genre="Romance")
+            # We may get some "harlequin historical classic", which is fine.
+            Common(imprint=re.compile("harlequin historical"), genre="Romance")
         )
 
     def test_princeton_review(self):
@@ -1726,15 +1727,53 @@ class TestPublisherMatch(SearchTest):
             Common(imprint="princeton review")
         )
 
-    def test_scholastic(self):
-        self.search(
-            "scholastic", Common(publisher="scholastic inc.")
-        )
-
     @known_to_fail
     def test_wizards(self):
         self.search(
             "wizards coast", Common(publisher="wizards of the coast")
+        )
+
+    # We don't want to boost publisher/imprint matches _too_ highly
+    # because publishers and imprints are often single words that
+    # would be better matched against other fields.
+
+    def test_penguin(self):
+        # Searching for a word like 'penguin' should prioritize partial
+        # matches in other fields over exact imprint matches.
+        self.search(
+            "penguin",
+            [Common(title=re.compile("penguin", re.I)),
+             Uncommon(imprint="Penguin")]
+        )
+
+    def test_vintage(self):
+        self.search(
+            "vintage",
+            [Common(title=re.compile("vintage", re.I)),
+             Uncommon(imprint="Vintage", threshold=0.5)]
+        )
+
+    def test_plympton(self):
+        # This should prioritize books by George Plimpton (even though
+        # it's not an exact string match) over books from the Plympton
+        # publisher.
+        self.search(
+            "plympton",
+            [Common(author=re.compile("plimpton", re.I)),
+             Uncommon(publisher="Plympton")]
+        )
+
+    @known_to_fail
+    def test_scholastic(self):
+        # This gets under 50% matches -- there are test prep books and
+        # the like in the mix.
+        #
+        # TODO: It would be nice to boost this publisher more, but
+        # it's tough to know that "scholastic" is probably a publisher
+        # search, where "penguin" is probably a topic search and
+        # "plympton" is probably a misspelled author search.
+        self.search(
+            "scholastic", Common(publisher="scholastic inc.")
         )
 
 
