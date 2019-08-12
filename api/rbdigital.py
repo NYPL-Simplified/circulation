@@ -75,7 +75,7 @@ from core.monitor import (
 
 from core.testing import DatabaseTest
 from core.util import LanguageCodes
-from core.util.binary import random_string
+from core.util.string_helpers import random_string
 from core.util.http import (
     BadResponseException,
     HTTP,

@@ -1,6 +1,5 @@
 from nose.tools import set_trace
 import logging
-import base64
 import json
 import os
 import datetime
@@ -23,6 +22,7 @@ from core.model import (
     Patron,
 )
 from core.util.http import HTTP
+from core.util.string_helpers import base64
 from api.problem_details import *
 
 
@@ -143,8 +143,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         """
         payload = self._remote_exchange_payload(_db, code)
         base_authorization = self.client_id + ":" + self.client_secret
-        authorization = base64.b64encode(base_authorization.encode("utf8"))
-        authorization = authorization.decode("utf8")
+        authorization = base64.b64encode(base_authorization)
         headers = {
             'Authorization': 'Basic %s' % authorization,
             'Content-Type': 'application/json',

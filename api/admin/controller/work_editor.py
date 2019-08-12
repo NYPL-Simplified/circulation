@@ -58,7 +58,7 @@ from datetime import date, datetime, timedelta
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
-from StringIO import StringIO
+from io import BytesIO
 import textwrap
 import urllib
 

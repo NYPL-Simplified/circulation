@@ -2,7 +2,6 @@ from nose.tools import set_trace
 import logging
 import sys
 import os
-import base64
 import random
 import json
 import jwt
@@ -63,6 +62,7 @@ from core.model import (
 from core.lane import (Lane, WorkList)
 from core.log import (LogConfiguration, SysLogger, Loggly, CloudwatchLogs)
 from core.util.problem_detail import ProblemDetail
+from core.util.string_helpers import base64
 from core.metadata_layer import (
     Metadata,
     LinkData,
@@ -298,7 +298,8 @@ class AdminController(object):
 
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
-        return base64.b64encode(os.urandom(24)).decode("utf8")
+        # NOTE: We don't use random_string here -- maybe we could.
+        return base64.b64encode(os.urandom(24))
 
 class AdminCirculationManagerController(CirculationManagerController):
     """Parent class that provides methods for verifying an admin's roles."""

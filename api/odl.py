@@ -58,7 +58,7 @@ from circulation import (
     HoldInfo,
 )
 from core.analytics import Analytics
-from core.util.binary import base64
+from core.util.string_helpers import base64
 from core.util.http import (
     HTTP,
     BadResponseException,

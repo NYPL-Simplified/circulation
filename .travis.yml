@@ -34,7 +34,7 @@ before_script:
   - psql -c 'create user simplified_test;' -U postgres
   - psql -c 'create database simplified_circulation_test;' -U postgres
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
-  # - cd docs && make html && cd ..
+  - cd docs && make html && cd ..
 
 env:
   global:

@@ -41,7 +41,7 @@ from core.scripts import Script
 # the standard library's base64 in one case, when we want to get back
 # a bytestring.
 import base64 as stdlib_base64
-from core.util.binary import base64
+from core.util.string_helpers import base64
 
 class AdobeVendorIDController(object):
 

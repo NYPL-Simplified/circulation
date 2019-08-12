@@ -34,7 +34,7 @@ from circulation import (
     LoanInfo,
     FulfillmentInfo,
 )
-from core.util.binary import base64
+from core.util.string_helpers import base64
 from core.util.http import HTTP
 from core.testing import (
     DatabaseTest,

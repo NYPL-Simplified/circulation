@@ -27,6 +27,10 @@ def load_document(url):
     if url in files:
         base_path = os.path.join(os.path.split(__file__)[0], 'jsonld')
         jsonld_file = os.path.join(base_path, files[url])
+
+        # Most of the time when we open a file, it's an image or EPUB
+        # and we open it in binary mode. Here, it's JSON-LD, which must be
+        # encoded as UTF-8, so we can read it as a Unicode string.
         data = open(jsonld_file, encoding="utf8").read()
         doc = {
             "contextUrl": None,

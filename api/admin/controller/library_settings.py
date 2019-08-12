@@ -5,7 +5,7 @@ from flask_babel import lazy_gettext as _
 import json
 from pypostalcode import PostalCodeDatabase
 import re
-from StringIO import StringIO
+from io import BytesIO
 import urllib
 import uszipcode
 import uuid
