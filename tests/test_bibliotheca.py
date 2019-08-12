@@ -150,7 +150,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         eq_("Asking for circulation events for the last five minutes",
             recent_circulation_events.name)
@@ -183,9 +183,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
-        """Confirm a known correct result for the Bibliotheca request signing
-        algorithm.
-        """
+        # Confirm a known correct result for the Bibliotheca request signing
+        # algorithm.
         self.api.queue_response(200)
         response = self.api.request("some_url")
         [request] = self.api.requests
@@ -351,7 +350,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         data = self.sample_data("item_metadata_single.xml")
         # Change the ID in the test data so it looks like it's talking
         # about the LicensePool we just created.
-        data = data.replace("ddf4gr9", pool.identifier.identifier)
+        data = data.replace(b"ddf4gr9", pool.identifier.identifier.encode("utf8"))
 
         # Update availability using that data.
         self.api.queue_response(200, content=data)

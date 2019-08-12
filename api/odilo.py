@@ -1,5 +1,4 @@
 # coding=utf-8
-import base64
 import datetime
 import json
 import isbnlib
@@ -73,6 +72,7 @@ from core.config import (
 
 from core.testing import DatabaseTest
 
+from core.util.binary import base64
 from core.util.http import (
     HTTP,
     BadResponseException,
@@ -216,7 +216,7 @@ class OdiloRepresentationExtractor(object):
             try:
                 published = datetime.datetime.strptime(published, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + e.message)
+                cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + str(e))
 
         # yyyyMMdd --> record last modification date
         last_update = book.get('modificationDate')
@@ -224,7 +224,7 @@ class OdiloRepresentationExtractor(object):
             try:
                 last_update = datetime.datetime.strptime(last_update, "%Y%m%d")
             except ValueError as e:
-                cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + e.message)
+                cls.log.warn('Cannot parse last update date from: ' + last_update + ', message: ' + str(e))
 
         language = book.get('language', 'spa')
 
@@ -391,10 +391,9 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
         if not self.client_key or not self.client_secret or not self.library_api_base_url:
             raise CannotLoadConfiguration("Odilo configuration is incomplete.")
 
-        # Use utf8 instead of unicode encoding
         settings = [self.client_key, self.client_secret, self.library_api_base_url]
         self.client_key, self.client_secret, self.library_api_base_url = (
-            setting.encode('utf8') for setting in settings
+            setting for setting in settings
         )
 
         # Get set up with up-to-date credentials from the API.

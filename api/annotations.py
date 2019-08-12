@@ -27,11 +27,11 @@ def load_document(url):
     if url in files:
         base_path = os.path.join(os.path.split(__file__)[0], 'jsonld')
         jsonld_file = os.path.join(base_path, files[url])
-        data = open(jsonld_file).read()
+        data = open(jsonld_file, encoding="utf8").read()
         doc = {
             "contextUrl": None,
             "documentUrl": url,
-            "document": data.decode('utf-8')
+            "document": data
         }
         return doc
     else:

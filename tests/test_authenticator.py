@@ -684,11 +684,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # initialization_exceptions.
         not_configured = auth.initialization_exceptions[misconfigured.id]
         assert isinstance(not_configured, CannotLoadConfiguration)
-        eq_('First Book server not configured.', not_configured.message)
+        eq_('First Book server not configured.', str(not_configured))
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        eq_('No module named unknown protocol', not_found.message)
+        eq_("No module named 'unknown protocol'", str(not_found))
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
@@ -798,8 +798,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # But you can't create an Authenticator that uses OAuth
         # without providing a secret.
         assert_raises_regexp(
-            LibraryAuthenticator,
+            CannotLoadConfiguration,
             "OAuth providers are configured, but secret for signing bearer tokens is not.",
+            LibraryAuthenticator,
+            _db=self._db,
             library=self._default_library,
             oauth_providers=[oauth]
         )
@@ -1070,7 +1072,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # A token is created and signed with the bearer token.
         token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
-        eq_("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvYXV0aDEiLCJ0b2tlbiI6InNvbWUgdG9rZW4ifQ.Ve-bbEN4mdWQdR-VA6gbrK2xOz2KRbmPhttmTTCA0ng",
+        eq_("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6InNvbWUgdG9rZW4iLCJpc3MiOiJvYXV0aDEifQ.toy4qdoziL99SN4q9DRMdN-3a0v81CfVjwJVFNUt_mk",
             token1
         )
 
@@ -1887,7 +1889,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         [result] = list(provider._run_self_tests(_db))
         eq_(_db, provider.called_with)
         eq_(False, result.success)
-        eq_("Nope", result.exception.message)
+        eq_("Nope", str(result.exception))
 
         # If we can authenticate a test patron, the patron and their
         # password are passed into the next test.

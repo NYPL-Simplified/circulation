@@ -5,7 +5,6 @@ import sys
 import urllib
 import urlparse
 import datetime
-import base64
 from wsgiref.handlers import format_date_time
 from time import mktime
 import os
@@ -86,6 +85,7 @@ from core.opds import (
     AcquisitionFeed,
     NavigationFeed,
 )
+from core.util.binary import base64
 from core.util.opds_writer import (
      OPDSFeed,
 )
@@ -1692,7 +1692,7 @@ class WorkController(CirculationManagerController):
             )
         except ValueError, e:
             # No related books were found.
-            return NO_SUCH_LANE.detailed(e.message)
+            return NO_SUCH_LANE.detailed(str(e))
 
         facets = load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,

@@ -10,7 +10,7 @@ import re
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
-from StringIO import StringIO
+from io import StringIO
 import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -123,9 +123,7 @@ class AdminControllerTest(CirculationControllerTest):
         admin = self.admin
         if 'admin' in kwargs:
             admin = kwargs.pop('admin')
-        with self.app.test_request_context(route, *args, **kwargs) as c:
-            flask.request.form = {}
-            flask.request.files = {}
+        with self.test_request_context(route, *args, **kwargs) as c:
             self._db.begin_nested()
             flask.request.admin = admin
             yield c
@@ -137,8 +135,6 @@ class AdminControllerTest(CirculationControllerTest):
         if 'admin' in kwargs:
             admin = kwargs.pop('admin')
         with self.request_context_with_library(route, *args, **kwargs) as c:
-            flask.request.form = {}
-            flask.request.files = {}
             self._db.begin_nested()
             flask.request.admin = admin
             yield c
@@ -154,7 +150,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'settingUp: true' in html
 
     def test_not_setting_up(self):
@@ -163,7 +159,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'settingUp: false' in html
 
     def test_redirect_to_sign_in(self):
@@ -184,7 +180,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            assert "Your admin account doesn't have access to any libraries" in response.data
+            assert "Your admin account doesn't have access to any libraries" in response.data.decode("utf8")
 
         # Unless there aren't any libraries yet. In that case, an admin needs to
         # get in to create one.
@@ -195,7 +191,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            assert "<body>" in response.data
+            assert "<body>" in response.data.decode("utf8")
 
         l1 = self._library(short_name="L1")
         l2 = self._library(short_name="L2")
@@ -224,7 +220,7 @@ class TestViewController(AdminControllerTest):
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
 
             # The CSRF token value is random, but the cookie and the html have the same value.
             html_csrf_re = re.compile('csrfToken: \"([^\"]*)\"')
@@ -244,7 +240,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
 
@@ -255,7 +251,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'showCircEventsDownload: false' in html
 
         # Create the local analytics integration.
@@ -269,7 +265,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert 'showCircEventsDownload: true' in html
 
     def test_roles(self):
@@ -280,7 +276,7 @@ class TestViewController(AdminControllerTest):
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller("collection", "book")
             eq_(200, response.status_code)
-            html = response.response[0]
+            html = response.response[0].decode("utf8")
             assert "\"role\": \"librarian-all\"" in html
             assert "\"role\": \"manager\", \"library\": \"%s\"" % self._default_library.short_name in html
 
@@ -516,10 +512,10 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" not in response.data
-            assert "Password" not in response.data
+            assert "GOOGLE REDIRECT" in response.data.decode("utf8")
+            assert "Sign in with Google" in response.data.decode("utf8")
+            assert "Email" not in response.data.decode("utf8")
+            assert "Password" not in response.data.decode("utf8")
 
         # If there are multiple auth providers, the login page
         # shows them all.
@@ -527,10 +523,10 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data
-            assert "Sign in with Google" in response.data
-            assert "Email" in response.data
-            assert "Password" in response.data
+            assert "GOOGLE REDIRECT" in response.data.decode("utf8")
+            assert "Sign in with Google" in response.data.decode("utf8")
+            assert "Email" in response.data.decode("utf8")
+            assert "Password" in response.data.decode("utf8")
 
         # Redirects to the redirect parameter if an admin is signed in.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
@@ -862,9 +858,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(set(response.keys()), set(["coverage_provider", "monitor", "script", "other"]))
 
         cp_service = response["coverage_provider"]
-        cp_name, cp_collection = cp_service.items()[0]
+        [(cp_name, cp_collection)] = cp_service.items()
         eq_(cp_name, "test_cp")
-        cp_collection_name, [cp_timestamp] = cp_collection.items()[0]
+        [(cp_collection_name, [cp_timestamp])] = cp_collection.items()
         eq_(cp_collection_name, self.collection.name)
         eq_(cp_timestamp.get("exception"), None)
         eq_(cp_timestamp.get("start"), self.start)
@@ -872,9 +868,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(cp_timestamp.get("achievements"), None)
 
         monitor_service = response["monitor"]
-        monitor_name, monitor_collection = monitor_service.items()[0]
+        [(monitor_name, monitor_collection)] = monitor_service.items()
         eq_(monitor_name, "test_monitor")
-        monitor_collection_name, [monitor_timestamp] = monitor_collection.items()[0]
+        [(monitor_collection_name, [monitor_timestamp])] = monitor_collection.items()
         eq_(monitor_collection_name, self.collection.name)
         eq_(monitor_timestamp.get("exception"), "stack trace string")
         eq_(monitor_timestamp.get("start"), self.start)
@@ -882,9 +878,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(monitor_timestamp.get("achievements"), None)
 
         script_service = response["script"]
-        script_name, script_collection = script_service.items()[0]
+        [(script_name, script_collection)] = script_service.items()
         eq_(script_name, "test_script")
-        script_collection_name, [script_timestamp] = script_collection.items()[0]
+        [(script_collection_name, [script_timestamp])] = script_collection.items()
         eq_(script_collection_name, "No associated collection")
         eq_(script_timestamp.get("exception"), None)
         eq_(script_timestamp.get("duration"), duration)
@@ -892,9 +888,9 @@ class TestTimestampsController(AdminControllerTest):
         eq_(script_timestamp.get("achievements"), "ran a script")
 
         other_service = response["other"]
-        other_name, other_collection = other_service.items()[0]
+        [(other_name, other_collection)] = other_service.items()
         eq_(other_name, "test_other")
-        other_collection_name, [other_timestamp] = other_collection.items()[0]
+        [(other_collection_name, [other_timestamp])] = other_collection.items()
         eq_(other_collection_name, "No associated collection")
         eq_(other_timestamp.get("exception"), None)
         eq_(other_timestamp.get("duration"), duration)
@@ -940,7 +936,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.complaints()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             entries = feed['entries']
 
             eq_(len(entries), 2)
@@ -958,7 +954,7 @@ class TestFeedController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.suppressed()
-            feed = feedparser.parse(response.data)
+            feed = feedparser.parse(response.data.decode("utf8"))
             entries = feed['entries']
             eq_(1, len(entries))
             eq_(suppressed_work.title, entries[0]['title'])
@@ -1107,7 +1103,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(201, response.status_code)
 
             [list] = self._db.query(CustomList).all()
-            eq_(list.id, int(response.response[0]))
+            eq_(list.id, int(response.response[0].decode("utf8")))
             eq_(self._default_library, list.library)
             eq_("List", list.name)
             eq_(1, len(list.entries))
@@ -1206,7 +1202,7 @@ class TestCustomListsController(AdminControllerTest):
 
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
         eq_(200, response.status_code)
-        eq_(list.id, int(response.response[0]))
+        eq_(list.id, int(response.response[0].decode("utf8")))
 
         eq_("new name", list.name)
         eq_(set([w2, w3]),
@@ -1504,7 +1500,7 @@ class TestLanesController(AdminControllerTest):
             eq_(201, response.status_code)
 
             [lane] = self._db.query(Lane).filter(Lane.display_name=="lane")
-            eq_(lane.id, int(response.response[0]))
+            eq_(lane.id, int(response.response[0].decode("utf8")))
             eq_(self._default_library, lane.library)
             eq_("lane", lane.display_name)
             eq_(parent, lane.parent)
@@ -1546,7 +1542,7 @@ class TestLanesController(AdminControllerTest):
 
             response = self.manager.admin_lanes_controller.lanes()
             eq_(200, response.status_code)
-            eq_(lane.id, int(response.response[0]))
+            eq_(lane.id, int(response.response[0].decode("utf8")))
 
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)

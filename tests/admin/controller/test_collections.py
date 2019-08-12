@@ -20,7 +20,7 @@ from core.model import (
 )
 from werkzeug import MultiDict
 
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestCollectionSettings(SettingsControllerTest):
     def test_collections_get_with_no_collections(self):
@@ -359,7 +359,7 @@ class TestCollectionSettings(SettingsControllerTest):
 
         # The collection was created and configured properly.
         collection = get_one(self._db, Collection, name="New Collection")
-        eq_(collection.id, int(response.response[0]))
+        eq_(collection.id, int(response.response[0].decode("utf8")))
         eq_("New Collection", collection.name)
         eq_("acctid", collection.external_account_id)
         eq_("username", collection.external_integration.username)
@@ -394,7 +394,7 @@ class TestCollectionSettings(SettingsControllerTest):
 
         # The collection was created and configured properly.
         child = get_one(self._db, Collection, name="Child Collection")
-        eq_(child.id, int(response.response[0]))
+        eq_(child.id, int(response.response[0].decode("utf8")))
         eq_("Child Collection", child.name)
         eq_("child-acctid", child.external_account_id)
 
@@ -435,7 +435,7 @@ class TestCollectionSettings(SettingsControllerTest):
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.status_code, 200)
 
-        eq_(collection.id, int(response.response[0]))
+        eq_(collection.id, int(response.response[0].decode("utf8")))
 
         # The collection has been changed.
         eq_("user2", collection.external_integration.username)
@@ -465,7 +465,7 @@ class TestCollectionSettings(SettingsControllerTest):
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.status_code, 200)
 
-        eq_(collection.id, int(response.response[0]))
+        eq_(collection.id, int(response.response[0].decode("utf8")))
 
         # The collection is the same.
         eq_("user2", collection.external_integration.username)
@@ -494,7 +494,7 @@ class TestCollectionSettings(SettingsControllerTest):
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.status_code, 200)
 
-        eq_(collection.id, int(response.response[0]))
+        eq_(collection.id, int(response.response[0].decode("utf8")))
 
         # The collection now has a parent.
         eq_(parent, collection.parent)
@@ -640,7 +640,7 @@ class TestCollectionSettings(SettingsControllerTest):
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.status_code, 200)
 
-        eq_(collection.id, int(response.response[0]))
+        eq_(collection.id, int(response.response[0].decode("utf8")))
 
         # The settings associated with the collection+library were removed
         # when the connection between collection and library was deleted.

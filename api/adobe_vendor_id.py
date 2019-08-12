@@ -3,7 +3,6 @@ from nose.tools import set_trace
 import json
 import logging
 import uuid
-import base64
 import os
 import datetime
 import jwt
@@ -20,6 +19,7 @@ from config import (
 from api.base_controller import BaseCirculationManagerController
 from problem_details import *
 from sqlalchemy.orm.session import Session
+
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
@@ -35,6 +35,13 @@ from core.model import (
     Patron,
 )
 from core.scripts import Script
+
+# We're going to use core's UnicodeAwareBase64 encoder most of the
+# time, when we want to put in Unicode and get back Unicode. We'll use
+# the standard library's base64 in one case, when we want to get back
+# a bytestring.
+import base64 as stdlib_base64
+from core.util.binary import base64
 
 class AdobeVendorIDController(object):
 
@@ -135,7 +142,8 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
                     _("Expected %(media_type)s document.",
                       media_type=device_ids)
                 )
-            output = handler.register_device(flask.request.data)
+            data = flask.request.data.decode("utf8")
+            output = handler.register_device(data)
             if isinstance(output, ProblemDetail):
                 return output
             return Response(output, 200, self.PLAIN_TEXT_HEADERS)
@@ -792,7 +800,7 @@ class AuthdataUtility(object):
             payload['iat'] = self.numericdate(iat) # Issued At
         if exp:
             payload['exp'] = self.numericdate(exp) # Expiration Time
-        return base64.encodestring(
+        return base64.b64encode(
             jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
         )
 
@@ -805,14 +813,22 @@ class AuthdataUtility(object):
         with :. We also replace / (another "suspicious" character)
         with ;. and strip newlines.
         """
-        encoded = base64.encodestring(str)
+        encoded = base64.b64encode(str)
         return encoded.replace("+", ":").replace("/", ";").replace("=", "@").strip()
 
     @classmethod
-    def adobe_base64_decode(cls, str):
+    def adobe_base64_decode(cls, string):
         """Undoes adobe_base64_encode."""
-        encoded = str.replace(":", "+").replace(";", "/").replace("@", "=")
-        return base64.decodestring(encoded)
+        encoded = string.replace(":", "+").replace(";", "/").replace("@", "=")
+
+        # It's likely that the output of b64decode will be a binary
+        # string.  Usually we want decoded output to be converted to a
+        # Unicode string, but here we only want to convert input from
+        # Unicode to binary. So we spend a little extra code and use
+        # the standard library's b64decode.
+        if isinstance(encoded, str):
+            encoded = encoded.encode("utf8")
+        return stdlib_base64.b64decode(encoded)
 
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
@@ -830,7 +846,7 @@ class AuthdataUtility(object):
         # try to decode it ourselves and verify it that way.
         potential_tokens = [authdata]
         try:
-            decoded = base64.decodestring(authdata)
+            decoded = base64.b64decode(authdata)
             potential_tokens.append(decoded)
         except Exception, e:
             # Do nothing -- the authdata was not encoded to begin with.
@@ -850,6 +866,9 @@ class AuthdataUtility(object):
         raise exceptions[-1]
 
     def _decode(self, authdata):
+        if isinstance(authdata, str):
+            authdata = authdata.encode("utf8")
+
         # First, decode the authdata without checking the signature.
         decoded = jwt.decode(
             authdata, algorithm=self.ALGORITHM,
@@ -922,8 +941,9 @@ class AuthdataUtility(object):
     def _encode_short_client_token(self, library_short_name,
                                    patron_identifier, expires):
         base = library_short_name + "|" + str(expires) + "|" + patron_identifier
+
         signature = self.short_token_signer.sign(
-            base, self.short_token_signing_key
+            base.encode("utf8"), self.short_token_signing_key
         )
         signature = self.adobe_base64_encode(signature)
         if len(base) > 80:
@@ -1003,7 +1023,9 @@ class AuthdataUtility(object):
 
         # Sign the token and check against the provided signature.
         key = self.short_token_signer.prepare_key(secret)
-        actual_signature = self.short_token_signer.sign(token, key)
+        if isinstance(key, str):
+            key = key.encode("utf8")
+        actual_signature = self.short_token_signer.sign(token.encode("utf8"), key)
 
         if actual_signature != supposed_signature:
             raise ValueError(

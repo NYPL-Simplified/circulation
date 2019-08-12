@@ -7,7 +7,7 @@ import base64
 import flask
 import json
 import urllib
-from StringIO import StringIO
+from io import BytesIO
 from werkzeug import ImmutableMultiDict, MultiDict
 from api.admin.exceptions import *
 from api.config import Configuration
@@ -28,7 +28,7 @@ from core.model import (
 from core.testing import MockRequestsResponse
 from api.admin.controller.library_settings import LibrarySettingsController
 from api.admin.geographic_validator import GeographicValidator
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest):
 
@@ -220,9 +220,9 @@ class TestLibrarySettings(SettingsControllerTest):
 
 
     def test_libraries_post_create(self):
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
-        image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
+        image_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
 
         original_validate = GeographicValidator().validate_geographic_areas
         class MockValidator(GeographicValidator):
@@ -259,7 +259,7 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
-        eq_(library.uuid, response.response[0])
+        eq_(library.uuid, response.response[0].decode("utf8"))
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
         eq_("5", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
@@ -274,9 +274,9 @@ class TestLibrarySettings(SettingsControllerTest):
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
         eq_(validator.was_called, True)
-        eq_('{"CA": [], "US": ["06759", "everywhere", "MD", "Boston, MA"]}',
+        eq_('{"US": ["06759", "everywhere", "MD", "Boston, MA"], "CA": []}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
-        eq_('{"CA": ["Manitoba", "Quebec"], "US": ["Broward County, FL"]}',
+        eq_('{"US": ["Broward County, FL"], "CA": ["Manitoba", "Quebec"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
 
         # When the library was created, default lanes were also created
@@ -330,7 +330,7 @@ class TestLibrarySettings(SettingsControllerTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
 
-        eq_(library.uuid, response.response[0])
+        eq_(library.uuid, response.response[0].decode("utf8"))
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
 

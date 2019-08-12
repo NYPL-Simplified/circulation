@@ -554,7 +554,7 @@ class WorkController(AdminCirculationManagerController):
         new_target_age_min = int(new_target_age_min) if new_target_age_min else None
         new_target_age_max = flask.request.form.get("target_age_max")
         new_target_age_max = int(new_target_age_max) if new_target_age_max else None
-        if new_target_age_max < new_target_age_min:
+        if new_target_age_max and new_target_age_min and new_target_age_max < new_target_age_min:
             return INVALID_EDIT.detailed(_("Minimum target age must be less than maximum target age."))
 
         if work.target_age:
@@ -690,17 +690,17 @@ class WorkController(AdminCirculationManagerController):
             package_dir = os.path.join(admin_dir, "../..")
             bold_font_path = os.path.join(package_dir, "resources/OpenSans-Bold.ttf")
             regular_font_path = os.path.join(package_dir, "resources/OpenSans-Regular.ttf")
-            font_size = image_width / 20
+            font_size = image_width // 20
             bold_font = ImageFont.truetype(bold_font_path, font_size)
             regular_font = ImageFont.truetype(regular_font_path, font_size)
 
-            padding = image_width / 40
+            padding = image_width // 40
 
             max_line_width = 0
             bold_char_width = bold_font.getsize("n")[0]
-            bold_char_count = image_width / bold_char_width
+            bold_char_count = image_width // bold_char_width
             regular_char_width = regular_font.getsize("n")[0]
-            regular_char_count = image_width / regular_char_width
+            regular_char_count = image_width // regular_char_width
             title_lines = textwrap.wrap(title, bold_char_count)
             author_lines = textwrap.wrap(author, regular_char_count)
             for lines, font in [(title_lines, bold_font), (author_lines, regular_font)]:
@@ -717,23 +717,23 @@ class WorkController(AdminCirculationManagerController):
 
             rectangle_width = max_line_width + 2 * padding
 
-            start_x = (image_width - rectangle_width) / 2
+            start_x = (image_width - rectangle_width) // 2
             if title_position == self.BOTTOM:
-                start_y = image_height - rectangle_height - image_height / 14
+                start_y = image_height - rectangle_height - image_height // 14
             elif title_position == self.CENTER:
-                start_y = (image_height - rectangle_height) / 2
+                start_y = (image_height - rectangle_height) // 2
             else:
-                start_y = image_height / 14
+                start_y = image_height // 14
 
             draw.rectangle([(start_x, start_y),
                             (start_x + rectangle_width, start_y + rectangle_height)],
                            fill=(255,255,255,255))
 
-            current_y = start_y + line_height / 2
+            current_y = start_y + line_height // 2
             for lines, font in [(title_lines, bold_font), (author_lines, regular_font)]:
                 for line in lines:
                     line_width, ignore = font.getsize(line)
-                    draw.text((start_x + (rectangle_width - line_width) / 2, current_y),
+                    draw.text((start_x + (rectangle_width - line_width) // 2, current_y),
                               line, font=font, fill=(0,0,0,255))
                     current_y += line_height
 
@@ -742,7 +742,11 @@ class WorkController(AdminCirculationManagerController):
         return image
 
     def preview_book_cover(self, identifier_type, identifier):
-        """Return a preview of the submitted cover image information."""
+        """Return a preview of the submitted cover image information.
+
+        :return: A Response in which the entity-body is a Unicode string containing
+        a base64-encoded image.
+        """
         self.require_librarian(flask.request.library)
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -752,10 +756,10 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(image, ProblemDetail):
             return image
 
-        buffer = StringIO()
+        buffer = BytesIO()
         image.save(buffer, format="PNG")
         b64 = base64.b64encode(buffer.getvalue())
-        value = "data:image/png;base64,%s" % b64
+        value = "data:image/png;base64,%s" % b64.decode("utf8")
 
         return Response(value, 200)
 
@@ -795,7 +799,7 @@ class WorkController(AdminCirculationManagerController):
         cover_url = flask.request.form.get("cover_url")
         if title_position in self.TITLE_POSITIONS:
             original_href = cover_url
-            original_buffer = StringIO()
+            original_buffer = BytesIO()
             image.save(original_buffer, format="PNG")
             original_content = original_buffer.getvalue()
             if not original_href:
@@ -858,7 +862,7 @@ class WorkController(AdminCirculationManagerController):
 
         original, derivation_settings, cover_href, cover_rights_explanation = self._original_cover_info(image, work, data_source, rights_uri, rights_explanation)
 
-        buffer = StringIO()
+        buffer = BytesIO()
         image.save(buffer, format="PNG")
         content = buffer.getvalue()
 

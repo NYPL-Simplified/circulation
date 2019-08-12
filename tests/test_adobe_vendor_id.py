@@ -1,4 +1,3 @@
-import base64
 import json
 from nose.tools import (
     set_trace,
@@ -17,6 +16,7 @@ import datetime
 
 from api.problem_details import *
 from api.adobe_vendor_id import (
+    base64,
     AdobeSignInRequestParser,
     AdobeAccountInfoRequestParser,
     AdobeVendorIDController,
@@ -428,16 +428,16 @@ class TestVendorIDModel(VendorIDTest):
 
 class TestVendorIDRequestParsers(object):
 
-    username_sign_in_request = """<signInRequest method="standard" xmlns="http://ns.adobe.com/adept">
+    username_sign_in_request = b"""<signInRequest method="standard" xmlns="http://ns.adobe.com/adept">
 <username>Vendor username</username>
 <password>Vendor password</password>
 </signInRequest>"""
 
-    authdata_sign_in_request = """<signInRequest method="authData" xmlns="http://ns.adobe.com/adept">
+    authdata_sign_in_request = b"""<signInRequest method="authData" xmlns="http://ns.adobe.com/adept">
 <authData> dGhpcyBkYXRhIHdhcyBiYXNlNjQgZW5jb2RlZA== </authData>
 </signInRequest>"""
 
-    accountinfo_request = """<accountInfoRequest method="standard" xmlns="http://ns.adobe.com/adept">
+    accountinfo_request = b"""<accountInfoRequest method="standard" xmlns="http://ns.adobe.com/adept">
 <user>urn:uuid:0xxxxxxx-xxxx-1xxx-xxxx-yyyyyyyyyyyy</user>
 </accountInfoRequest >"""
 
@@ -528,7 +528,8 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_success(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("The secret token"))
+            authdata=base64.b64encode("The secret token")
+        )
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         assert result.startswith('<signInResponse xmlns="http://ns.adobe.com/adept">\n<user>test-uuid</user>\n<label>Human-readable label for user1</label>\n</signInResponse>')
@@ -542,14 +543,16 @@ class TestVendorIDRequestHandler(object):
 
     def test_handle_username_authdata_request_failure(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("incorrect"))
+            authdata=base64.b64encode("incorrect")
+        )
         result = self._handler.handle_signin_request(
             doc, self._standard_login, self._authdata_login)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_AUTH Incorrect token."/>', result)
 
     def test_failure_send_login_request_to_accountinfo(self):
         doc = self.authdata_sign_in_request % dict(
-            authdata=base64.b64encode("incorrect"))
+            authdata=base64.b64encode("incorrect")
+        )
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Request document in wrong format."/>', result)
@@ -740,6 +743,7 @@ class TestAuthdataUtility(VendorIDTest):
         vendor_id, authdata = self.authdata.encode(patron_identifier)
         eq_("The Vendor ID", vendor_id)
 
+        authdata = authdata.encode("utf8")
         # A mischievious party in the middle decodes our authdata
         # without telling us.
         authdata = base64.decodestring(authdata)
@@ -750,16 +754,31 @@ class TestAuthdataUtility(VendorIDTest):
 
     def test_encode(self):
         """Test that _encode gives a known value with known input."""
+
+        # Three pieces of data go into our JWT.
         patron_identifier = "Patron identifier"
         now = datetime.datetime(2016, 1, 1, 12, 0, 0)
         expires = datetime.datetime(2018, 1, 1, 12, 0, 0)
+
+        raw_jwt = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwic3ViIjoiUGF0cm9uIGlkZW50aWZpZXIiLCJpYXQiOjE0NTE2NDk2MDAuMCwiZXhwIjoxNTE0ODA4MDAwLjB9.Ua11tFCpC4XAgwhR6jFyoxfHy4s1zt2Owg4dOoCefYA'
+        base64_encoded_jwt = base64.b64encode(raw_jwt).strip()
+
+        # We can't call self.authdata._decode to peek into raw_jwt,
+        # because it expired in 2018.  But if you're debugging this
+        # test and you need to look at the pieces that make up
+        # raw_jwt, you can call PyJWT._load(), like so:
+        from jwt.api_jwt import _jwt_global_obj
+        loaded_jwt = _jwt_global_obj._load(raw_jwt)
+        payload = loaded_jwt[0]
+        payload_dict = json.loads(payload)
+        eq_("Patron identifier", payload_dict['sub'])
+
+        # Encoding the three pieces of data gets a known value.
         authdata = self.authdata._encode(
             self.authdata.library_uri, patron_identifier, now, expires
         )
-        eq_(
-            base64.encodestring('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw'),
-            authdata
-        )
+        eq_(base64_encoded_jwt, authdata)
+
 
     def test_decode_from_another_library(self):
 
@@ -880,7 +899,7 @@ class TestAuthdataUtility(VendorIDTest):
         # The signature comes from signing the token with the
         # secret associated with this library.
         expect_signature = self.authdata.short_token_signer.sign(
-            token, self.authdata.short_token_signing_key
+            token.encode("utf8"), self.authdata.short_token_signing_key
         )
         eq_(expect_signature, signature)
 
@@ -906,7 +925,7 @@ class TestAuthdataUtility(VendorIDTest):
         # If our secret for a library doesn't match the other
         # library's short token signing key, we can't decode the
         # authdata.
-        foreign_authdata.short_token_signing_key = 'A new secret'
+        foreign_authdata.short_token_signing_key = b'A new secret'
         vendor_id, token = foreign_authdata.encode_short_client_token(
             patron_identifier
         )
@@ -969,7 +988,7 @@ class TestAuthdataUtility(VendorIDTest):
         """Test our special variant of base64 encoding designed to avoid
         triggering an Adobe bug.
         """
-        value = "!\tFN6~'Es52?X!#)Z*_S"
+        value = b"!\tFN6~'Es52?X!#)Z*_S"
 
         encoded = AuthdataUtility.adobe_base64_encode(value)
         eq_('IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', encoded)
@@ -1003,7 +1022,7 @@ class TestAuthdataUtility(VendorIDTest):
     def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 
         # The base64 encoding of this signature has a plus sign in it.
-        signature = 'LbU}66%\\-4zt>R>_)\n2Q'
+        signature = b'LbU}66%\\-4zt>R>_)\n2Q'
         encoded_signature = AuthdataUtility.adobe_base64_encode(signature)
 
         # We replace the plus sign with a colon.
@@ -1171,4 +1190,4 @@ class TestAdobeVendorIDController(VendorIDTest):
         # The authdata returned is the one stored as a Credential
         # for the Patron.
         [credential] = patron.credentials
-        eq_(credential.credential, response.data)
+        eq_(credential.credential, response.data.decode("utf8"))

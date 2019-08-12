@@ -46,7 +46,10 @@ class TestConfiguration(DatabaseTest):
         eq_(new_private, private_key)
 
     def test_cipher(self):
-        """Test the cipher() helper method."""
+        # Test the cipher() helper method.
+
+        # Note that the cipher only accepts bytes, and returns
+        # encrypted bytes.
 
         # Generate a public/private key pair.
         key = RSA.generate(2048)
@@ -57,13 +60,14 @@ class TestConfiguration(DatabaseTest):
         # Pass the public key into cipher() to get something that can
         # encrypt.
         encryptor = Configuration.cipher(public)
-        encrypted = encryptor.encrypt("some text")
+        encrypted = encryptor.encrypt(b"some text")
+        assert isinstance(encrypted, bytes)
 
         # Pass the private key into cipher() to get something that can
         # decrypt.
         decryptor = Configuration.cipher(private)
         decrypted = decryptor.decrypt(encrypted)
-        eq_("some text", decrypted)
+        eq_(b"some text", decrypted)
 
     def test_collection_language_method_performs_estimate(self):
         C = Configuration

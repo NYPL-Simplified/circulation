@@ -1015,7 +1015,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(True, metadata.annotated)
 
         # Now let's try it with some files 'on disk'.
-        with open(self.sample_cover_path('test-book-cover.png')) as fh:
+        with open(self.sample_cover_path('test-book-cover.png'), "rb") as fh:
             image = fh.read()
         mock_filesystem = {
             'cover directory' : (
@@ -1056,7 +1056,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # The EPUB Representation was cleared out after the upload, to
         # save database space.
-        eq_("I'm an EPUB.", mirror.content[0])
+        eq_(b"I'm an EPUB.", mirror.content[0])
         eq_(None, epub.content)
 
     def test_annotate_metadata(self):

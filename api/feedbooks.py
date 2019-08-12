@@ -263,7 +263,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
             # There is no CSS to replace. Do nothing.
             return
 
-        new_zip_content = StringIO()
+        new_zip_content = BytesIO()
         with EpubAccessor.open_epub(representation.url, content=representation.content) as (zip_file, package_path):
             try:
                 manifest_element = EpubAccessor.get_element_from_package(
@@ -271,7 +271,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
                 )
             except ValueError as e:
                 # Invalid EPUB
-                self.log.warning("%s: %s" % (representation.url, e.message))
+                self.log.warning("%s: %s" % (representation.url, str(e)))
                 return
 
             css_paths = []

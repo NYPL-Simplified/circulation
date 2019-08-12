@@ -173,14 +173,19 @@ def setup_admin_controllers(manager):
     manager.admin_library_settings_controller = LibrarySettingsController(manager)
     from api.admin.controller.individual_admin_settings import IndividualAdminSettingsController
     manager.admin_individual_admin_settings_controller = IndividualAdminSettingsController(manager)
-    from api.admin.controller.sitewide_services import *
+    from api.admin.controller.sitewide_services import (
+        SitewideServicesController,
+        LoggingServicesController,
+        SearchServicesController,
+        StorageServicesController,
+    )
     manager.admin_sitewide_services_controller = SitewideServicesController(manager)
     manager.admin_logging_services_controller = LoggingServicesController(manager)
     from api.admin.controller.search_service_self_tests import SearchServiceSelfTestsController
     manager.admin_search_service_self_tests_controller = SearchServiceSelfTestsController(manager)
     manager.admin_search_services_controller = SearchServicesController(manager)
     manager.admin_storage_services_controller = StorageServicesController(manager)
-    from api.admin.controller.catalog_services import *
+    from api.admin.controller.catalog_services import CatalogServicesController
     manager.admin_catalog_services_controller = CatalogServicesController(manager)
 
 class AdminController(object):
@@ -293,7 +298,7 @@ class AdminController(object):
 
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
-        return base64.b64encode(os.urandom(24))
+        return base64.b64encode(os.urandom(24)).decode("utf8")
 
 class AdminCirculationManagerController(CirculationManagerController):
     """Parent class that provides methods for verifying an admin's roles."""
@@ -1576,7 +1581,7 @@ class SettingsController(AdminCirculationManagerController):
             # making the configuration changes necessary to fix
             # this problem.
             message = _("Exception getting self-test results for %s %s: %s")
-            args = (self.type, item.name, e.message)
+            args = (self.type, item.name, str(e))
             logging.warn(message, *args, exc_info=e)
             self_test_results = dict(exception=message % args)
 
@@ -1790,7 +1795,7 @@ class SitewideRegistrationController(SettingsController):
         try:
             response = do_get(url)
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
+            return REMOTE_INTEGRATION_FAILED.detailed(str(e))
 
         if isinstance(response, ProblemDetail):
             return response
@@ -1850,7 +1855,7 @@ class SitewideRegistrationController(SettingsController):
                 headers=headers
             )
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
+            return REMOTE_INTEGRATION_FAILED.detailed(str(e))
         return response
 
     def get_shared_secret(self, response):

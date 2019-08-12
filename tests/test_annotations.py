@@ -432,8 +432,8 @@ class TestAnnotationParser(AnnotationTest):
         eq_(self.identifier.id, annotation.identifier_id)
         eq_(Annotation.IDLING, annotation.motivation)
         eq_(True, annotation.active)
-        eq_(json.dumps(data["http://www.w3.org/ns/oa#hasTarget"][0]), annotation.target)
-        eq_(json.dumps(data["http://www.w3.org/ns/oa#hasBody"][0]), annotation.content)
+        eq_(data["http://www.w3.org/ns/oa#hasTarget"][0], json.loads(annotation.target))
+        eq_(data["http://www.w3.org/ns/oa#hasBody"][0], json.loads(annotation.content))
 
     def test_parse_compacted_jsonld(self):
         self.pool.loan_to(self.patron)

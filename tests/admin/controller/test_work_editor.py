@@ -9,12 +9,13 @@ import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 import base64
 import flask
+import functools
 import json
 import math
 import operator
 import os
 from PIL import Image
-from StringIO import StringIO
+from io import BytesIO
 from tests.admin.controller.test_controller import AdminControllerTest
 from tests.test_controller import CirculationControllerTest
 from core.classifier import (
@@ -893,7 +894,7 @@ class TestWorkController(AdminControllerTest):
         image_histogram = original.histogram()
         expected_histogram = processed.histogram()
 
-        root_mean_square = math.sqrt(reduce(operator.add,
+        root_mean_square = math.sqrt(functools.reduce(operator.add,
                                             map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
         assert root_mean_square < 10
 
@@ -908,7 +909,7 @@ class TestWorkController(AdminControllerTest):
         image_histogram = processed.histogram()
         expected_histogram = expected_image.histogram()
 
-        root_mean_square = math.sqrt(reduce(operator.add,
+        root_mean_square = math.sqrt(functools.reduce(operator.add,
                                             map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
         assert root_mean_square < 10
 
@@ -929,16 +930,17 @@ class TestWorkController(AdminControllerTest):
             eq_(INVALID_URL.uri, response.uri)
             eq_('"bad_url" is not a valid URL.', response.detail)
 
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
         base_path = os.path.split(__file__)[0]
         folder = os.path.dirname(base_path)
         resource_path = os.path.join(folder, "..", "files", "images")
         path = os.path.join(resource_path, "blue.jpg")
         original = Image.open(path)
-        buffer = StringIO()
+        buffer = BytesIO()
         original.save(buffer, format="PNG")
         image_data = buffer.getvalue()
+        expect = "data:image/png;base64,%s" % base64.b64encode(image_data).decode("utf8")
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
@@ -949,7 +951,7 @@ class TestWorkController(AdminControllerTest):
             ])
             response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
             eq_(200, response.status_code)
-            eq_("data:image/png;base64,%s" % base64.b64encode(image_data), response.data)
+            eq_(expect, response.data.decode("utf8"))
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
@@ -1014,14 +1016,14 @@ class TestWorkController(AdminControllerTest):
             eq_(INVALID_CONFIGURATION_OPTION.uri, response.uri)
             assert "Could not find a storage integration" in response.detail
 
-        class TestFileUpload(StringIO):
+        class TestFileUpload(BytesIO):
             headers = { "Content-Type": "image/png" }
         base_path = os.path.split(__file__)[0]
         folder = os.path.dirname(base_path)
         resource_path = os.path.join(folder, "..", "files", "images")
         path = os.path.join(resource_path, "blue.jpg")
         original = Image.open(path)
-        buffer = StringIO()
+        buffer = BytesIO()
         original.save(buffer, format="PNG")
         image_data = buffer.getvalue()
 

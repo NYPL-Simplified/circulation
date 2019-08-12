@@ -14,7 +14,6 @@ from api.shared_collection import (
     SharedCollectionAPI,
     BaseSharedCollectionAPI,
 )
-from core.config import CannotLoadConfiguration
 from api.odl import ODLAPI
 from core.model import (
     ConfigurationSetting,
@@ -27,6 +26,7 @@ from core.model import (
 from api.circulation import FulfillmentInfo
 
 from . import DatabaseTest
+from core.config import CannotLoadConfiguration
 from core.testing import MockRequestsResponse
 
 class MockAPI(BaseSharedCollectionAPI):
@@ -88,7 +88,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # constructor has been stored in initialization_exceptions.
         e = shared_collection.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        eq_("doomed!", e.message)
+        eq_("doomed!", str(e))
 
     def test_api_for_licensepool(self):
         collection = self._collection(protocol=ODLAPI.NAME)
@@ -158,7 +158,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         # Here's an auth document with a valid key.
         key = RSA.generate(2048)
-        public_key = key.publickey().exportKey()
+        public_key = key.publickey().exportKey().decode("utf8")
         encryptor = PKCS1_OAEP.new(key)
         auth_response = json.dumps({"public_key": { "type": "RSA", "value": public_key },
                                     "links": [{"href": "http://library.org", "rel": "start"}]})
@@ -166,7 +166,15 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         # An IntegrationClient has been created.
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
-        decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
+        shared_secret = response.get("metadata", {}).get("shared_secret")
+
+        # The encrypted shared secret is a bytestring, so we don't
+        # want to use core.util.binary.base64.
+        decrypted_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+
+        # However, we do want to convert the _decrypted_ shared secret
+        # into a Unicode string.
+        decrypted_secret = decrypted_secret.decode("utf8")
         eq_(client.shared_secret, decrypted_secret)
 
     def test_borrow(self):

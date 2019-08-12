@@ -5,7 +5,6 @@ from nose.tools import (
 import json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-import base64
 import os
 from . import (
     DatabaseTest
@@ -18,6 +17,10 @@ from core.util.problem_detail import (
 from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
+)
+from core.util.binary import (
+    base64,
+    random_string,
 )
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
@@ -310,7 +313,7 @@ class TestRegistration(DatabaseTest):
         results = registration._process_registration_result_called_with
         message, cipher, actual_stage = results
         eq_("you did it!", message)
-        eq_(cipher._key.exportKey(), private_key)
+        eq_(cipher._key.exportKey(), private_key.encode("utf8"))
         eq_(actual_stage, stage)
 
         # If a nonexistent stage is provided a ProblemDetail is the result.
@@ -515,7 +518,7 @@ class TestRegistration(DatabaseTest):
         key2 = RSA.generate(2048)
         encryptor2 = PKCS1_OAEP.new(key2)
 
-        shared_secret = os.urandom(24).encode('hex')
+        shared_secret = random_string(24).encode("utf8")
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
 
         # Success.
@@ -652,7 +655,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
             # library registry.
             eq_(
                 RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL,
-                x[0].integration.url
+                i[0].integration.url
             )
 
     def test_process_library(self):

@@ -255,7 +255,7 @@ class LibrarySettingsController(SettingsController):
             width, height = image.size
             if width > 135 or height > 135:
                 image.thumbnail((135, 135), Image.ANTIALIAS)
-            buffer = StringIO()
+            buffer = BytesIO()
             image.save(buffer, format="PNG")
             b64 = base64.b64encode(buffer.getvalue())
             return "data:image/png;base64,%s" % b64

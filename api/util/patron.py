@@ -1,7 +1,8 @@
 import datetime
 from api.config import Configuration
 from api.circulation_exceptions import *
-
+from nose.tools import set_trace
+from core.util import MoneyUtility
 
 class PatronUtility(object):
     """Apply circulation-specific logic to Patron model objects."""
@@ -64,7 +65,8 @@ class PatronUtility(object):
 
         if patron.fines:
             max_fines = Configuration.max_outstanding_fines(patron.library)
-            if max_fines is not None and patron.fines > max_fines.amount:
+            fines = MoneyUtility.parse(patron.fines)
+            if max_fines is not None and fines.amount > max_fines.amount:
                 raise OutstandingFines()
 
         from api.authenticator import PatronData

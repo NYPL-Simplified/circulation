@@ -236,7 +236,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # The very first request made is going to be to the
         # REPLACEMENT_CSS_KEY URL.
         self.http.queue_response(
-            200, content="Some new CSS", media_type="text/css",
+            200, content=b"Some new CSS", media_type="text/css",
         )
         ignore, importer = self._importer(**settings)
 
@@ -246,7 +246,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # OPDSImporter.content_modifier has been set to call replace_css
         # when necessary.
-        eq_("Some new CSS", importer.new_css)
+        eq_("Some new CSS", importer.new_css.decode("utf8"))
         eq_(importer.replace_css, importer.content_modifier)
 
         # The requests to the various copies of the book will succeed,
@@ -305,7 +305,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         eq_(True, pool.open_access)
 
         # The mirrored content contains the modified CSS.
-        content = StringIO(self.mirror.content[0])
+        content = BytesIO(self.mirror.content[0])
         with ZipFile(content) as zip:
             # The zip still contains the original epub's files.
             assert "META-INF/container.xml" in zip.namelist()
@@ -314,11 +314,11 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
             # The content of an old file hasn't changed.
             with zip.open("mimetype") as f:
-                eq_("application/epub+zip\r\n", f.read())
+                eq_("application/epub+zip\r\n", f.read().decode("utf8"))
 
             # The content of CSS files has been changed to the new value.
             with zip.open("OPS/css/about.css") as f:
-                eq_("Some new CSS", f.read())
+                eq_("Some new CSS", f.read().decode("utf8"))
 
     def test_in_copyright_book_not_mirrored(self):
 

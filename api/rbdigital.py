@@ -1,4 +1,3 @@
-import base64
 from collections import defaultdict
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -76,7 +75,7 @@ from core.monitor import (
 
 from core.testing import DatabaseTest
 from core.util import LanguageCodes
-
+from core.util.binary import random_string
 from core.util.http import (
     BadResponseException,
     HTTP,
@@ -159,9 +158,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 "RBDigital configuration is incomplete."
             )
 
-        # Use utf8 instead of unicode encoding
-        self.library_id = self.library_id.encode('utf8')
-        self.token = self.token.encode('utf8')
+        self.library_id = self.library_id
+        self.token = self.token
 
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
@@ -420,7 +418,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         except Exception, e:
             self.log.error("Item circulation request failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+            raise RemoteInitiatedServerError(str(e), action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -497,7 +495,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             transaction_id = int(resp_obj)
         except Exception, e:
             self.log.error("Item hold request failed: %r", e, exc_info=e)
-            raise CannotHold(e.message)
+            raise CannotHold(str(e))
 
         self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier,
             patron_rbdigital_id, item_rbdigital_id, resp_obj)
@@ -879,7 +877,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # account with the patron's email address, they'll be able to
         # recover their password. If not, at least we didn't claim
         # their barcode, and they can make a new account if they want.
-        post_args['password'] = os.urandom(8).encode('hex')
+        post_args['password'] = random_string(8)
         return post_args
 
     def dummy_patron_identifier(self, authorization_identifier):
@@ -888,7 +886,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         :return: A random identifier based on the input identifier.
         """
-        alphabet = string.digits + string.uppercase
+        alphabet = string.digits + string.ascii_uppercase
         addendum = "".join(random.choice(alphabet) for x in range(6))
         return authorization_identifier + addendum
 
@@ -972,7 +970,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                     message = resp_obj.get('message', None)
         except Exception, e:
             self.log.error("Patron checkouts failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+            raise RemoteInitiatedServerError(str(e), action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -1053,7 +1051,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                     message = resp_obj.get('message', None)
         except Exception, e:
             self.log.error("Patron holds failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+            raise RemoteInitiatedServerError(str(e), action)
 
         self.validate_response(response=response, message=message, action=action)
 
@@ -2022,9 +2020,9 @@ class RBDigitalBibliographicCoverageProvider(BibliographicCoverageProvider):
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
         except BadResponseException as error:
-            return self.failure(identifier, error.message)
+            return self.failure(identifier, str(error))
         except IOError as error:
-            return self.failure(identifier, error.message)
+            return self.failure(identifier, str(error))
 
         if not response_dictionary:
             message = "Cannot find RBDigital metadata for %r" % identifier

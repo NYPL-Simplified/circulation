@@ -74,6 +74,7 @@ from core.monitor import (
     IdentifierSweepMonitor,
     TimelineMonitor,
 )
+from core.util.binary import base64
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     BadResponseException,
@@ -164,10 +165,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 "Bibliotheca configuration is incomplete."
             )
 
-        # Use utf8 instead of unicode encoding
         settings = [self.account_id, self.account_key, self.library_id]
         self.account_id, self.account_key, self.library_id = (
-            setting.encode('utf8') for setting in settings
+            setting for setting in settings
         )
 
         self.item_list_parser = ItemListParser()
@@ -198,11 +198,18 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         return auth, now
 
     def signature(self, method, path):
+        """Create a signature for a request.
+
+        :return: A Unicode string.
+        """
         now = self.now()
         signature_components = [now, method, path]
-        signature_string = "\n".join(signature_components)
-        digest = hmac.new(self.account_key, msg=signature_string,
-                    digestmod=hashlib.sha256).digest()
+        signature_string = "\n".join(signature_components).encode("utf8")
+        key = self.account_key.encode("utf8")
+        digest = hmac.new(
+            key, msg=signature_string,
+            digestmod=hashlib.sha256
+        ).digest()
         signature = base64.standard_b64encode(digest)
         return signature, now
 
@@ -1016,7 +1023,7 @@ class PatronCirculationParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
-        root = etree.parse(StringIO(string), parser)
+        root = etree.parse(BytesIO(string), parser)
         sup = super(PatronCirculationParser, self)
         loans = sup.process_all(
             root, "//Checkouts/Item", handler=self.process_one_loan)
@@ -1070,7 +1077,7 @@ class DateResponseParser(BibliothecaParser):
 
     def process_all(self, string):
         parser = etree.XMLParser()
-        root = etree.parse(StringIO(string), parser)
+        root = etree.parse(BytesIO(string), parser)
         m = root.xpath("/%s/%s" % (self.RESULT_TAG_NAME, self.DATE_TAG_NAME))
         if not m:
             return None

@@ -1,6 +1,5 @@
 from nose.tools import set_trace
 
-import base64
 import json
 import uuid
 import datetime
@@ -59,6 +58,7 @@ from circulation import (
     HoldInfo,
 )
 from core.analytics import Analytics
+from core.util.binary import base64
 from core.util.http import (
     HTTP,
     BadResponseException,
@@ -189,7 +189,9 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         username = self.username
         password = self.password
         headers = dict(headers or {})
-        auth_header = "Basic %s" % base64.b64encode("%s:%s" % (username, password))
+        auth_header = "Basic %s" % base64.b64encode(
+            "%s:%s" % (username, password)
+        )
         headers['Authorization'] = auth_header
 
         return HTTP.get_with_timeout(url, headers=headers)
@@ -526,7 +528,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             # The licenses will have to go through some number of cycles
             # before one of them gets to this hold. This leavs out the first cycle -
             # it's already started so we'll handle it separately.
-            cycles = (hold.position - licenses_reserved - 1) / pool.licenses_owned
+            cycles = (hold.position - licenses_reserved - 1) // pool.licenses_owned
 
             # Each of the owned licenses is currently either on loan or reserved.
             # Figure out which license this hold will eventually get if every

@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import os
@@ -68,6 +67,7 @@ from core.opds_import import (
 from core.testing import DatabaseTest
 
 from core.util import LanguageCodes
+from core.util.binary import UnicodeAwareBase64
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     HTTP,
@@ -176,12 +176,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             raise CannotLoadConfiguration(
                 "Axis 360 configuration is incomplete."
             )
-
-        # Use utf8 instead of unicode encoding
-        settings = [self.library_id, self.username, self.password]
-        self.library_id, self.username, self.password = (
-            setting.encode('utf8') for setting in settings
-        )
 
         self.token = None
         self.collection_id = collection.id

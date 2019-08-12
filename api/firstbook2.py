@@ -99,7 +99,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             response = self.request(url)
         except requests.exceptions.ConnectionError, e:
             raise RemoteInitiatedServerError(
-                str(e.message),
+                str(e),
                 self.NAME
             )
         if response.status_code != 200:
@@ -121,7 +121,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             pin=pin,
             iat=now,
         )
-        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
+        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM).decode("utf8")
 
     def request(self, url):
         """Make an HTTP request.

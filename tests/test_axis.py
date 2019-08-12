@@ -165,7 +165,7 @@ class TestAxis360API(Axis360Test):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         eq_("Asking for circulation events for the last five minutes",
             recent_circulation_events.name)
@@ -173,7 +173,7 @@ class TestAxis360API(Axis360Test):
         eq_("Found 3 event(s)", recent_circulation_events.result)
         since = api.recent_activity_called_with
         five_minutes_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
-        assert (five_minutes_ago-since).total_seconds() < 2
+        assert (five_minutes_ago-since).total_seconds() < 5
 
         eq_("Checking activity for test patron for library %s" % with_default_patron.name,
             patron_activity.name)
@@ -203,7 +203,7 @@ class TestAxis360API(Axis360Test):
         [failure] = api._run_self_tests(self._db)
         eq_("Refreshing bearer token", failure.name)
         eq_(False, failure.success)
-        eq_("no way", failure.exception.message)
+        eq_("no way", str(failure.exception))
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()
@@ -298,8 +298,8 @@ class TestAxis360API(Axis360Test):
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
-        new_identifier = pool.identifier.identifier.encode("ascii")
-        data = data.replace("0012533119", new_identifier)
+        new_identifier = pool.identifier.identifier
+        data = data.replace(b"0012533119", new_identifier.encode("utf8"))
 
         self.api.queue_response(200, content=data)
 
@@ -459,7 +459,7 @@ class TestAxis360API(Axis360Test):
         data = self.sample_data("availability_with_loans.xml")
         # Modify the sample data so that it appears to be talking
         # about one of the books we're going to request.
-        data = data.replace("0012533119", id1.identifier.encode("ascii"))
+        data = data.replace(b"0012533119", id1.identifier.encode("utf8"))
         self.api.queue_response(200, {}, data)
         results = [x for x in self.api._fetch_remote_availability([id1, id2])]
 
@@ -771,9 +771,8 @@ class TestReaper(Axis360Test):
 class TestParsers(Axis360Test):
 
     def test_bibliographic_parser(self):
-        """Make sure the bibliographic information gets properly
-        collated in preparation for creating Edition objects.
-        """
+        # Make sure the bibliographic information gets properly
+        # collated in preparation for creating Edition objects.
         data = self.sample_data("tiny_collection.xml")
 
         [bib1, av1], [bib2, av2] = BibliographicParser(
@@ -830,7 +829,7 @@ class TestParsers(Axis360Test):
 
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
-        subjects = sorted(bib2.subjects, key = lambda x: x.identifier)
+        subjects = sorted(bib2.subjects, key = lambda x: x.identifier or "")
         eq_([Subject.BISAC, Subject.BISAC, Subject.BISAC,
              Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
         general_fiction, women_sleuths, romantic_suspense = sorted([
@@ -866,7 +865,7 @@ class TestParsers(Axis360Test):
 
     def test_bibliographic_parser_unsupported_format(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        data = data.replace('Acoustik', 'Blio')
+        data = data.replace(b'Acoustik', b'Blio')
 
         [[bib, av]] = BibliographicParser(False, True).process_all(data)
 

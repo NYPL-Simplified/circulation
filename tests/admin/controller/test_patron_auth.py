@@ -27,7 +27,7 @@ from core.model import (
     get_one,
     Library,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestPatronAuth(SettingsControllerTest):
 
@@ -392,7 +392,7 @@ class TestPatronAuth(SettingsControllerTest):
             eq_(mock_controller.validate_formats_call_count, 1)
 
         auth_service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.PATRON_AUTH_GOAL)
-        eq_(auth_service.id, int(response.response[0]))
+        eq_(auth_service.id, int(response.response[0].decode("utf8")))
         eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
         eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
@@ -416,7 +416,7 @@ class TestPatronAuth(SettingsControllerTest):
                                goal=ExternalIntegration.PATRON_AUTH_GOAL,
                                protocol=MilleniumPatronAPI.__module__)
         assert auth_service2 != auth_service
-        eq_(auth_service2.id, int(response.response[0]))
+        eq_(auth_service2.id, int(response.response[0].decode("utf8")))
         eq_("url", auth_service2.url)
         eq_("user", auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
@@ -461,7 +461,7 @@ class TestPatronAuth(SettingsControllerTest):
             eq_(response.status_code, 200)
             eq_(mock_controller.validate_formats_call_count, 1)
 
-        eq_(auth_service.id, int(response.response[0]))
+        eq_(auth_service.id, int(response.response[0].decode("utf8")))
         eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
         eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)

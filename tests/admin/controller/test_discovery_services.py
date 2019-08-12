@@ -13,7 +13,7 @@ from core.model import (
     ExternalIntegration,
     get_one,
 )
-from test_controller import SettingsControllerTest
+from .test_controller import SettingsControllerTest
 
 class TestDiscoveryServices(SettingsControllerTest):
 
@@ -121,7 +121,7 @@ class TestDiscoveryServices(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.DISCOVERY_GOAL)
-        eq_(service.id, int(response.response[0]))
+        eq_(service.id, int(response.response[0].decode("utf8")))
         eq_(ExternalIntegration.OPDS_REGISTRATION, service.protocol)
         eq_("http://registry_url", service.url)
 
@@ -143,7 +143,7 @@ class TestDiscoveryServices(SettingsControllerTest):
             response = self.manager.admin_discovery_services_controller.process_discovery_services()
             eq_(response.status_code, 200)
 
-        eq_(discovery_service.id, int(response.response[0]))
+        eq_(discovery_service.id, int(response.response[0].decode("utf8")))
         eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
         eq_("http://new_registry_url", discovery_service.url)
 

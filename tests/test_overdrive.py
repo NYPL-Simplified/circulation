@@ -166,7 +166,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         eq_(False, no_patron_credential.success)
         eq_("Library has no test patron configured.",
-            no_patron_credential.exception.message)
+            str(no_patron_credential.exception))
 
         eq_(
             "Checking Patron Authentication privileges, using test patron for library %s" % with_default_patron.name,
@@ -195,7 +195,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api._run_self_tests(self._db)
-        eq_("Failure!", check_creds.exception.message)
+        eq_("Failure!", str(check_creds.exception))
 
     def test_default_notification_email_address(self):
         """Test the ability of the Overdrive API to detect an email address
@@ -975,7 +975,7 @@ class TestSyncBookshelf(OverdriveAPITest):
 
         # All four loans in the sample data were created.
         eq_(4, len(loans))
-        eq_(loans.sort(), patron.loans.sort())
+        eq_(loans, patron.loans)
 
         # We have created previously unknown LicensePools and
         # Identifiers.
@@ -1004,7 +1004,7 @@ class TestSyncBookshelf(OverdriveAPITest):
                 (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
                 (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
             ],
-            sorted(mechanisms)
+            sorted(mechanisms, key=lambda x: (x[0], x[1] or ""))
         )
 
         # There are no holds.
@@ -1015,7 +1015,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         self.api.queue_response(200, content=holds_data)
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(loans))
-        eq_(loans.sort(), patron.loans.sort())
+        eq_(loans, patron.loans)
 
     def test_sync_bookshelf_removes_loans_not_present_on_remote(self):
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
@@ -1073,14 +1073,14 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         # All four loans in the sample data were created.
         eq_(4, len(holds))
-        eq_(sorted(holds), sorted(patron.holds))
+        eq_(holds, patron.holds)
 
         # Running the sync again leaves all four holds in place.
         self.api.queue_response(200, content=loans_data)
         self.api.queue_response(200, content=holds_data)
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(holds))
-        eq_(sorted(holds), sorted(patron.holds))
+        eq_(holds, patron.holds)
 
     def test_sync_bookshelf_removes_holds_not_present_on_remote(self):
         loans_data, json_loans = self.sample_json("no_loans.json")
