@@ -381,16 +381,16 @@ class RehostingPolicy(object):
         """Can we rehost this book on a US server?
 
         :param rights: What FeedBooks says about the public domain status
-        of the book.
+            of the book.
 
         :param source: Where FeedBooks got the book.
 
         :param publication_year: When the text was originally published.
 
         :return: True if we can rehost in the US, False if we can't,
-        None if we're not sure. The distinction between False and None
-        is only useful when making lists of books that need to have
-        their rights status manually investigated.
+            None if we're not sure. The distinction between False and None
+            is only useful when making lists of books that need to have
+            their rights status manually investigated.
         """
         if publication_year and publication_year < cls.PUBLIC_DOMAIN_CUTOFF:
             # We will rehost anything published prior to 1923, no

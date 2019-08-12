@@ -569,12 +569,12 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
         """Check out a book on behalf of a patron.
 
         :param patron: a Patron object for the patron who wants
-        to check out the book.
+            to check out the book.
 
         :param pin: The patron's alleged password.
 
         :param licensepool: Identifier of the book to be checked out is
-        attached to this licensepool.
+            attached to this licensepool.
 
         :param internal_format: Represents the patron's desired book format.
 
@@ -896,7 +896,7 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
         """Find Odilo books that changed recently.
 
         :progress: A TimestampData representing the time previously
-        covered by this Monitor.
+            covered by this Monitor.
         """
 
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))

@@ -494,9 +494,9 @@ class Configuration(CoreConfiguration):
         on the number of works available for each.
 
         :param works_by_language: A Counter mapping languages to the
-        number of active works available for that language.  The
-        output of `Library.estimated_holdings_by_language` is a good
-        thing to pass in.
+            number of active works available for that language.  The
+            output of `Library.estimated_holdings_by_language` is a good
+            thing to pass in.
 
         :return: a 3-tuple of lists (large, small, tiny).
         """
@@ -622,7 +622,7 @@ class Configuration(CoreConfiguration):
         :param key: A string containing the key.
 
         :return: A Cipher object which will support either
-        encrypt() (public key) or decrypt() (private key).
+            encrypt() (public key) or decrypt() (private key).
         """
         return PKCS1_OAEP.new(RSA.import_key(key))
 

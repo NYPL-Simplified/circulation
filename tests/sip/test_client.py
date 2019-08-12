@@ -160,6 +160,21 @@ class TestBasicProtocol(object):
         # The login request eventually succeeded.
         eq_({'login_ok': '1', '_status': '94'}, response)
 
+    def test_maximum_resend(self):
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
+
+        # We will keep sending retry messages until we reach the maximum
+        sip.queue_response('96')
+        sip.queue_response('96')
+        sip.queue_response('96')
+        sip.queue_response('96')
+        sip.queue_response('96')
+
+        # After reaching the maximum the client should give an IOError
+        assert_raises(IOError, sip.login)
+
+        # We should send as many requests as we are allowed retries
+        eq_(sip.MAXIMUM_RETRIES, len(sip.requests))
 
 class TestLogin(object):
 
@@ -316,6 +331,20 @@ class TestPatronResponse(object):
             "login_id", "login_password", "location_code"
         )
         assert with_code.endswith("COlogin_password|CPlocation_code")
+
+    def test_institution_id_field_is_always_provided(self):
+        without_institution_arg = self.sip.patron_information_request(
+            "patron_identifier", "patron_password"
+        )
+        assert without_institution_arg.startswith('AO|', 33)
+
+    def test_institution_id_field_value_provided(self):
+        # Fake value retrieved from DB
+        sip = MockSIPClient(institution_id='MAIN')
+        with_institution_provided = sip.patron_information_request(
+            "patron_identifier", "patron_password"
+        )
+        assert with_institution_provided.startswith('AOMAIN|', 33)
 
     def test_patron_password_is_optional(self):
         without_password = self.sip.patron_information_request(

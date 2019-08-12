@@ -805,11 +805,10 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
         """Make the local database reflect the state of the remote Enki
         collection for the given book.
 
-        :param bibliographic: A Metadata object with attached
-        CirculationData
+        :param bibliographic: A Metadata object with attached CirculationData
 
         :return: A 2-tuple (LicensePool, Edition). If possible, a
-        presentation-ready Work will be created for the LicensePool.
+            presentation-ready Work will be created for the LicensePool.
         """
         availability = bibliographic.circulation
         edition, new_edition = bibliographic.edition(self._db)

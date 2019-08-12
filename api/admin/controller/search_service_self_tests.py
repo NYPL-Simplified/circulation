@@ -7,7 +7,7 @@ from core.model import (
     ExternalIntegration
 )
 from core.external_search import ExternalSearchIndex
-from core.tests.test_external_search import ExternalSearchTest
+from core.testing import ExternalSearchTest
 
 from core.selftest import HasSelfTests
 from core.util.problem_detail import ProblemDetail
