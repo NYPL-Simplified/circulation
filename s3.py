@@ -225,7 +225,7 @@ class S3Uploader(MirrorUploader):
         characters themselves alone.
 
         :param key: Either a key, or a list of parts to be
-        assembled into a key.
+                    assembled into a key.
 
         :return: A bytestring that can be used as an S3 key.
 
