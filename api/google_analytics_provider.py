@@ -101,6 +101,9 @@ class GoogleAnalyticsProvider(object):
                     'cd12': "true" if license_pool.open_access else "false",
                 })
         # urlencode doesn't like unicode strings so we convert them to utf8
+        #
+        # TODO PYTHON3 - Presumably urlencode is okay with Unicode
+        # strings in Python 3, and there's a simpler way to do this.
         fields = {k: unicodedata.normalize("NFKD", unicode(v)).encode("utf8") for k, v in fields.iteritems()}
 
         params = re.sub(r"=None(&?)", r"=\1", urllib.urlencode(fields))
