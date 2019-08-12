@@ -407,7 +407,7 @@ class CirculationAPI(object):
                 except CannotLoadConfiguration, e:
                     self.log.error(
                         "Error loading configuration for %s: %s",
-                        collection.name, str(e)
+                        collection.name, unicode(e)
                     )
                     self.initialization_exceptions[collection.id] = e
                 if api:

@@ -139,7 +139,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
         except IOError, e:
             raise RemoteIntegrationException(
-                self.server or 'unknown server', str(e)
+                self.server or 'unknown server', unicode(e)
             )
 
     def _remote_patron_lookup(self, patron_or_patrondata):

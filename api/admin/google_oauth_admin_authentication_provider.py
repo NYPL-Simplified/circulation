@@ -116,7 +116,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
             try:
                 credentials = self.client.step2_exchange(auth_code)
             except GoogleClient.FlowExchangeError, e:
-                return self.google_error_problem_detail(str(e)), None
+                return self.google_error_problem_detail(unicode(e)), None
             email = credentials.id_token.get('email')
             if not self.staff_email(_db, email):
                 return INVALID_ADMIN_CREDENTIALS, None

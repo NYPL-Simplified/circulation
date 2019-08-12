@@ -99,7 +99,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             response = self.request(url)
         except requests.exceptions.ConnectionError, e:
             raise RemoteInitiatedServerError(
-                str(e),
+                unicode(e),
                 self.NAME
             )
         if response.status_code != 200:

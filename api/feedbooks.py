@@ -271,7 +271,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
                 )
             except ValueError as e:
                 # Invalid EPUB
-                self.log.warning("%s: %s" % (representation.url, str(e)))
+                self.log.warning("%s: %s" % (representation.url, unicode(e)))
                 return
 
             css_paths = []

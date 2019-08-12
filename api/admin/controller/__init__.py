@@ -1583,7 +1583,7 @@ class SettingsController(AdminCirculationManagerController):
             # making the configuration changes necessary to fix
             # this problem.
             message = _("Exception getting self-test results for %s %s: %s")
-            args = (self.type, item.name, str(e))
+            args = (self.type, item.name, unicode(e))
             logging.warn(message, *args, exc_info=e)
             self_test_results = dict(exception=message % args)
 
@@ -1799,7 +1799,7 @@ class SitewideRegistrationController(SettingsController):
         try:
             response = do_get(url)
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(str(e))
+            return REMOTE_INTEGRATION_FAILED.detailed(unicode(e))
 
         if isinstance(response, ProblemDetail):
             return response
@@ -1859,7 +1859,7 @@ class SitewideRegistrationController(SettingsController):
                 headers=headers
             )
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(str(e))
+            return REMOTE_INTEGRATION_FAILED.detailed(unicode(e))
         return response
 
     def get_shared_secret(self, response):
