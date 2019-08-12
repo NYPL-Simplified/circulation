@@ -169,7 +169,7 @@ import json
 import urllib
 from core.analytics import Analytics
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-from core.util.binary import base64
+from core.util.string_helpers import base64
 from api.registry import Registration
 
 class ControllerTest(VendorIDTest):

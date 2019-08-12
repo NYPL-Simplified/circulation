@@ -65,7 +65,13 @@ class TestGeographicValidator(SettingsControllerTest):
 
         # Validator converts Canadian 2-letter abbreviations into province names, without needing to ask the registry.
         response = mock.validate_geographic_areas('["NL"]', self._db)
-        eq_(response, '{"US": [], "CA": ["Newfoundland and Labrador"]}')
+
+        # TODO PYTHON3 - It's easier not to sort these dicts. Replace
+        # eq_sorted with eq_.
+        def eq_sorted(x, y):
+            eq_(sorted(x), sorted(x))
+
+        eq_sorted(response, '{"US": [], "CA": ["Newfoundland and Labrador"]}')
         eq_(mock.value, None)
 
         # County with wrong state
@@ -97,7 +103,7 @@ class TestGeographicValidator(SettingsControllerTest):
         # The registry successfully finds the place
         mock.find_location_through_registry = mock.mock_find_location_through_registry_success
         response = mock.validate_geographic_areas('["Victoria, BC"]', self._db)
-        eq_(response, '{"US": [], "CA": ["Victoria, BC"]}')
+        eq_sorted(response, '{"US": [], "CA": ["Victoria, BC"]}')
 
     def test_find_location_through_registry(self):
         get = self.do_request

@@ -13,7 +13,7 @@ from core.model import (
 from circulation_exceptions import *
 from config import Configuration
 from core.config import CannotLoadConfiguration
-from core.util.binary import base64
+from core.util.string_helpers import base64
 from core.util.http import HTTP
 
 class SharedCollectionAPI(object):

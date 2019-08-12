@@ -2635,7 +2635,9 @@ class TestOAuthController(AuthenticatorTest):
         params = dict(provider=self.oauth1.NAME)
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
-        expected_state = dict(redirect_uri="", provider=self.oauth1.NAME)
+        # TODO PYTHON3 the dict keys are in a different order, so the
+        # string comes out different.
+        expected_state = dict(provider=self.oauth1.NAME, redirect_uri="")
         expected_state = urllib.quote(json.dumps(expected_state))
         eq_("http://oauth1.com/?state=" + expected_state, response.location)
 

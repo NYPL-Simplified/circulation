@@ -18,7 +18,7 @@ from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
-from core.util.binary import (
+from core.util.string_helpers import (
     base64,
     random_string,
 )

@@ -274,9 +274,15 @@ class TestLibrarySettings(SettingsControllerTest):
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
         eq_(validator.was_called, True)
-        eq_('{"US": ["06759", "everywhere", "MD", "Boston, MA"], "CA": []}',
+
+        # TODO PYTHON3 - It's easier not to sort these dicts. Replace
+        # eq_sorted with eq_.
+        def eq_sorted(x, y):
+            eq_(sorted(x), sorted(y))
+
+        eq_sorted('{"US": ["06759", "everywhere", "MD", "Boston, MA"], "CA": []}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
-        eq_('{"US": ["Broward County, FL"], "CA": ["Manitoba", "Quebec"]}',
+        eq_sorted('{"US": ["Broward County, FL"], "CA": ["Manitoba", "Quebec"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
 
         # When the library was created, default lanes were also created

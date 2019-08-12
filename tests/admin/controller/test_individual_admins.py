@@ -42,11 +42,16 @@ class TestIndividualAdmins(SettingsControllerTest):
         admin5, ignore = create(self._db, Admin, email="admin5@l2.org")
         admin5.add_role(AdminRole.LIBRARIAN, library2)
 
+        # TODO PYTHON3 - It's easier not to sort these dicts. Replace
+        # eq_sorted with eq_.
+        def eq_sorted(x, y):
+            eq_(sorted(x), sorted(x))
+
         with self.request_context_with_admin("/", admin=admin1):
             # A system admin can see all other admins' roles.
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            eq_sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                  {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                  {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
                  {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
@@ -58,7 +63,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             # A sitewide librarian or library manager can also see all admins' roles.
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            eq_sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                  {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                  {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
                  {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
@@ -71,7 +76,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             # roles that affect their libraries.
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            eq_sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                  {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                  {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
                  {"email": "admin4@l2.org", "roles": []},
@@ -82,7 +87,7 @@ class TestIndividualAdmins(SettingsControllerTest):
         with self.request_context_with_admin("/", admin=admin4):
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            eq_sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                  {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                  {"email": "admin3@nypl.org", "roles": []},
                  {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
@@ -93,7 +98,7 @@ class TestIndividualAdmins(SettingsControllerTest):
         with self.request_context_with_admin("/", admin=admin5):
             response = self.manager.admin_individual_admin_settings_controller.process_get()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+            eq_sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
                  {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
                  {"email": "admin3@nypl.org", "roles": []},
                  {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},

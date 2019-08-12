@@ -168,8 +168,8 @@ class TestSharedCollectionAPI(DatabaseTest):
         client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
         shared_secret = response.get("metadata", {}).get("shared_secret")
 
-        # The encrypted shared secret is a bytestring, so we don't
-        # want to use core.util.binary.base64.
+        # The encrypted shared secret is a bytestring, so we want
+        # to use the standard base64, not core.util.string_helpers.base64.
         decrypted_secret = encryptor.decrypt(base64.b64decode(shared_secret))
 
         # However, we do want to convert the _decrypted_ shared secret

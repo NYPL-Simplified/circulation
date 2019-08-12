@@ -7,7 +7,6 @@ from api.admin.exceptions import *
 from api.admin.problem_details import *
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
-import base64
 import flask
 import functools
 import json
@@ -47,6 +46,7 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
     MockRequestsResponse,
 )
+from core.util.string_helpers import base64
 from datetime import date, datetime, timedelta
 
 class TestWorkController(AdminControllerTest):
@@ -940,7 +940,7 @@ class TestWorkController(AdminControllerTest):
         buffer = BytesIO()
         original.save(buffer, format="PNG")
         image_data = buffer.getvalue()
-        expect = "data:image/png;base64,%s" % base64.b64encode(image_data).decode("utf8")
+        expect = "data:image/png;base64,%s" % base64.b64encode(image_data)
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([

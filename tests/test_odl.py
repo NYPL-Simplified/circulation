@@ -37,7 +37,7 @@ from api.odl import (
     SharedODLImporter,
 )
 from api.circulation_exceptions import *
-from core.util.binary import base64
+from core.util.string_helpers import base64
 from core.util.http import (
     BadResponseException,
     RemoteIntegrationException,

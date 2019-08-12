@@ -14,7 +14,7 @@ from core.model import (
     ExternalIntegration,
 )
 from core.testing import MockRequestsResponse
-from core.util.binary import (
+from core.util.string_helpers import (
     base64, 
     random_string,
 )
@@ -81,7 +81,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             assert response.detail.startswith(
                 "Remote service returned a problem detail document:"
             )
-            assert str(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
+            assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
 
         # If no registration link is available, a ProblemDetail is returned
         catalog = dict(id=self._url, links=[])
