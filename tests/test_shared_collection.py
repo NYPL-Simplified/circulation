@@ -88,7 +88,7 @@ class TestSharedCollectionAPI(DatabaseTest):
         # constructor has been stored in initialization_exceptions.
         e = shared_collection.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        eq_("doomed!", str(e))
+        eq_(u"doomed!", unicode(e))
 
     def test_api_for_licensepool(self):
         collection = self._collection(protocol=ODLAPI.NAME)

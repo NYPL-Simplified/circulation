@@ -759,7 +759,7 @@ class WorkController(AdminCirculationManagerController):
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         b64 = base64.b64encode(buffer.getvalue())
-        value = "data:image/png;base64,%s" % b64.decode("utf8")
+        value = b"data:image/png;base64,%s" % b64.decode("utf8")
 
         return Response(value, 200)
 
