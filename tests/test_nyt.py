@@ -133,9 +133,8 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         eq_("Combined Print & E-Book Fiction", list_info['display_name'])
 
     def test_request_failure(self):
-        """Verify that certain unexpected HTTP results are turned into
-        IntegrationExceptions.
-        """
+        # Verify that certain unexpected HTTP results are turned into
+        # IntegrationExceptions.
         self.api.api_key = "some key"
         def result_403(*args, **kwargs):
             return 403, None, None

@@ -140,7 +140,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
         content = representation.content
         if content is not None:
             content = content.decode("utf8")
-        diagnostic = "Response from %s was: %r" % (
+        diagnostic = "Response from %s was: '%s'" % (
             url, content
         )
 
