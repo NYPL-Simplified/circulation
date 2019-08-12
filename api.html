@@ -16,6 +16,8 @@
     <script type="text/javascript" src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="api.admin package" href="api.admin.html" />
+    <link rel="prev" title="circulation" href="modules.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -759,6 +761,11 @@ file if available, and falls back to the network.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.authenticator.AuthenticationProvider.INSTITUTION_ID">
+<code class="descname">INSTITUTION_ID</code><em class="property"> = 'institution_id'</em><a class="headerlink" href="#api.authenticator.AuthenticationProvider.INSTITUTION_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.authenticator.AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD">
 <code class="descname">LIBRARY_IDENTIFIER_FIELD</code><em class="property"> = 'library_identifier_field'</em><a class="headerlink" href="#api.authenticator.AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -805,7 +812,7 @@ file if available, and falls back to the network.</p>
 
 <dl class="attribute">
 <dt id="api.authenticator.AuthenticationProvider.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'description': l'Derive a patron's type from their identifier.', 'key': 'external_type_regular_expression', 'label': l'External Type Regular Expression'}, {'description': l'When multiple libraries share an ILS, a person may be able to authenticate with the ILS but not be considered a patron of &lt;em&gt;this&lt;/em&gt; library. This setting contains the rule for determining whether an identifier is valid for this specific library. &lt;p/&gt; If this setting it set to 'No Restriction' then the values for &lt;em&gt;Library Identifier Field&lt;/em&gt; and &lt;em&gt;Library Identifier Restriction&lt;/em&gt; will not be used.', 'default': 'none', 'label': l'Library Identifier Restriction Type', 'key': 'library_identifier_restriction_type', 'type': 'select', 'options': [{'key': 'none', 'label': l'No restriction'}, {'key': 'prefix', 'label': l'Prefix Match'}, {'key': 'string', 'label': l'Exact Match'}, {'key': 'regex', 'label': l'Regex Match'}, {'key': 'list', 'label': l'Exact Match, comma separated list'}]}, {'description': l'This is the field on the patron record that the &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is applied to, different patron authentication methods provide different values here. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'default': 'barcode', 'label': l'Library Identifier Field', 'key': 'library_identifier_field', 'type': 'select', 'options': [{'key': 'barcode', 'label': l'Barcode'}]}, {'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction'}]</em><a class="headerlink" href="#api.authenticator.AuthenticationProvider.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'description': l'Derive a patron's type from their identifier.', 'key': 'external_type_regular_expression', 'label': l'External Type Regular Expression'}, {'description': l'When multiple libraries share an ILS, a person may be able to authenticate with the ILS but not be considered a patron of &lt;em&gt;this&lt;/em&gt; library. This setting contains the rule for determining whether an identifier is valid for this specific library. &lt;p/&gt; If this setting it set to 'No Restriction' then the values for &lt;em&gt;Library Identifier Field&lt;/em&gt; and &lt;em&gt;Library Identifier Restriction&lt;/em&gt; will not be used.', 'default': 'none', 'label': l'Library Identifier Restriction Type', 'key': 'library_identifier_restriction_type', 'type': 'select', 'options': [{'key': 'none', 'label': l'No restriction'}, {'key': 'prefix', 'label': l'Prefix Match'}, {'key': 'string', 'label': l'Exact Match'}, {'key': 'regex', 'label': l'Regex Match'}, {'key': 'list', 'label': l'Exact Match, comma separated list'}]}, {'description': l'This is the field on the patron record that the &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is applied to, different patron authentication methods provide different values here. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'default': 'barcode', 'label': l'Library Identifier Field', 'key': 'library_identifier_field', 'type': 'select', 'options': [{'key': 'barcode', 'label': l'Barcode'}]}, {'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction'}, {'description': l'A specific identifier for the library or branch, if used in patron authentication', 'key': 'institution_id', 'label': l'Institution ID'}]</em><a class="headerlink" href="#api.authenticator.AuthenticationProvider.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -3235,12 +3242,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3fc4e20&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4fcfaf0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3dd7060&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x5290d00&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3255,7 +3262,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x423b940&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x52909b0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7872,7 +7879,7 @@ Work, the client has expressed interest in this one.</td>
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'description': l'Derive a patron's type from their identifier.', 'key': 'external_type_regular_expression', 'label': l'External Type Regular Expression'}, {'description': l'When multiple libraries share an ILS, a person may be able to authenticate with the ILS but not be considered a patron of &lt;em&gt;this&lt;/em&gt; library. This setting contains the rule for determining whether an identifier is valid for this specific library. &lt;p/&gt; If this setting it set to 'No Restriction' then the values for &lt;em&gt;Library Identifier Field&lt;/em&gt; and &lt;em&gt;Library Identifier Restriction&lt;/em&gt; will not be used.', 'default': 'none', 'label': l'Library Identifier Restriction Type', 'key': 'library_identifier_restriction_type', 'type': 'select', 'options': [{'key': 'none', 'label': l'No restriction'}, {'key': 'prefix', 'label': l'Prefix Match'}, {'key': 'string', 'label': l'Exact Match'}, {'key': 'regex', 'label': l'Regex Match'}, {'key': 'list', 'label': l'Exact Match, comma separated list'}]}, {'description': l'This is the field on the patron record that the &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is applied to. The option 'barcode' matches the users barcode, other values are pulled directly from the patron record for example: 'P TYPE[p47]'. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'key': 'library_identifier_field', 'label': l'Library Identifier Field'}, {'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction'}]</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'description': l'Derive a patron's type from their identifier.', 'key': 'external_type_regular_expression', 'label': l'External Type Regular Expression'}, {'description': l'When multiple libraries share an ILS, a person may be able to authenticate with the ILS but not be considered a patron of &lt;em&gt;this&lt;/em&gt; library. This setting contains the rule for determining whether an identifier is valid for this specific library. &lt;p/&gt; If this setting it set to 'No Restriction' then the values for &lt;em&gt;Library Identifier Field&lt;/em&gt; and &lt;em&gt;Library Identifier Restriction&lt;/em&gt; will not be used.', 'default': 'none', 'label': l'Library Identifier Restriction Type', 'key': 'library_identifier_restriction_type', 'type': 'select', 'options': [{'key': 'none', 'label': l'No restriction'}, {'key': 'prefix', 'label': l'Prefix Match'}, {'key': 'string', 'label': l'Exact Match'}, {'key': 'regex', 'label': l'Regex Match'}, {'key': 'list', 'label': l'Exact Match, comma separated list'}]}, {'description': l'This is the field on the patron record that the &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is applied to. The option 'barcode' matches the users barcode, other values are pulled directly from the patron record for example: 'P TYPE[p47]'. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'key': 'library_identifier_field', 'label': l'Library Identifier Field'}, {'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction'}, {'description': l'A specific identifier for the library or branch, if used in patron authentication', 'key': 'institution_id', 'label': l'Institution ID'}]</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -7973,7 +7980,7 @@ can override it.</p>
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.setting">
-<code class="descname">setting</code><em class="property"> = {'description': l'This is the restriction applied to the &lt;em&gt;Library Identifier Field&lt;/em&gt; using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; is set to 'No restriction'.', 'key': 'library_identifier_restriction', 'label': l'Library Identifier Restriction'}</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.setting" title="Permalink to this definition">¶</a></dt>
+<code class="descname">setting</code><em class="property"> = {'description': l'A specific identifier for the library or branch, if used in patron authentication', 'key': 'institution_id', 'label': l'Institution ID'}</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.setting" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8005,7 +8012,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 8, 12, 15, 55, 36, 909063)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 8, 22, 14, 32, 52, 309475)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -13208,11 +13215,24 @@ order.</p>
 
 
 <h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">circulation</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">api package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app.html">app module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.html">core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html">scripts module</a></li>
+</ul>
+</li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">circulation</a><ul>
+      <li>Previous: <a href="modules.html" title="previous chapter">circulation</a></li>
+      <li>Next: <a href="api.admin.html" title="next chapter">api.admin package</a></li>
+  </ul></li>
   </ul></li>
 </ul>
 </div>

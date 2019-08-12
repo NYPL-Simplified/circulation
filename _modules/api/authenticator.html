@@ -1154,6 +1154,10 @@
 
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[]</span>
 
+    <span class="c1"># Each library and authentication mechanism may have an ILS-assigned</span>
+    <span class="c1"># branch or institution ID used in the SIP2 AO field.</span>
+    <span class="n">INSTITUTION_ID</span> <span class="o">=</span> <span class="s2">&quot;institution_id&quot;</span>
+
     <span class="c1"># Each library and authentication mechanism may have a regular</span>
     <span class="c1"># expression for deriving a patron&#39;s external type from their</span>
     <span class="c1"># authentication identifier.</span>
@@ -1223,6 +1227,9 @@
                            <span class="s2">&quot;using the method chosen in &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt;. &quot;</span> <span class="o">+</span>
                            <span class="s2">&quot;This value is not used if &lt;em&gt;Library Identifier Restriction Type&lt;/em&gt; &quot;</span> <span class="o">+</span>
                            <span class="s2">&quot;is set to &#39;No restriction&#39;.&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">INSTITUTION_ID</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Institution ID&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;A specific identifier for the library or branch, if used in patron authentication&quot;</span><span class="p">)</span>
         <span class="p">}</span>
     <span class="p">]</span>
 
@@ -1297,6 +1304,10 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier_restriction</span> <span class="o">=</span> <span class="n">restriction</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">library_identifier_restriction</span> <span class="o">=</span> <span class="n">restriction</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">institution_id</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">INSTITUTION_ID</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="s1">&#39;&#39;</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_restriction_matches</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">restriction</span><span class="p">,</span> <span class="n">match_type</span><span class="p">):</span>
@@ -2490,6 +2501,9 @@
 
 
 <h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">circulation</a></li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>

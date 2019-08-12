@@ -273,7 +273,7 @@
     <span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_server</span><span class="p">,</span> <span class="n">target_port</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">use_ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initialize a client for (but do not connect to) a SIP2 server.</span>
@@ -291,6 +291,7 @@
         <span class="k">if</span> <span class="n">target_port</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target_port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">target_port</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">location_code</span> <span class="o">=</span> <span class="n">location_code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">institution_id</span> <span class="o">=</span> <span class="n">institution_id</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">=</span> <span class="n">separator</span> <span class="ow">or</span> <span class="s1">&#39;|&#39;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">use_ssl</span> <span class="o">=</span> <span class="n">use_ssl</span> <span class="ow">or</span> <span class="n">ssl_cert</span> <span class="ow">or</span> <span class="n">ssl_key</span>
@@ -469,7 +470,7 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="SIPClient.end_session_message"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.end_session_message">[docs]</a>    <span class="k">def</span> <span class="nf">end_session_message</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">patron_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">patron_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
             <span class="n">terminal_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -491,7 +492,7 @@
         <span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
 
         <span class="n">message</span> <span class="o">=</span> <span class="p">(</span><span class="n">code</span> <span class="o">+</span> <span class="n">timestamp</span> <span class="o">+</span>
-                   <span class="s2">&quot;AO&quot;</span> <span class="o">+</span> <span class="n">institution_id</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
+                   <span class="s2">&quot;AO&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">institution_id</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
                    <span class="s2">&quot;AA&quot;</span> <span class="o">+</span> <span class="n">patron_identifier</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
                    <span class="s2">&quot;AC&quot;</span> <span class="o">+</span> <span class="n">terminal_password</span>
         <span class="p">)</span>
@@ -513,7 +514,7 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="SIPClient.patron_information_request"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.patron_information_request">[docs]</a>    <span class="k">def</span> <span class="nf">patron_information_request</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">patron_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">patron_identifier</span><span class="p">,</span> <span class="n">patron_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
             <span class="n">terminal_password</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
             <span class="n">language</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
@@ -539,7 +540,7 @@
         <span class="n">summary</span> <span class="o">=</span> <span class="n">summary</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
 
         <span class="n">message</span> <span class="o">=</span> <span class="p">(</span><span class="n">code</span> <span class="o">+</span> <span class="n">language</span> <span class="o">+</span> <span class="n">timestamp</span> <span class="o">+</span> <span class="n">summary</span>
-                   <span class="o">+</span> <span class="s2">&quot;AO&quot;</span> <span class="o">+</span> <span class="n">institution_id</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
+                   <span class="o">+</span> <span class="s2">&quot;AO&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">institution_id</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
                    <span class="s2">&quot;AA&quot;</span> <span class="o">+</span> <span class="n">patron_identifier</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">+</span>
                    <span class="s2">&quot;AC&quot;</span> <span class="o">+</span> <span class="n">terminal_password</span>
         <span class="p">)</span>
@@ -868,10 +869,10 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="s2">&quot;|&quot;</span><span class="p">,</span>
-                 <span class="n">target_server</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                 <span class="n">target_server</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MockSIPClient</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="n">login_user_id</span><span class="p">,</span>
-            <span class="n">login_password</span><span class="o">=</span><span class="n">login_password</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span>
+            <span class="n">login_password</span><span class="o">=</span><span class="n">login_password</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="n">institution_id</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
@@ -920,6 +921,9 @@
 
 
 <h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">circulation</a></li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>

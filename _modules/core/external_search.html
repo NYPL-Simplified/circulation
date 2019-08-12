@@ -1355,7 +1355,21 @@
     <span class="c1">#</span>
     <span class="c1"># That said, this is a coefficient, not a weight -- a keyword</span>
     <span class="c1"># title match is better than a keyword subtitle match, etc.</span>
-    <span class="n">KEYWORD_MATCH_COEFFICIENT</span> <span class="o">=</span> <span class="mi">1000</span>
+    <span class="n">DEFAULT_KEYWORD_MATCH_COEFFICIENT</span> <span class="o">=</span> <span class="mi">1000</span>
+
+    <span class="c1"># Normally we weight keyword matches very highly, but for</span>
+    <span class="c1"># publishers and imprints, where a keyword match may also be a</span>
+    <span class="c1"># partial author match (&quot;Plympton&quot;) or topic match (&quot;Penguin&quot;), we</span>
+    <span class="c1"># weight them much lower -- the author or topic is probably more</span>
+    <span class="c1"># important.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Again, these are coefficients, not weights. A keyword publisher</span>
+    <span class="c1"># match is better than a keyword imprint match, even though they have</span>
+    <span class="c1"># the same keyword match coefficient.</span>
+    <span class="n">KEYWORD_MATCH_COEFFICIENT_FOR_FIELD</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="n">publisher</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">imprint</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="c1"># A normal coefficient for a normal sort of match.</span>
     <span class="n">BASELINE_COEFFICIENT</span> <span class="o">=</span> <span class="mi">1</span>
@@ -1642,11 +1656,19 @@
         <span class="n">base_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">WEIGHT_FOR_FIELD</span><span class="p">[</span><span class="n">base_field</span><span class="p">]</span>
 
         <span class="n">query_string</span> <span class="o">=</span> <span class="n">query_string</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_string</span>
+
+        <span class="n">keyword_match_coefficient</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">KEYWORD_MATCH_COEFFICIENT_FOR_FIELD</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">base_field</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_KEYWORD_MATCH_COEFFICIENT</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
         <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span>
             <span class="c1"># A keyword match means the field value is a near-exact</span>
             <span class="c1"># match for the query string. This is one of the best</span>
             <span class="c1"># search results we can possibly return.</span>
-            <span class="p">(</span><span class="s1">&#39;keyword&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KEYWORD_MATCH_COEFFICIENT</span><span class="p">,</span> <span class="n">Term</span><span class="p">),</span>
+            <span class="p">(</span><span class="s1">&#39;keyword&#39;</span><span class="p">,</span> <span class="n">keyword_match_coefficient</span><span class="p">,</span> <span class="n">Term</span><span class="p">),</span>
 
             <span class="c1"># This is the baseline query -- a phrase match against a</span>
             <span class="c1"># single field. Most queries turn out to represent</span>
@@ -3192,6 +3214,9 @@
 
 
 <h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">circulation</a></li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>

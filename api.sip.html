@@ -16,6 +16,8 @@
     <script type="text/javascript" src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="api.util package" href="api.util.html" />
+    <link rel="prev" title="api.clever package" href="api.clever.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -76,7 +78,7 @@ limitations under the License.</p>
 
 <dl class="class">
 <dt id="api.sip.client.MockSIPClient">
-<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">MockSIPClient</code><span class="sig-paren">(</span><em>login_user_id=None</em>, <em>login_password=None</em>, <em>separator='|'</em>, <em>target_server=None</em>, <em>target_port=None</em>, <em>location_code=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">MockSIPClient</code><span class="sig-paren">(</span><em>login_user_id=None</em>, <em>login_password=None</em>, <em>separator='|'</em>, <em>target_server=None</em>, <em>target_port=None</em>, <em>location_code=None</em>, <em>institution_id=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#MockSIPClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.MockSIPClient" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.sip.client.SIPClient" title="api.sip.client.SIPClient"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.sip.client.SIPClient</span></code></a></p>
 <p>A SIP client that relies on canned responses rather than a socket
 connection.</p>
@@ -128,7 +130,7 @@ that it be resent.</p>
 
 <dl class="class">
 <dt id="api.sip.client.SIPClient">
-<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">SIPClient</code><span class="sig-paren">(</span><em>target_server</em>, <em>target_port</em>, <em>login_user_id=None</em>, <em>login_password=None</em>, <em>location_code=None</em>, <em>separator=None</em>, <em>use_ssl=False</em>, <em>ssl_cert=None</em>, <em>ssl_key=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.sip.client.</code><code class="descname">SIPClient</code><span class="sig-paren">(</span><em>target_server</em>, <em>target_port</em>, <em>login_user_id=None</em>, <em>login_password=None</em>, <em>location_code=None</em>, <em>institution_id=''</em>, <em>separator=None</em>, <em>use_ssl=False</em>, <em>ssl_cert=None</em>, <em>ssl_key=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.sip.client.Constants" title="api.sip.client.Constants"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.sip.client.Constants</span></code></a></p>
 <dl class="attribute">
 <dt id="api.sip.client.SIPClient.CARD_REPORTED_LOST">
@@ -271,7 +273,7 @@ given response string, and verify that it’s as expected.</p>
 
 <dl class="method">
 <dt id="api.sip.client.SIPClient.end_session_message">
-<code class="descname">end_session_message</code><span class="sig-paren">(</span><em>patron_identifier</em>, <em>patron_password=''</em>, <em>institution_id=''</em>, <em>terminal_password=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.end_session_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.end_session_message" title="Permalink to this definition">¶</a></dt>
+<code class="descname">end_session_message</code><span class="sig-paren">(</span><em>patron_identifier</em>, <em>patron_password=''</em>, <em>terminal_password=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.end_session_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.end_session_message" title="Permalink to this definition">¶</a></dt>
 <dd><p>This message will be sent when a patron has completed all of their
 transactions. The ACS may, upon receipt of this command, close any
 open files or deallocate data structures pertaining to that patron.
@@ -434,7 +436,7 @@ print line: AG, var-length, optional</p>
 
 <dl class="method">
 <dt id="api.sip.client.SIPClient.patron_information_request">
-<code class="descname">patron_information_request</code><span class="sig-paren">(</span><em>patron_identifier</em>, <em>patron_password=''</em>, <em>institution_id=''</em>, <em>terminal_password=''</em>, <em>language=None</em>, <em>summary=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.patron_information_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.patron_information_request" title="Permalink to this definition">¶</a></dt>
+<code class="descname">patron_information_request</code><span class="sig-paren">(</span><em>patron_identifier</em>, <em>patron_password=''</em>, <em>terminal_password=''</em>, <em>language=None</em>, <em>summary=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/sip/client.html#SIPClient.patron_information_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.sip.client.SIPClient.patron_information_request" title="Permalink to this definition">¶</a></dt>
 <dd><p>A superset of patron status request.</p>
 <p>Format of message to send to ILS:
 63&lt;language&gt;&lt;transaction date&gt;&lt;summary&gt;&lt;institution id&gt;&lt;patron identifier&gt;
@@ -877,11 +879,26 @@ number/authorization identifier.</li>
 
 
 <h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">circulation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="api.html">api package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app.html">app module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core.html">core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html">scripts module</a></li>
+</ul>
+</li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">circulation</a><ul>
+  <li><a href="api.html">api package</a><ul>
+      <li>Previous: <a href="api.clever.html" title="previous chapter">api.clever package</a></li>
+      <li>Next: <a href="api.util.html" title="next chapter">api.util package</a></li>
+  </ul></li>
+  </ul></li>
   </ul></li>
 </ul>
 </div>
