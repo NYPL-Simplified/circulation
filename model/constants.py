@@ -3,6 +3,7 @@
 # MediaTypes
 
 import re
+from collections import OrderedDict
 
 class DataSourceConstants(object):
     GUTENBERG = u"Gutenberg"
@@ -259,24 +260,26 @@ class MediaTypes(object):
     # to stick with A.
     GENERIC_MEDIA_TYPES = [OCTET_STREAM_MEDIA_TYPE]
 
-    FILE_EXTENSIONS = {
-        EPUB_MEDIA_TYPE: "epub",
-        MOBI_MEDIA_TYPE: "mobi",
-        PDF_MEDIA_TYPE: "pdf",
-        MP3_MEDIA_TYPE: "mp3",
-        MP4_MEDIA_TYPE: "mp4",
-        WMV_MEDIA_TYPE: "wmv",
-        JPEG_MEDIA_TYPE: "jpg",
-        PNG_MEDIA_TYPE: "png",
-        SVG_MEDIA_TYPE: "svg",
-        GIF_MEDIA_TYPE: "gif",
-        ZIP_MEDIA_TYPE: "zip",
-        TEXT_PLAIN: "txt",
-        TEXT_HTML_MEDIA_TYPE: "html",
-        APPLICATION_XML_MEDIA_TYPE: "xml",
-        AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest",
-        SCORM_MEDIA_TYPE: "zip"
-    }
+    FILE_EXTENSIONS = OrderedDict(
+        [
+            (EPUB_MEDIA_TYPE, "epub"),
+            (MOBI_MEDIA_TYPE, "mobi"),
+            (PDF_MEDIA_TYPE, "pdf"),
+            (MP3_MEDIA_TYPE, "mp3"),
+            (MP4_MEDIA_TYPE, "mp4"),
+            (WMV_MEDIA_TYPE, "wmv"),
+            (JPEG_MEDIA_TYPE, "jpg"),
+            (PNG_MEDIA_TYPE, "png"),
+            (SVG_MEDIA_TYPE, "svg"),
+            (GIF_MEDIA_TYPE, "gif"),
+            (ZIP_MEDIA_TYPE, "zip"),
+            (TEXT_PLAIN, "txt"),
+            (TEXT_HTML_MEDIA_TYPE, "html"),
+            (APPLICATION_XML_MEDIA_TYPE, "xml"),
+            (AUDIOBOOK_MANIFEST_MEDIA_TYPE, "audiobook-manifest"),
+            (SCORM_MEDIA_TYPE, "zip")
+        ]
+    )
 
     COMMON_EBOOK_EXTENSIONS = ['.epub', '.pdf']
     COMMON_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
@@ -286,15 +289,10 @@ class MediaTypes(object):
         ".htm" : TEXT_HTML_MEDIA_TYPE,
         ".jpeg" : JPEG_MEDIA_TYPE,
     }
-    # PYTHON3 TODO: This happens to work in Python 2, but in Python 3,
-    # items come out of MEDIA_TYPE_FOR_EXTENSION in the order they
-    # were inserted, so we need to take steps to ensure
-    # SCORM_MEDIA_TYPE doesn't claim '.zip'.
-    # 
+
     for media_type, extension in FILE_EXTENSIONS.items():
         extension = '.' + extension
-        # PYTHON3 TODO remove "or True"
-        if extension not in MEDIA_TYPE_FOR_EXTENSION or True:
+        if extension not in MEDIA_TYPE_FOR_EXTENSION:
             # FILE_EXTENSIONS lists more common extensions first.  If
             # multiple media types have the same extension, the most
             # common media type will be used.
