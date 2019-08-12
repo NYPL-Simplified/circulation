@@ -58,7 +58,6 @@ from model import (
 )
 
 from coverage import CoverageFailure
-from util.binary import base64
 from util.http import (
     BadResponseException,
     HTTP,
@@ -67,6 +66,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
+from util.string import base64
 from mirror import MirrorUploader
 from selftest import HasSelfTests
 

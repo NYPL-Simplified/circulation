@@ -1,4 +1,6 @@
-# Helper functions for dealing with binary
+# Helper functions and objects regarding strings -- especially stuff
+# that lets us negotiate the distinction between Unicode and
+# bytestrings.
 
 import base64 as stdlib_base64
 import binascii

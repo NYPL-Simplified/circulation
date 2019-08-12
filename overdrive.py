@@ -59,8 +59,8 @@ from util.http import (
     HTTP,
     BadResponseException,
 )
+from util.string import base64
 from util.worker_pools import RLock
-from util.binary import base64
 
 from testing import MockRequestsResponse
 

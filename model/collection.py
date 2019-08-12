@@ -55,7 +55,7 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 
-from ..util.binary import base64
+from ..util.string import base64
 
 class Collection(Base, HasFullTableCache):
 

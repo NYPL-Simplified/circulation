@@ -1,4 +1,4 @@
-# Test the binary-data helper classes in util.binary.
+# Test the helper objects in util.string.
 
 from nose.tools import (
     assert_raises,
@@ -8,7 +8,7 @@ import base64 as stdlib_base64
 import random
 import re
 
-from ..util.binary import (
+from ..util.string import (
     UnicodeAwareBase64,
     base64,
     random_string
@@ -69,7 +69,7 @@ class TestUnicodeAwareBase64(object):
             eq_(decoded, decode_method(base_encoded))
 
     def test_default_is_base64(self):
-        # If you import "base64" from util.binary, you get a
+        # If you import "base64" from util.string, you get a
         # UnicodeAwareBase64 object that encodes as UTF-8 by default.
         assert isinstance(base64, UnicodeAwareBase64)
         eq_("utf8", base64.encoding)

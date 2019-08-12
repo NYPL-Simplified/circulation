@@ -15,7 +15,7 @@ from constants import DataSourceConstants
 from hasfulltablecache import HasFullTableCache
 from library import Library
 from ..mirror import MirrorUploader
-from ..util.binary import random_string
+from ..util.string import random_string
 
 import json
 import logging
