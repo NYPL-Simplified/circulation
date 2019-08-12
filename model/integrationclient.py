@@ -97,4 +97,4 @@ class IntegrationClient(Base):
         return None
 
     def randomize_secret(self):
-        self.shared_secret = unicode(os.urandom(24).encode('hex'))
+        self.shared_secret = random_string(24)
