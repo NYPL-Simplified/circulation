@@ -744,8 +744,8 @@ class WorkController(AdminCirculationManagerController):
     def preview_book_cover(self, identifier_type, identifier):
         """Return a preview of the submitted cover image information.
 
-        :return: A Response in which the entity-body is a Unicode string containing
-        a base64-encoded image.
+        :return: A Response in which the entity-body is a Unicode
+                 string containing a base64-encoded image.
         """
         self.require_librarian(flask.request.library)
         work = self.load_work(flask.request.library, identifier_type, identifier)
