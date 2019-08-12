@@ -753,14 +753,14 @@ class TestAuthdataUtility(VendorIDTest):
         eq_(("http://my-library.org/", "Patron identifier"), decoded)
 
     def test_encode(self):
-        """Test that _encode gives a known value with known input."""
+        # Test that _encode gives a known value with known input.
 
         # Three pieces of data go into our JWT.
         patron_identifier = "Patron identifier"
         now = datetime.datetime(2016, 1, 1, 12, 0, 0)
         expires = datetime.datetime(2018, 1, 1, 12, 0, 0)
 
-        raw_jwt = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwic3ViIjoiUGF0cm9uIGlkZW50aWZpZXIiLCJpYXQiOjE0NTE2NDk2MDAuMCwiZXhwIjoxNTE0ODA4MDAwLjB9.Ua11tFCpC4XAgwhR6jFyoxfHy4s1zt2Owg4dOoCefYA'
+        raw_jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwic3ViIjoiUGF0cm9uIGlkZW50aWZpZXIiLCJpYXQiOjE0NTE2NDk2MDAuMCwiZXhwIjoxNTE0ODA4MDAwLjB9.wKAnFfJVfJP55CIyD7PntFZrtWVTwDcXHjL-quTndzc'
         base64_encoded_jwt = base64.b64encode(raw_jwt).strip()
 
         # We can't call self.authdata._decode to peek into raw_jwt,
@@ -768,8 +768,8 @@ class TestAuthdataUtility(VendorIDTest):
         # test and you need to look at the pieces that make up
         # raw_jwt, you can call PyJWT._load(), like so:
         from jwt.api_jwt import _jwt_global_obj
-        loaded_jwt = _jwt_global_obj._load(raw_jwt)
-        payload = loaded_jwt[0]
+        expect_jwt = _jwt_global_obj._load(raw_jwt)
+        payload = expect_jwt[0]
         payload_dict = json.loads(payload)
         eq_("Patron identifier", payload_dict['sub'])
 
@@ -777,6 +777,8 @@ class TestAuthdataUtility(VendorIDTest):
         authdata = self.authdata._encode(
             self.authdata.library_uri, patron_identifier, now, expires
         )
+        actual_jwt = _jwt_global_obj._load(base64.b64decode(authdata))
+        eq_(expect_jwt, actual_jwt)
         eq_(base64_encoded_jwt, authdata)
 
 

@@ -1,4 +1,5 @@
 import argparse
+from collections import OrderedDict
 from nose.tools import set_trace
 import json
 import logging
@@ -793,7 +794,11 @@ class AuthdataUtility(object):
 
     def _encode(self, iss=None, sub=None, iat=None, exp=None):
         """Helper method split out separately for use in tests."""
-        payload = dict(iss=iss)                    # Issuer
+
+        # PYTHON3 TODO This is an OrderedDict so that the sample
+        # JWT we use in tests will be the same across versions.
+        payload = OrderedDict()
+        payload['iss'] = iss                       # Issuer
         if sub:
             payload['sub'] = sub                   # Subject
         if iat:
