@@ -105,6 +105,8 @@ Environment variables can be set with the `-e VARIABLE_KEY='variable_value'` opt
 
 If you plan to work with stable versions of the Circulation Manager, we strongly recommend using the latest stable versions of circ-webapp and circ-scripts [published to Docker Hub](https://hub.docker.com/r/nypl/). However, there may come a time in development when you want to build Docker containers for a particular version of the Circulation Manager. If so, please use the instructions below.
 
+We recommend you install at least version 18.06 of the Docker engine and version 1.24 of Docker Compose.
+
 ### > `.webapp` and `.scripts`
 
 Determine which container you would like to build and update the tag and Dockerfile listed below accordingly.

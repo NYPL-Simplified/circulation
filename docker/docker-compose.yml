@@ -9,7 +9,8 @@ services:
     volumes:
       - "dbdata:/var/lib/postgresql/data"
   es:
-    image: "elasticsearch:6.8.1"
+    # Use the latest version of Elasticsearch supported by Amazon AWS ES.
+    image: "elasticsearch:6.7.2"
   webapp:
     build:
       context: .
