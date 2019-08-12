@@ -9,7 +9,7 @@ services:
     volumes:
       - "dbdata:/var/lib/postgresql/data"
   es:
-    image: "elasticsearch:1"
+    image: "elasticsearch:6.8.1"
   webapp:
     build:
       context: .
