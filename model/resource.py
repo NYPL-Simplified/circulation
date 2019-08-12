@@ -1056,6 +1056,7 @@ class Representation(Base, MediaTypes):
     ):
         """Determine whether making a GET request to a given URL is likely to
         have a useful result.
+
         :param URL: URL under consideration.
         :param headers: Headers that would be sent with the GET request.
         :param do_not_access: Domains to which GET requests are not useful.

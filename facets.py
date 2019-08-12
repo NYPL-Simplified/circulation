@@ -53,6 +53,12 @@ class FacetConstants(object):
     ORDER_ASCENDING = "asc"
     ORDER_DESCENDING = "desc"
 
+    # Most facets should be ordered in ascending order by default (A>-Z), but
+    # these dates should be ordered descending by default (new->old).
+    ORDER_DESCENDING_BY_DEFAULT = [
+        ORDER_ADDED_TO_COLLECTION, ORDER_LAST_UPDATE
+    ]
+
     FACETS_BY_GROUP = {
         COLLECTION_FACET_GROUP_NAME: COLLECTION_FACETS,
         AVAILABILITY_FACET_GROUP_NAME: AVAILABILITY_FACETS,
@@ -109,6 +115,16 @@ class FacetConstants(object):
         ORDER_FACET_GROUP_NAME : ORDER_AUTHOR,
         AVAILABILITY_FACET_GROUP_NAME : AVAILABLE_ALL,
         COLLECTION_FACET_GROUP_NAME : COLLECTION_MAIN,
+    }
+
+    SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME = {
+        ORDER_TITLE : "sort_title",
+        ORDER_AUTHOR : "sort_author",
+        ORDER_LAST_UPDATE : 'last_update_time',
+        ORDER_ADDED_TO_COLLECTION : 'licensepools.availability_time',
+        ORDER_SERIES_POSITION : ['series_position', 'sort_title'],
+        ORDER_WORK_ID : '_id',
+        ORDER_RANDOM : 'random',
     }
 
 

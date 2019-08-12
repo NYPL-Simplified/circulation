@@ -204,17 +204,18 @@ class DelegatedPatronIdentifier(Base):
     ):
         """Look up the delegated identifier for the given patron. If there is
         none, create one.
+
         :param library_uri: A URI identifying the patron's library.
         :param patron_identifier: An identifier used by that library to
-         distinguish between this patron and others. This should be
-         an identifier created solely for the purpose of identifying the
-         patron with _this_ library, and not (e.g.) the patron's barcode.
+            distinguish between this patron and others. This should be
+            an identifier created solely for the purpose of identifying the
+            patron with _this_ library, and not (e.g.) the patron's barcode.
         :param identifier_type: The type of the delegated identifier
-         to look up. (probably ADOBE_ACCOUNT_ID)
+            to look up. (probably ADOBE_ACCOUNT_ID)
         :param create_function: If this patron does not have a
-         DelegatedPatronIdentifier, one will be created, and this
-         function will be called to determine the value of
-         DelegatedPatronIdentifier.delegated_identifier.
+            DelegatedPatronIdentifier, one will be created, and this
+            function will be called to determine the value of
+            DelegatedPatronIdentifier.delegated_identifier.
         :return: A 2-tuple (DelegatedPatronIdentifier, is_new)
         """
         identifier, is_new = get_one_or_create(

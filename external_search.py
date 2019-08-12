@@ -1,23 +1,35 @@
+from collections import defaultdict
+import contextlib
+import datetime
 from nose.tools import set_trace
 import json
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
-from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch.exceptions import (
+    RequestError,
+    ElasticsearchException,
+)
 from elasticsearch_dsl import (
     Index,
     Search,
-    Q,
+    SF,
 )
-try:
-    from elasticsearch_dsl import F
-    MAJOR_VERSION = 1
-except ImportError, e:
-    from elasticsearch_dsl import Q as F
-    MAJOR_VERSION = 6
 from elasticsearch_dsl.query import (
     Bool,
-    Query as BaseQuery
+    DisMax,
+    Exists,
+    FunctionScore,
+    Match,
+    MatchAll,
+    MatchPhrase,
+    MultiMatch,
+    Nested,
+    Query as BaseQuery,
+    SimpleQueryString,
+    Term,
+    Terms,
 )
+from spellchecker import SpellChecker
 
 from flask_babel import lazy_gettext as _
 from config import (
@@ -29,31 +41,61 @@ from classifier import (
     GradeLevelClassifier,
     AgeClassifier,
 )
+from facets import FacetConstants
+from metadata_layer import IdentifierData
 from model import (
     numericrange_to_tuple,
     Collection,
+    Contributor,
+    ConfigurationSetting,
+    DataSource,
+    Edition,
     ExternalIntegration,
+    Identifier,
     Library,
     Work,
     WorkCoverageRecord,
 )
+from lane import Pagination
 from monitor import WorkSweepMonitor
 from coverage import (
     CoverageFailure,
     WorkPresentationProvider,
 )
+from problem_details import INVALID_INPUT
 from selftest import (
     HasSelfTests,
     SelfTestResult,
 )
+from util.personal_names import display_name_to_sort_name
+from util.problem_detail import ProblemDetail
+from util.stopwords import ENGLISH_STOPWORDS
+
 import os
 import logging
 import re
 import time
 
+@contextlib.contextmanager
+def mock_search_index(mock=None):
+    """Temporarily mock the ExternalSearchIndex implementation
+    returned by the load() class method.
+    """
+    try:
+        ExternalSearchIndex.MOCK_IMPLEMENTATION = mock
+        yield mock
+    finally:
+        ExternalSearchIndex.MOCK_IMPLEMENTATION = None
+
+
 class ExternalSearchIndex(HasSelfTests):
 
     NAME = ExternalIntegration.ELASTICSEARCH
+
+    # A test may temporarily set this to a mock of this class.
+    # While that's true, load() will return the mock instead of
+    # instantiating new ExternalSearchIndex objects.
+    MOCK_IMPLEMENTATION = None
 
     WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
     DEFAULT_WORKS_INDEX_PREFIX = u'circulation-works'
@@ -105,8 +147,8 @@ class ExternalSearchIndex(HasSelfTests):
         """Prefix the given value with the prefix to use when generating index
         and alias names.
 
-        :return: A string "{prefix}-{value}", or None if no prefix is
-        configured.
+        :return: A string "{prefix}-{value}", or None if no prefix is configured.
+
         """
         integration = cls.search_integration(_db)
         if not integration:
@@ -124,25 +166,43 @@ class ExternalSearchIndex(HasSelfTests):
         new one needed to be created, this would be the name of that
         index.
         """
-        return cls.works_prefixed(_db, ExternalSearchIndexVersions.latest())
+        return cls.works_prefixed(_db, CurrentMapping.version_name())
 
     @classmethod
     def works_alias_name(cls, _db):
         """Look up the name of the search index alias."""
         return cls.works_prefixed(_db, cls.CURRENT_ALIAS_SUFFIX)
 
+    @classmethod
+    def load(cls, _db, *args, **kwargs):
+        """Load a generic implementation."""
+        if cls.MOCK_IMPLEMENTATION:
+            return cls.MOCK_IMPLEMENTATION
+        return cls(_db, *args, **kwargs)
+
     def __init__(self, _db, url=None, works_index=None, test_search_term=None,
-                 in_testing=False):
+                 in_testing=False, mapping=None):
         """Constructor
 
         :param in_testing: Set this to true if you don't want an
         Elasticsearch client to be created, e.g. because you're
         running a unit test of the constructor.
+
+
+        :param mapping: A custom Mapping object, for use in unit tests. By
+        default, the most recent mapping will be instantiated.
         """
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
         integration = None
+
+        self.mapping = mapping or CurrentMapping()
+
+        if isinstance(url, ExternalIntegration):
+            # This is how the self-test initializes this object.
+            integration = url
+            url = integration.url
 
         if not _db:
             raise CannotLoadConfiguration(
@@ -181,13 +241,18 @@ class ExternalSearchIndex(HasSelfTests):
             self.index = self.__client.index
             self.delete = self.__client.delete
             self.exists = self.__client.exists
+            self.put_script = self.__client.put_script
 
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
-        if works_index and integration:
+        if works_index and integration and not in_testing:
             try:
                 self.set_works_index_and_alias(_db)
+            except RequestError, e:
+                # This is almost certainly a problem with our code,
+                # not a communications error.
+                raise e
             except ElasticsearchException, e:
                 raise CannotLoadConfiguration(
                     "Exception communicating with Elasticsearch server: %s" %
@@ -213,6 +278,9 @@ class ExternalSearchIndex(HasSelfTests):
 
         # Make sure the alias points to the most recent index.
         self.setup_current_alias(_db)
+
+        # Make sure the stored scripts for the latest mapping exist.
+        self.set_stored_scripts()
 
     def setup_current_alias(self, _db):
         """Finds or creates the works_alias as named by the current site
@@ -268,14 +336,27 @@ class ExternalSearchIndex(HasSelfTests):
         """
         index_name = new_index or self.works_index
         if self.indices.exists(index_name):
+            self.log.info("Deleting index %s", index_name)
             self.indices.delete(index_name)
 
         self.log.info("Creating index %s", index_name)
-        body = ExternalSearchIndexVersions.latest_body()
+        body = self.mapping.body()
         body.setdefault('settings', {}).update(index_settings)
-        index = self.indices.create(
-            index=index_name, body=body
-        )
+        index = self.indices.create(index=index_name, body=body)
+
+    def set_stored_scripts(self):
+        for name, definition in self.mapping.stored_scripts():
+            # Make sure the name of the script is scoped and versioned.
+            if not name.startswith("simplified."):
+                name = self.mapping.script_name(name)
+
+            # If only the source code was provided, configure it as a
+            # Painless script.
+            if isinstance(definition, basestring):
+                definition = dict(script=dict(lang="painless", source=definition))
+
+            # Put it in the database.
+            self.put_script(name, definition)
 
     def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
@@ -332,38 +413,38 @@ class ExternalSearchIndex(HasSelfTests):
 
         return base_works_index
 
-    def create_search_doc(self, query_string, filter,
-                    debug, return_raw_results):
+    def create_search_doc(self, query_string, filter, pagination,
+                          debug):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
-        search = self.search.query(query.build())
+        search = query.build(self.search, pagination)
         if debug:
             search = search.extra(explain=True)
 
         fields = None
-        if debug or return_raw_results:
+        if debug:
             # Don't restrict the fields at all -- get everything.
             # This makes it easy to investigate everything about the
             # results we do get.
-            fields = None
+            fields = ['*']
         else:
-            # All we absolutely need is the document ID, which is a
-            # key into the database.
-            fields = ["_id"]
+            # All we absolutely need is the work ID, which is a
+            # key into the database, plus the values of any script fields,
+            # which represent data not available through the database.
+            fields = ["work_id"]
+            if filter:
+                fields += filter.script_fields.keys()
 
         # Change the Search object so it only retrieves the fields
         # we're asking for.
         if fields:
-            if MAJOR_VERSION == 1:
-                search = search.fields(fields)
-            else:
-                search = search.source(fields)
+            search = search.source(fields)
 
         return search
 
     def query_works(self, query_string, filter=None, pagination=None,
-                    debug=False, return_raw_results=False):
+                    debug=False):
         """Run a search query.
 
         :param query_string: The string to search for.
@@ -371,59 +452,91 @@ class ExternalSearchIndex(HasSelfTests):
             would otherwise match the query string.
         :param pagination: A Pagination object, used to get a subset
             of the search results.
-        :param debug: If this is True, some debugging information will
-            be gathered (at a slight performance cost) and logged.
-        :param return_raw_results: If this is False (the default)
-            the return value will be a list of work IDs. If this is
-            true, the full result documents will be returned.
-        :return: A list of Work IDs that match the query string, or
-            (if return_raw_results is True) a list of dictionaries
-            representing search results.
+        :param debug: If this is True, debugging information will
+            be gathered and logged. The search query will ask
+            ElasticSearch for all available fields, not just the
+            fields known to be used by the feed generation code.  This
+            all comes at a slight performance cost.
+        :return: A list of Hit objects containing information about
+            the search results, including the values of any script fields
+            calculated by ElasticSearch during the search process.
         """
         if not self.works_alias:
             return []
 
-        search = self.create_search_doc(query_string, filter=filter, debug=debug, return_raw_results=return_raw_results)
         if not pagination:
-            from lane import Pagination
             pagination = Pagination.default()
+
+        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug)
+        if filter is not None and filter.match_nothing is True:
+            # We already know that the search should match nothing.
+            # We don't even need to perform the search.
+            return []
         start = pagination.offset
         stop = start + pagination.size
 
+        function_scores = filter.scoring_functions if filter else None
+        if function_scores:
+            function_score = FunctionScore(
+                query=dict(match_all=dict()),
+                functions=function_scores,
+                score_mode="sum"
+            )
+            search = search.query(function_score)
         a = time.time()
+
+        results = search[start:stop]
+        # Convert the Search object into a list of hits.
+        #
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
-        results = search[start:stop]
+        results = [x for x in results]
+
         if debug:
             b = time.time()
-            self.log.info("Elasticsearch query completed in %.2fsec", b-a)
+            self.log.debug(
+                "Elasticsearch query %r completed in %.3fsec",
+                query_string, b-a
+            )
             for i, result in enumerate(results):
                 self.log.debug(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
-                    i, result.title, result.author, result.meta['id'],
-                    result.meta['score'], result.meta['shard']
+                    i, result.sort_title, result.sort_author, result.meta['id'],
+                    result.meta['score'] or 0, result.meta['shard']
                 )
-        if return_raw_results:
-            return results
-        return [int(result.meta['id']) for result in results]
+
+        # Tell the Pagination object about this page -- this may help
+        # it set up to generate a link to the next page.
+        pagination.page_loaded(results)
+
+        return results
+
+    def count_works(self, filter):
+        """Instead of retrieving works that match `filter`, count the total."""
+        if filter is not None and filter.match_nothing is True:
+            # We already know that the filter should match nothing.
+            # We don't even need to perform the count.
+            return 0
+        qu = self.create_search_doc(
+            query_string=None, filter=filter, pagination=None, debug=False
+        )
+        return qu.count()
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
+
+        if not works:
+            # There's nothing to do. Don't bother making any requests
+            # to the search index.
+            return [], []
 
         time1 = time.time()
         needs_add = []
         successes = []
         for work in works:
-            if work.presentation_ready:
-                needs_add.append(work)
-            else:
-                # Works are removed one at a time, which shouldn't
-                # pose a performance problem because works almost never
-                # stop being presentation ready.
-                self.remove_work(work)
-                successes.append(work)
+            needs_add.append(work)
 
-        # Add any works that need adding.
+        # Add/update any works that need adding/updating.
         docs = Work.to_search_documents(needs_add)
 
         for doc in docs:
@@ -439,8 +552,6 @@ class ExternalSearchIndex(HasSelfTests):
 
         # If the entire update failed, try it one more time before
         # giving up on the batch.
-        #
-        # Removed works were already removed, so no need to try them again.
         if len(errors) == len(docs):
             if retry_on_batch_failure:
                 self.log.info("Elasticsearch bulk update timed out, trying again.")
@@ -508,19 +619,19 @@ class ExternalSearchIndex(HasSelfTests):
         def _search():
             return self.create_search_doc(
                 self.test_search_term, filter=None,
-                debug=True, return_raw_results=True
+                pagination=None, debug=True
             )
 
         def _works():
             return self.query_works(
                 self.test_search_term, filter=None, pagination=None,
-                debug=False, return_raw_results=True
+                debug=True
             )
 
         # The self-tests:
 
         def _search_for_term():
-            titles = [("%s (%s)" %(x.title, x.author)) for x in _works()]
+            titles = [("%s (%s)" %(x.sort_title, x.sort_author)) for x in _works()]
             return titles
 
         yield self.run_test(
@@ -552,9 +663,8 @@ class ExternalSearchIndex(HasSelfTests):
         def _count_docs():
             # The mock methods used in testing return a list, so we have to call len() rather than count().
             if in_testing:
-                return str(len(_works()))
-
-            return str(_works().count())
+                return str(len(self.search))
+            return str(self.search.count())
 
         yield self.run_test(
             ("Total number of search results for '%s':" %(self.test_search_term)),
@@ -562,11 +672,7 @@ class ExternalSearchIndex(HasSelfTests):
         )
 
         def _total_count():
-            # The mock methods used in testing return a list, so we have to call len() rather than count().
-            if in_testing:
-                return str(len(self.search))
-
-            return str(self.search.count())
+            return str(self.count_works(None))
 
         yield self.run_test(
             "Total number of documents in this search index:",
@@ -579,14 +685,7 @@ class ExternalSearchIndex(HasSelfTests):
             collections = _db.query(Collection)
             for collection in collections:
                 filter = Filter(collections=[collection])
-                search = self.query_works(
-                    "", filter=filter, pagination=None,
-                    debug=True, return_raw_results=True
-                )
-                if in_testing:
-                    result[collection.name] = len(search)
-                else:
-                    result[collection.name] = search.count()
+                result[collection.name] = self.count_works(filter)
 
             return json.dumps(result, indent=1)
 
@@ -595,161 +694,534 @@ class ExternalSearchIndex(HasSelfTests):
             _collections
         )
 
-class ExternalSearchIndexVersions(object):
 
-    VERSIONS = ['v2', 'v3']
+class MappingDocument(object):
+    """This class knows a lot about how the 'properties' section of an
+    Elasticsearch mapping document (or one of its subdocuments) is
+    created.
+    """
 
-    @classmethod
-    def latest(cls):
-        version_re = re.compile('v(\d+)')
-        versions = [int(re.match(version_re, v).groups()[0]) for v in cls.VERSIONS]
-        latest = sorted(versions)[-1]
-        return 'v%d' % latest
+    def __init__(self):
+        self.properties = {}
+        self.subdocuments = {}
 
-    @classmethod
-    def latest_body(cls):
-        version_method = cls.latest() + '_body'
-        return getattr(cls, version_method)()
+    def add_property(self, name, type, **description):
+        """Add a field to the list of properties.
 
-    @classmethod
-    def map_fields(cls, fields, field_description):
-        mapping = {"properties": {}}
-        for field in fields:
-            mapping["properties"][field] = field_description
-        return mapping
-
-    @classmethod
-    def v3_body(cls):
-        """The v3 body is the same as the v2 except for the inclusion of the
-        '.standard' version of fields, analyzed using the standard
-        analyzer for near-exact matches.
+        :param name: Name of the field as found in search documents.
+        :param type: Type of the field. This may be a custom type,
+            so long as a hook method is defined for that type.
+        :param description: Description of the field.
         """
-        if MAJOR_VERSION == 1:
-            string_type = 'string'
-        else:
-            string_type = 'text'
+        # TODO: For some fields we could set index: False here, which
+        # would presumably lead to a smaller index and faster
+        # updates. However, it might hurt performance of
+        # searches. When this code is more mature we can do a
+        # side-by-side comparison.
 
-        settings = {
-            "analysis": {
-                "filter": {
-                    "en_stop_filter": {
-                        "type": "stop",
-                        "stopwords": ["_english_"]
-                    },
-                    "en_stem_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                    "en_stem_minimal_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                },
-                "analyzer" : {
-                    "en_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                    },
-                    "en_minimal_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                    },
-                }
-            }
+        defaults = dict(index=True, store=False)
+        description['type'] = type
+        for default_name, default_value in defaults.items():
+            if default_name not in description:
+                description[default_name] = default_value
+
+        hook_method = getattr(self, type + "_property_hook", None)
+        if hook_method is not None:
+            hook_method(description)
+        # TODO: Cross-check the description for correctness. Do the
+        # things it mention actually exist? Better to fail now with a
+        # useful error than to fail when talking to Elasticsearch.
+        self.properties[name] = description
+
+    def add_properties(self, properties_by_type):
+        """Turn a dictionary mapping types to field names into a
+        bunch of add_property() calls.
+
+        Useful when you have a lot of fields that don't need any
+        customization.
+        """
+        for type, properties in properties_by_type.items():
+            for name in properties:
+                self.add_property(name, type)
+
+    def subdocument(self, name):
+        """Create a new HasProperties object and register it as a
+        sub-document of this one.
+        """
+        subdocument = MappingDocument()
+        self.subdocuments[name] = subdocument
+        return subdocument
+
+    def basic_text_property_hook(self, description):
+        """Hook method to handle the custom 'basic_text'
+        property type.
+
+        This type does not exist in Elasticsearch. It's our name for a
+        text field that is indexed three times: once using our default
+        English analyzer ("title"), once using an analyzer with
+        minimal stemming ("title.minimal") for close matches, and once
+        using an analyzer that leaves stopwords in place, for searches
+        that rely on stopwords.
+        """
+        description['type'] = 'text'
+        description['analyzer'] = 'en_default_text_analyzer'
+        description['fields'] = {
+            "minimal": {
+                "type": "text",
+                "analyzer": "en_minimal_text_analyzer"
+            },
+            "with_stopwords": {
+                "type": "text",
+                "analyzer": "en_with_stopwords_text_analyzer"
+            },
         }
 
-        mapping = cls.map_fields(
-            fields=["title", "series", "subtitle", "summary", "classifications.term"],
-            field_description={
-                "type": string_type,
-                "analyzer": "en_analyzer",
-                "fields": {
-                    "minimal": {
-                        "type": string_type,
-                        "analyzer": "en_minimal_analyzer"},
-                    "standard": {
-                        "type": string_type,
-                        "analyzer": "standard"
-                    }
-                }}
-        )
-        mappings = { ExternalSearchIndex.work_document_type : mapping }
+    def filterable_text_property_hook(self, description):
+        """Hook method to handle the custom 'filterable_text'
+        property type.
 
-        return dict(settings=settings, mappings=mappings)
+        This type does not exist in Elasticsearch. It's our name for a
+        text field that can be used in both queries and filters.
 
-    @classmethod
-    def v2_body(cls):
-
-        settings = {
-            "analysis": {
-                "filter": {
-                    "en_stop_filter": {
-                        "type": "stop",
-                        "stopwords": ["_english_"]
-                    },
-                    "en_stem_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                    "en_stem_minimal_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                },
-                "analyzer" : {
-                    "en_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                    },
-                    "en_minimal_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                    },
-                }
-            }
+        This field is indexed _four_ times -- the three ways a normal
+        text field is indexed, plus again as an unparsed keyword that
+        can be used in filters.
+        """
+        self.basic_text_property_hook(description)
+        description["fields"]["keyword"] = {
+            "type": "keyword",
+            "index": True,
+            "store": False,
+            "normalizer": "filterable_string",
         }
 
-        mapping = cls.map_fields(
-            fields=["title", "series", "subtitle", "summary", "classifications.term"],
-            field_description={
-                "type": "string",
-                "analyzer": "en_analyzer",
-                "fields": {
-                    "minimal": {
-                        "type": "string",
-                        "analyzer": "en_minimal_analyzer"}}}
-        )
-        mappings = { ExternalSearchIndex.work_document_type : mapping }
 
-        return dict(settings=settings, mappings=mappings)
+class Mapping(MappingDocument):
+    """A class that defines the mapping for a particular version of the search index.
+
+    Code that won't change between versions can go here. (Or code that
+    can change between versions without affecting anything.)
+    """
+
+    VERSION_NAME = None
 
     @classmethod
-    def create_new_version(cls, search_client, base_index_name, version=None):
-        """Creates an index for a new version
+    def version_name(cls):
+        """Return the name of this Mapping subclass."""
+        version = cls.VERSION_NAME
+        if not version:
+            raise NotImplementedError("VERSION_NAME not defined")
+        if not version.startswith('v'):
+            version = 'v%s' % version
+        return version
+
+    @classmethod
+    def script_name(cls, base_name):
+        """Scope a script name with "simplified" (to avoid confusion with
+        other applications on the Elasticsearch server), and the
+        version number (to avoid confusion with other versions *of
+        this application*, which may implement the same script
+        differently, on this Elasticsearch server).
+        """
+        return "simplified.%s.%s" % (base_name, cls.version_name())
+
+    def __init__(self):
+        super(Mapping, self).__init__()
+        self.filters = {}
+        self.char_filters = {}
+        self.normalizers = {}
+        self.analyzers = {}
+
+    def create(self, search_client, base_index_name):
+        """Ensure that an index exists in `search_client` for this Mapping.
 
         :return: True or False, indicating whether the index was created new.
         """
-        if not version:
-            version = cls.latest()
-        if not version.startswith('v'):
-            version = 'v%s' % version
-
-        versioned_index = base_index_name+'-'+version
+        versioned_index = base_index_name+'-'+self.version_name()
         if search_client.indices.exists(index=versioned_index):
             return False
         else:
             search_client.setup_index(new_index=versioned_index)
             return True
 
+    def sort_author_keyword_property_hook(self, description):
+        """Give the `sort_author` property its custom analyzer."""
+        description['type'] = 'text'
+        description['analyzer'] = 'en_sort_author_analyzer'
+        description['fielddata'] = True
+
+    def body(self):
+        """Generate the body of the mapping document for this version of the
+        mapping.
+        """
+        settings = dict(
+            analysis=dict(
+                filter=self.filters,
+                char_filter=self.char_filters,
+                normalizer=self.normalizers,
+                analyzer=self.analyzers
+            )
+        )
+
+        # Start with the normally defined properties.
+        properties = dict(self.properties)
+
+        # Add subdocuments as additional properties.
+        for name, subdocument in self.subdocuments.items():
+            properties[name] = dict(
+                type="nested", properties=subdocument.properties
+            )
+
+        mappings = {
+            ExternalSearchIndex.work_document_type : dict(properties=properties)
+        }
+        return dict(settings=settings, mappings=mappings)
+
+
+class CurrentMapping(Mapping):
+    """The first mapping to support only Elasticsearch 6.
+
+    The body of this mapping looks for bibliographic information in
+    the core document, primarily used for matching search
+    requests. It also has nested documents, which are used for
+    filtering and ranking Works when generating other types of
+    feeds:
+
+    * licensepools -- the Work has these LicensePools (includes current
+      availability as a boolean, but not detailed availability information)
+    * customlists -- the Work is on these CustomLists
+    * contributors -- these Contributors worked on the Work
+    """
+
+    VERSION_NAME = "v4"
+
+    # Use regular expressions to normalized values in sortable fields.
+    # These regexes are applied in order; that way "H. G. Wells"
+    # becomes "H G Wells" becomes "HG Wells".
+    CHAR_FILTERS = {
+        "remove_apostrophes": dict(
+            type="pattern_replace", pattern="'",
+            replacement="",
+        )
+    }
+    AUTHOR_CHAR_FILTER_NAMES = []
+    for name, pattern, replacement in [
+        # The special author name "[Unknown]" should sort after everything
+        # else. REPLACEMENT CHARACTER is the final valid Unicode character.
+        ("unknown_author", "\[Unknown\]", u"\N{REPLACEMENT CHARACTER}"),
+
+        # Works by a given primary author should be secondarily sorted
+        # by title, not by the other contributors.
+        ("primary_author_only", "\s+;.*", ""),
+
+        # Remove parentheticals (e.g. the full name of someone who
+        # goes by initials).
+        ("strip_parentheticals", "\s+\([^)]+\)", ""),
+
+        # Remove periods from consideration.
+        ("strip_periods", "\.", ""),
+
+        # Collapse spaces for people whose sort names end with initials.
+        ("collapse_three_initials", " ([A-Z]) ([A-Z]) ([A-Z])$", " $1$2$3"),
+        ("collapse_two_initials", " ([A-Z]) ([A-Z])$", " $1$2"),
+    ]:
+        normalizer = dict(type="pattern_replace",
+                          pattern=pattern,
+                          replacement=replacement)
+        CHAR_FILTERS[name] = normalizer
+        AUTHOR_CHAR_FILTER_NAMES.append(name)
+
+    def __init__(self):
+        super(CurrentMapping, self).__init__()
+
+        # Set up character filters.
+        #
+        self.char_filters = self.CHAR_FILTERS
+
+        # This normalizer is used on freeform strings that
+        # will be used as tokens in filters. This way we can,
+        # e.g. ignore capitalization when considering whether
+        # two books belong to the same series or whether two
+        # author names are the same.
+        self.normalizers['filterable_string'] = dict(
+            type="custom", filter=["lowercase", "asciifolding"]
+        )
+
+        # Set up analyzers.
+        #
+
+        # We use three analyzers:
+        #
+        # 1. An analyzer based on Elasticsearch's default English
+        #    analyzer, with a normal stemmer -- used as the default
+        #    view of a text field such as 'description'.
+        #
+        # 2. An analyzer that's exactly the same as #1 but with a less
+        #    aggressive stemmer -- used as the 'minimal' view of a
+        #    text field such as 'description.minimal'.
+        #
+        # 3. An analyzer that's exactly the same as #2 but with
+        #    English stopwords left in place instead of filtered out --
+        #    used as the 'with_stopwords' view of a text field such as
+        #    'title.with_stopwords'.
+        #
+        # The analyzers are identical except for the end of the filter
+        # chain.
+        #
+        # All three analyzers are based on Elasticsearch's default English
+        # analyzer, defined here:
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-lang-analyzer.html#english-analyzer
+
+        # First, recreate the filters from the default English
+        # analyzer. We'll be using these to build our own analyzers.
+
+        # Filter out English stopwords.
+        self.filters['english_stop'] = dict(
+            type="stop", stopwords=["_english_"]
+        )
+
+        # The default English stemmer, used in the en_default analyzer.
+        self.filters['english_stemmer'] = dict(
+            type="stemmer", language="english"
+        )
+
+        # A less aggressive English stemmer, used in the en_minimal analyzer.
+        self.filters['minimal_english_stemmer'] = dict(
+            type="stemmer", language="minimal_english"
+        )
+
+        # A filter that removes English posessives such as "'s"
+        self.filters['english_posessive_stemmer'] = dict(
+            type="stemmer", language="possessive_english"
+        )
+
+        # Some potentially useful filters that are currently not used:
+        #
+        # * keyword_marker -- Exempt certain keywords from stemming
+        # * synonym -- Introduce synonyms for words
+        #   (but probably better to use synonym_graph during the search
+        #    -- it's more flexible).
+
+        # Here's the common analyzer configuration. The comment NEW
+        # means this is something we added on top of Elasticsearch's
+        # default configuration for the English analyzer.
+        common_text_analyzer = dict(
+            type="custom",
+            char_filter=["html_strip", "remove_apostrophes"], # NEW
+            tokenizer="standard",
+        )
+        common_filter = [
+            "lowercase",
+            "asciifolding",                          # NEW
+        ]
+
+        # The default_text_analyzer uses Elasticsearch's standard
+        # English stemmer and removes stopwords.
+        self.analyzers['en_default_text_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_default_text_analyzer']['filter'] = (
+            common_filter + ["english_stop", 'english_stemmer']
+        )
+
+        # The minimal_text_analyzer uses a less aggressive English
+        # stemmer, and removes stopwords.
+        self.analyzers['en_minimal_text_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_minimal_text_analyzer']['filter'] = (
+            common_filter + ['english_stop', 'minimal_english_stemmer']
+        )
+
+        # The en_with_stopwords_text_analyzer uses the less aggressive
+        # stemmer and does not remove stopwords.
+        self.analyzers['en_with_stopwords_text_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_with_stopwords_text_analyzer']['filter'] = (
+            common_filter + ['minimal_english_stemmer']
+        )
+
+        # Now we need to define a special analyzer used only by the
+        # 'sort_author' property.
+
+        # Here's a special filter used only by that analyzer. It
+        # duplicates the filter used by the icu_collation_keyword data
+        # type.
+        self.filters['en_sortable_filter'] = dict(
+            type="icu_collation", language="en", country="US"
+        )
+
+        # Here's the analyzer used by the 'sort_author' property.
+        # It's the same as icu_collation_keyword, but it has some
+        # extra character filters -- regexes that do things like
+        # convert "Tolkien, J. R. R." to "Tolkien, JRR".
+        #
+        # This is necessary because normal icu_collation_keyword
+        # fields can't specify char_filter.
+        self.analyzers['en_sort_author_analyzer'] = dict(
+            tokenizer="keyword",
+            filter = ["en_sortable_filter"],
+            char_filter = self.AUTHOR_CHAR_FILTER_NAMES,
+        )
+
+        # Now, the main event. Set up the field properties for the
+        # base document.
+        fields_by_type = {
+            "basic_text": ['summary'],
+            'filterable_text': [
+                'title', 'subtitle', 'series', 'classifications.term',
+                'author', 'publisher', 'imprint'
+            ],
+            'boolean': ['presentation_ready'],
+            'icu_collation_keyword': ['sort_title'],
+            'sort_author_keyword' : ['sort_author'],
+            'integer': ['series_position', 'work_id'],
+            'long': ['last_update_time'],
+            'float': ['random'],
+        }
+        self.add_properties(fields_by_type)
+
+        # Set up subdocuments.
+        contributors = self.subdocument("contributors")
+        contributor_fields = {
+            'filterable_text' : ['sort_name', 'display_name', 'family_name'],
+            'keyword': ['role', 'lc', 'viaf'],
+        }
+        contributors.add_properties(contributor_fields)
+
+        licensepools = self.subdocument("licensepools")
+        licensepool_fields = {
+            'integer': ['collection_id', 'data_source_id'],
+            'long': ['availability_time'],
+            'boolean': ['available', 'open_access', 'suppressed', 'licensed'],
+            'keyword': ['medium'],
+        }
+        licensepools.add_properties(licensepool_fields)
+
+        identifiers = self.subdocument("identifiers")
+        identifier_fields = {
+            'keyword': ['identifier', 'type']
+        }
+        identifiers.add_properties(identifier_fields)
+
+        genres = self.subdocument("genres")
+        genre_fields = {
+            'keyword': ['scheme', 'name', 'term'],
+            'float': ['weight'],
+        }
+        genres.add_properties(genre_fields)
+
+        customlists = self.subdocument("customlists")
+        customlist_fields = {
+            'integer': ['list_id'],
+            'long':  ['first_appearance'],
+            'boolean': ['featured'],
+        }
+        customlists.add_properties(customlist_fields)
+
+    @classmethod
+    def stored_scripts(cls):
+        """This version defines a single stored script, "work_last_update",
+        defined below.
+        """
+        yield "work_last_update", cls.WORK_LAST_UPDATE_SCRIPT
+
+    # Definition of the work_last_update_script.
+    WORK_LAST_UPDATE_SCRIPT = """
+double champion = -1;
+// Start off by looking at the work's last update time.
+for (candidate in doc['last_update_time']) {
+    if (champion == -1 || candidate > champion) { champion = candidate; }
+}
+if (params.collection_ids != null && params.collection_ids.length > 0) {
+    // Iterate over all licensepools looking for a pool in a collection
+    // relevant to this filter. When one is found, check its
+    // availability time to see if it's later than the last update time.
+    for (licensepool in params._source.licensepools) {
+        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
+        double candidate = licensepool['availability_time'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+if (params.list_ids != null && params.list_ids.length > 0) {
+
+    // Iterate over all customlists looking for a list relevant to
+    // this filter. When one is found, check the previous work's first
+    // appearance on that list to see if it's later than the last
+    // update time.
+    for (customlist in params._source.customlists) {
+        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
+        double candidate = customlist['first_appearance'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+
+return champion;
+"""
+
+
 class SearchBase(object):
+    """A superclass containing helper methods for creating and modifying
+    Elasticsearch-dsl Query-type objects.
+    """
+
+    @classmethod
+    def _boost(cls, boost, queries, filters=None, all_must_match=False):
+        """Boost a query by a certain amount relative to its neighbors in a
+        dis_max query.
+
+        :param boost: Numeric value to boost search results that
+           match `queries`.
+        :param queries: One or more Query objects to use in a query context.
+        :param filter: A Query object to use in a filter context.
+        :param all_must_match: If this is False (the default), then only
+           one of the `queries` must match for a search result to get
+           the boost. If this is True, then all `queries` must match,
+           or the boost will not apply.
+        """
+        filters = filters or []
+        if isinstance(queries, BaseQuery):
+            queries = [queries]
+
+        if all_must_match or len(queries) == 1:
+            # Every one of the subqueries in `queries` must match.
+            # (If there's only one subquery, this simplifies the
+            # final query slightly.)
+            kwargs = dict(must=queries)
+        else:
+            # At least one of the queries in `queries` must match.
+            kwargs = dict(should=queries, minimum_should_match=1)
+        query = Bool(boost=float(boost), filter=filters, **kwargs)
+        return query
+
+    @classmethod
+    def _nest(cls, subdocument, query):
+        """Turn a normal query into a nested query.
+
+        This is a helper method for a helper method; you should
+        probably use _nestable() instead.
+
+        :param subdocument: The name of the subdocument to query
+        against, e.g. "contributors".
+
+        :param query: An elasticsearch-dsl Query object (not the Query
+        objects defined by this class).
+        """
+        return Nested(path=subdocument, query=query)
+
+    @classmethod
+    def _nestable(cls, field, query):
+        """Make a query against a field nestable, if necessary."""
+        if 's.' in field:
+            # This is a query against a field from a subdocument. We
+            # can't run it against the top-level document; it has to
+            # be run in the context of its subdocument.
+            subdocument = field.split('.', 1)[0]
+            query = cls._nest(subdocument, query)
+        return query
+
+    @classmethod
+    def _match_term(cls, field, query_string):
+        """A clause that matches the query string against a specific field in
+        the search document.
+        """
+        match_query = Term(**{field: query_string})
+        return cls._nestable(field, match_query)
 
     @classmethod
     def _match_range(cls, field, operation, value):
@@ -762,303 +1234,15 @@ class SearchBase(object):
         match = {field : {operation: value}}
         return dict(range=match)
 
-
-class Query(SearchBase):
-    """An attempt to find something in the search index."""
-
-    # When we run a simple query string search, we are matching the
-    # query string against these fields.
-    SIMPLE_QUERY_STRING_FIELDS = [
-        # These fields have been stemmed.
-        'title^4',
-        "series^4",
-        'subtitle^3',
-        'summary^2',
-        "classifications.term^2",
-
-        # These fields only use the standard analyzer and are closer to the
-        # original text.
-        'author^6',
-        'publisher',
-        'imprint'
-    ]
-
-    # When we look for a close match against title, author, or series,
-    # we apply minimal stemming (or no stemming, in the case of the
-    # author), because we're handling the case where the user typed
-    # something in exactly as is.
-    #
-    # TODO: If we're really serious about 'minimal stemming',
-    # we should use title.standard and series.standard instead of
-    # .minimal. Using .minimal gets rid of plurals and stop words.
-    MINIMAL_STEMMING_QUERY_FIELDS = [
-        'title.minimal', 'author', 'series.minimal'
-    ]
-
-    # When we run a fuzzy query string search, we are matching the
-    # query string against these fields. It's more important that we
-    # use fields that have undergone minimal stemming because the part
-    # of the word that was stemmed may be the part that is misspelled
-    FUZZY_QUERY_STRING_FIELDS = [
-        'title.minimal^4',
-        'series.minimal^4',
-        "subtitle.minimal^3",
-        "summary.minimal^2",
-        'author^4',
-        'publisher',
-        'imprint'
-    ]
-
-    # These words will fuzzy-match other common words that aren't relevant,
-    # so if they're present and correctly spelled we shouldn't use a
-    # fuzzy query.
-    FUZZY_CONFOUNDERS = [
-        "baseball", "basketball", # These fuzzy match each other
-
-        "soccer", # Fuzzy matches "saucer", "docker", "sorcery"
-
-        "football", "softball", "software", "postwar",
-
-        "tennis",
-
-        "hamlet", "harlem", "amulet", "tablet",
-
-        "biology", "ecology", "zoology", "geology",
-
-        "joke", "jokes" # "jake"
-
-        "cat", "cats",
-        "car", "cars",
-        "war", "wars",
-
-        "away", "stay",
-    ]
-
-    # If this regular expression matches a query, we will not run
-    # a fuzzy match against that query, because it's likely to be
-    # counterproductive.
-    #
-    # TODO: Instead of this, avoid the fuzzy query or weigh it much
-    # lower if there don't appear to be any misspelled words in the
-    # query string. Or switch to a suggester.
-    FUZZY_CIRCUIT_BREAKER = re.compile(
-        r'\b(%s)\b' % "|".join(FUZZY_CONFOUNDERS), re.I
-    )
-
-    def __init__(self, query_string, filter=None):
-        """Store a query string and filter.
-
-        :param query_string: A user typed this string into a search box.
-        :param filter: A Filter object representing the circumstances
-            of the search -- for example, maybe we are searching within
-            a specific lane.
-        """
-        self.query_string = query_string
-        self.filter = filter
-
-    def build(self):
-        """Make an Elasticsearch-DSL query object out of this query."""
-        query = self.query()
-
-        # Add the filter, if there is one.
-        if self.filter:
-            built_filter = self.filter.build()
-            if built_filter:
-                if MAJOR_VERSION == 1:
-                    query = Q("filtered", query=query, filter=built_filter)
-                else:
-                    query = Q("bool", must=query, filter=built_filter)
-
-        # There you go!
-        return query
-
-    def query(self):
-        """Build an Elasticsearch Query object for this query string.
-        """
-        query_string = self.query_string
-
-        # The search query will create a dis_max query, which tests a
-        # number of hypotheses about what the query string might
-        # 'really' mean. For each book, the highest-rated hypothesis
-        # will be assumed to be true, and the highest-rated titles
-        # overall will become the search results.
-        hypotheses = []
-
-        # Here are the hypotheses:
-
-        # The query string might appear in one of the standard
-        # searchable fields.
-        simple = self.simple_query_string_query(query_string)
-        self._hypothesize(hypotheses, simple)
-
-        # The query string might be a close match against title,
-        # author, or series.
-        self._hypothesize(
-            hypotheses,
-            self.minimal_stemming_query(query_string),
-            100
-        )
-
-        # The query string might be an exact match for title or
-        # author. Such a match would be boosted quite a lot.
-        self._hypothesize(
-            hypotheses,
-            self._match_phrase("title.standard", query_string), 200
-        )
-        self._hypothesize(
-            hypotheses,
-            self._match_phrase("author", query_string), 50
-        )
-
-        # The query string might be a fuzzy match against one of the
-        # standard searchable fields.
-        fuzzy = self.fuzzy_string_query(query_string)
-        self._hypothesize(hypotheses, fuzzy, 1)
-
-        # The query string might contain some specific field matches
-        # (e.g. a genre name or target age), with the remainder being
-        # the "real" query string.
-        with_field_matches = self._parsed_query_matches(query_string)
-        self._hypothesize(
-            hypotheses, with_field_matches, 200, all_must_match=True
-        )
-
-        # For a given book, whichever one of these hypotheses gives
-        # the highest score should be used.
-        qu = self._combine_hypotheses(hypotheses)
-        return qu
-
     @classmethod
-    def _hypothesize(cls, hypotheses, query, boost=1.5, **kwargs):
-        """Add a hypothesis to the ones to be tested for each book.
-
-        :param hypotheses: If a new hypothesis is generated, it will be
-        added to this list.
-
-        :param query: A Query object (or list of Query objects) to be
-        used as the basis for this hypothesis. If there's nothing here,
-        no new hypothesis will be generated.
-
-        :param boost: Boost the overall weight of this hypothesis
-        relative to other hypotheses being tested. The default of 1.5
-        allows most 'ordinary' hypotheses to rank higher than the
-        fuzzy-search hypothesis.
-
-        :param kwargs: Keyword arguments for the _boost method.
-        """
-        if query:
-            query = cls._boost(boost, query, **kwargs)
-        if query:
-            hypotheses.append(query)
-        return hypotheses
-
-    @classmethod
-    def _combine_hypotheses(cls, hypotheses):
-        """Build an Elasticsearch Query object that tests a number
-        of hypotheses at once.
-        """
-        return Q("dis_max", queries=hypotheses)
-
-    @classmethod
-    def _boost(cls, boost, queries, all_must_match=False):
-        """Boost a query by a certain amount relative to its neighbors in a
-        dis_max query.
-
-        :param boost: Numeric value to boost search results that
-           match `queries`.
-        :param queries: One or more Query objects. If more than one query
-           is provided, a new Bool-type query will be created with
-           the given boost. If this is a single Bool-type query, its
-           boost will be modified and no new query will be created.
-        :param all_must_match: If this is False (the default), then only
-           one of the `queries` must match for a search result to get
-           the boost. If this is True, then all `queries` must match,
-           or the boost will not apply.
-        """
-        if isinstance(queries, Bool):
-            # This is already a boolean query; we just need to change
-            # the boost.
-            queries._params['boost'] = boost
-            return queries
-
-        if isinstance(queries, BaseQuery):
-            if boost == 1:
-                # We already have a Query and we don't actually need
-                # to boost it. Leave it alone to simplify the final
-                # query.
-                return queries
-            else:
-                queries = [queries]
-
-        if all_must_match or len(queries) == 1:
-            # Every one of the subqueries in `queries` must match.
-            # (If there's only one subquery, this simplifies the
-            # final query slightly.)
-            kwargs = dict(must=queries)
-        else:
-            # At least one of the queries in `queries` must match.
-            kwargs = dict(should=queries, minimum_should_match=1)
-
-        return Q("bool", boost=float(boost), **kwargs)
-
-    @classmethod
-    def simple_query_string_query(cls, query_string, fields=None):
-        fields = fields or cls.SIMPLE_QUERY_STRING_FIELDS
-        q = Q("simple_query_string", query=query_string, fields=fields)
-        return q
-
-    @classmethod
-    def fuzzy_string_query(cls, query_string):
-        # If the query string contains any of the strings known to counfound
-        # fuzzy search, don't do the fuzzy search.
-        if not query_string:
-            return None
-        if cls.FUZZY_CIRCUIT_BREAKER.search(query_string):
-            return None
-
-        fuzzy = Q(
-            "multi_match",                        # Match any or all fields
-            query=query_string,
-            fields=cls.FUZZY_QUERY_STRING_FIELDS, # Look in these fields
-            type="best_fields",                   # Score based on best match
-            fuzziness="AUTO",          # More typos allowed in longer strings
-            prefix_length=1,           # People don't usually typo first letter
-        )
-        return fuzzy
-
-    @classmethod
-    def _match(cls, field, query_string):
-        """A clause that matches the query string against a specific field in the search document.
-        """
-        return Q("match", **{field: query_string})
-
-    @classmethod
-    def _match_phrase(cls, field, query_string):
-        """A clause that matches the query string against a specific field in the search document.
-
-        The words in the query_string must match the words in the field,
-        in order. E.g. "fiction science" will not match "Science Fiction".
-        """
-        return Q("match_phrase", **{field: query_string})
-
-    @classmethod
-    def minimal_stemming_query(
-            cls, query_string,
-            fields=MINIMAL_STEMMING_QUERY_FIELDS
-    ):
-        """A clause that tries for a close match of the query string
-        against any of a number of fields.
-        """
-        return [cls._match_phrase(field, query_string) for field in fields]
-
-    @classmethod
-    def make_target_age_query(cls, target_age, boost=1):
+    def make_target_age_query(cls, target_age, boost=1.1):
         """Create an Elasticsearch query object for a boolean query that
         matches works whose target ages overlap (partially or
         entirely) the given age range.
 
         :param target_age: A 2-tuple (lower limit, upper limit)
-        :param boost: A value for the boost parameter
+        :param boost: Boost works that fit precisely into the target
+           age range by this amount, vis-a-vis works that don't.
         """
         (lower, upper) = target_age[0], target_age[1]
         # There must be _some_ overlap with the provided range.
@@ -1074,10 +1258,584 @@ class Query(SearchBase):
             cls._match_range("target_age.upper", "lte", upper),
             cls._match_range("target_age.lower", "gte", lower),
         ]
-        return Q("bool", must=must, should=should, boost=float(boost))
+        filter_version = Bool(must=must)
+        query_version = Bool(must=must, should=should, boost=float(boost))
+        return filter_version, query_version
 
     @classmethod
-    def _parsed_query_matches(cls, query_string):
+    def _combine_hypotheses(self, hypotheses):
+        """Build an Elasticsearch Query object that tests a number
+        of hypotheses at once.
+
+        :return: A DisMax query if there are hypotheses to be tested;
+        otherwise a MatchAll query.
+        """
+        if hypotheses:
+            qu = DisMax(queries=hypotheses)
+        else:
+            # We ended up with no hypotheses. Match everything.
+            qu = MatchAll()
+        return qu
+
+class Query(SearchBase):
+    """An attempt to find something in the search index."""
+
+    # This dictionary establishes the relative importance of the
+    # fields that someone might search for. These weights are used
+    # directly -- an exact title match has a higher weight than an
+    # exact author match. They are also used as the basis for other
+    # weights: the weight of a fuzzy match for a given field is in
+    # proportion to the weight of a non-fuzzy match for that field.
+    WEIGHT_FOR_FIELD = dict(
+        title=140.0,
+        subtitle=130.0,
+        series=120.0,
+        author=120.0,
+        summary=80.0,
+        publisher=40.0,
+        imprint=40.0,
+    )
+    # The contributor names in the contributors sub-document have the
+    # same weight as the 'author' field in the main document.
+    for field in ['contributors.sort_name', 'contributors.display_name']:
+        WEIGHT_FOR_FIELD[field] = WEIGHT_FOR_FIELD['author']
+
+    # When someone searches for a person's name, they're most likely
+    # searching for that person's contributions in one of these roles.
+    SEARCH_RELEVANT_ROLES = [
+        Contributor.PRIMARY_AUTHOR_ROLE,
+        Contributor.AUTHOR_ROLE,
+        Contributor.NARRATOR_ROLE,
+    ]
+
+    # If the entire search query is turned into a filter, all works
+    # that match the filter will be given this weight.
+    #
+    # This is very high, but not high enough to outweigh e.g. an exact
+    # title match.
+    QUERY_WAS_A_FILTER_WEIGHT = 600
+
+    # A keyword match is the best type of match we can get -- the
+    # patron typed in a near-exact match for one of the fields.
+    #
+    # That said, this is a coefficient, not a weight -- a keyword
+    # title match is better than a keyword subtitle match, etc.
+    DEFAULT_KEYWORD_MATCH_COEFFICIENT = 1000
+
+    # Normally we weight keyword matches very highly, but for
+    # publishers and imprints, where a keyword match may also be a
+    # partial author match ("Plympton") or topic match ("Penguin"), we
+    # weight them much lower -- the author or topic is probably more
+    # important.
+    #
+    # Again, these are coefficients, not weights. A keyword publisher
+    # match is better than a keyword imprint match, even though they have
+    # the same keyword match coefficient.
+    KEYWORD_MATCH_COEFFICIENT_FOR_FIELD = dict(
+        publisher=2,
+        imprint=2,
+    )
+
+    # A normal coefficient for a normal sort of match.
+    BASELINE_COEFFICIENT = 1
+
+    # There are a couple places where we want to boost a query just
+    # slightly above baseline.
+    SLIGHTLY_ABOVE_BASELINE = 1.1
+
+    # For each of these fields, we're going to test the hypothesis
+    # that the query string is nothing but an attempt to match this
+    # field.
+    SIMPLE_MATCH_FIELDS = [
+        'title', 'subtitle', 'series', 'publisher', 'imprint'
+    ]
+
+    # For each of these fields, we're going to test the hypothesis
+    # that the query string contains words from the book's title
+    # _plus_ words from this field.
+    #
+    # Note that here we're doing an author query the cheap way, by
+    # looking at the .author field -- the display name of the primary
+    # author associated with the Work's presentation Editon -- not
+    # the .display_names in the 'contributors' subdocument.
+    MULTI_MATCH_FIELDS = ['subtitle', 'series', 'author']
+
+    # For each of these fields, we're going to test the hypothesis
+    # that the query string is a good match for an aggressively
+    # stemmed version of this field.
+    STEMMABLE_FIELDS = ['title', 'subtitle', 'series']
+
+    # Although we index all text fields using an analyzer that
+    # preserves stopwords, these are the only fields where we
+    # currently think it's worth testing a hypothesis that stopwords
+    # in a query string are _important_.
+    STOPWORD_FIELDS = ['title', 'subtitle', 'series']
+
+    def __init__(self, query_string, filter=None, use_query_parser=True):
+        """Store a query string and filter.
+
+        :param query_string: A user typed this string into a search box.
+        :param filter: A Filter object representing the circumstances
+            of the search -- for example, maybe we are searching within
+            a specific lane.
+
+        :param use_query_parser: Should we try to parse filter
+            information out of the query string? Or did we already try
+            that, and this constructor is being called recursively, to
+            build a subquery from the _remaining_ portion of a larger
+            query string?
+        """
+        self.query_string = query_string or ""
+        self.filter = filter
+        self.use_query_parser = use_query_parser
+
+        # Pre-calculate some values that will be checked frequently
+        # when generating the Elasticsearch-dsl query.
+
+        # Check if the string contains English stopwords.
+        if query_string:
+            self.words = query_string.split()
+        else:
+            self.words = []
+        self.contains_stopwords = query_string and any(
+            word in ENGLISH_STOPWORDS for word in self.words
+        )
+
+        # Determine how heavily to weight fuzzy hypotheses.
+        #
+        # The "fuzzy" version of a hypothesis tests the idea that
+        # someone meant to trigger the original hypothesis, but they
+        # made a typo.
+        #
+        # The strength of a fuzzy hypothesis is always lower than the
+        # non-fuzzy version of the same hypothesis.
+        #
+        # Depending on the query, the stregnth of a fuzzy hypothesis
+        # may be reduced even further -- that's determined here.
+        #
+        # NOTE: if you ever have reason to set fuzzy_coefficient to
+        # zero, fuzzy hypotheses will not be considered at all.
+        if SpellChecker().unknown(self.words):
+            # Spell check failed. This is the default behavior, if
+            # only because peoples' names will generally fail spell
+            # check. Fuzzy queries will be given their full weight.
+            self.fuzzy_coefficient = 1.0
+        else:
+            # Everything seems to be spelled correctly. But sometimes
+            # a word can be misspelled as another word, e.g. "came" ->
+            # "cane", or a name may be misspelled as a word. We'll
+            # still check the fuzzy hypotheses, but we can improve
+            # results overall by giving them only half their normal
+            # strength.
+            self.fuzzy_coefficient = 0.5
+
+    def build(self, elasticsearch, pagination=None):
+        """Make an Elasticsearch-DSL Search object out of this query.
+
+        :param elasticsearch: An Elasticsearch-DSL Search object. This
+            object is ready to run a search against an Elasticsearch server,
+            but it doesn't represent any particular Elasticsearch query.
+
+        :return: An Elasticsearch-DSL Search object that's prepared
+            to run this specific query.
+        """
+        query = self.elasticsearch_query
+        nested_filters = defaultdict(list)
+
+        # Convert the resulting Filter into two objects -- one
+        # describing the base filter and one describing the nested
+        # filters.
+        if self.filter:
+            base_filter, nested_filters = self.filter.build()
+        else:
+            base_filter = None
+            nested_filters = defaultdict(list)
+
+        # Combine the query's base Filter with the universal base
+        # filter -- works must be presentation-ready, etc.
+        universal_base_filter = Filter.universal_base_filter()
+        if universal_base_filter:
+            query_filter = Filter._chain_filters(
+                base_filter, universal_base_filter
+            )
+        else:
+            query_filter = base_filter
+        if query_filter:
+            query = Bool(must=query, filter=query_filter)
+
+        # We now have an Elasticsearch-DSL Query object (which isn't
+        # tied to a specific server). Turn it into a Search object
+        # (which is).
+        search = elasticsearch.query(query)
+
+        # Now update the 'nested filters' dictionary with the
+        # universal nested filters -- no suppressed license pools,
+        # etc.
+        universal_nested_filters = Filter.universal_nested_filters() or {}
+        for key, values in universal_nested_filters.items():
+            nested_filters[key].extend(values)
+
+        # Now we can convert any nested filters (universal or
+        # otherwise) into nested queries.
+        for path, subfilters in nested_filters.items():
+            for subfilter in subfilters:
+                # This ensures that the filter logic is executed in
+                # filter context rather than query context.
+                subquery = Bool(filter=subfilter)
+                search = search.filter(
+                    name_or_query='nested', path=path, query=subquery
+                )
+
+        if self.filter:
+            # Apply any necessary sort order.
+            order_fields = self.filter.sort_order
+            if order_fields:
+                search = search.sort(*order_fields)
+
+            # Add any necessary script fields.
+            script_fields = self.filter.script_fields
+            if script_fields:
+                search = search.script_fields(**script_fields)
+        # Apply any necessary query restrictions imposed by the
+        # Pagination object. This may happen through modification or
+        # by returning an entirely new Search object.
+        if pagination:
+            result = pagination.modify_search_query(search)
+            if result is not None:
+                search = result
+
+        # All done!
+        return search
+
+    @property
+    def elasticsearch_query(self):
+        """Build an Elasticsearch-DSL Query object for this query string."""
+
+        # The query will most likely be a dis_max query, which tests a
+        # number of hypotheses about what the query string might
+        # 'really' mean. For each book, the highest-rated hypothesis
+        # will be assumed to be true, and the highest-rated titles
+        # overall will become the search results.
+        hypotheses = []
+
+        if not self.query_string:
+            # There is no query string. Match everything.
+            return MatchAll()
+
+        # Here are the hypotheses:
+
+        # The query string might be a match against a single field:
+        # probably title or series. These are the most common
+        # searches.
+        for field in self.SIMPLE_MATCH_FIELDS:
+            for qu, weight in self.match_one_field_hypotheses(field):
+                self._hypothesize(hypotheses, qu, weight)
+
+        # As a coda to the above, the query string might be a match
+        # against author. This is the same idea, but it's a little
+        # more complicated because a book can have multiple
+        # contributors and we're only interested in certain roles
+        # (such as 'narrator').
+        for qu, weight in self.match_author_hypotheses:
+            self._hypothesize(hypotheses, qu, weight)
+
+        # The query string may be looking for a certain topic or
+        # subject matter.
+        for qu, weight in self.match_topic_hypotheses:
+            self._hypothesize(hypotheses, qu, weight)
+
+        # The query string might *combine* terms from the title with
+        # terms from some other major field -- probably author name.
+        for other_field in self.MULTI_MATCH_FIELDS:
+            # The weight of this hypothesis should be proportionate to
+            # the difference between a pure match against title, and a
+            # pure match against the field we're checking.
+            for multi_match, weight in self.title_multi_match_for(other_field):
+                self._hypothesize(hypotheses, multi_match, weight)
+
+        # Finally, the query string might contain a filter portion
+        # (e.g. a genre name or target age), with the remainder being
+        # the "real" query string.
+        #
+        # In a query like "nonfiction asteroids", "nonfiction" would
+        # be the filter portion and "asteroids" would be the query
+        # portion.
+        #
+        # The query portion, if any, is turned into a set of
+        # sub-hypotheses. We then hypothesize that we might filter out
+        # a lot of junk by applying the filter and running the
+        # sub-hypotheses against the filtered set of books.
+        #
+        # In other words, we should try searching across nonfiction
+        # for "asteroids", and see if it gets better results than
+        # searching for "nonfiction asteroids" in the text fields
+        # (which it will).
+        if self.use_query_parser:
+            sub_hypotheses, filters = self.parsed_query_matches
+            if sub_hypotheses or filters:
+                if not sub_hypotheses:
+                    # The entire search string was converted into a
+                    # filter (e.g. "young adult romance"). Everything
+                    # that matches this filter should be matched, and
+                    # it should be given a relatively high boost.
+                    sub_hypotheses = MatchAll()
+                    boost = self.QUERY_WAS_A_FILTER_WEIGHT
+                else:
+                    # Part of the search string is a filter, and part
+                    # of it is a bunch of hypotheses that combine with
+                    # the filter to match the entire query
+                    # string. We'll boost works that match the filter
+                    # slightly, but overall the goal here is to get
+                    # better results by filtering out junk.
+                    boost = self.SLIGHTLY_ABOVE_BASELINE
+                self._hypothesize(
+                    hypotheses, sub_hypotheses, boost, all_must_match=True,
+                    filters=filters
+                )
+
+        # That's it!
+
+        # The score of any given book is the maximum score it gets from
+        # any of these hypotheses.
+        return self._combine_hypotheses(hypotheses)
+
+    def match_one_field_hypotheses(self, base_field, query_string=None):
+        """Yield a number of hypotheses representing different ways in
+        which the query string might be an attempt to match
+        a given field.
+
+        :param base_field: The name of the field to search,
+            e.g. "title" or "contributors.sort_name".
+
+        :param query_string: The query string to use, if different from
+            self.query_string.
+
+        :yield: A sequence of (hypothesis, weight) 2-tuples.
+        """
+        # All hypotheses generated by this method will be weighted
+        # relative to the standard weight for the field being checked.
+        #
+        # The final weight will be this field weight * a coefficient
+        # determined by the type of match * a (potential) coefficient
+        # associated with a fuzzy match.
+        base_weight = self.WEIGHT_FOR_FIELD[base_field]
+
+        query_string = query_string or self.query_string
+
+        keyword_match_coefficient = (
+            self.KEYWORD_MATCH_COEFFICIENT_FOR_FIELD.get(
+                base_field,
+                self.DEFAULT_KEYWORD_MATCH_COEFFICIENT
+            )
+        )
+
+        fields = [
+            # A keyword match means the field value is a near-exact
+            # match for the query string. This is one of the best
+            # search results we can possibly return.
+            ('keyword', keyword_match_coefficient, Term),
+
+            # This is the baseline query -- a phrase match against a
+            # single field. Most queries turn out to represent
+            # consecutive words from a single field.
+            ('minimal', self.BASELINE_COEFFICIENT, MatchPhrase)
+        ]
+
+        if self.contains_stopwords and base_field in self.STOPWORD_FIELDS:
+            # The query might benefit from a phrase match against an
+            # index of this field that includes the stopwords.
+            #
+            # Boost this slightly above the baseline so that if
+            # it matches, it'll beat out baseline queries.
+            fields.append(
+                ('with_stopwords', self.SLIGHTLY_ABOVE_BASELINE, MatchPhrase)
+            )
+
+        if base_field in self.STEMMABLE_FIELDS:
+            # This query might benefit from a non-phrase Match against
+            # a stemmed version of this field. This handles less
+            # common cases where search terms are in the wrong order,
+            # or where only the stemmed version of a word is a match.
+            #
+            # This hypothesis is run at a disadvantage relative to
+            # baseline.
+            fields.append((None, self.BASELINE_COEFFICIENT * 0.75, Match))
+
+        for subfield, match_type_coefficient, query_class in fields:
+            if subfield:
+                field_name = base_field + '.' + subfield
+            else:
+                field_name = base_field
+
+            field_weight = base_weight * match_type_coefficient
+
+            # Here's what minimum_should_match=2 does:
+            #
+            # If a query string has two or more words, at least two of
+            # those words must match to trigger a Match
+            # hypothesis. This prevents "Foo" from showing up as a top
+            # result for "foo bar": you have to explain why they typed
+            # "bar"!
+            #
+            # But if there are three words in the search query and
+            # only two of them match, it may be the best we can
+            # do. That's why we don't set minimum_should_match any
+            # higher.
+            standard_match_kwargs = dict(
+                query=self.query_string,
+                minimum_should_match=2,
+            )
+            if query_class == Match:
+                kwargs = {field_name: standard_match_kwargs}
+            else:
+                # If we're doing a Term or MatchPhrase query,
+                # minimum_should_match is not relevant -- we just need
+                # to provide the query string.
+                kwargs = {field_name: self.query_string}
+            qu = query_class(**kwargs)
+            yield qu, field_weight
+
+            if self.fuzzy_coefficient and subfield == 'minimal':
+                # Trying one or more fuzzy versions of this hypothesis
+                # would also be appropriate. We only do fuzzy searches
+                # on the subfield with minimal stemming, because we
+                # want to check against something close to what the
+                # patron actually typed.
+                for fuzzy_match, fuzzy_query_coefficient in self._fuzzy_matches(
+                    field_name, **standard_match_kwargs
+                ):
+                    yield fuzzy_match, (field_weight * fuzzy_query_coefficient)
+
+    @property
+    def match_author_hypotheses(self):
+        """Yield a sequence of query objects representing possible ways in
+        which a query string might represent a book's author.
+
+        :param query_string: The query string that might be the name
+            of an author.
+
+        :yield: A sequence of Elasticsearch-DSL query objects to be
+            considered as hypotheses.
+        """
+
+        # Ask Elasticsearch to match what was typed against
+        # contributors.display_name.
+        for x in self._author_field_must_match(
+            'display_name', self.query_string
+        ):
+            yield x
+
+        # Although almost nobody types a sort name into a search box,
+        # they may copy-and-paste one. Furthermore, we may only know
+        # some contributors by their sort name.  Try to convert what
+        # was typed into a sort name, and ask Elasticsearch to match
+        # that against contributors.sort_name.
+        sort_name = display_name_to_sort_name(self.query_string)
+        if sort_name:
+            for x in self._author_field_must_match('sort_name', sort_name):
+                yield x
+
+    def _author_field_must_match(self, base_field, query_string=None):
+        """Yield queries that match either the keyword or minimally stemmed
+        version of one of the fields in the contributors sub-document.
+
+        The contributor must also have an appropriate authorship role.
+
+        :param base_field: The base name of the contributors field to
+        match -- probably either 'display_name' or 'sort_name'.
+
+        :param must_match: The query string to match against.
+        """
+        query_string = query_string or self.query_string
+        field_name = 'contributors.%s' % base_field
+        for author_matches, weight in self.match_one_field_hypotheses(
+            field_name, query_string
+        ):
+            yield self._role_must_also_match(author_matches), weight
+
+    @classmethod
+    def _role_must_also_match(cls, base_query):
+        """Modify a query to add a restriction against the contributors
+        sub-document, so that it also matches an appropriate role.
+
+        NOTE: We can get fancier here by yielding several
+        differently-weighted hypotheses that weight Primary Author
+        higher than Author, and Author higher than Narrator. However,
+        in practice this dramatically slows down searches without
+        greatly improving results.
+
+        :param base_query: An Elasticsearch-DSL query object to use
+           when adding restrictions.
+        :param base_score: The relative score of the base query. The resulting
+           hypotheses will be weighted based on this score.
+        :return: A modified hypothesis.
+
+        """
+        match_role = Terms(**{"contributors.role": cls.SEARCH_RELEVANT_ROLES})
+        match_both = Bool(must=[base_query, match_role])
+        return cls._nest('contributors', match_both)
+
+    @property
+    def match_topic_hypotheses(self):
+        """Yield a number of hypotheses representing different
+        ways in which the query string might be a topic match.
+
+        Currently there is only one such hypothesis.
+
+        TODO: We probably want to introduce a fuzzy version of this
+        hypothesis.
+        """
+        # Note that we are using the default analyzer, which gives us
+        # the stemmed versions of these fields.
+        qu = MultiMatch(
+            query=self.query_string,
+            fields=["summary", "classifications.term"],
+            type="best_fields",
+        )
+        yield qu, self.WEIGHT_FOR_FIELD['summary']
+
+    def title_multi_match_for(self, other_field):
+        """Helper method to create a MultiMatch hypothesis that crosses
+        multiple fields.
+
+        This strategy only works if everything is spelled correctly,
+        since we can't combine a "cross_fields" Multimatch query
+        with a fuzzy search.
+
+        :yield: At most one (hypothesis, weight) 2-tuple.
+        """
+        if len(self.words) < 2:
+            # To match two different fields we need at least two
+            # words. We don't have that, so there's no point in even
+            # making this hypothesis.
+            return
+
+        # We only search the '.minimal' variants of these fields.
+        field_names = ['title.minimal', other_field + ".minimal"]
+
+        # The weight of this hypothesis should be somewhere between
+        # the weight of a pure title match, and the weight of a pure
+        # match against the field we're checking.
+        title_weight = self.WEIGHT_FOR_FIELD['title']
+        other_weight = self.WEIGHT_FOR_FIELD[other_field]
+        combined_weight = other_weight * (other_weight/title_weight)
+
+        hypothesis = MultiMatch(
+            query=self.query_string,
+            fields = field_names,
+            type="cross_fields",
+
+            # This hypothesis must be able to explain the entire query
+            # string. Otherwise the weight contributed by the title
+            # will boost _partial_ title matches over better matches
+            # obtained some other way.
+            operator="and",
+            minimum_should_match="100%",
+        )
+        yield hypothesis, combined_weight
+
+    @property
+    def parsed_query_matches(self):
         """Deal with a query string that contains information that should be
         exactly matched against a controlled vocabulary
         (e.g. "nonfiction" or "grade 5") along with information that
@@ -1088,7 +1846,51 @@ class Query(SearchBase):
         information is used in a simple query that matches basic
         fields.
         """
-        return QueryParser(query_string).match_queries
+        parser = QueryParser(self.query_string)
+        return parser.match_queries, parser.filters
+
+    def _fuzzy_matches(self, field_name, **kwargs):
+        """Make one or more fuzzy Match versions of any MatchPhrase
+        hypotheses, scoring them at a fraction of the original
+        version.
+        """
+        # fuzziness="AUTO" means the number of typoes allowed is
+        # proportional to the length of the query.
+        #
+        # max_expansions limits the number of possible alternates
+        # Elasticsearch will consider for any given word.
+        kwargs.update(fuzziness="AUTO", max_expansions=2)
+        yield Match(**{field_name : kwargs}), self.fuzzy_coefficient * 0.50
+
+        # Assuming that no typoes were made in the first
+        # character of a word (usually a safe assumption) we
+        # can bump the score up to 75% of the non-fuzzy
+        # hypothesis.
+        kwargs = dict(kwargs)
+        kwargs['prefix_length'] = 1
+        yield Match(**{field_name : kwargs}), self.fuzzy_coefficient * 0.75
+
+    @classmethod
+    def _hypothesize(cls, hypotheses, query, boost, filters=None, **kwargs):
+        """Add a hypothesis to the ones to be tested for each book.
+
+        :param hypotheses: A list of active hypotheses, to be
+        appended to if necessary.
+
+        :param query: An Elasticsearch-DSL Query object (or list of
+        Query objects) to be used as the basis for this hypothesis. If
+        there's nothing here, no new hypothesis will be generated.
+
+        :param boost: Boost the overall weight of this hypothesis
+        relative to other hypotheses being tested.
+
+        :param kwargs: Keyword arguments for the _boost method.
+        """
+        if query or filters:
+            query = cls._boost(boost=boost, queries=query, filters=filters, **kwargs)
+        if query:
+            hypotheses.append(query)
+        return hypotheses
 
 
 class QueryParser(object):
@@ -1110,17 +1912,11 @@ class QueryParser(object):
     these criteria to a greater or lesser extent.
     """
 
-    # The unparseable portion of a query is matched against these
-    # fields.
-    SIMPLE_QUERY_STRING_FIELDS = [
-        "author^4", "subtitle^3", "summary^5", "title^1", "series^1"
-    ]
-
     def __init__(self, query_string, query_class=Query):
         """Parse the query string and create a list of clauses
         that will boost certain types of books.
 
-        Use .query to get an Elasticsearch Query object.
+        Use .query to get an Elasticsearch-DSL Query object.
 
         :param query_class: Pass in a mock of Query here during testing
         to generate 'query' objects that are easier for you to test.
@@ -1128,8 +1924,9 @@ class QueryParser(object):
         self.original_query_string = query_string.strip()
         self.query_class = query_class
 
-        # We start with no match queries.
+        # We start with no match queries and no filter.
         self.match_queries = []
+        self.filters = []
 
         # We handle genre first so that, e.g. 'Science Fiction' doesn't
         # get chomped up by the search for 'fiction'.
@@ -1137,7 +1934,7 @@ class QueryParser(object):
         # Handle the 'romance' part of 'young adult romance'
         genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
         if genre:
-            query_string = self.add_match_query(
+            query_string = self.add_match_term_filter(
                 genre.name, 'genres.name', query_string, genre_match
             )
 
@@ -1146,28 +1943,27 @@ class QueryParser(object):
             query_string
         )
         if audience:
-            query_string = self.add_match_query(
-                audience.replace(" ", ""), 'audience', query_string,
+            query_string = self.add_match_term_filter(
+                audience.replace(" ", "").lower(), 'audience', query_string,
                 audience_match
             )
 
         # Handle the 'nonfiction' part of 'asteroids nonfiction'
         fiction = None
         if re.compile(r"\bnonfiction\b", re.IGNORECASE).search(query_string):
-            fiction = "Nonfiction"
+            fiction = "nonfiction"
         elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
-            fiction = "Fiction"
-        query_string = self.add_match_query(
+            fiction = "fiction"
+        query_string = self.add_match_term_filter(
             fiction, 'fiction', query_string, fiction
         )
-
         # Handle the 'grade 5' part of 'grade 5 dogs'
         age_from_grade, grade_match = GradeLevelClassifier.target_age_match(
             query_string
         )
         if age_from_grade and age_from_grade[0] == None:
             age_from_grade = None
-        query_string = self.add_target_age_query(
+        query_string = self.add_target_age_filter(
             age_from_grade, query_string, grade_match
         )
 
@@ -1175,11 +1971,11 @@ class QueryParser(object):
         age, age_match = AgeClassifier.target_age_match(query_string)
         if age and age[0] == None:
             age = None
-        query_string = self.add_target_age_query(age, query_string, age_match)
+        query_string = self.add_target_age_filter(age, query_string, age_match)
 
         self.final_query_string = query_string.strip()
 
-        if len(query_string.strip()) == 0:
+        if len(self.final_query_string) == 0:
             # Someone who searched for 'young adult romance' ended up
             # with an empty query string -- they matched an audience
             # and a genre, and now there's nothing else to match.
@@ -1187,54 +1983,57 @@ class QueryParser(object):
 
         # Someone who searched for 'asteroids nonfiction' ended up
         # with a query string of 'asteroids'. Their query string
-        # has a field match component and a query-type component.
+        # has a filter-type component and a query-type component.
         #
         # What is likely to be in this query-type component?
         #
-        # In theory, it could be anything that would go into a
-        # regular query. So would be a really cool place to
-        # call Query() recursively.
-        #
-        # However, someone who does this kind of search is
-        # probably not looking for a specific book. They might be
-        # looking for an author (eg, 'science fiction iain
-        # banks'). But they're most likely searching for a _type_
-        # of book, which means a match against summary or subject
-        # ('asteroids') would be the most useful.
+        # It could be anything that would go into a regular query. And
+        # we have lots of different ways of checking a regular query --
+        # different hypotheses, fuzzy matches, etc. So the simplest thing
+        # to do is to create a Query object for the smaller search query
+        # and see what its .elasticsearch_query is.
         if (self.final_query_string
             and self.final_query_string != self.original_query_string):
-            match_rest_of_query = self.query_class.simple_query_string_query(
-                self.final_query_string,
-                self.SIMPLE_QUERY_STRING_FIELDS
-            )
-            self.match_queries.append(match_rest_of_query)
+            recursive = self.query_class(
+                self.final_query_string, use_query_parser=False
+            ).elasticsearch_query
+            self.match_queries.append(recursive)
 
-    def add_match_query(self, query, field, query_string, matched_portion):
+    def add_match_term_filter(self, query, field, query_string, matched_portion):
         """Create a match query that finds documents whose value for `field`
         matches `query`.
 
-        Add it to `self.match_queries`, and remove the relevant portion
+        Add it to `self.filters`, and remove the relevant portion
         of `query_string` so it doesn't get reused.
         """
         if not query:
             # This is not a relevant part of the query string.
             return query_string
-        match_query = self.query_class._match(field, query)
-        self.match_queries.append(match_query)
+        match_query = self.query_class._match_term(field, query)
+        self.filters.append(match_query)
         return self._without_match(query_string, matched_portion)
 
-    def add_target_age_query(self, query, query_string, matched_portion):
+    def add_target_age_filter(self, query, query_string, matched_portion):
         """Create a query that finds documents whose value for `target_age`
         matches `query`.
 
-        Add it to `match_queries`, and remove the relevant portion
-        of `query_string` so it doesn't get reused.
+        Add a filter version of this query to `.match_queries` (so that
+        all documents outside the target age are filtered out).
+
+        Add a boosted version of this query to `.match_queries` (so
+        that documents that cluster tightly around the target age are
+        boosted over documents that span a huge age range).
+
+        Remove the relevant portion of `query_string` so it doesn't get
+        reused.
         """
         if not query:
             # This is not a relevant part of the query string.
             return query_string
-        match_query = self.query_class.make_target_age_query(query, 40)
-        self.match_queries.append(match_query)
+
+        filter, query = self.query_class.make_target_age_query(query)
+        self.filters.append(filter)
+        self.match_queries.append(query)
         return self._without_match(query_string, matched_portion)
 
     @classmethod
@@ -1261,7 +2060,26 @@ class Filter(SearchBase):
     This covers every reason you might want to not exclude a search
     result that would otherise match the query string -- wrong media,
     wrong language, not available in the patron's library, etc.
+
+    This also covers every way you might want to order the search
+    results: either by relevance to the search query (the default), or
+    by a specific field (e.g. author) as described by a Facets object.
+
+    It also covers additional calculated values you might need when
+    presenting the search results.
     """
+
+    # When search results include known script fields, we need to
+    # wrap the works we would be returning in WorkSearchResults so
+    # the useful information from the search engine isn't lost.
+    KNOWN_SCRIPT_FIELDS = ['last_update']
+
+    # In general, someone looking for things "by this person" is
+    # probably looking for one of these roles.
+    AUTHOR_MATCH_ROLES = list(Contributor.AUTHOR_ROLES) + [
+        Contributor.NARRATOR_ROLE, Contributor.EDITOR_ROLE,
+        Contributor.DIRECTOR_ROLE, Contributor.ACTOR_ROLE
+    ]
 
     @classmethod
     def from_worklist(cls, _db, worklist, facets):
@@ -1281,6 +2099,9 @@ class Filter(SearchBase):
         fiction = inherit_one('fiction')
         audiences = inherit_one('audiences')
         target_age = inherit_one('target_age')
+        collections = inherit_one('collection_ids') or library
+
+        license_datasource_id = inherit_one('license_datasource_id')
 
         # For genre IDs and CustomList IDs, we might get a separate
         # set of restrictions from every item in the WorkList hierarchy.
@@ -1288,17 +2109,105 @@ class Filter(SearchBase):
         inherit_some = worklist.inherited_values
         genre_id_restrictions = inherit_some('genre_ids')
         customlist_id_restrictions = inherit_some('customlist_ids')
+
+        # See if there are any excluded audiobook sources on this
+        # site.
+        excluded = (
+            ConfigurationSetting.excluded_audio_data_sources(_db)
+        )
+        excluded_audiobook_data_sources = [
+            DataSource.lookup(_db, x) for x in excluded
+        ]
+        if library is None:
+            allow_holds = True
+        else:
+            allow_holds = library.allow_holds
         return cls(
-            library, media, languages, fiction, audiences,
+            collections, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
-            facets
+            facets,
+            excluded_audiobook_data_sources=excluded_audiobook_data_sources,
+            allow_holds=allow_holds, license_datasource=license_datasource_id
         )
 
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None
+                 facets=None, script_fields=None, **kwargs
     ):
+        """Constructor.
+
+        All arguments are optional. Passing in an empty set of
+        arguments will match everything in the search index that
+        matches the universal filters (e.g. works must be
+        presentation-ready).
+
+        :param collections: Find only works that are licensed to one of
+        these Collections.
+
+        :param media: Find only works in this list of media (use the
+        constants from Edition such as Edition.BOOK_MEDIUM).
+
+        :param languages: Find only works in these languages (use
+        ISO-639-2 alpha-3 codes).
+
+        :param fiction: Find only works with this fiction status.
+
+        :param audiences: Find only works with a target audience in this list.
+
+        :param target_age: Find only works with a target age in this
+        range. (Use a 2-tuple, or a number to represent a specific
+        age.)
+
+        :param genre_restriction_sets: A sequence of lists of Genre
+        objects or IDs. Each list represents an independent
+        restriction. For each restriction, a work only matches if it's
+        in one of the appropriate Genres.
+
+        :param customlist_restriction_sets: A sequence of lists of
+        CustomList objects or IDs. Each list represents an independent
+        restriction. For each restriction, a work only matches if it's
+        in one of the appropriate CustomLists.
+
+        :param facets: A faceting object that can put further restrictions
+        on the match.
+
+        :param script_fields: A list of registered script fields to
+        run on the search results.
+
+        (These minor arguments were made into unnamed keyword arguments
+        to avoid cluttering the method signature:)
+
+        :param excluded_audiobook_data_sources: A list of DataSources that
+        provide audiobooks known to be unsupported on this system.
+        Such audiobooks will always be excluded from results.
+
+        :param identifiers: A list of Identifier or IdentifierData
+        objects. Only books associated with one of these identifiers
+        will be matched.
+
+        :param allow_holds: If this is False, books with no available
+        copies will be excluded from results.
+
+        :param series: If this is set to a string, only books in a matching
+        series will be included.
+
+        :param author: If this is set to a Contributor or
+        ContributorData, then only books where this person had an
+        authorship role will be included.
+
+        :param license_datasource: If this is set to a DataSource,
+        only books with LicensePools from that DataSource will be
+        included.
+
+        :param updated_after: If this is set to a datetime, only books
+        whose Work records (~bibliographic metadata) have been updated since
+        that time will be included in results.
+
+        :param match_nothing: If this is set to True, the search will
+        not even be performed -- we know for some other reason that an
+        empty set of search results should be returned.
+        """
 
         if isinstance(collections, Library):
             # Find all works in this Library's collections.
@@ -1336,16 +2245,64 @@ class Filter(SearchBase):
         else:
             self.customlist_restriction_sets = []
 
+        # Pull less-important values out of the keyword arguments.
+        excluded_audiobook_data_sources = kwargs.pop(
+            'excluded_audiobook_data_sources', []
+        )
+        self.excluded_audiobook_data_sources = self._filter_ids(
+            excluded_audiobook_data_sources
+        )
+        self.allow_holds = kwargs.pop('allow_holds', True)
+
+        self.updated_after = kwargs.pop('updated_after', None)
+
+        self.series = kwargs.pop('series', None)
+
+        self.author = kwargs.pop('author', None)
+
+        self.match_nothing = kwargs.pop('match_nothing', False)
+
+        license_datasources = kwargs.pop('license_datasource', None)
+        self.license_datasources = self._filter_ids(license_datasources)
+
+        identifiers = kwargs.pop('identifiers', [])
+        self.identifiers = list(self._scrub_identifiers(identifiers))
+
+        # At this point there should be no keyword arguments -- you can't pass
+        # whatever you want into this method.
+        if kwargs:
+            raise ValueError("Unknown keyword arguments: %r" % kwargs)
+
+        # Establish default values for additional restrictions that may be
+        # imposed by the Facets object.
+        self.minimum_featured_quality = 0
+        self.availability = None
+        self.subcollection = None
+        self.order = None
+        self.order_ascending = False
+
+        self.script_fields = script_fields or dict()
+
         # Give the Facets object a chance to modify any or all of this
         # information.
         if facets:
             facets.modify_search_filter(self)
+            self.scoring_functions = facets.scoring_functions(self)
+        else:
+            self.scoring_functions = []
 
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
 
+        :return: A 2-tuple (filter, nested_filters). Filters on fields
+           within nested documents (such as
+           'licensepools.collection_id') must be applied as subqueries
+           to the query that will eventually be created from this
+           filter. `nested_filters` is a dictionary that maps a path
+           to a list of filters to apply to that path.
+
         :param _chain_filters: Mock function to use instead of
-        Filter._chain_filters
+            Filter._chain_filters
         """
 
         # Since a Filter object can be modified after it's created, we
@@ -1356,40 +2313,417 @@ class Filter(SearchBase):
 
         chain = _chain_filters or self._chain_filters
 
-        collection_ids = filter_ids(self.collection_ids)
         f = None
+        nested_filters = defaultdict(list)
+        collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
-            ids = filter_ids(collection_ids)
-            f = chain(f, F('terms', **{'collections.collection_id' : ids}))
+            collection_match = Terms(
+                **{'licensepools.collection_id' : collection_ids}
+            )
+            nested_filters['licensepools'].append(collection_match)
+
+        license_datasources = filter_ids(self.license_datasources)
+        if license_datasources:
+            datasource_match = Terms(
+                **{'licensepools.data_source_id' : license_datasources}
+            )
+            nested_filters['licensepools'].append(datasource_match)
+
+        if self.author is not None:
+            nested_filters['contributors'].append(self.author_filter)
 
         if self.media:
-            f = chain(f, F('terms', medium=scrub_list(self.media)))
+            f = chain(f, Terms(medium=scrub_list(self.media)))
 
         if self.languages:
-            f = chain(f, F('terms', language=scrub_list(self.languages)))
+            f = chain(f, Terms(language=scrub_list(self.languages)))
 
         if self.fiction is not None:
             if self.fiction:
                 value = 'fiction'
             else:
                 value = 'nonfiction'
-            f = chain(f, F('term', fiction=value))
+            f = chain(f, Term(fiction=value))
+
+        if self.series:
+            f = chain(f, Term(**{"series.keyword": self.series}))
 
         if self.audiences:
-            f = chain(f, F('terms', audience=scrub_list(self.audiences)))
+            f = chain(f, Terms(audience=scrub_list(self.audiences)))
 
         target_age_filter = self.target_age_filter
         if target_age_filter:
             f = chain(f, self.target_age_filter)
 
         for genre_ids in self.genre_restriction_sets:
-            f = chain(f, F('terms', **{'genres.term' : filter_ids(genre_ids)}))
+            ids = filter_ids(genre_ids)
+            nested_filters['genres'].append(
+                Terms(**{'genres.term' : filter_ids(genre_ids)})
+            )
 
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
-            f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+            nested_filters['customlists'].append(
+                Terms(**{'customlists.list_id' : ids})
+            )
 
-        return f
+        open_access = Term(**{'licensepools.open_access' : True})
+        if self.availability==FacetConstants.AVAILABLE_NOW:
+            # Only open-access books and books with currently available
+            # copies should be displayed.
+            available = Term(**{'licensepools.available' : True})
+            nested_filters['licensepools'].append(
+                Bool(should=[open_access, available], minimum_should_match=1)
+            )
+        elif self.availability==FacetConstants.AVAILABLE_OPEN_ACCESS:
+            # Only open-access books should be displayed.
+            nested_filters['licensepools'].append(open_access)
+
+        if self.subcollection==FacetConstants.COLLECTION_MAIN:
+            # Exclude open-access books with a quality of less than
+            # 0.3.
+            not_open_access = Term(**{'licensepools.open_access' : False})
+            decent_quality = self._match_range('licensepools.quality', 'gte', 0.3)
+            nested_filters['licensepools'].append(
+                Bool(should=[not_open_access, decent_quality])
+            )
+        elif self.subcollection==FacetConstants.COLLECTION_FEATURED:
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
+            range_query = self._match_range(
+                'quality', 'gte', self.minimum_featured_quality
+            )
+            f = chain(f, Bool(must=range_query))
+
+        if self.identifiers:
+            # Check every identifier for a match.
+            clauses = []
+            for identifier in self._scrub_identifiers(self.identifiers):
+                subclauses = []
+                # Both identifier and type must match for the match
+                # to count.
+                for name, value in (
+                    ('identifier', identifier.identifier),
+                    ('type', identifier.type),
+                ):
+                    subclauses.append(
+                        Term(**{'identifiers.%s' % name : value})
+                    )
+                clauses.append(Bool(must=subclauses))
+
+            # At least one the identifiers must match for the work to
+            # match.
+            identifier_f = Bool(should=clauses, minimum_should_match=1)
+            nested_filters['identifiers'].append(identifier_f)
+
+        # Some sources of audiobooks may be excluded because the
+        # server can't fulfill them or the anticipated client can't
+        # play them.
+        excluded = self.excluded_audiobook_data_sources
+        if excluded:
+            audio = Term(**{'licensepools.medium': Edition.AUDIO_MEDIUM})
+            excluded_audio_source = Terms(
+                **{'licensepools.data_source_id' : excluded}
+            )
+            excluded_audio = Bool(must=[audio, excluded_audio_source])
+            not_excluded_audio = Bool(must_not=excluded_audio)
+            nested_filters['licensepools'].append(not_excluded_audio)
+
+        # If holds are not allowed, only license pools that are
+        # currently available should be considered.
+        if not self.allow_holds:
+            licenses_available = Term(**{'licensepools.available' : True})
+            currently_available = Bool(should=[licenses_available, open_access])
+            nested_filters['licensepools'].append(currently_available)
+
+        # Perhaps only books whose bibliographic metadata was updated
+        # recently should be included.
+        if self.updated_after:
+            # 'last update_time' is indexed as a number of seconds, but
+            # .last_update is probably a datetime. Convert it here.
+            updated_after = self.updated_after
+            if isinstance(updated_after, datetime.datetime):
+                updated_after = (
+                    updated_after - datetime.datetime.utcfromtimestamp(0)
+                ).total_seconds()
+            last_update_time_query = self._match_range(
+                'last_update_time', 'gte', updated_after
+            )
+            f = chain(f, Bool(must=last_update_time_query))
+
+        return f, nested_filters
+
+    @classmethod
+    def universal_base_filter(cls, _chain_filters=None):
+        """Build a set of restrictions on the main search document that are
+        always applied, even in the absence of other filters.
+
+        :param _chain_filters: Mock function to use instead of
+            Filter._chain_filters
+
+        :return: A Filter object.
+
+        """
+
+        _chain_filters = _chain_filters or cls._chain_filters
+
+        base_filter = None
+
+        # We only want to show works that are presentation-ready.
+        base_filter = _chain_filters(
+            base_filter, Term(**{"presentation_ready":True})
+        )
+
+        return base_filter
+
+    @classmethod
+    def universal_nested_filters(cls):
+        """Build a set of restrictions on subdocuments that are
+        always applied, even in the absence of other filters.
+        """
+        nested_filters = defaultdict(list)
+
+        # TODO: It would be great to be able to filter out
+        # LicensePools that have no delivery mechanisms. That's the
+        # only part of Collection.restrict_to_ready_deliverable_works
+        # not already implemented in this class.
+
+        # We don't want to consider license pools that have been
+        # suppressed, or of which there are currently no licensed
+        # copies. This might lead to a Work being filtered out
+        # entirely.
+        #
+        # It's easier to stay consistent by indexing all Works and
+        # filtering them out later, than to do it by adding and
+        # removing works from the index.
+        not_suppressed = Term(**{'licensepools.suppressed' : False})
+        nested_filters['licensepools'].append(not_suppressed)
+
+        owns_licenses = Term(**{'licensepools.licensed' : True})
+        open_access = Term(**{'licensepools.open_access' : True})
+        currently_owned = Bool(should=[owns_licenses, open_access])
+        nested_filters['licensepools'].append(currently_owned)
+
+        return nested_filters
+
+    @property
+    def sort_order(self):
+        """Create a description, for use in an Elasticsearch document,
+        explaining how search results should be ordered.
+
+        :return: A list of dictionaries, each dictionary mapping a
+            field name to an explanation of how to sort that
+            field. Usually the explanation is a simple string, either
+            'asc' or 'desc'.
+        """
+        if not self.order:
+            return []
+
+        # These sort order fields are inserted as necessary between
+        # the primary sort order field and the tiebreaker field (work
+        # ID). This makes it more likely that the sort order makes
+        # sense to a human, by putting off the opaque tiebreaker for
+        # as long as possible. For example, a feed sorted by author
+        # will be secondarily sorted by title and work ID, not just by
+        # work ID.
+        default_sort_order = ['sort_author', 'sort_title', 'work_id']
+
+        order_field_keys = self.order
+        if not isinstance(order_field_keys, list):
+            order_field_keys = [order_field_keys]
+        order_fields = [
+            self._make_order_field(key) for key in order_field_keys
+        ]
+
+        # Apply any parts of the default sort order not yet covered,
+        # concluding (in most cases) with work_id, the tiebreaker field.
+        for x in default_sort_order:
+            if x not in order_field_keys:
+                order_fields.append({x: "asc"})
+        return order_fields
+
+    @property
+    def asc(self):
+        "Convert order_ascending to Elasticsearch-speak."
+        if self.order_ascending is False:
+            return "desc"
+        else:
+            return "asc"
+
+    def _make_order_field(self, key):
+        if key == 'last_update_time':
+            # Sorting by last_update_time may be very simple or very
+            # complex, depending on whether or not the filter
+            # involves collection or list membership.
+            if self.collection_ids or self.customlist_restriction_sets:
+                # The complex case -- use a helper method.
+                return self._last_update_time_order_by
+            else:
+                # The simple case, handled below.
+                pass
+
+        if '.' not in key:
+            # A simple case.
+            return { key : self.asc }
+
+        # At this point we're sorting by a nested field.
+        nested = None
+        if key == 'licensepools.availability_time':
+            nested, mode = self._availability_time_sort_order
+        else:
+            raise ValueError(
+                "I don't know how to sort by %s." % key
+            )
+        sort_description = dict(order=self.asc, mode=mode)
+        if nested:
+            sort_description['nested']=nested
+        return { key : sort_description }
+
+    @property
+    def _availability_time_sort_order(self):
+        # We're sorting works by the time they became
+        # available to a library. This means we only want to
+        # consider the availability times of license pools
+        # found in one of the library's collections.
+        nested = None
+        collection_ids = self._filter_ids(self.collection_ids)
+        if collection_ids:
+            nested = dict(
+                path="licensepools",
+                filter=dict(
+                    terms={
+                        "licensepools.collection_id": collection_ids
+                    }
+                ),
+            )
+        # If a book shows up in multiple collections, we're only
+        # interested in the collection that had it the earliest.
+        mode = 'min'
+        return nested, mode
+
+    @property
+    def last_update_time_script_field(self):
+        """Return the configuration for a script field that calculates the
+        'last update' time of a work. An 'update' happens when the
+        work's metadata is changed, when it's added to a collection
+        used by this Filter, or when it's added to one of the lists
+        used by this Filter.
+        """
+        # First, set up the parameters we're going to pass into the
+        # script -- a list of custom list IDs relevant to this filter,
+        # and a list of collection IDs relevant to this filter.
+        collection_ids = self._filter_ids(self.collection_ids)
+
+        # The different restriction sets don't matter here. The filter
+        # part of the query ensures that we only match works present
+        # on one list in every restriction set. Here, we need to find
+        # the latest time a work was added to _any_ relevant list.
+        all_list_ids = set()
+        for restriction in self.customlist_restriction_sets:
+            all_list_ids.update(self._filter_ids(restriction))
+        nested = dict(
+            path="customlists",
+            filter=dict(
+                terms={"customlists.list_id": list(all_list_ids)}
+            )
+        )
+        params = dict(
+            collection_ids=collection_ids,
+            list_ids=list(all_list_ids)
+        )
+        return dict(
+            script=dict(
+                stored=CurrentMapping.script_name("work_last_update"),
+                params=params
+            )
+        )
+
+    @property
+    def _last_update_time_order_by(self):
+
+        """We're sorting works by the time of their 'last update'.
+
+        Add the 'last update' field to the dictionary of script fields
+        (so we can use the result afterwards), and define it a second
+        time as the script to use for a sort value.
+        """
+        field = self.last_update_time_script_field
+        if not 'last_update' in self.script_fields:
+            self.script_fields['last_update'] = field
+        return dict(
+            _script=dict(
+                type="number",
+                script=field['script'],
+                order=self.asc,
+            ),
+        )
+
+    # The Painless script to generate a 'featurability' score for
+    # a work.
+    #
+    # A higher-quality work is more featurable. But we don't want
+    # to constantly feature the very highest-quality works, and if
+    # there are no high-quality works, we want medium-quality to
+    # outrank low-quality.
+    #
+    # So we establish a cutoff -- the minimum featured quality --
+    # beyond which a work is considered 'featurable'. All featurable
+    # works get the same (high) score.
+    #
+    # Below that point, we prefer higher-quality works to
+    # lower-quality works, such that a work's score is proportional to
+    # the square of its quality.
+    FEATURABLE_SCRIPT = "Math.pow(Math.min(%(cutoff).5f, doc['quality'].value), %(exponent).5f) * 5"
+
+    # Used in tests to deactivate the random component of
+    # featurability_scoring_functions.
+    DETERMINISTIC = object()
+
+    def featurability_scoring_functions(self, random_seed):
+        """Generate scoring functions that weight works randomly, but
+        with 'more featurable' works tending to be at the top.
+        """
+
+        exponent = 2
+        cutoff = (self.minimum_featured_quality ** exponent)
+        script = self.FEATURABLE_SCRIPT % dict(
+            cutoff=cutoff, exponent=exponent
+        )
+        quality_field = SF('script_score', script=dict(source=script))
+
+        # Currently available works are more featurable.
+        available = Term(**{'licensepools.available' : True})
+        nested = Nested(path='licensepools', query=available)
+        available_now = dict(filter=nested, weight=5)
+
+        function_scores = [quality_field, available_now]
+
+        # Random chance can boost a lower-quality work, but not by
+        # much -- this mainly ensures we don't get the exact same
+        # books every time.
+        if random_seed != self.DETERMINISTIC:
+            random = SF(
+                'random_score',
+                seed=random_seed or int(time.time()),
+                field="work_id",
+                weight=1.1
+            )
+            function_scores.append(random)
+
+        if self.customlist_restriction_sets:
+            list_ids = set()
+            for restriction in self.customlist_restriction_sets:
+                list_ids.update(restriction)
+            # We're looking for works on certain custom lists. A work
+            # that's _featured_ on one of these lists will be boosted
+            # quite a lot versus one that's not.
+            featured = Term(**{'customlists.featured' : True})
+            on_list = Terms(**{'customlists.list_id' : list(list_ids)})
+            featured_on_list = Bool(must=[featured, on_list])
+            nested = Nested(path='customlists', query=featured_on_list)
+            featured_on_relevant_list = dict(filter=nested, weight=11)
+            function_scores.append(featured_on_relevant_list)
+        return function_scores
 
     @property
     def target_age_filter(self):
@@ -1406,17 +2740,14 @@ class Filter(SearchBase):
             return None
         def does_not_exist(field):
             """A filter that matches if there is no value for `field`."""
-            return F('bool', must_not=[F('exists', field=field)])
+            return Bool(must_not=[Exists(field=field)])
 
         def or_does_not_exist(clause, field):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            if MAJOR_VERSION==1:
-                return F('or', [clause, does_not_exist(field)])
-            else:
-                return F('bool', should=[clause, does_not_exist(field)],
-                         minimum_should_match=1)
+            return Bool(should=[clause, does_not_exist(field)],
+                     minimum_should_match=1)
 
         clauses = []
 
@@ -1441,7 +2772,34 @@ class Filter(SearchBase):
             return clauses[0]
 
         # Both upper and lower age must match.
-        return F('bool', must=clauses)
+        return Bool(must=clauses)
+
+    @property
+    def author_filter(self):
+        """Build a filter that matches a 'contributors' subdocument only
+        if it represents an author-level contribution by self.author.
+        """
+        if not self.author:
+            return None
+        authorship_role = Terms(
+            **{'contributors.role' : self.AUTHOR_MATCH_ROLES}
+        )
+        clauses = []
+        for field, value in [
+            ('sort_name.keyword', self.author.sort_name),
+            ('display_name.keyword', self.author.display_name),
+            ('viaf', self.author.viaf),
+            ('lc', self.author.lc)
+        ]:
+            if not value or value == Edition.UNKNOWN_AUTHOR:
+                continue
+            clauses.append(
+                Term(**{'contributors.%s' % field : value})
+            )
+
+        same_person = Bool(should=clauses, minimum_should_match=1)
+        return Bool(must=[authorship_role, same_person])
+
 
     @classmethod
     def _scrub(cls, s):
@@ -1492,6 +2850,16 @@ class Filter(SearchBase):
         return processed
 
     @classmethod
+    def _scrub_identifiers(cls, identifiers):
+        """Convert a mixed list of Identifier and IdentifierData objects
+        into IdentifierData.
+        """
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                i = IdentifierData(i.type, i.identifier)
+            yield i
+
+    @classmethod
     def _chain_filters(cls, existing, new):
         """Either chain two filters together or start a new chain."""
         if existing:
@@ -1501,6 +2869,154 @@ class Filter(SearchBase):
             # There was no previous filter -- the 'new' one is it.
             pass
         return new
+
+
+class SortKeyPagination(Pagination):
+    """An Elasticsearch-specific implementation of Pagination that
+    paginates search results by tracking where in a sorted list the
+    previous page left off, rather than using a numeric index into the
+    list.
+    """
+
+    def __init__(self, last_item_on_previous_page=None,
+                 size=Pagination.DEFAULT_SIZE):
+        self.size = size
+        self.last_item_on_previous_page = last_item_on_previous_page
+
+        # These variables are set by page_loaded(), after the query
+        # is run.
+        self.page_has_loaded = False
+        self.last_item_on_this_page = None
+        self.this_page_size = None
+
+    @classmethod
+    def from_request(cls, get_arg, default_size=None):
+        """Instantiate a SortKeyPagination object from a Flask request."""
+        size = cls.size_from_request(get_arg, default_size)
+        if isinstance(size, ProblemDetail):
+            return size
+        pagination_key = get_arg('key', None)
+        if pagination_key:
+            try:
+                pagination_key = json.loads(pagination_key)
+            except ValueError, e:
+                return INVALID_INPUT.detailed(
+                    _("Invalid page key: %(key)s", key=pagination_key)
+                )
+        return cls(pagination_key, size)
+
+    def items(self):
+        """Yield the URL arguments necessary to convey the current page
+        state.
+        """
+        pagination_key = self.pagination_key
+        if pagination_key:
+            yield("key", self.pagination_key)
+        yield("size", self.size)
+
+    @property
+    def pagination_key(self):
+        """Create the pagination key for this page."""
+        if not self.last_item_on_previous_page:
+            return None
+        return json.dumps(self.last_item_on_previous_page)
+
+    @property
+    def offset(self):
+        # This object never uses the traditional offset system; offset
+        # is determined relative to the last item on the previous
+        # page.
+        return 0
+
+    @property
+    def total_size(self):
+        # Although we technically know the total size after the first
+        # page of results has been obtained, we don't use this feature
+        # in pagination, so act like we don't.
+        return None
+
+    def modify_database_query(self, qu):
+        raise NotImplementedError(
+            "SortKeyPagination does not work with database queries."
+        )
+
+    def modify_search_query(self, search):
+        """Modify the given Search object so that it starts
+        picking up items immediately after the previous page.
+
+        :param search: An elasticsearch-dsl Search object.
+        """
+        if self.last_item_on_previous_page:
+            search = search.update_from_dict(
+                dict(search_after=self.last_item_on_previous_page)
+            )
+        return search
+
+    @property
+    def previous_page(self):
+        # TODO: We can get the previous page by flipping the sort
+        # order and asking for the _next_ page of the reversed list,
+        # using the sort keys of the _first_ item as the search_after.
+        # But this is really confusing, it requires more context than
+        # SortKeyPagination currently has, and this feature isn't
+        # necessary for our current implementation.
+        return None
+
+    @property
+    def next_page(self):
+        """If possible, create a new SortKeyPagination representing the
+        next page of results.
+        """
+        if self.this_page_size == 0:
+            # This page is empty; there is no next page.
+            return None
+        if not self.last_item_on_this_page:
+            # This probably means load_page wasn't called. At any
+            # rate, we can't say anything about the next page.
+            return None
+        return SortKeyPagination(self.last_item_on_this_page, self.size)
+
+    def page_loaded(self, page):
+        """An actual page of results has been fetched. Keep any internal state
+        that would be useful to know when reasoning about earlier or
+        later pages.
+
+        Specifically, keep track of the sort value of the last item on
+        this page, so that self.next_page will create a
+        SortKeyPagination object capable of generating the subsequent
+        page.
+
+        :param page: A list of elasticsearch-dsl Hit objects.
+        """
+        super(SortKeyPagination, self).page_loaded(page)
+        if page:
+            last_item = page[-1]
+            values = list(last_item.meta.sort)
+        else:
+            # There's nothing on this page, so there's no next page
+            # either.
+            values = None
+        self.last_item_on_this_page = values
+
+
+class WorkSearchResult(object):
+    """Wraps a Work object to give extra information obtained from
+    ElasticSearch.
+
+    This object acts just like a Work (though isinstance(x, Work) will
+    fail), with one exception: you can access the raw ElasticSearch Hit
+    result as ._hit.
+
+    This is useful when a Work needs to be 'tagged' with information
+    obtained through Elasticsearch, such as its 'last modified' date
+    the context of a specific lane.
+    """
+    def __init__(self, work, hit):
+        self._work = work
+        self._hit = hit
+
+    def __getattr__(self, k):
+        return getattr(self._work, k)
 
 
 class MockExternalSearchIndex(ExternalSearchIndex):
@@ -1532,90 +3048,88 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def create_search_doc(self, query_string, filter=None, debug=False, return_raw_results=False):
+    def create_search_doc(self, query_string, filter=None, pagination=None, debug=False):
         return self.docs.values()
 
-    def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False, search=None):
-        self.queries.append((query_string, filter, pagination, debug, return_raw_results))
-        if return_raw_results:
-            doc_ids = self.docs.values()
-        else:
-            doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
+    def query_works(self, query_string, filter, pagination, debug=False):
+        self.queries.append((query_string, filter, pagination, debug))
+        # During a test we always sort works by the order in which the
+        # work was created.
+
+        def sort_key(x):
+            # This needs to work with either a MockSearchResult or a
+            # dictionary representing a raw search result.
+            if isinstance(x, MockSearchResult):
+                return x.work_id
+            else:
+                return x['_id']
+        docs = sorted(self.docs.values(), key=sort_key)
+        if pagination:
+            start_at = 0
+            if isinstance(pagination, SortKeyPagination):
+                # Figure out where the previous page ended by looking
+                # for the corresponding work ID.
+                if pagination.last_item_on_previous_page:
+                    look_for = pagination.last_item_on_previous_page[-1]
+                    for i, x in enumerate(docs):
+                        if x['_id'] == look_for:
+                            start_at = i + 1
+                            break
+            else:
+                start_at = pagination.offset
+            stop = start_at + pagination.size
+            docs = docs[start_at:stop]
+
+        results = []
+        for x in docs:
+            if isinstance(x, MockSearchResult):
+                results.append(x)
+            else:
+                results.append(
+                    MockSearchResult(x["title"], x["author"], {}, x['_id'])
+                )
 
         if pagination:
-            start = pagination.offset
-            stop = start + pagination.size
-            doc_ids = doc_ids[start:stop]
+            pagination.page_loaded(results)
+        return results
 
-        if return_raw_results:
-            return doc_ids
-        else:
-            return [x['_id'] for x in doc_ids]
+    def count_works(self, filter):
+        return len(self.docs)
 
     def bulk(self, docs, **kwargs):
         for doc in docs:
             self.index(doc['_index'], doc['_type'], doc['_id'], doc)
         return len(docs), []
 
+class MockMeta(dict):
+    """Mock the .meta object associated with an Elasticsearch search
+    result.  This is necessary to get SortKeyPagination to work with
+    MockExternalSearchIndex.
+    """
+    @property
+    def sort(self):
+        return self['_sort']
+
 class MockSearchResult(object):
-    def __init__(self, title, author, meta, id):
-        self.title = title
-        self.author = author
+
+    def __init__(self, sort_title, sort_author, meta, id):
+        self.sort_title = sort_title
+        self.sort_author = sort_author
         meta["id"] = id
-        self.meta = meta
+        meta["_sort"] = [sort_title, sort_author, id]
+        self.meta = MockMeta(meta)
+        self.work_id = id
+
+    def __contains__(self, k):
+        return False
 
     def to_dict(self):
         return {
-            "title": self.title,
-            "author": self.author,
+            "title": self.sort_title,
+            "author": self.sort_author,
             "id": self.meta["id"],
             "meta": self.meta,
         }
-
-class SearchIndexMonitor(WorkSweepMonitor):
-    """Make sure the search index is up-to-date for every work.
-
-    This operates on all Works, not just the ones with registered
-    WorkCoverageRecords indicating that work needs to be done.
-    """
-    SERVICE_NAME = "Search index update"
-    DEFAULT_BATCH_SIZE = 500
-
-    def __init__(self, _db, collection, index_name=None, index_client=None,
-                 **kwargs):
-        super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
-
-        if index_client:
-            # This would only happen during a test.
-            self.search_index_client = index_client
-        else:
-            self.search_index_client = ExternalSearchIndex(
-                _db, works_index=index_name
-            )
-
-        index_name = self.search_index_client.works_index
-        # We got a generic service name. Replace it with a more
-        # specific one.
-        self.service_name = "Search index update (%s)" % index_name
-
-    def process_batch(self, offset):
-        """Update the search index for a set of Works."""
-        batch = self.fetch_batch(offset).all()
-        if batch:
-            successes, failures = self.search_index_client.bulk_update(batch)
-
-            for work, message in failures:
-                self.log.error(
-                    "Failed to update search index for %s: %s", work, message
-                )
-            WorkCoverageRecord.bulk_add(
-                successes, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-            )
-            # Start work on the next batch.
-            return batch[-1].id, len(batch)
-        else:
-            # We're done.
-            return 0, 0
 
 
 class SearchIndexCoverageProvider(WorkPresentationProvider):

@@ -122,26 +122,24 @@ def load_facets_from_request(
         default_entrypoint, **kwargs
     )
 
-def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
-    """Figure out which Pagination object this request is asking for."""
-    arg = flask.request.args.get
-    size = arg('size', default_size)
-    offset = arg('after', 0)
-    return load_pagination(size, offset)
 
-def load_pagination(size, offset):
-    """Turn user input into a Pagination object."""
-    try:
-        size = int(size)
-    except ValueError:
-        return INVALID_INPUT.detailed(_("Invalid page size: %(size)s", size=size))
-    size = min(size, 100)
-    if offset:
-        try:
-            offset = int(offset)
-        except ValueError:
-            return INVALID_INPUT.detailed(_("Invalid offset: %(offset)s", offset=offset))
-    return Pagination(offset, size)
+def load_pagination_from_request(
+    base_class=Pagination, base_class_constructor_kwargs=None,
+    default_size=None
+):
+    """Figure out which Pagination object this request is asking for.
+
+    :param base_class: A subclass of Pagination to instantiate.
+    :param base_class_constructor_kwargs: Extra keyword arguments to use
+        when instantiating the Pagination subclass.
+    :param default_size: The default page size.
+    :return: An instance of `base_class`.
+    """
+    kwargs = base_class_constructor_kwargs or dict()
+
+    get_arg = flask.request.args.get
+    return base_class.from_request(get_arg, default_size, **kwargs)
+
 
 def returns_problem_detail(f):
     @wraps(f)
@@ -321,7 +319,8 @@ class URNLookupController(object):
         """Processes a list of URNs for a lookup request.
 
         :return: None or, to override default feed behavior, a ProblemDetail
-        or Response
+            or Response.
+
         """
         identifiers_by_urn, failures = Identifier.parse_urns(self._db, urns)
         self.add_urn_failure_messages(failures)

@@ -245,13 +245,14 @@ class Subject(Base):
     def assign_to_genres(cls, _db, type_restriction=None, force=False,
                          batch_size=1000):
         """Find subjects that have not been checked yet, assign each a
-        genre/audience/fiction status if possible, and mark each as
-        checked.
+        genre/audience/fiction status if possible, and mark each as checked.
+
         :param type_restriction: Only consider subjects of the given type.
         :param force: Assign a genre to all subjects not just the ones that
-                      have been checked.
+            have been checked.
         :param batch_size: Perform a database commit every time this many
-                           subjects have been checked.
+            subjects have been checked.
+
         """
         q = _db.query(Subject).filter(Subject.locked==False)
 

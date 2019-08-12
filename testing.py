@@ -6,9 +6,13 @@ import json
 import logging
 import os
 import shutil
+import time
 import tempfile
 import uuid
-from nose.tools import set_trace
+from nose.tools import (
+    set_trace,
+    eq_,
+)
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from config import Configuration
@@ -65,7 +69,11 @@ from coverage import (
     WorkCoverageProvider,
 )
 
-from external_search import MockExternalSearchIndex
+from external_search import (
+    MockExternalSearchIndex,
+    ExternalSearchIndex,
+    SearchIndexCoverageProvider,
+)
 from log import LogConfiguration
 import external_search
 import mock
@@ -92,10 +100,13 @@ def package_setup():
     engine = SessionManager.engine()
     for table in reversed(Base.metadata.sorted_tables):
         if table.name.startswith('mv_'):
+            # TODO: This can be removed soon. We don't create
+            # materialized views anymore, but they'll still hang
+            # around for a while in test databases and need to be
+            # deleted.
             statement = "drop materialized view %s" % table.name
         else:
             statement = table.delete()
-
         try:
             engine.execute(statement)
         except ProgrammingError, e:
@@ -285,8 +296,14 @@ class DatabaseTest(object):
         if isinstance(authors, basestring):
             authors = [authors]
         if authors != []:
-            wr.add_contributor(unicode(authors[0]), Contributor.PRIMARY_AUTHOR_ROLE)
-            wr.author = unicode(authors[0])
+            primary_author_name = unicode(authors[0])
+            contributor = wr.add_contributor(primary_author_name, Contributor.PRIMARY_AUTHOR_ROLE)
+            # add_contributor assumes authors[0] is a sort_name,
+            # but it may be a display name. If so, set that field as well.
+            if not contributor.display_name and ',' not in primary_author_name:
+                contributor.display_name = primary_author_name
+            wr.author = primary_author_name
+
         for author in authors[1:]:
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
         if publicationDate:
@@ -377,26 +394,9 @@ class DatabaseTest(object):
 
         return work
 
-    def add_to_materialized_view(self, works, true_opds=False):
-        """Make sure all the works in `works` show up in the materialized view.
-
-        :param true_opds: Generate real OPDS entries for each each work,
-        rather than faking it.
-        """
-        if not isinstance(works, list):
-            works = [works]
-        for work in works:
-            if true_opds:
-                work.calculate_opds_entries(verbose=False)
-            else:
-                work.presentation_ready = True
-                work.simple_opds_entry = "<entry>an entry</entry>"
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
     def _lane(self, display_name=None, library=None,
               parent=None, genres=None, languages=None,
-              fiction=None
+              fiction=None, inherit_parent_restrictions=True
     ):
         display_name = display_name or self._str
         library = library or self._default_library
@@ -404,7 +404,8 @@ class DatabaseTest(object):
             self._db, Lane,
             library=library,
             parent=parent, display_name=display_name,
-            fiction=fiction
+            fiction=fiction,
+            inherit_parent_restrictions=inherit_parent_restrictions
         )
         if is_new and parent:
             lane.priority = len(parent.sublanes)-1
@@ -438,7 +439,7 @@ class DatabaseTest(object):
         identifier = license_pool.identifier
         content_type = Representation.EPUB_MEDIA_TYPE
         drm_scheme = DeliveryMechanism.NO_DRM
-        LicensePoolDeliveryMechanism.set(
+        return LicensePoolDeliveryMechanism.set(
             data_source, identifier, content_type, drm_scheme,
             RightsStatus.IN_COPYRIGHT
         )
@@ -719,15 +720,17 @@ class DatabaseTest(object):
         Calls the class method that examines the current state of the database model
         (whether it's been committed or not).
 
-        NOTE:  If you set_trace, and hit "continue", you'll start seeing console output right
+        NOTE: If you set_trace, and hit "continue", you'll start seeing console output right
         away, without waiting for the whole test to run and the standard output section to display.
         You can also use nosetest --nocapture.
-        I use:
-        def test_name(self):
-            [code...]
-            set_trace()
-            self.print_database_instance()  # TODO: remove before prod
-            [code...]
+
+        I use::
+
+            def test_name(self):
+                [code...]
+                set_trace()
+                self.print_database_instance()  # TODO: remove before prod
+                [code...]
         """
         if not 'TESTING' in os.environ:
             # we are on production, abort, abort!
@@ -753,13 +756,16 @@ class DatabaseTest(object):
         Be careful of leaving it in code and potentially outputting
         vast tracts of data into your output stream on production.
 
-        Call like this:
-        set_trace()
-        from testing import (
-            DatabaseTest,
-        )
-        _db = Session.object_session(self)
-        DatabaseTest.print_database_class(_db)  # TODO: remove before prod
+        Call like this::
+
+            set_trace()
+            from testing import (l=
+                DatabaseTest,
+            )
+            _db = Session.object_session(self)
+            DatabaseTest.print_database_class(_db)
+            
+            TODO: remove before prod
         """
         if not 'TESTING' in os.environ:
             # we are on production, abort, abort!
@@ -966,6 +972,190 @@ class DatabaseTest(object):
         sample_cover_path = self.sample_cover_path(name)
         return self._representation(
             media_type="image/png", content=open(sample_cover_path).read())[0]
+
+
+class SearchClientForTesting(ExternalSearchIndex):
+    """When creating an index, limit it to a single shard and disable
+    replicas.
+
+    This makes search results more predictable.
+    """
+
+    def setup_index(self, new_index=None):
+        return super(SearchClientForTesting, self).setup_index(
+            new_index, number_of_shards=1, number_of_replicas=0
+        )
+
+
+class ExternalSearchTest(DatabaseTest):
+    """
+    These tests require elasticsearch to be running locally. If it's not, or there's
+    an error creating the index, the tests will pass without doing anything.
+
+    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
+    a type of search by changing analyzers or queries, but search needs to be tested manually
+    to ensure that it works well overall, with a realistic index.
+    """
+
+    def setup(self):
+        super(ExternalSearchTest, self).setup(mock_search=False)
+
+        # Track the indexes created so they can be torn down at the
+        # end of the test.
+        self.indexes = []
+
+        self.integration = self._external_integration(
+            ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+            url=u'http://localhost:9200',
+            settings={
+                ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index',
+                ExternalSearchIndex.TEST_SEARCH_TERM_KEY : u'test_search_term',
+            }
+        )
+
+        try:
+            self.search = SearchClientForTesting(self._db)
+        except Exception as e:
+            self.search = None
+            logging.error(
+                "Unable to set up elasticsearch index, search tests will be skipped.",
+                exc_info=e
+            )
+
+    def setup_index(self, new_index):
+        "Create an index and register it to be destroyed during teardown."
+        self.search.setup_index(new_index=new_index)
+        self.indexes.append(new_index)
+
+    def teardown(self):
+        if self.search:
+            # Delete the works_index, which is almost always created.
+            if self.search.works_index:
+                self.search.indices.delete(
+                    self.search.works_index, ignore=[404]
+                )
+            # Delete any other indexes created over the course of the test.
+            for index in self.indexes:
+                self.search.indices.delete(index, ignore=[404])
+            ExternalSearchIndex.reset()
+        super(ExternalSearchTest, self).teardown()
+
+    def default_work(self, *args, **kwargs):
+        """Convenience method to create a work with a license pool
+        in the default collection.
+        """
+        work = self._work(
+            *args, with_license_pool=True,
+            collection=self._default_collection, **kwargs
+        )
+        work.set_presentation_ready()
+        return work
+
+
+class EndToEndSearchTest(ExternalSearchTest):
+    """Subclasses of this class set up real works in a real
+    search index and run searches against it.
+    """
+
+    def setup(self):
+        super(EndToEndSearchTest, self).setup()
+
+        # Create some works.
+        if not self.search:
+            # No search index is configured -- nothing to do.
+            return
+
+        self.populate_works()
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
+
+    def populate_works(self):
+        raise NotImplementedError()
+
+    def _assert_works(self, description, expect, actual, should_be_ordered=True):
+        "Verify that two lists of works are the same."
+
+        # Get the titles of the works that were actually returned, to
+        # make comparisons easier.
+        actual_ids = []
+        actual_titles = []
+        for work in actual:
+            actual_titles.append(work.title)
+            actual_ids.append(work.id)
+
+        expect_ids = []
+        expect_titles = []
+        for work in expect:
+            expect_titles.append(work.title)
+            expect_ids.append(work.id)
+
+        # We compare IDs rather than objects because the Works may
+        # actually be WorkSearchResults.
+        expect_compare = expect_ids
+        actual_compare = actual_ids
+        if not should_be_ordered:
+            expect_compare = set(expect_compare)
+            actual_compare = set(actual_compare)
+
+        eq_(
+            expect_compare, actual_compare,
+            "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
+                description,
+                len(expect), ", ".join(map(str, expect_ids)),
+                    ", ".join(expect_titles),
+                len(actual), ", ".join(map(str, actual_ids)),
+                    ", ".join(actual_titles)
+            )
+        )
+
+    def _expect_results(self, expect, query_string=None, filter=None, pagination=None, **kwargs):
+        """Helper function to call query() and verify that it
+        returns certain work IDs.
+
+        :param ordered: If this is True (the default), then the
+        assertion will only succeed if the search results come in in
+        the exact order specified in `works`. If this is False, then
+        those exact results must come up, but their order is not
+        what's being tested.
+        """
+        if isinstance(expect, Work):
+            expect = [expect]
+
+        should_be_ordered = kwargs.pop('ordered', True)
+
+        hits = self.search.query_works(
+            query_string, filter, pagination, debug=True, **kwargs
+        )
+        results = [x.work_id for x in hits]
+        actual = self._db.query(Work).filter(Work.id.in_(results)).all()
+        if should_be_ordered:
+            # Put the Work objects in the same order as the IDs returned
+            # in `results`.
+            works_by_id = dict()
+            for w in actual:
+                works_by_id[w.id] = w
+            actual = [
+                works_by_id[result] for result in results
+                if result in works_by_id
+            ]
+
+        query_args = (query_string, filter, pagination)
+        self._assert_works(query_args, expect, actual, should_be_ordered)
+
+        if query_string is None and pagination is None and not kwargs:
+            # Only a filter was provided -- this means if we pass the
+            # filter into count_works() we'll get all the results we
+            # got from query_works(). Take the opportunity to verify
+            # that count_works() gives the right answer.
+            count = self.search.count_works(filter)
+            eq_(count, len(expect))
 
 
 class MockCoverageProvider(object):

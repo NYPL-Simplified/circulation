@@ -41,11 +41,11 @@ def site_configuration_has_changed(_db, timeout=1):
     of what you consider "site configuration", just to be safe.
 
     :param _db: Either a Session or (to save time in a common case) an
-    ORM object that can turned into a Session.
+        ORM object that can turned into a Session.
 
     :param timeout: Nothing will happen if it's been fewer than this
-    number of seconds since the last site configuration change was
-    recorded.
+        number of seconds since the last site configuration change was
+        recorded.
     """
     has_lock = site_configuration_has_changed_lock.acquire(blocking=False)
     if not has_lock:
@@ -247,10 +247,18 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
 # Certain ORM events, however they occur, indicate that a work's
 # external index needs updating.
 
+@event.listens_for(Work.license_pools, 'append')
+@event.listens_for(Work.license_pools, 'remove')
+def licensepool_removed_from_work(target, value, initiator):
+    """When a Work gains or loses a LicensePool, it needs to be reindexed.
+    """
+    if target:
+        target.external_index_needs_updating()
+
 @event.listens_for(LicensePool, 'after_delete')
 def licensepool_deleted(mapper, connection, target):
-    """A LicensePool should never be deleted, but if it is, we need to
-    keep the search index up to date.
+    """A LicensePool is deleted only when its collection is deleted.
+    If this happens, we need to keep the Work's index up to date.
     """
     work = target.work
     if work:
@@ -268,25 +276,6 @@ def licensepool_collection_change(target, value, oldvalue, initiator):
         return
     work.external_index_needs_updating()
 
-
-@event.listens_for(LicensePool.licenses_owned, 'set')
-def licenses_owned_change(target, value, oldvalue, initiator):
-    """A Work may need to have its search document re-indexed if one of
-    its LicensePools changes the number of licenses_owned to or from zero.
-    """
-    work = target.work
-    if not work:
-        return
-    if target.open_access:
-        # For open-access works, the licenses_owned value doesn't
-        # matter.
-        return
-    if (value == oldvalue) or (value > 0 and oldvalue > 0):
-        # The availability of this LicensePool has not changed. No need
-        # to reindex anything.
-        return
-    work.external_index_needs_updating()
-
 @event.listens_for(LicensePool.open_access, 'set')
 def licensepool_open_access_change(target, value, oldvalue, initiator):
     """A Work may need to have its search document re-indexed if one of
@@ -300,3 +289,13 @@ def licensepool_open_access_change(target, value, oldvalue, initiator):
     if value == oldvalue:
         return
     work.external_index_needs_updating()
+
+@event.listens_for(Work.last_update_time, 'set')
+def last_update_time_change(target, value, oldvalue, initator):
+    """A Work needs to have its search document re-indexed whenever its
+    last_update_time changes.
+
+    Among other things, this happens whenever the LicensePool's availability
+    information changes.
+    """
+    target.external_index_needs_updating()

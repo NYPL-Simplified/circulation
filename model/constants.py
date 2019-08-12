@@ -159,6 +159,7 @@ class IdentifierConstants(object):
     UPC = u"UPC"
     BIBBLIO_CONTENT_ITEM_ID = u"Bibblio Content Item ID"
     ENKI_ID = u"Enki ID"
+    SUDOC_CALL_NUMBER = u"SuDoc Call Number"
 
     DEPRECATED_NAMES = {
         u"3M ID" : BIBLIOTHECA_ID,
@@ -169,7 +170,7 @@ class IdentifierConstants(object):
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
         BIBLIOTHECA_ID, OVERDRIVE_ID, ODILO_ID, AXIS_360_ID,
-        GUTENBERG_ID, ELIB_ID
+        GUTENBERG_ID, ELIB_ID, SUDOC_CALL_NUMBER,
     ]
 
     URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"

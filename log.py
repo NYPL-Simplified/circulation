@@ -393,10 +393,9 @@ class LogConfiguration(object):
         as configured in the database.
 
         :param _db: A database connection. If this is None, the default logging
-        configuration will be used.
+            configuration will be used.
 
-        :param testing: True if unit tests are currently running; otherwise
-        False.
+        :param testing: True if unit tests are currently running; otherwise False.
         """
         log_level, database_log_level, new_handlers, errors = (
             cls.from_configuration(_db, testing)
@@ -442,20 +441,20 @@ class LogConfiguration(object):
         """Return the logging policy as configured in the database.
 
         :param _db: A database connection. If None, the default
-        logging policy will be used.
+            logging policy will be used.
 
         :param testing: A boolean indicating whether a unit test is
-        happening right now. If True, the database configuration will
-        be ignored in favor of a known test-friendly policy. (It's
-        okay to pass in False during a test *of this method*.)
+            happening right now. If True, the database configuration will
+            be ignored in favor of a known test-friendly policy. (It's
+            okay to pass in False during a test *of this method*.)
 
         :return: A 3-tuple (internal_log_level, database_log_level,
-        handlers). `internal_log_level` is the log level to be used
-        for most log messages. `database_log_level` is the log level
-        to be applied to the loggers for the database connector and
-        other verbose third-party libraries. `handlers` is a list of
-        Handler objects that will be associated with the top-level
-        logger.
+            handlers). `internal_log_level` is the log level to be used
+            for most log messages. `database_log_level` is the log level
+            to be applied to the loggers for the database connector and
+            other verbose third-party libraries. `handlers` is a list of
+            Handler objects that will be associated with the top-level
+            logger.
         """
         log_level = cls.DEFAULT_LOG_LEVEL
         database_log_level = cls.DEFAULT_DATABASE_LOG_LEVEL

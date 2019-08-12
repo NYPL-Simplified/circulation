@@ -176,6 +176,7 @@ class SubjectData(object):
 
 
 class ContributorData(object):
+
     def __init__(self, sort_name=None, display_name=None,
                  family_name=None, wikipedia_name=None, roles=None,
                  lc=None, viaf=None, biography=None, aliases=None, extra=None):
@@ -183,7 +184,8 @@ class ContributorData(object):
         self.display_name = display_name
         self.family_name = family_name
         self.wikipedia_name = wikipedia_name
-        roles = roles or Contributor.AUTHOR_ROLE
+        if roles is None:
+            roles = Contributor.AUTHOR_ROLE
         if not isinstance(roles, list):
             roles = [roles]
         self.roles = roles
@@ -218,13 +220,74 @@ class ContributorData(object):
             roles=[contribution.role]
         )
 
+    @classmethod
+    def lookup(cls, _db, sort_name=None, display_name=None, lc=None,
+               viaf=None):
+        """Create a (potentially synthetic) ContributorData based on
+        the best available information in the database.
+
+        :return: A ContributorData.
+        """
+        clauses = []
+        if sort_name:
+            clauses.append(Contributor.sort_name==sort_name)
+        if display_name:
+            clauses.append(Contributor.display_name==display_name)
+        if lc:
+            clauses.append(Contributor.lc==lc)
+        if viaf:
+            clauses.append(Contributor.viaf==viaf)
+
+        if not clauses:
+            raise ValueError("No Contributor information provided!")
+
+        or_clause = or_(*clauses)
+        contributors = _db.query(Contributor).filter(or_clause).all()
+        if len(contributors) == 0:
+            # We have no idea who this person is.
+            return None
+
+        # We found at least one matching Contributor. Let's try to
+        # build a composite ContributorData for the person.
+        values_by_field = defaultdict(set)
+
+        # If all the people we found share (e.g.) a VIAF field, then
+        # we can use that as a clue when doing a search -- anyone with
+        # that VIAF number is probably this person, even if their display
+        # name doesn't match.
+        for c in contributors:
+            if c.sort_name:
+                values_by_field['sort_name'].add(c.sort_name)
+            if c.display_name:
+                values_by_field['display_name'].add(c.display_name)
+            if c.lc:
+                values_by_field['lc'].add(c.lc)
+            if c.viaf:
+                values_by_field['viaf'].add(c.viaf)
+
+        # Use any passed-in values as default values for the
+        # ContributorData. Below, missing values may be filled in and
+        # inaccurate values may be replaced.
+        kwargs = dict(
+            sort_name=sort_name,
+            display_name=display_name,
+            lc=lc,
+            viaf=viaf
+        )
+        for k, values in values_by_field.items():
+            if len(values) == 1:
+                # All the Contributors we found have the same
+                # value for this field. We can use it.
+                kwargs[k] = list(values)[0]
+
+        return ContributorData(roles=[], **kwargs)
 
     def apply(self, destination, replace=None):
         """ Update the passed-in Contributor-type object with this
         ContributorData's information.
 
         :param: destination -- the Contributor or ContributorData object to
-                write this ContributorData object's metadata to.
+            write this ContributorData object's metadata to.
         :param: replace -- Replacement policy (not currently used).
 
         :return: the possibly changed Contributor object and a flag of whether it's been changed.
@@ -1065,10 +1128,11 @@ class CirculationData(MetaToModelUtility):
         """Update the title with this CirculationData's information.
 
         :param collection: A Collection representing actual copies of
-        this title. Availability information (e.g. number of copies)
-        will be associated with a LicensePool in this Collection. If
-        this is not present, only delivery information (e.g. format
-        information and open-access downloads) will be processed.
+            this title. Availability information (e.g. number of copies)
+            will be associated with a LicensePool in this Collection. If
+            this is not present, only delivery information (e.g. format
+            information and open-access downloads) will be processed.
+
         """
         # Immediately raise an exception if there is information that
         # can only be stored in a LicensePool, but we have no
@@ -1589,12 +1653,12 @@ class Metadata(MetaToModelUtility):
         """Apply this metadata to the given edition.
 
         :param mirror: Open-access books and cover images will be mirrored
-        to this MirrorUploader.
+            to this MirrorUploader.
         :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes
-        answers the question: were any edition core fields harmed in the making of this update?
-        So, if title changed, return True.
-        New: If contributors changed, this is now considered a core change,
-        so work.simple_opds_feed refresh can be triggered.
+            answers the question: were any edition core fields harmed in the making of this update?
+            So, if title changed, return True.
+            New: If contributors changed, this is now considered a core change,
+            so work.simple_opds_feed refresh can be triggered.
         """
         _db = Session.object_session(edition)
 

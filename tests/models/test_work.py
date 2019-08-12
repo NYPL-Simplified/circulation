@@ -133,19 +133,6 @@ class TestWork(DatabaseTest):
         # Because the work's license_pool isn't suppressed, it isn't returned.
         eq_([], result)
 
-        # It's possible to filter a field other than Identifier.id.
-        # Here, we filter based on the value of
-        # mv_works_for_lanes.identifier_id.
-        from ...model import MaterializedWorkWithGenre as mw
-        qu = self._db.query(mw)
-        m = lambda: Work.from_identifiers(
-            self._db, [lp.identifier], base_query=qu,
-            identifier_id_field=mw.identifier_id
-        ).all()
-        eq_([], m())
-        self.add_to_materialized_view([work, ignored_work])
-        eq_([work.id], [x.works_id for x in m()])
-
     def test_calculate_presentation(self):
         # Test that:
         # - work coverage records are made on work creation and primary edition selection.
@@ -194,10 +181,12 @@ class TestWork(DatabaseTest):
         # The author of the Work is the author of its primary work record.
         eq_("Alice Adder, Bob Bitshifter", work.author)
 
-        # This Work starts out with a single CoverageRecord reflecting the
-        # work done to generate its initial OPDS entry, and then it adds choose-edition
-        # as a primary edition is set.
-        [choose_edition, generate_opds] = sorted(work.coverage_records, key=lambda x: x.operation)
+        # This Work starts out with a single CoverageRecord reflecting
+        # the work done to generate its initial OPDS entry, and then
+        # it adds choose-edition as a primary edition is set. The
+        # search index CoverageRecord is a marker for work that must
+        # be done in the future, and is not tested here.
+        [choose_edition, generate_opds, update_search_index] = sorted(work.coverage_records, key=lambda x: x.operation)
         assert (generate_opds.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION)
         assert (choose_edition.operation == WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
 
@@ -782,7 +771,7 @@ class TestWork(DatabaseTest):
 
     def test_to_search_document(self):
         # Set up an edition and work.
-        edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
+        edition, pool1 = self._edition(authors=[self._str, self._str], with_license_pool=True)
         work = self._work(presentation_edition=edition)
 
         # Create a second Collection that has a different LicensePool
@@ -792,6 +781,9 @@ class TestWork(DatabaseTest):
         self._default_library.collections.append(collection2)
         pool2 = self._licensepool(edition=edition, collection=collection2)
         pool2.work_id = work.id
+        pool2.licenses_available = 0
+        pool2.licenses_owned = 10
+        work.license_pools.append(pool2)
 
         # Create a third Collection that's just hanging around, not
         # doing anything.
@@ -799,19 +791,27 @@ class TestWork(DatabaseTest):
 
         # These are the edition's authors.
         [contributor1] = [c.contributor for c in edition.contributions if c.role == Contributor.PRIMARY_AUTHOR_ROLE]
+        contributor1.display_name = self._str
         contributor1.family_name = self._str
+        contributor1.viaf = self._str
+        contributor1.lc = self._str
         [contributor2] = [c.contributor for c in edition.contributions if c.role == Contributor.AUTHOR_ROLE]
 
         data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
         # This identifier is strongly equivalent to the edition's.
-        identifier = self._identifier()
-        identifier.equivalent_to(data_source, edition.primary_identifier, 0.9)
+        identifier1 = self._identifier(identifier_type=Identifier.ISBN)
+        identifier1.equivalent_to(data_source, edition.primary_identifier, 0.9)
 
         # This identifier is equivalent to the other identifier, but the strength
         # is too weak for it to be used.
-        identifier2 = self._identifier()
-        identifier.equivalent_to(data_source, identifier, 0.1)
+        identifier2 = self._identifier(identifier_type=Identifier.ISBN)
+        identifier2.equivalent_to(data_source, identifier2, 0.1)
+
+        # This identifier is equivalent to the _edition's_, but too weak to
+        # be used.
+        identifier3 = self._identifier(identifier_type=Identifier.ISBN)
+        identifier3.equivalent_to(data_source, edition.primary_identifier, 0.1)
 
         # Add some classifications.
 
@@ -819,19 +819,20 @@ class TestWork(DatabaseTest):
         edition.primary_identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 6)
 
         # This one has the same subject type and identifier, so their weights will be combined.
-        identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 1)
+        identifier1.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 1)
 
         # Here's another classification with a different subject type.
         edition.primary_identifier.classify(data_source, Subject.OVERDRIVE, "Romance", None, 2)
 
         # This classification has a subject name, so the search document will use that instead of the identifier.
-        identifier.classify(data_source, Subject.FAST, self._str, "Sea Stories", 7)
+        identifier1.classify(data_source, Subject.FAST, self._str, "Sea Stories", 7)
 
         # This classification will be left out because its subject type isn't useful for search.
-        identifier.classify(data_source, Subject.DDC, self._str, None)
+        identifier1.classify(data_source, Subject.DDC, self._str, None)
 
-        # This classification will be left out because its identifier isn't sufficiently equivalent to the edition's.
+        # These classifications will be left out because their identifiers aren't sufficiently equivalent to the edition's.
         identifier2.classify(data_source, Subject.FAST, self._str, None)
+        identifier3.classify(data_source, Subject.FAST, self._str, None)
 
         # Add some genres.
         genre1, ignore = Genre.lookup(self._db, "Science Fiction")
@@ -839,10 +840,22 @@ class TestWork(DatabaseTest):
         work.genres = [genre1, genre2]
         work.work_genres[0].affinity = 1
 
+        # Add two custom lists. The work is featured on one list but
+        # not the other.
+        appeared_1 = datetime.datetime(2010, 1, 1)
+        appeared_2 = datetime.datetime(2011, 1, 1)
+        l1, ignore = self._customlist(num_entries=0)
+        l1.add_entry(work, featured=False, update_external_index=False,
+                     first_appearance=appeared_1)
+        l2, ignore = self._customlist(num_entries=0)
+        l2.add_entry(work, featured=True, update_external_index=False,
+                     first_appearance=appeared_2)
+
         # Add the other fields used in the search document.
         work.target_age = NumericRange(7, 8, '[]')
         edition.subtitle = self._str
         edition.series = self._str
+        edition.series_position = 99
         edition.publisher = self._str
         edition.imprint = self._str
         work.fiction = False
@@ -850,21 +863,40 @@ class TestWork(DatabaseTest):
         work.summary_text = self._str
         work.rating = 5
         work.popularity = 4
+        work.random = 0.145
+        work.last_update_time = datetime.datetime.utcnow()
 
         # Make sure all of this will show up in a database query.
         self._db.flush()
 
+        def assert_time_match(python, postgres):
+            """Compare a datetime object and a Postgres
+            seconds-since-epoch as closely as possible.
+
+            The Postgres numbers are generated by a database function,
+            and have less precision than the datetime objects used to
+            put the data in the database, but we can check that it's
+            basically the same time.
+
+            :param python: A datetime from the Python part of this test.
+            :param postgres: A float from the Postgres part.
+            """
+            expect = (
+                python - datetime.datetime.utcfromtimestamp(0)
+            ).total_seconds()
+            eq_(int(expect), int(postgres))
 
         search_doc = work.to_search_document()
         eq_(work.id, search_doc['_id'])
+        eq_(work.id, search_doc['work_id'])
         eq_(work.title, search_doc['title'])
         eq_(edition.subtitle, search_doc['subtitle'])
         eq_(edition.series, search_doc['series'])
+        eq_(edition.series_position, search_doc['series_position'])
         eq_(edition.language, search_doc['language'])
         eq_(work.sort_title, search_doc['sort_title'])
         eq_(work.author, search_doc['author'])
         eq_(work.sort_author, search_doc['sort_author'])
-        eq_(edition.medium, search_doc['medium'])
         eq_(edition.publisher, search_doc['publisher'])
         eq_(edition.imprint, search_doc['imprint'])
         eq_(edition.permanent_work_id, search_doc['permanent_work_id'])
@@ -874,21 +906,91 @@ class TestWork(DatabaseTest):
         eq_(work.quality, search_doc['quality'])
         eq_(work.rating, search_doc['rating'])
         eq_(work.popularity, search_doc['popularity'])
+        eq_(work.random, search_doc['random'])
+        eq_(work.presentation_ready, search_doc['presentation_ready'])
+        assert_time_match(work.last_update_time, search_doc['last_update_time'])
         eq_(dict(lower=7, upper=8), search_doc['target_age'])
 
-        # Each collection in which the Work is found is listed in
-        # the 'collections' section.
-        collections = search_doc['collections']
-        eq_(2, len(collections))
-        for collection in self._default_library.collections:
-            assert dict(collection_id=collection.id) in collections
+        # Each LicensePool for the Work is listed in
+        # the 'licensepools' section.
+        licensepools = search_doc['licensepools']
+        eq_(2, len(licensepools))
+        eq_(set([x.id for x in work.license_pools]),
+            set([x['licensepool_id'] for x in licensepools]))
+
+        # Each item in the 'licensepools' section has a variety of useful information
+        # about the corresponding LicensePool.
+        for pool in work.license_pools:
+            [match] = [x for x in licensepools if x['licensepool_id'] == pool.id]
+            eq_(pool.open_access, match['open_access'])
+            eq_(pool.collection_id, match['collection_id'])
+            eq_(pool.suppressed, match['suppressed'])
+            eq_(pool.data_source_id, match['data_source_id'])
+
+            eq_(pool.licenses_available > 0, match['available'])
+            eq_(pool.licenses_owned > 0, match['licensed'])
+
+            # The work quality is stored in the main document, but
+            # it's also stored in the license pool subdocument so that
+            # we can apply a nested filter that includes quality +
+            # information from the subdocument.
+            eq_(work.quality, match['quality'])
+
+            assert_time_match(
+                pool.availability_time, match['availability_time']
+            )
+
+            # The medium of the work's presentation edition is stored
+            # in the main document, but it's also stored in the
+            # license poolsubdocument, so that we can filter out
+            # license pools that represent audiobooks from unsupported
+            # sources.
+            eq_(edition.medium, search_doc['medium'])
+            eq_(edition.medium, match['medium'])
+
+        # Each identifier that could, with high confidence, be
+        # associated with the work, is in the 'identifiers' section.
+        #
+        # This includes each identifier associated with a LicensePool
+        # for the work, and the ISBN associated with one of those
+        # LicensePools through a high-confidence equivalency. It does
+        # not include the low-confidence ISBN, or any of the
+        # identifiers not tied to a LicensePool.
+        expect = [
+            dict(identifier=identifier1.identifier, type=identifier1.type),
+            dict(identifier=pool1.identifier.identifier,
+                 type=pool1.identifier.type),
+        ]
+        eq_(sorted(expect), sorted(search_doc['identifiers']))
+
+        # Each custom list entry for the work is in the 'customlists'
+        # section.
+        not_featured, featured = sorted(
+            search_doc['customlists'], key = lambda x: x['featured']
+        )
+        assert_time_match(appeared_1, not_featured.pop('first_appearance'))
+        eq_(dict(featured=False, list_id=l1.id), not_featured)
+        assert_time_match(appeared_2, featured.pop('first_appearance'))
+        eq_(dict(featured=True, list_id=l2.id), featured)
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
+
         [contributor1_doc] = [c for c in contributors if c['sort_name'] == contributor1.sort_name]
         [contributor2_doc] = [c for c in contributors if c['sort_name'] == contributor2.sort_name]
+
+        eq_(contributor1.display_name, contributor1_doc['display_name'])
+        eq_(None, contributor2_doc['display_name'])
+
         eq_(contributor1.family_name, contributor1_doc['family_name'])
         eq_(None, contributor2_doc['family_name'])
+
+        eq_(contributor1.viaf, contributor1_doc['viaf'])
+        eq_(None, contributor2_doc['viaf'])
+
+        eq_(contributor1.lc, contributor1_doc['lc'])
+        eq_(None, contributor2_doc['lc'])
+
         eq_(Contributor.PRIMARY_AUTHOR_ROLE, contributor1_doc['role'])
         eq_(Contributor.AUTHOR_ROLE, contributor2_doc['role'])
 
@@ -919,29 +1021,24 @@ class TestWork(DatabaseTest):
         eq_(work.target_age.lower, target_age_doc['lower'])
         eq_(work.target_age.upper, target_age_doc['upper'])
 
-        # Each collection in which the Work is found is listed in
-        # the 'collections' section.
-        collections = search_doc['collections']
-        eq_(2, len(collections))
-        for collection in self._default_library.collections:
-            assert dict(collection_id=collection.id) in collections
-
-        # If the book stops being available through a collection
+        # If a book stops being available through a collection
         # (because its LicensePool loses all its licenses or stops
-        # being open access), that collection will not be listed
-        # in the search document.
+        # being open access), it will no longer be listed
+        # in its Work's search document.
         [pool] = collection1.licensepools
         pool.licenses_owned = 0
         self._db.commit()
         search_doc = work.to_search_document()
-        eq_([dict(collection_id=collection2.id)], search_doc['collections'])
+        eq_([collection2.id],
+            [x['collection_id'] for x in search_doc['licensepools']])
 
         # If the book becomes available again, the collection will
         # start showing up again.
         pool.open_access = True
         self._db.commit()
         search_doc = work.to_search_document()
-        eq_(2, len(search_doc['collections']))
+        eq_(set([collection1.id, collection2.id]),
+            set([x['collection_id'] for x in search_doc['licensepools']]))
 
     def test_target_age_string(self):
         work = self._work()
@@ -983,12 +1080,9 @@ class TestWork(DatabaseTest):
 
 
     def test_reindex_on_availability_change(self):
-        """A change in a LicensePool's availability creates a
-        WorkCoverageRecord indicating that the work needs to be
-        re-indexed.
-        """
-        work = self._work(with_open_access_download=True)
-        [pool] = work.license_pools
+        # A change in a LicensePool's availability creates a
+        # WorkCoverageRecord indicating that the work needs to be
+        # re-indexed.
         def find_record(work):
             """Find the Work's 'update search index operation'
             WorkCoverageRecord.
@@ -1005,38 +1099,37 @@ class TestWork(DatabaseTest):
         registered = WorkCoverageRecord.REGISTERED
         success = WorkCoverageRecord.SUCCESS
 
-        # The work starts off with no relevant WorkCoverageRecord.
-        eq_(None, find_record(work))
+        # A Work with no LicensePool isn't registered as needing
+        # indexing. (It will be indexed anyway, but it's not registered
+        # as needing it.)
+        no_licensepool = self._work()
+        eq_(None, find_record(no_licensepool))
 
-        # If it stops being open-access, it needs to be reindexed.
-        pool.open_access = False
+        # A Work with a LicensePool starts off in a state where it
+        # needs to be indexed.
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
         record = find_record(work)
         eq_(registered, record.status)
 
-        # If its licenses_owned goes from zero to nonzero, it needs to
-        # be reindexed.
+        # If it stops being open-access, it needs to be reindexed.
         record.status = success
-        pool.licenses_owned = 10
-        pool.licenses_available = 10
-        eq_(registered, record.status)
-
-        # If its licenses_owned changes, but not to zero, nothing happens.
-        record.status = success
-        pool.licenses_owned = 1
-        eq_(success, record.status)
-
-        # If its licenses_available changes, nothing happens
-        pool.licenses_available = 0
-        eq_(success, record.status)
-
-        # If its licenses_owned goes from nonzero to zero, it needs to
-        # be reindexed.
-        pool.licenses_owned = 0
+        pool.open_access = False
+        record = find_record(work)
         eq_(registered, record.status)
 
         # If it becomes open-access again, it needs to be reindexed.
         record.status = success
         pool.open_access = True
+        record = find_record(work)
+        eq_(registered, record.status)
+
+        # If its last_update_time is changed, it needs to be
+        # reindexed. (This happens whenever
+        # LicensePool.update_availability is called, meaning that
+        # patron transactions always trigger a reindex).
+        record.status = success
+        work.last_update_time = datetime.datetime.utcnow()
         eq_(registered, record.status)
 
         # If its collection changes (which shouldn't happen), it needs
@@ -1050,9 +1143,22 @@ class TestWork(DatabaseTest):
         # its former Work needs to be reindexed.
         record.status = success
         self._db.delete(pool)
-        work = self._db.query(Work).one()
+        work = self._db.query(Work).filter(Work.id==work.id).one()
         record = find_record(work)
         eq_(registered, record.status)
+
+        # If a LicensePool is moved in from another Work, _both_ Works
+        # need to be reindexed.
+        record.status = success
+        another_work = self._work(with_license_pool=True)
+        [another_pool] = another_work.license_pools
+        work.license_pools.append(another_pool)
+        eq_([], another_work.license_pools)
+
+        for work in (work, another_work):
+            record = find_record(work)
+            eq_(registered, record.status)
+
 
     def test_reset_coverage(self):
         # Test the methods that reset coverage for works, indicating
@@ -1789,9 +1895,8 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(True, is_new)
 
     def test_potential_open_access_works_for_permanent_work_id(self):
-        """Test of the _potential_open_access_works_for_permanent_work_id
-        helper method.
-        """
+        # Test of the _potential_open_access_works_for_permanent_work_id
+        # helper method.
 
         # Here are two editions of the same book with the same PWID.
         title = 'Siddhartha'
@@ -1809,6 +1914,7 @@ class TestWorkConsolidation(DatabaseTest):
         e2.permanent_work_id = "pwid"
 
         w1 = Work()
+        self._db.add(w1)
         for lp in [lp1, lp2]:
             w1.license_pools.append(lp)
             lp.open_access = True
@@ -1897,11 +2003,13 @@ class TestWorkConsolidation(DatabaseTest):
         # Finally, let's see what happens when there are two Works where
         # there should be one.
         w2 = Work()
+        self._db.add(w2)
         w2.license_pools.append(lp2)
         pools, counts = m()
 
         # This work is irrelevant and will not show up at all.
         w3 = Work()
+        self._db.add(w3)
 
         # Both Works have one associated LicensePool, so they have
         # equal claim to being 'the' Work for this work

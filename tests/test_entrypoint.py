@@ -7,6 +7,7 @@ from nose.tools import (
 )
 from ..model import (
     Edition,
+    Work,
 )
 from ..entrypoint import (
     EntryPoint,
@@ -40,7 +41,7 @@ class TestEntryPoint(DatabaseTest):
     def test_no_changes(self):
         # EntryPoint doesn't modify queries or search filters.
         qu = self._db.query(Edition)
-        eq_(qu, EntryPoint.apply(qu))
+        eq_(qu, EntryPoint.modify_database_query(self._db, qu))
         args = dict(arg="value")
 
         filter = object()
@@ -98,7 +99,7 @@ class TestEverythingEntryPoint(DatabaseTest):
         eq_("All", EverythingEntryPoint.INTERNAL_NAME)
 
         qu = self._db.query(Edition)
-        eq_(qu, EntryPoint.apply(qu))
+        eq_(qu, EntryPoint.modify_database_query(self._db, qu))
         args = dict(arg="value")
 
         filter = object()
@@ -107,26 +108,24 @@ class TestEverythingEntryPoint(DatabaseTest):
 
 class TestMediumEntryPoint(DatabaseTest):
 
-    def test_apply(self):
+    def test_modify_database_query(self):
         # Create a video, and a entry point that contains videos.
         work = self._work(with_license_pool=True)
         work.license_pools[0].presentation_edition.medium = Edition.VIDEO_MEDIUM
-        self.add_to_materialized_view([work])
 
         class Videos(MediumEntryPoint):
             INTERNAL_NAME = Edition.VIDEO_MEDIUM
 
-        from ..model import MaterializedWorkWithGenre
-        qu = self._db.query(MaterializedWorkWithGenre)
+        qu = self._db.query(Work)
 
         # The default entry points filter out the video.
         for entrypoint in EbooksEntryPoint, AudiobooksEntryPoint:
-            modified = entrypoint.apply(qu)
+            modified = entrypoint.modify_database_query(self._db, qu)
             eq_([], modified.all())
 
         # But the video entry point includes it.
-        videos = Videos.apply(qu)
-        eq_([work.id], [x.works_id for x in videos])
+        videos = Videos.modify_database_query(self._db, qu)
+        eq_([work.id], [x.id for x in videos])
 
 
     def test_modify_search_filter(self):

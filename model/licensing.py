@@ -405,6 +405,7 @@ class LicensePool(Base):
         """Set .open_access based on whether there is currently
         an open-access LicensePoolDeliveryMechanism for this LicensePool.
         """
+        old_status = self.open_access
         for dm in self.delivery_mechanisms:
             if dm.is_open_access:
                 self.open_access = True
@@ -486,21 +487,22 @@ class LicensePool(Base):
                  original_resource=None, transformation_settings=None,
                  ):
         """Add a link between this LicensePool and a Resource.
+
         :param rel: The relationship between this LicensePool and the resource
-               on the other end of the link.
+            on the other end of the link.
         :param href: The URI of the resource on the other end of the link.
         :param media_type: Media type of the representation associated
-               with the resource.
+            with the resource.
         :param content: Content of the representation associated with the
-               resource.
+            resource.
         :param content_path: Path (relative to DATA_DIRECTORY) of the
-               representation associated with the resource.
+            representation associated with the resource.
         :param rights_status_uri: The URI of the RightsStatus for this resource.
         :param rights_explanation: A free text explanation of why the RightsStatus
-               applies.
+            applies.
         :param original_resource: Another resource that this resource was derived from.
         :param transformation_settings: The settings used to transform the original
-               resource into this resource.
+            resource into this resource.
         """
         return self.identifier.add_link(
             rel, href, data_source, media_type, content, content_path,
@@ -1221,6 +1223,7 @@ class LicensePoolDeliveryMechanism(Base):
             resource=None, autocommit=True):
         """Register the fact that a distributor makes a title available in a
         certain format.
+
         :param data_source: A DataSource identifying the distributor.
         :param identifier: An Identifier identifying the title.
         :param content_type: The title is available in this media type.
@@ -1280,6 +1283,7 @@ class LicensePoolDeliveryMechanism(Base):
     def compatible_with(self, other):
         """Can a single loan be fulfilled with both this
         LicensePoolDeliveryMechanism and the given one?
+
         :param other: A LicensePoolDeliveryMechanism.
         """
         if not isinstance(other, LicensePoolDeliveryMechanism):
@@ -1523,6 +1527,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     def compatible_with(self, other, open_access_rules=False):
         """Can a single loan be fulfilled with both this delivery mechanism
         and the given one?
+
         :param other: A DeliveryMechanism
         :param open_access: If this is True, the rules for open-access
             fulfillment will be applied. If not, the stricted rules

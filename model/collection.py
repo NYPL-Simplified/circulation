@@ -19,6 +19,7 @@ from configuration import (
 )
 from constants import EditionConstants
 from datasource import DataSource
+from edition import Edition
 from hasfulltablecache import HasFullTableCache
 from identifier import Identifier
 from integrationclient import IntegrationClient
@@ -223,7 +224,7 @@ class Collection(Base, HasFullTableCache):
         Collections marked for deletion are not included.
 
         :param protocol: Protocol to use. If this is None, all
-        Collections will be returned except those marked for deletion.
+            Collections will be returned except those marked for deletion.
         """
         qu = _db.query(Collection)
         if protocol:
@@ -345,7 +346,7 @@ class Collection(Base, HasFullTableCache):
         of creating another one.
 
         :param protocol: The protocol known to be in use when getting
-        licenses for this collection.
+            licenses for this collection.
         """
         _db = Session.object_session(self)
         goal = ExternalIntegration.LICENSE_GOAL
@@ -662,41 +663,30 @@ class Collection(Base, HasFullTableCache):
 
     @classmethod
     def restrict_to_ready_deliverable_works(
-        cls, query, work_model, edition_model=None, collection_ids=None,
-        show_suppressed=False, allow_holds=True,
+        cls, query, collection_ids=None, show_suppressed=False,
+            allow_holds=True,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
         fulfill.
 
         Note that this assumes the query has an active join against
-        LicensePool.
+        LicensePool and Edition.
 
         :param query: The query to restrict.
 
-        :param work_model: Either Work or MaterializedWorkWithGenre
-
-        :param edition_model: Either Edition or MaterializedWorkWithGenre
-
         :param show_suppressed: Include titles that have nothing but
-        suppressed LicensePools.
+            suppressed LicensePools.
 
         :param collection_ids: Only include titles in the given
-        collections.
+            collections.
 
         :param allow_holds: If false, pools with no available copies
-        will be hidden.
+            will be hidden.
         """
-        edition_model = edition_model or work_model
 
         # Only find presentation-ready works.
-        #
-        # Such works are automatically filtered out of
-        # the materialized view, but we need to filter them out of Work.
-        if work_model == Work:
-            query = query.filter(
-                work_model.presentation_ready == True,
-            )
+        query = query.filter(Work.presentation_ready == True)
 
         # Only find books that have some kind of DeliveryMechanism.
         LPDM = LicensePoolDeliveryMechanism
@@ -716,7 +706,7 @@ class Collection(Base, HasFullTableCache):
                 DataSource.lookup(_db, x).id for x in excluded
             ]
             query = query.filter(
-                or_(edition_model.medium != EditionConstants.AUDIO_MEDIUM,
+                or_(Edition.medium != EditionConstants.AUDIO_MEDIUM,
                     ~LicensePool.data_source_id.in_(audio_excluded_ids))
             )
 

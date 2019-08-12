@@ -286,8 +286,7 @@ class Library(Base, HasFullTableCache):
         return self.setting(key)
 
     def restrict_to_ready_deliverable_works(
-        self, query, work_model, edition_model=None, collection_ids=None,
-            show_suppressed=False,
+        self, query, collection_ids=None, show_suppressed=False,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -295,8 +294,6 @@ class Library(Base, HasFullTableCache):
         Note that this assumes the query has an active join against
         LicensePool.
         :param query: The query to restrict.
-        :param work_model: Either Work or one of the MaterializedWork
-        materialized view classes.
         :param collection_ids: Only include titles in the given
         collections.
         :param show_suppressed: Include titles that have nothing but
@@ -305,9 +302,9 @@ class Library(Base, HasFullTableCache):
         from collection import Collection
         collection_ids = collection_ids or [x.id for x in self.all_collections]
         return Collection.restrict_to_ready_deliverable_works(
-            query, work_model, edition_model,
-            collection_ids=collection_ids, show_suppressed=show_suppressed,
-            allow_holds=self.allow_holds)
+            query, collection_ids=collection_ids,
+            show_suppressed=show_suppressed, allow_holds=self.allow_holds
+        )
 
     def estimated_holdings_by_language(self, include_open_access=True):
         """Estimate how many titles this library has in various languages.
@@ -322,7 +319,7 @@ class Library(Base, HasFullTableCache):
         ).select_from(Work).join(Work.license_pools).join(
             Work.presentation_edition
         ).filter(Edition.language != None).group_by(Edition.language)
-        qu = self.restrict_to_ready_deliverable_works(qu, Work, Edition)
+        qu = self.restrict_to_ready_deliverable_works(qu)
         if not include_open_access:
             qu = qu.filter(LicensePool.open_access==False)
         counter = Counter()
@@ -344,6 +341,7 @@ class Library(Base, HasFullTableCache):
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
+
         :param include_secrets: For security reasons, secrets are not
             displayed by default.
         :return: A list of explanatory strings.

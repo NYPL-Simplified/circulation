@@ -110,20 +110,21 @@ class HasSelfTests(object):
     def run_self_tests(cls, _db, constructor_method=None, *args, **kwargs):
         """Instantiate this class and call _run_self_tests on it.
 
-        :param _db: A database connection. Will be passed into
-        _run_self_tests. This connection may need to be used again
-        in *args, if the constructor needs it.
+        :param _db: A database connection. Will be passed into `_run_self_tests`.
+            This connection may need to be used again
+            in args, if the constructor needs it.
 
         :param constructor_method: Method to use to instantiate the
-        class, if different from the default constructor.
+            class, if different from the default constructor.
 
         :param args: Positional arguments to pass into the constructor.
         :param kwargs: Keyword arguments to pass into the constructor.
 
         :return: A 2-tuple (results_dict, results_list) `results_dict`
-        is a JSON-serializable dictionary describing the results of
-        the self-test. `results_list` is a list of SelfTestResult
-        objects.
+            is a JSON-serializable dictionary describing the results of
+            the self-test. `results_list` is a list of SelfTestResult
+            objects.
+
         """
         from external_search import ExternalSearchIndex
 

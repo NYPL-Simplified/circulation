@@ -355,8 +355,11 @@ class OverdriveAPI(object):
     def _get_book_list_page(self, link, rel_to_follow='next'):
         """Process a page of inventory whose circulation we need to check.
 
-        Returns a list of (title, id, availability_link) 3-tuples,
-        plus a link to the next page of results.
+        Returns a 2-tuple: (availability_info, next_link).
+        `availability_info` is a list of dictionaries, each containing
+           basic availability and bibliographic information about
+           one book.
+        `next_link` is a link to the next page of results.
         """
         # We don't cache this because it changes constantly.
         status_code, headers, content = self.get(link, {})
@@ -371,7 +374,8 @@ class OverdriveAPI(object):
         # Prepare to get availability information for all the books on
         # this page.
         availability_queue = (
-            OverdriveRepresentationExtractor.availability_link_list(content))
+            OverdriveRepresentationExtractor.availability_link_list(content)
+        )
         return availability_queue, next_link
 
 
@@ -549,8 +553,7 @@ class OverdriveRepresentationExtractor(object):
 
     @classmethod
     def availability_link_list(cls, book_list):
-        """:return: A list of dictionaries with keys `id`, `title`,
-        `availability_link`.
+        """:return: A list of dictionaries with keys `id`, `title`, `availability_link`.
         """
         l = []
         if not 'products' in book_list:
@@ -562,10 +565,12 @@ class OverdriveRepresentationExtractor(object):
                 cls.log.warn("No ID found in %r", product)
                 continue
             book_id = product['id']
-            data = dict(id=book_id,
-                        title=product.get('title'),
-                        author_name=None)
-
+            data = dict(
+                id=book_id,
+                title=product.get('title'),
+                author_name=None,
+                date_added=product.get('dateAdded')
+            )
             if 'primaryCreator' in product:
                 creator = product['primaryCreator']
                 if creator.get('role') == 'Author':
@@ -1082,7 +1087,7 @@ class OverdriveAdvantageAccount(object):
         account.
 
         :return: a 2-tuple of Collections (primary Overdrive
-        collection, Overdrive Advantage collection)
+            collection, Overdrive Advantage collection)
         """
         # First find the parent Collection.
         try:

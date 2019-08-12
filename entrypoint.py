@@ -76,32 +76,23 @@ class EntryPoint(object):
             cls.DEFAULT_ENABLED.remove(entrypoint_class)
 
     @classmethod
-    def modified_materialized_view_query(cls, qu):
-        """Modify a query against the mv_works_for_lanes materialized view
-        so it matches only items that belong in this entry point.
-        """
-        raise NotImplementedError()
-
-    @classmethod
     def modify_search_filter(cls, filter):
-        """If necessary modify an ElasticSearch Filter object so that it
+        """If necessary, modify an ElasticSearch Filter object so that it
         restricts results to items shown through this entry point.
 
-        Any items returned will be run through the materialized view
-        lookup, which will filter any items that don't belong in this
-        entry point, so this isn't required. But if you can't
-        implement this, there's a chance that every item returned by
-        ExternalSearch.search() will be filtered out, giving the
-        impression that there are no search results when there
-        actually are.
+        The default behavior is not to change the Filter object at all.
 
         :param filter: An external_search.Filter object.
         """
         return filter
 
     @classmethod
-    def apply(cls, qu):
-        """Default behavior is to not change a query at all."""
+    def modify_database_query(cls, _db, qu):
+        """If necessary, modify a database query so that it restricts results
+        to items shown through this entry point.
+
+        The default behavior is to not change a database query at all.
+        """
         return qu
 
 
@@ -122,12 +113,12 @@ class MediumEntryPoint(EntryPoint):
     """
 
     @classmethod
-    def apply(cls, qu):
-        """Modify a query against the mv_works_for_lanes materialized view
+    def modify_database_query(cls, _db, qu):
+        """Modify a query against Work+LicensePool+Edition
         to match only items with the right medium.
         """
-        from model import MaterializedWorkWithGenre as mv
-        return qu.filter(mv.medium==cls.INTERNAL_NAME)
+        from model import Edition
+        return qu.filter(Edition.medium==cls.INTERNAL_NAME)
 
     @classmethod
     def modify_search_filter(cls, filter):
