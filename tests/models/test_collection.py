@@ -36,7 +36,7 @@ from ...model.licensing import (
     LicensePool,
 )
 from ...model.work import Work
-from ...util.string import base64
+from ...util.string_helpers import base64
 
 
 class TestCollection(DatabaseTest):
@@ -409,10 +409,10 @@ class TestCollection(DatabaseTest):
         assert_raises(ValueError, getattr, self.collection, 'metadata_identifier')
 
         def build_expected(protocol, unique_id):
-            # util.string.base64 takes care of encoding and decoding
-            # the strings we're base64-encoding, so we don't need to
-            # worry about that. However, we do need to pass in a
-            # bytestring for 'altchars', an extra argument that's
+            # util.string_helpers.base64 takes care of encoding and
+            # decoding the strings we're base64-encoding, so we don't
+            # need to worry about that. However, we do need to pass in
+            # a bytestring for 'altchars', an extra argument that's
             # passed right along to the standard library's base64
             # implementation.
             encoded = [base64.b64encode(value, b'-_') for value in [protocol, unique_id]]

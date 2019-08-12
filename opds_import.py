@@ -66,7 +66,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
-from util.string import base64
+from util.string_helpers import base64
 from mirror import MirrorUploader
 from selftest import HasSelfTests
 

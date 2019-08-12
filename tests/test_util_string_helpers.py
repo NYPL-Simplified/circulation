@@ -9,7 +9,7 @@ import base64 as stdlib_base64
 import random
 import re
 
-from ..util.string import (
+from ..util.string_helpers import (
     UnicodeAwareBase64,
     base64,
     random_string
