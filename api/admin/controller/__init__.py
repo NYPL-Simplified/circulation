@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import base64 as stdlib_base64
 import logging
 import sys
 import os
@@ -1787,7 +1788,9 @@ class SitewideRegistrationController(SettingsController):
 
         ignore, private_key = self.manager.sitewide_key_pair
         decryptor = Configuration.cipher(private_key)
-        shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
+        shared_secret = decryptor.decrypt(
+            stdlib_base64.b64decode(shared_secret)
+        )
         integration.password = unicode(shared_secret)
 
     def get_catalog(self, do_get, url):
