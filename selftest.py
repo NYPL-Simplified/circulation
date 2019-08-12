@@ -69,7 +69,7 @@ class SelfTestResult(object):
     def __repr__(self):
         if self.exception:
             if isinstance(self.exception, IntegrationException):
-                exception = " exception=%s debug=%r" % (
+                exception = " exception=%r debug=%r" % (
                     str(self.exception),
                     self.debug_message
                 )
