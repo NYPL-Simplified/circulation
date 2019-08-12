@@ -43,6 +43,8 @@ class JSONFormatter(logging.Formatter):
             data['traceback'] = self.formatException(record.exc_info)
         return json.dumps(data)
 
+# TODO PYTHON 3  In Python 3 we need to go the other way -- all logging
+# output must be Unicode.
 class UTF8Formatter(logging.Formatter):
     """Encode all Unicode output to UTF-8 to prevent encoding errors."""
     def format(self, record):
