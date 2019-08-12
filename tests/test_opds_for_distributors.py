@@ -410,6 +410,7 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
         # Each work has a license pool.
         [camelot_pool] = camelot.license_pools
         [southern_pool] = southern.license_pools
+        now = datetime.datetime.utcnow()
 
         for pool in [camelot_pool, southern_pool]:
             eq_(False, pool.open_access)
@@ -418,6 +419,7 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
             eq_(DeliveryMechanism.BEARER_TOKEN, pool.delivery_mechanisms[0].delivery_mechanism.drm_scheme)
             eq_(1, pool.licenses_owned)
             eq_(1, pool.licenses_available)
+            assert (pool.work.last_update_time - now).total_seconds() <= 2
 
         [camelot_acquisition_link] = [l for l in camelot_pool.identifier.links
                                       if l.rel == Hyperlink.GENERIC_OPDS_ACQUISITION

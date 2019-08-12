@@ -1,6 +1,7 @@
 # Core requirements
 boto3
--r elasticsearch-requirements-${SIMPLIFIED_ELASTICSEARCH_VERSION}.txt
+elasticsearch>6.0.0,<7.0.0
+elasticsearch-dsl>6.0.0,<7.0.0
 pillow
 psycopg2
 requests==2.18.4
@@ -17,6 +18,7 @@ uwsgi
 loggly-python-handler
 mock
 py-bcrypt
+pyspellchecker
 Flask-Babel
 money
 pymarc
@@ -24,6 +26,7 @@ accept-types
 uszipcode
 pypostalcode
 watchtower # for cloudwatch logging
+sphinx # for code documentation
 
 # Ensure that we support SNI-based SSL
 ndg-httpsclient

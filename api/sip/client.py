@@ -51,11 +51,11 @@ class fixed(object):
         input string, and store it in the given dictionary.
 
         :param in_progress: A dictionary mapping field names to
-        values. The value of this field will be stored in this
-        dictionary.
+            values. The value of this field will be stored in this
+            dictionary.
 
         :return: The original input string, after the value of this
-        field has been removed.
+            field has been removed.
         """
         value = data[:self.length]
         in_progress[self.internal_name] = value
@@ -110,8 +110,8 @@ class named(object):
         isolated from the response string.
 
         :param in_progress: A dictionary mapping field names to
-        values. The value of this field will be stored in this
-        dictionary.
+            values. The value of this field will be stored in this
+            dictionary.
         """
         if self.length and len(value) != self.length:
             self.log.warn(
@@ -183,6 +183,9 @@ class Constants(object):
 class SIPClient(Constants):
 
     log = logging.getLogger("SIPClient")
+
+    # Maximum retries of a SIP message before failing.
+    MAXIMUM_RETRIES = 5
 
     # These are the subfield names associated with the 'patron status'
     # field as specified in the SIP2 spec.
@@ -391,7 +394,12 @@ class SIPClient(Constants):
         original_message = message_creator(*args, **kwargs)
         message_with_checksum = self.append_checksum(original_message)
         parsed = None
+        retries = 0
         while not parsed:
+            if retries >= self.MAXIMUM_RETRIES:
+                # Only retry MAXIMUM_RETRIES times in case we we are sending
+                # a message the ILS doesn't like, so we don't retry forever
+                raise IOError('Maximum SIP retries reached')
             self.send(message_with_checksum)
             response = self.read_message()
             try:
@@ -403,6 +411,7 @@ class SIPClient(Constants):
                 message_with_checksum = self.append_checksum(
                     original_message, include_sequence_number=False
                 )
+            retries += 1
         return parsed
 
     def login_message(self, login_user_id, login_password, location_code="",
@@ -536,15 +545,15 @@ class SIPClient(Constants):
         fee amount: BV, var-length.  The amount of fees owed by this patron.
         fee limit: CC, variable-length, optional
         items: 0 or more instances of one of the following, based on "summary" field of patron information message
-            hold items: AS, var-length opt (should be sent for each hold item)
-            overdue items: AT, var-length opt (should be sent for each overdue item)
-            charged items: AU, var-length opt (should be sent for each charged item)
-            fine items: AV, var-length opt (should be sent for each fine item)
-            recall items: BU, var-length opt (should be sent for each recall item)
-            unavailable hold items: CD, var-length opt (should be sent for each unavailable hold item)
-            home address: BD, variable-length, optional
-            email address: VE, variable-length, optional
-            home phone number: BF, variable-length optional
+        hold items: AS, var-length opt (should be sent for each hold item)
+        overdue items: AT, var-length opt (should be sent for each overdue item)
+        charged items: AU, var-length opt (should be sent for each charged item)
+        fine items: AV, var-length opt (should be sent for each fine item)
+        recall items: BU, var-length opt (should be sent for each recall item)
+        unavailable hold items: CD, var-length opt (should be sent for each unavailable hold item)
+        home address: BD, variable-length, optional
+        email address: VE, variable-length, optional
+        home phone number: BF, variable-length optional
 
         screen message: AF, var-length, optional
         print line: AG, var-length, optional
@@ -700,8 +709,7 @@ class SIPClient(Constants):
     def parse_patron_status(cls, status_string):
         """Parse the raw 14-character patron_status string.
 
-        :return: A 14-element dictionary mapping flag names to boolean
-        values.
+        :return: A 14-element dictionary mapping flag names to boolean values.
         """
         if (not isinstance(status_string, basestring)
             or len(status_string) != 14):
@@ -763,7 +771,7 @@ class SIPClient(Constants):
     def read_message(self, max_size=1024*1024):
         """Read a SIP2 message from the socket connection.
 
-        A SIP2 message ends with a \r character.
+        A SIP2 message ends with a \\r character.
         """
         done = False
         data = ""
@@ -783,9 +791,9 @@ class SIPClient(Constants):
         with the checksum appended.
 
         :param include_sequence_number: If this is true, include the
-        current sequence number in the message, just before the
-        checksum, and increment the sequence number. If this is false,
-        do not include or increment the sequence number.
+            current sequence number in the message, just before the
+            checksum, and increment the sequence number. If this is false,
+            do not include or increment the sequence number.
 
         When error checking is enabled between the ACS and the SC,
         each SC->ACS message is labeled with a sequence number (0, 1, 2, ...).

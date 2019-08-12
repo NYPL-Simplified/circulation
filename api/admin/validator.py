@@ -55,9 +55,12 @@ class Validator(object):
             email_inputs = [settings]
 
         # Now check that each email input is in a valid format
-        for email in email_inputs:
-            if not self._is_email(email):
-                return INVALID_EMAIL.detailed(_('"%(email)s" is not a valid email address.', email=email))
+        for emails in email_inputs:
+            if not isinstance(emails, list):
+                emails = [emails]
+            for email in emails:
+                if not self._is_email(email):
+                    return INVALID_EMAIL.detailed(_('"%(email)s" is not a valid email address.', email=email))
 
     def _is_email(self, email):
         """Email addresses must be in the format 'x@y.z'."""
@@ -70,12 +73,15 @@ class Validator(object):
         # Find the fields that have to do with URLs and are not blank.
         url_inputs = self._extract_inputs(settings, "url", content.get("form"), should_zip=True)
 
-        for field, url in url_inputs:
-            # In a few special cases, we want to allow a value that isn't a normal URL;
-            # for example, the patron web client URL can be set to "*".
-            allowed = field.get("allowed") or []
-            if not self._is_url(url, allowed):
-                return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
+        for field, urls in url_inputs:
+            if not isinstance(urls, list):
+                urls = [urls]
+            for url in urls:
+                # In a few special cases, we want to allow a value that isn't a normal URL;
+                # for example, the patron web client URL can be set to "*".
+                allowed = field.get("allowed") or []
+                if not self._is_url(url, allowed):
+                    return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url, allowed):
         has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
@@ -153,4 +159,4 @@ class Validator(object):
             return form.get("value")
         elif len(value) == 1:
             return value[0]
-        return value
+        return filter(lambda x: x != None and x != "", value)
