@@ -455,7 +455,7 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
 
         # The exception that crashed the second monitor was stored as
         # .exception, in case we want to look at it.
-        eq_("Doomed!", str(m2.exception))
+        eq_("Doomed!", unicode(m2.exception))
         eq_(None, getattr(m1, 'exception', None))
 
 
