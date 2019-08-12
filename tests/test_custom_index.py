@@ -232,19 +232,21 @@ class TestCOPPAGate(DatabaseTest):
         assert '<updated>' in feed
 
     def test_navigation_entry(self):
-        """navigation_entry creates an OPDS entry with a subsection link."""
+        # navigation_entry creates an OPDS entry with a subsection link.
         entry = etree.tounicode(
             COPPAGate.navigation_entry(
                 "some href", "some title", "some content"
             )
         )
-        assert entry.startswith('<entry ')
+        assert entry.startswith(u'<entry ')
+
+        # TODO PYTHON 3 Attrs in different order in link tag.
         for expect in (
-                '<id>some href</id>',
-                '<title>some title</title>',
-                '<content type="text">some content</content>',
-                '<link href="some href" rel="subsection" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>',
-                '<updated',
+                u'<id>some href</id>',
+                u'<title>some title</title>',
+                u'<content type="text">some content</content>',
+                u'<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>',
+                u'<updated',
         ):
             assert expect in entry
 

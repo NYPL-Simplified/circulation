@@ -657,11 +657,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         eq_([], list(authenticator.providers))
 
     def test_configuration_exception_during_from_config_stored(self):
-        """If the initialization of an AuthenticationProvider from config
-        raises CannotLoadConfiguration or ImportError, the exception
-        is stored with the LibraryAuthenticator rather than being
-        propagated.
-        """
+        # If the initialization of an AuthenticationProvider from config
+        # raises CannotLoadConfiguration or ImportError, the exception
+        # is stored with the LibraryAuthenticator rather than being
+        # propagated.
 
         # Create an integration destined to raise CannotLoadConfiguration..
         misconfigured = self._external_integration(
@@ -688,7 +687,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
-        eq_("No module named 'unknown protocol'", str(not_found))
+        eq_("No module named unknown protocol", unicode(not_found))
 
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
