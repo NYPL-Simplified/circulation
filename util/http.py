@@ -323,7 +323,7 @@ class HTTP(object):
     @classmethod
     def series(cls, status_code):
         """Return the HTTP series for the given status code."""
-        return "%sxx" % status_code // 100
+        return "%sxx" % (int(status_code) // 100)
 
     @classmethod
     def debuggable_get(cls, url, **kwargs):

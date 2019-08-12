@@ -1,3 +1,4 @@
+# encoding: utf-8
 # Test the helper objects in util.string.
 
 from nose.tools import (
@@ -17,7 +18,7 @@ from ..util.string import (
 class TestUnicodeAwareBase64(object):
 
     def test_encoding(self):        
-        string = "םולש"
+        string = u"םולש"
 
         # Run the same tests against two different encodings that can
         # handle Hebrew characters.
@@ -73,7 +74,7 @@ class TestUnicodeAwareBase64(object):
         # UnicodeAwareBase64 object that encodes as UTF-8 by default.
         assert isinstance(base64, UnicodeAwareBase64)
         eq_("utf8", base64.encoding)
-        snowman = "☃"
+        snowman = u"☃"
         snowman_utf8 = snowman.encode("utf8")
         as_base64 = base64.b64encode(snowman)
         eq_("4piD", as_base64)
@@ -101,7 +102,7 @@ class TestRandomstring(object):
             x = m(size)
 
             # The strings are Unicode strings, not bytestrings
-            assert isinstance(x, str)
+            assert isinstance(x, unicode)
 
             # The strings are entirely composed of lowercase hex digits.
             eq_(None, re.compile("[^a-f0-9]").search(x))

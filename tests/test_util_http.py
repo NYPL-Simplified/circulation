@@ -275,7 +275,7 @@ class TestBadResponseException(object):
     def test_helper_constructor(self):
         response = MockRequestsResponse(102, content="nonsense")
         exc = BadResponseException.from_response(
-            "http://url/", "Bad response from http://url/: Terrible response, just terrible", response
+            "http://url/", "Terrible response, just terrible", response
         )
 
         # Turn the exception into a problem detail document, and it's full
@@ -286,7 +286,7 @@ class TestBadResponseException(object):
         eq_('Bad response', doc['title'])
         eq_('The server made a request to http://url/, and got an unexpected or invalid response.', doc['detail'])
         eq_(
-            u'Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense',
+            u'Bad response from http://url/: Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense',
             doc['debug_message']
         )
 
