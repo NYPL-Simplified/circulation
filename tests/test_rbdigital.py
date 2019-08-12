@@ -1625,6 +1625,7 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
         eq_(u"Laura Flanagan Guskin", narrator.display_name)
         eq_([Contributor.NARRATOR_ROLE], narrator.roles)
 
+        # TODO PYTHON3 it's better not to sort this list.
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
 
         eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, 100),

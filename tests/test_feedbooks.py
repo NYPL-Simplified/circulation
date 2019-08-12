@@ -5,7 +5,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from StringIO import StringIO
+from io import BytesIO
 from zipfile import ZipFile
 from . import (
     DatabaseTest,

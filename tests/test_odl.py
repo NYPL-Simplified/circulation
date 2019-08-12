@@ -7,7 +7,6 @@ import os
 import json
 import datetime
 import re
-import base64
 import urllib
 import urlparse
 

@@ -1336,7 +1336,7 @@ class LoanController(CirculationManagerController):
                 part=part, fulfill_part_url=fulfill_part_url
             )
         except DeliveryMechanismConflict, e:
-            return DELIVERY_CONFLICT.detailed(e.message)
+            return DELIVERY_CONFLICT.detailed(str(e))
         except NoActiveLoan, e:
             return NO_ACTIVE_LOAN.detailed(
                     _('Can\'t fulfill loan because you have no active loan for this book.'),
