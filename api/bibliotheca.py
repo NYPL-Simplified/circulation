@@ -74,7 +74,7 @@ from core.monitor import (
     IdentifierSweepMonitor,
     TimelineMonitor,
 )
-from core.util.binary import base64
+from core.util.string_helpers import base64
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     BadResponseException,
