@@ -261,7 +261,7 @@ class HasSelfTests(object):
         result.success = False
         if isinstance(message, Exception):
             exception = message
-            message = str(exception)
+            message = unicode(exception)
             if not debug_message:
                 debug_message = traceback.format_exc()
         exception = IntegrationException(message, debug_message)

@@ -482,7 +482,7 @@ class LogConfiguration(object):
                     handlers.append(handler)
             except Exception, e:
                 errors.append(
-                    "Error creating logger %s %s" % (logger.NAME, str(e))
+                    "Error creating logger %s %s" % (logger.NAME, unicode(e))
                 )
 
         return log_level, database_log_level, handlers, errors

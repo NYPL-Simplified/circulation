@@ -371,7 +371,7 @@ class S3Uploader(MirrorUploader):
         except Exception, e:
             logging.error("Multipart upload of %s failed: %r", mirror_to, e, exc_info=e)
             upload.abort()
-            representation.mirror_exception = str(e)
+            representation.mirror_exception = unicode(e)
 
 # MirrorUploader.implementation will instantiate an S3Uploader
 # for storage integrations with protocol 'Amazon S3'.
