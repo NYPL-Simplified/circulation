@@ -27,6 +27,7 @@ from measurement import Measurement
 
 from collections import defaultdict
 import datetime
+from functools import total_ordering
 import isbnlib
 import logging
 import random
@@ -53,6 +54,7 @@ from sqlalchemy.sql.expression import (
 import urllib
 from ..util.summary import SummaryEvaluator
 
+@total_ordering
 class Identifier(Base, IdentifierConstants):
     """A way of uniquely referring to a particular edition.
     """
@@ -795,8 +797,13 @@ class Identifier(Base, IdentifierConstants):
             quality=quality, most_recent_update=most_recent_update
         )
 
+
+    def __eq__(self, other):
+        """Equality implementation for total_ordering."""
+        return (self.type, self.identifier) == (other.type, other.identifier)
+
     def __lt__(self, other):
-        """A comparator for Identifiers, making them easy to sort in tests."""
+        """Comparison implementation for total_ordering."""
         return (self.type, self.identifier) < (other.type, other.identifier)
 
 

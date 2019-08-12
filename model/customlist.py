@@ -7,6 +7,7 @@ from . import (
     get_one_or_create,
 )
 from datasource import DataSource
+from functools import total_ordering
 from identifier import Identifier
 from licensing import LicensePool
 from work import Work
@@ -27,6 +28,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import or_
 from sqlalchemy.orm.session import Session
 
+@total_ordering
 class CustomList(Base):
     """A custom grouping of Editions."""
 
@@ -65,8 +67,14 @@ class CustomList(Base):
         return (u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
             self.name, self.foreign_identifier, len(self.entries))).encode('utf8')
 
+    def __eq__(self, other):
+        """Equality implementation for total_ordering."""
+        return (self.foreign_identifier, self.name) == (
+            other.foreign_identifier, other.name
+        )
+
     def __lt__(self, other):
-        """Comparator to make it easy to sort lists of CustomLists."""
+        """Comparison implementation for total_ordering."""
         return (
             self.foreign_identifier, self.name
         ) < (
