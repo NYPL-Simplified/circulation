@@ -673,11 +673,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # The dummy identifier is the input identifier plus
         # 6 random characters.
-        eq_(auth + "71HFE8", remote_auth)
+        eq_(auth + "N098QO", remote_auth)
 
         # It's different every time.
         remote_auth = self.api.dummy_patron_identifier(auth)
-        eq_(auth + "6Y5R21", remote_auth)
+        eq_(auth + "W3F17I", remote_auth)
 
     def test_dummy_email_address(self):
 
