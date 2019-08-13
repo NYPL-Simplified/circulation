@@ -53,7 +53,7 @@ from core.model import (
     Subject,
     Work
 )
-import base64
+import base64 as stdlib_base64
 from datetime import date, datetime, timedelta
 import json
 import os
@@ -758,8 +758,8 @@ class WorkController(AdminCirculationManagerController):
 
         buffer = BytesIO()
         image.save(buffer, format="PNG")
-        b64 = base64.b64encode(buffer.getvalue())
-        value = b"data:image/png;base64,%s" % b64.decode("utf8")
+        b64 = stdlib_base64.b64encode(buffer.getvalue())
+        value = b"data:image/png;base64,%s" % b64
 
         return Response(value, 200)
 

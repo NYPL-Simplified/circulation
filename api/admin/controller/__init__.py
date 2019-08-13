@@ -1788,6 +1788,8 @@ class SitewideRegistrationController(SettingsController):
 
         ignore, private_key = self.manager.sitewide_key_pair
         decryptor = Configuration.cipher(private_key)
+        # We use the standard library's b64decode because decrypt()
+        # only takes a bytestring.
         shared_secret = decryptor.decrypt(
             stdlib_base64.b64decode(shared_secret)
         )
