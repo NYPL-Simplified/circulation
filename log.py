@@ -27,10 +27,7 @@ class JSONFormatter(logging.Formatter):
     def format(self, record):
         message = record.msg
         if record.args:
-            try:
-                message = record.msg % record.args
-            except TypeError, e:
-                raise e
+            message = record.msg % record.args
         data = dict(
             host=self.hostname,
             app=self.app_name,
@@ -52,10 +49,7 @@ class StringFormatter(logging.Formatter):
     Unicode string.
     """
     def format(self, record):
-        try:
-            data = super(StringFormatter, self).format(record)
-        except Exception, e:
-            data = super(StringFormatter, self).format(record)
+        data = super(StringFormatter, self).format(record)
         return native_string(data)
 
 
