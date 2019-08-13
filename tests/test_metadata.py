@@ -1226,32 +1226,51 @@ class TestMetadata(DatabaseTest):
 
     def test_apply_identifier_equivalency(self):
 
-        # Set up primary identifier with matching & new IdentifierData objects
+        # Set up an Edition.
         edition, pool = self._edition(with_license_pool=True)
+
+        # Create two IdentifierData objects -- one corresponding to the
+        # Edition's existing Identifier, and one new one.
         primary = edition.primary_identifier
         primary_as_data = IdentifierData(
             type=primary.type, identifier=primary.identifier
         )
         other_data = IdentifierData(type=u"abc", identifier=u"def")
 
-        # Prep Metadata object.
+        # Create a Metadata object that mentions the primary
+        # identifier (as an Identifier) in `primary_identifier`, but doesn't
+        # mention it in `identifiers`.
         metadata = Metadata(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=primary,
-            identifiers=[primary_as_data, other_data]
+            identifiers=[other_data]
         )
 
-        # The primary identifier is put into the identifiers array after init
-        eq_(3, len(metadata.identifiers))
+        # Metadata.identifiers has two elements -- the primary and the
+        # other one.
+        eq_(2, len(metadata.identifiers))
         assert primary in metadata.identifiers
 
         metadata.apply(edition, pool.collection)
-        # Neither the primary edition nor the identifier data that represents
-        # it have become equivalencies.
+
+        # The new identifier has been marked as equivalent to the
+        # Editions' primary identifier, but the primary identifier
+        # itself is untouched.
         eq_(1, len(primary.equivalencies))
         [equivalency] = primary.equivalencies
         eq_(equivalency.output.type, u"abc")
         eq_(equivalency.output.identifier, u"def")
+
+        # If the primary identifier is mentioned both as
+        # primary_identifier and in identifiers, it only shows up once
+        # in metadata.identifiers.
+        metadata2 = Metadata(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=primary,
+            identifiers=[primary_as_data, other_data]
+        )
+        eq_(2, len(metadata2.identifiers))
+        assert primary_as_data in metadata2.identifiers
 
     def test_apply_no_value(self):
         edition_old, pool = self._edition(with_license_pool=True)

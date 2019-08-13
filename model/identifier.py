@@ -800,6 +800,8 @@ class Identifier(Base, IdentifierConstants):
 
     def __eq__(self, other):
         """Equality implementation for total_ordering."""
+        if other is None:
+            return False
         return (self.type, self.identifier) == (other.type, other.identifier)
 
     def __lt__(self, other):
