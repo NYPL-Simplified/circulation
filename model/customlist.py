@@ -69,7 +69,7 @@ class CustomList(Base):
 
     def __eq__(self, other):
         """Equality implementation for total_ordering."""
-        if other is None:
+        if other is None or not isinstance(other, CustomList):
             return False
         return (self.foreign_identifier, self.name) == (
             other.foreign_identifier, other.name

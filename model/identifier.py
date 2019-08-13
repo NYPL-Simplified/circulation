@@ -800,7 +800,9 @@ class Identifier(Base, IdentifierConstants):
 
     def __eq__(self, other):
         """Equality implementation for total_ordering."""
-        if other is None:
+        # We don't want an Identifier to be == an IdentifierData
+        # with the same data.
+        if other is None or not isinstance(other, Identifier):
             return False
         return (self.type, self.identifier) == (other.type, other.identifier)
 

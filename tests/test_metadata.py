@@ -1251,26 +1251,30 @@ class TestMetadata(DatabaseTest):
         eq_(2, len(metadata.identifiers))
         assert primary in metadata.identifiers
 
-        metadata.apply(edition, pool.collection)
-
-        # The new identifier has been marked as equivalent to the
-        # Editions' primary identifier, but the primary identifier
-        # itself is untouched.
-        eq_(1, len(primary.equivalencies))
-        [equivalency] = primary.equivalencies
-        eq_(equivalency.output.type, u"abc")
-        eq_(equivalency.output.identifier, u"def")
-
         # If the primary identifier is mentioned both as
-        # primary_identifier and in identifiers, it only shows up once
+        # primary_identifier and in identifiers, it shows up twice
         # in metadata.identifiers.
         metadata2 = Metadata(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=primary,
             identifiers=[primary_as_data, other_data]
         )
-        eq_(2, len(metadata2.identifiers))
+        eq_(3, len(metadata2.identifiers))
         assert primary_as_data in metadata2.identifiers
+        assert primary in metadata2.identifiers
+        assert other_data in metadata2.identifiers
+
+        # Write this state of affairs to the database.
+        metadata2.apply(edition, pool.collection)
+
+        # The new identifier has been marked as equivalent to the
+        # Editions' primary identifier, but the primary identifier
+        # itself is untouched, even though it showed up twice in the
+        # list of identifiers.
+        eq_(1, len(primary.equivalencies))
+        [equivalency] = primary.equivalencies
+        eq_(equivalency.output.type, u"abc")
+        eq_(equivalency.output.identifier, u"def")
 
     def test_apply_no_value(self):
         edition_old, pool = self._edition(with_license_pool=True)
