@@ -797,6 +797,7 @@ class AuthdataUtility(object):
 
         # PYTHON3 TODO This is an OrderedDict so that the sample
         # JWT we use in tests will be the same across versions.
+        # In Python 3 it can be made a regular dict.
         payload = OrderedDict()
         payload['iss'] = iss                       # Issuer
         if sub:
