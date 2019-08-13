@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 from pyld import jsonld
+import io
 import json
 from datetime import datetime
 import os
@@ -28,9 +29,7 @@ def load_document(url):
         base_path = os.path.join(os.path.split(__file__)[0], 'jsonld')
         jsonld_file = os.path.join(base_path, files[url])
 
-        # TODO PYTHON3 we can decode the data on the way in
-        # by passing encoding="utf8" into the constructor.
-        data = open(jsonld_file).read().decode("utf8")
+        data = io.open(jsonld_file, encoding="utf8").read()
         doc = {
             "contextUrl": None,
             "documentUrl": url,
