@@ -49,6 +49,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    String,
     Table,
     Unicode,
 )
