@@ -12,6 +12,7 @@ from watchtower import CloudWatchLogHandler
 from boto3.session import Session as AwsSession
 from config import CannotLoadConfiguration
 from model import ExternalIntegration, ConfigurationSetting
+from util.string_helpers import native_string
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
@@ -43,18 +44,20 @@ class JSONFormatter(logging.Formatter):
             data['traceback'] = self.formatException(record.exc_info)
         return json.dumps(data)
 
-# TODO PYTHON 3  In Python 3 we need to go the other way -- all logging
-# output must be Unicode.
-class UTF8Formatter(logging.Formatter):
-    """Encode all Unicode output to UTF-8 to prevent encoding errors."""
+
+class StringFormatter(logging.Formatter):
+    """Encode all output as a string.
+    
+    In Python 2, this means a UTF-8 bytestring. In Python 3, it means a
+    Unicode string.
+    """
     def format(self, record):
         try:
-            data = super(UTF8Formatter, self).format(record)
+            data = super(StringFormatter, self).format(record)
         except Exception, e:
-            data = super(UTF8Formatter, self).format(record)
-        if isinstance(data, unicode):
-            data = data.encode("utf8")
-        return data
+            data = super(StringFormatter, self).format(record)
+        return native_string(data)
+
 
 class Logger(object):
     """Abstract base class for logging"""
@@ -79,7 +82,7 @@ class Logger(object):
         if log_format == cls.JSON_LOG_FORMAT:
             formatter = JSONFormatter(app_name)
         else:
-            formatter = UTF8Formatter(message_template)
+            formatter = StringFormatter(message_template)
         handler.setFormatter(formatter)
 
     @classmethod
