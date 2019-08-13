@@ -30,7 +30,6 @@ from licensing import (
 )
 from work import Work
 
-import base64
 from sqlalchemy import (
     Column,
     exists,
@@ -54,6 +53,11 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import (
     and_,
     or_,
+)
+
+from ..util.string_helpers import (
+    base64,
+    native_string,
 )
 
 class Collection(Base, HasFullTableCache):
@@ -163,8 +167,11 @@ class Collection(Base, HasFullTableCache):
     GLOBAL_COLLECTION_DATA_SOURCES = [DataSource.ENKI]
 
     def __repr__(self):
-        return (u'<Collection "%s"/"%s" ID=%d>' %
-                (self.name, self.protocol, self.id)).encode('utf8')
+        return native_string(
+            u'<Collection "%s"/"%s" ID=%d>' % (
+                self.name, self.protocol, self.id
+            )
+        )
 
     def cache_key(self):
         return (self.name, self.external_integration.protocol)
@@ -464,9 +471,6 @@ class Collection(Base, HasFullTableCache):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        def encode(detail):
-            return base64.urlsafe_b64encode(detail.encode('utf-8'))
-
         account_id = self.unique_account_id
         if self.protocol == ExternalIntegration.OPDS_IMPORT:
             # Remove ending / from OPDS url that could duplicate the collection
@@ -474,6 +478,7 @@ class Collection(Base, HasFullTableCache):
             while account_id.endswith('/'):
                 account_id = account_id[:-1]
 
+        encode = base64.urlsafe_b64encode
         account_id = encode(account_id)
         protocol = encode(self.protocol)
 
@@ -494,9 +499,7 @@ class Collection(Base, HasFullTableCache):
         )
 
         if not collection or opds_collection_without_url:
-            def decode(detail):
-                return base64.urlsafe_b64decode(detail.encode('utf-8'))
-
+            decode = base64.urlsafe_b64decode
             details = decode(metadata_identifier)
             encoded_details  = details.split(':', 1)
             [protocol, account_id] = [decode(d) for d in encoded_details]
@@ -509,7 +512,7 @@ class Collection(Base, HasFullTableCache):
 
             if protocol == ExternalIntegration.OPDS_IMPORT:
                 # Share the feed URL so the Metadata Wrangler can find it.
-               collection.external_account_id = unicode(account_id)
+                collection.external_account_id = account_id
 
         if data_source:
             collection.data_source = data_source

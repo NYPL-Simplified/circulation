@@ -362,7 +362,7 @@ class TestAnnotator(DatabaseTest):
 
         record = Record()
         Annotator.add_summary(record, work)
-        self._check_field(record, "520", {"a": " Summary "})
+        self._check_field(record, "520", {"a": b" Summary "})
 
     def test_add_simplified_genres(self):
         work = self._work(with_license_pool=True)
@@ -420,10 +420,10 @@ class TestMARCExporter(DatabaseTest):
         [distributor_field] = record.get_fields("264")
         eq_(DataSource.OVERDRIVE, distributor_field.get_subfields("b")[0])
         cached = work.marc_record
-        assert "old title" in cached
-        assert "author, old" in cached
+        assert b"old title" in cached
+        assert b"author, old" in cached
         # The distributor isn't part of the cached record.
-        assert DataSource.OVERDRIVE not in cached
+        assert DataSource.OVERDRIVE.encode("utf8") not in cached
 
         work.presentation_edition.title = "new title"
         work.presentation_edition.sort_author = "author, new"
@@ -450,10 +450,10 @@ class TestMARCExporter(DatabaseTest):
         [distributor_field] = record.get_fields("264")
         eq_(DataSource.BIBLIOTHECA, distributor_field.get_subfields("b")[0])
         cached = work.marc_record
-        assert "old title" not in cached
-        assert "author, old" not in cached
-        assert "new title" in cached
-        assert "author, new" in cached
+        assert b"old title" not in cached
+        assert b"author, old" not in cached
+        assert b"new title" in cached
+        assert b"author, new" in cached
 
         # If we pass in an integration, it's passed along to the annotator.
         integration = self._integration()
@@ -511,7 +511,7 @@ class TestMARCExporter(DatabaseTest):
 
         # The content was uploaded in two parts.
         eq_(2, len(mirror.content[0]))
-        complete_file = "".join(mirror.content[0])
+        complete_file = b"".join(mirror.content[0])
         records = list(MARCReader(complete_file))
         eq_(2, len(records))
 
@@ -519,8 +519,8 @@ class TestMARCExporter(DatabaseTest):
         titles = [fields[0].get_subfields("a")[0] for fields in title_fields]
         eq_(set([w1.title, w2.title]), set(titles))
 
-        assert w1.title in w1.marc_record
-        assert w2.title in w2.marc_record
+        assert w1.title.encode("utf8") in w1.marc_record
+        assert w2.title.encode("utf8") in w2.marc_record
 
         self._db.delete(cache)
 
@@ -547,7 +547,7 @@ class TestMARCExporter(DatabaseTest):
         assert cache.end_time > now
 
         eq_(2, len(mirror.content[0]))
-        complete_file = "".join(mirror.content[0])
+        complete_file = b"".join(mirror.content[0])
         records = list(MARCReader(complete_file))
         eq_(2, len(records))
 

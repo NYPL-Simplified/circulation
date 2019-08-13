@@ -7,9 +7,11 @@ from . import (
     get_one_or_create,
 )
 from datasource import DataSource
+from functools import total_ordering
 from identifier import Identifier
 from licensing import LicensePool
 from work import Work
+from ..util.string_helpers import native_string
 
 import datetime
 import logging
@@ -27,6 +29,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import or_
 from sqlalchemy.orm.session import Session
 
+@total_ordering
 class CustomList(Base):
     """A custom grouping of Editions."""
 
@@ -61,8 +64,28 @@ class CustomList(Base):
     # interface for managing this.
 
     def __repr__(self):
-        return (u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
-            self.name, self.foreign_identifier, len(self.entries))).encode('utf8')
+        return native_string(
+            u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
+            self.name, self.foreign_identifier, len(self.entries))
+        )
+
+    def __eq__(self, other):
+        """Equality implementation for total_ordering."""
+        if other is None or not isinstance(other, CustomList):
+            return False
+        return (self.foreign_identifier, self.name) == (
+            other.foreign_identifier, other.name
+        )
+
+    def __lt__(self, other):
+        """Comparison implementation for total_ordering."""
+        if other is None or not isinstance(other, CustomList):
+            return False
+        return (
+            self.foreign_identifier, self.name
+        ) < (
+            other.foreign_identifier, other.name
+        )
 
     @classmethod
     def all_from_data_sources(cls, _db, data_sources):

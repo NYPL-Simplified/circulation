@@ -644,14 +644,14 @@ class TestWork(DatabaseTest):
         cover_link = lp.add_link(
             Hyperlink.IMAGE, cover_href, lp.data_source,
             media_type=Representation.PNG_MEDIA_TYPE,
-            content=open(sample_cover_path).read()
+            content=open(sample_cover_path, 'rb').read()
         )[0]
 
         thumbnail_href = 'http://thumbnail.png'
         thumbnail_rep = self._representation(
             url=thumbnail_href,
             media_type=Representation.PNG_MEDIA_TYPE,
-            content=open(sample_cover_path).read(),
+            content=open(sample_cover_path, 'rb').read(),
             mirrored=True
         )[0]
 
@@ -961,7 +961,10 @@ class TestWork(DatabaseTest):
             dict(identifier=pool1.identifier.identifier,
                  type=pool1.identifier.type),
         ]
-        eq_(sorted(expect), sorted(search_doc['identifiers']))
+        def s(x):
+            # Sort an identifier dictionary by its identifier value.
+            return sorted(x, key = lambda b: b['identifier'])
+        eq_(s(expect), s(search_doc['identifiers']))
 
         # Each custom list entry for the work is in the 'customlists'
         # section.
@@ -1256,8 +1259,8 @@ class TestWork(DatabaseTest):
         work.marc_record = None
 
         work.calculate_marc_record()
-        assert work.title in work.marc_record
-        assert "online resource" in work.marc_record
+        assert work.title.encode("utf8") in work.marc_record
+        assert b"online resource" in work.marc_record
 
     def test_active_licensepool_ignores_superceded_licensepools(self):
         work = self._work(with_license_pool=True,

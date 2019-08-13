@@ -160,7 +160,7 @@ class TestHTTP(object):
         eq_(502, debug_doc.status_code)
         eq_("Bad response", debug_doc.title)
         eq_('The server made a request to http://url/, and got an unexpected or invalid response.', debug_doc.detail)
-        eq_('Got status code 200 from external server, cannot continue.\n\nResponse content: Hurray', debug_doc.debug_message)
+        eq_('Bad response from http://url/: Got status code 200 from external server, cannot continue.\n\nResponse content: Hurray', debug_doc.debug_message)
 
         no_debug_doc = exc.as_problem_detail_document(debug=False)
         eq_("Bad response", no_debug_doc.title)
@@ -286,7 +286,7 @@ class TestBadResponseException(object):
         eq_('Bad response', doc['title'])
         eq_('The server made a request to http://url/, and got an unexpected or invalid response.', doc['detail'])
         eq_(
-            u'Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense',
+            u'Bad response from http://url/: Terrible response, just terrible\n\nStatus code: 102\nContent: nonsense',
             doc['debug_message']
         )
 
@@ -303,7 +303,7 @@ class TestBadResponseException(object):
         doc, status_code, headers = exc.as_problem_detail_document(debug=True).response
         doc = json.loads(doc)
 
-        assert doc['debug_message'].startswith("Got status code 500 from external server, cannot continue.")
+        assert doc['debug_message'].startswith("Bad response from http://url/: Got status code 500 from external server, cannot continue.")
 
     def test_as_problem_detail_document(self):
         exception = BadResponseException(
@@ -316,7 +316,7 @@ class TestBadResponseException(object):
         eq_("The server made a request to http://url/, and got an unexpected or invalid response.",
             document.detail
         )
-        eq_("What even is this\n\nsome debug info", document.debug_message)
+        eq_("Bad response from http://url/: What even is this\n\nsome debug info", document.debug_message)
 
 
 class TestRequestTimedOut(object):

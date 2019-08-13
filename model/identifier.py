@@ -27,6 +27,7 @@ from measurement import Measurement
 
 from collections import defaultdict
 import datetime
+from functools import total_ordering
 import isbnlib
 import logging
 import random
@@ -51,8 +52,11 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 import urllib
+from ..util.string_helpers import native_string
 from ..util.summary import SummaryEvaluator
 
+
+@total_ordering
 class Identifier(Base, IdentifierConstants):
     """A way of uniquely referring to a particular edition.
     """
@@ -83,8 +87,9 @@ class Identifier(Base, IdentifierConstants):
             title = u' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
         else:
             title = ""
-        return (u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id,
-                                    title)).encode("utf8")
+        return native_string(
+            u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id, title)
+        )
 
     # One Identifier may serve as the primary identifier for
     # several Editions.
@@ -794,6 +799,22 @@ class Identifier(Base, IdentifierConstants):
             quality=quality, most_recent_update=most_recent_update
         )
 
+
+    def __eq__(self, other):
+        """Equality implementation for total_ordering."""
+        # We don't want an Identifier to be == an IdentifierData
+        # with the same data.
+        if other is None or not isinstance(other, Identifier):
+            return False
+        return (self.type, self.identifier) == (other.type, other.identifier)
+
+    def __lt__(self, other):
+        """Comparison implementation for total_ordering."""
+        if other is None or not isinstance(other, Identifier):
+            return False
+        return (self.type, self.identifier) < (other.type, other.identifier)
+
+
 class Equivalency(Base):
     """An assertion that two Identifiers identify the same work.
     This assertion comes with a 'strength' which represents how confident
@@ -834,7 +855,7 @@ class Equivalency(Base):
             repr(self.output).decode("utf8"),
             self.data_source.name, self.strength, self.votes
         )
-        return r.encode("utf8")
+        return r
 
     @classmethod
     def for_identifiers(self, _db, identifiers, exclude_ids=None):

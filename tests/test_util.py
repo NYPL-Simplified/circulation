@@ -522,3 +522,4 @@ class TestMoneyUtility(object):
         eq_(Money("-4.00", "USD"), p("-4"))
         eq_(Money("4.40", "USD"), p("4.40"))
         eq_(Money("4.40", "USD"), p("$4.40"))
+        eq_(Money("4.4", "USD"), p(4.4))

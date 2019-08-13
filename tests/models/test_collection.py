@@ -5,7 +5,6 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-import base64
 import datetime
 import json
 from .. import DatabaseTest
@@ -37,6 +36,8 @@ from ...model.licensing import (
     LicensePool,
 )
 from ...model.work import Work
+from ...util.string_helpers import base64
+
 
 class TestCollection(DatabaseTest):
 
@@ -408,9 +409,13 @@ class TestCollection(DatabaseTest):
         assert_raises(ValueError, getattr, self.collection, 'metadata_identifier')
 
         def build_expected(protocol, unique_id):
-            encoded = [base64.b64encode(unicode(value), '-_')
-                       for value in [protocol, unique_id]]
-            return base64.b64encode(':'.join(encoded), '-_')
+            encode = base64.urlsafe_b64encode
+            encoded = [
+                encode(value)
+                for value in [protocol, unique_id]
+            ]
+            joined = ':'.join(encoded)
+            return encode(joined)
 
         # With a unique identifier, we get back the expected identifier.
         self.collection.external_account_id = 'id'

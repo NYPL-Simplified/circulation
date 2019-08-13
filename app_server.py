@@ -403,7 +403,7 @@ class ComplaintController(object):
             _db.commit()
         except ValueError, e:
             return problem(
-                None, 400, _("Error registering complaint: %(error)s", error=str(e))
+                None, 400, _("Error registering complaint: %(error)s", error=unicode(e))
             )
 
         return make_response(unicode(_("Success")), 201, {"Content-Type": "text/plain"})

@@ -232,8 +232,8 @@ class BISACClassifier(Classifier):
 
     # Map identifiers to human-readable names.
     NAMES = dict(
-        map(string.strip, x)
-        for x in csv.reader(open(os.path.join(resource_dir, "bisac.csv")))
+        [i.strip() for i in l]
+        for l in csv.reader(open(os.path.join(resource_dir, "bisac.csv")))
     )
 
     # Indicates that even though this rule doesn't match a subject, no
