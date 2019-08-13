@@ -151,7 +151,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
             self.api.request("some path")
             raise Exception("Expected an IntegrationException!")
         except IntegrationException, e:
-            eq_("Unknown API error (status 500)", str(e))
+            eq_(u"Unknown API error (status 500)", unicode(e))
             assert e.debug_message.startswith("Response from")
             assert e.debug_message.endswith("was: 'bad value'")
 

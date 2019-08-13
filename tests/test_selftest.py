@@ -40,8 +40,8 @@ class TestHasSelfTests(DatabaseTest):
         [result] = h.default_patrons(not_in_library)
         eq_("Acquiring test patron credentials.", result.name)
         eq_(False, result.success)
-        eq_("Collection is not associated with any libraries.",
-            str(result.exception))
+        eq_(u"Collection is not associated with any libraries.",
+            unicode(result.exception))
         eq_(
             "Add the collection to a library that has a patron authentication service.",
             result.exception.debug_message

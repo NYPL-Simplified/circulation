@@ -149,8 +149,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             no_patron_credential.name
         )
         eq_(False, no_patron_credential.success)
-        eq_("Library has no test patron configured.",
-            str(no_patron_credential.exception))
+        eq_(u"Library has no test patron configured.",
+            unicode(no_patron_credential.exception))
 
         eq_("Asking for circulation events for the last five minutes",
             recent_circulation_events.name)

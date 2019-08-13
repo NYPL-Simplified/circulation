@@ -9,6 +9,7 @@ from nose.tools import (
     set_trace,
 )
 
+from collections import OrderedDict
 import datetime
 from decimal import Decimal
 import json
@@ -1902,7 +1903,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         [result] = list(provider._run_self_tests(_db))
         eq_(_db, provider.called_with)
         eq_(False, result.success)
-        eq_("Nope", str(result.exception))
+        eq_("Nope", unicode(result.exception))
 
         # If we can authenticate a test patron, the patron and their
         # password are passed into the next test.
@@ -2642,19 +2643,23 @@ class TestOAuthController(AuthenticatorTest):
         self.controller = OAuthController(self.auth)
 
     def test_oauth_authentication_redirect(self):
-        """Test the controller method that sends patrons off to the OAuth
-        provider, where they're supposed to log in.
-        """
+        # Test the controller method that sends patrons off to the OAuth
+        # provider, where they're supposed to log in.
         params = dict(provider=self.oauth1.NAME)
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
-        # TODO PYTHON3 the dict keys are in a different order, so the
-        # string comes out different.
-        expected_state = dict(provider=self.oauth1.NAME, redirect_uri="")
+
+        # TODO PYTHON3 Flask may put the dict keys in a different order --
+        # in that case the string will come out different.
+        expected_state = OrderedDict()
+        expected_state['redirect_uri'] = ""
+        expected_state['provider'] = self.oauth1.NAME
         expected_state = urllib.quote(json.dumps(expected_state))
         eq_("http://oauth1.com/?state=" + expected_state, response.location)
 
-        params = dict(provider=self.oauth2.NAME, redirect_uri="http://foo.com/")
+        params = OrderedDict()
+        params['redirect_uri'] = "http://foo.com/"
+        params['provider'] = self.oauth2.NAME
         response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
         expected_state = urllib.quote(json.dumps(params))

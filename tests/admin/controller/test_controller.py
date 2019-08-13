@@ -512,10 +512,11 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data.decode("utf8")
-            assert "Sign in with Google" in response.data.decode("utf8")
-            assert "Email" not in response.data.decode("utf8")
-            assert "Password" not in response.data.decode("utf8")
+            data = response.data.decode("utf8")
+            assert "GOOGLE REDIRECT" in data
+            assert "Sign in with Google" in data
+            assert "Email" not in data
+            assert "Password" not in data
 
         # If there are multiple auth providers, the login page
         # shows them all.
@@ -523,10 +524,11 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
-            assert "GOOGLE REDIRECT" in response.data.decode("utf8")
-            assert "Sign in with Google" in response.data.decode("utf8")
-            assert "Email" in response.data.decode("utf8")
-            assert "Password" in response.data.decode("utf8")
+            data = response.data.decode("utf8")
+            assert "GOOGLE REDIRECT" in data
+            assert "Sign in with Google" in data
+            assert "Email" in data
+            assert "Password" in data
 
         # Redirects to the redirect parameter if an admin is signed in.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):

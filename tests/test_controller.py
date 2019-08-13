@@ -550,7 +550,7 @@ class TestCirculationManager(CirculationControllerTest):
         # The reason why is stored here.
         ex = circulation.external_search_initialization_exception
         assert isinstance(ex, Exception)
-        eq_("doomed!", str(ex))
+        eq_(u"doomed!", unicode(ex))
 
     def test_exception_during_short_client_token_initialization_is_stored(self):
 
@@ -571,7 +571,9 @@ class TestCirculationManager(CirculationControllerTest):
         # configuration was stored here.
         ex = self.manager.short_client_token_initialization_exceptions[self.library.id]
         assert isinstance(ex, CannotLoadConfiguration)
-        assert str(ex).startswith("Short Client Token configuration is incomplete")
+        assert unicode(ex).startswith(
+            u"Short Client Token configuration is incomplete"
+        )
 
     def test_setup_adobe_vendor_id_does_not_override_existing_configuration(self):
         # Our circulation manager is perfectly happy with its Adobe Vendor ID
@@ -2122,7 +2124,7 @@ class TestAnnotationController(CirculationControllerTest):
 
             # The response contains the annotation in the db.
             item = json.loads(response.data.decode("utf8"))
-            assert str(annotation.id) in item['id']
+            assert unicode(annotation.id) in item['id']
             eq_(annotation.motivation, item['motivation'])
 
     def test_detail(self):

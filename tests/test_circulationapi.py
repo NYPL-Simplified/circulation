@@ -1124,7 +1124,7 @@ class TestConfigurationFailures(DatabaseTest):
         # constructor has been stored in initialization_exceptions.
         e = circulation.initialization_exceptions[self._default_collection.id]
         assert isinstance(e, CannotLoadConfiguration)
-        eq_("doomed!", str(e))
+        eq_(u"doomed!", unicode(e))
 
 
 class TestAPIAwareFulfillmentInfo(DatabaseTest):

@@ -826,6 +826,8 @@ class LibraryAuthenticator(object):
         When the patron uses the bearer token in the Authenticate header,
         it will be decoded with `decode_bearer_token_from_header`.
         """
+        # PYTHON3 TODO: This can be turned into a regular dict once we
+        # convert to Python 3.
         payload = OrderedDict()
         payload['token'] = provider_token
         # I'm not sure this is the correct way to use an
