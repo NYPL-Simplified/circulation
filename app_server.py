@@ -78,7 +78,7 @@ def entry_response(entry, cache_for=AcquisitionFeed.FEED_CACHE_TIME):
 def _make_response(content, content_type, cache_for):
     if isinstance(content, etree._Element):
         content = etree.tostring(content)
-    elif not isinstance(content, basestring):
+    elif not isinstance(content, (str, unicode)):
         content = unicode(content)
 
     if isinstance(cache_for, int):
