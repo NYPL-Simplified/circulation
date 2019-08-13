@@ -168,7 +168,7 @@ class Timestamp(Base):
         message = u"<Timestamp %s: collection=%s, start=%s finish=%s counter=%s>" % (
             self.service, collection, start, finish, self.counter
         )
-        return message.encode("utf8")
+        return message
 
     @classmethod
     def lookup(cls, _db, service, service_type, collection):

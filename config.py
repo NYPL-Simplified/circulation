@@ -53,7 +53,16 @@ def empty_config(replacement_classes=None):
         yield i
 
 
-class Configuration(object):
+class ConfigurationConstants(object):
+
+    # Each facet group has two associated per-library keys: one
+    # configuring which facets are enabled for that facet group, and
+    # one configuring which facet is the default.
+    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
+    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+
+
+class Configuration(ConfigurationConstants):
 
     log = logging.getLogger("Configuration file loader")
 
@@ -61,6 +70,7 @@ class Configuration(object):
     # configuration file. It will be populated immediately after
     # this class is defined.
     instance = None
+
 
     # Environment variables that contain URLs to the database
     DATABASE_TEST_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_TEST_DATABASE'
@@ -131,12 +141,6 @@ class Configuration(object):
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
     FEATURED_LANE_SIZE = "featured_lane_size"
-
-    # Each facet group has two associated per-library keys: one
-    # configuring which facets are enabled for that facet group, and
-    # one configuring which facet is the default.
-    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
-    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
 
     # The name of the per-library per-patron authentication integration
     # regular expression used to derive a patron's external_type from
@@ -247,7 +251,7 @@ class Configuration(object):
             "category": "Lanes & Filters",
         },
     ] + [
-        { "key": ENABLED_FACETS_KEY_PREFIX + group,
+        { "key": ConfigurationConstants.ENABLED_FACETS_KEY_PREFIX + group,
           "label": description,
           "type": "list",
           "options": [
@@ -258,7 +262,7 @@ class Configuration(object):
           "category": "Lanes & Filters",
         } for group, description in FacetConstants.GROUP_DESCRIPTIONS.iteritems()
     ] + [
-        { "key": DEFAULT_FACET_KEY_PREFIX + group,
+        { "key": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
           "label": _("Default %(group)s", group=display_name),
           "type": "select",
           "options": [
@@ -509,7 +513,7 @@ class Configuration(object):
             from model import ConfigurationSetting
             timeout = ConfigurationSetting.sitewide(
                 _db, cls.SITE_CONFIGURATION_TIMEOUT
-            ).value
+            ).int_value
         if timeout is None:
             timeout = 60
 

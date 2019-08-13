@@ -32,6 +32,7 @@ from edition import Edition
 from identifier import Identifier
 from measurement import Measurement
 from ..util import LanguageCodes
+from ..util.string_helpers import native_string
 
 from collections import Counter
 import datetime
@@ -39,6 +40,7 @@ import logging
 import random
 from sqlalchemy import (
     Boolean,
+    Binary,
     Column,
     DateTime,
     Enum,
@@ -48,6 +50,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    String,
     Table,
     Unicode,
 )
@@ -217,7 +220,7 @@ class Work(Base):
     # A precalculated MARC record containing metadata about this
     # work that would be relevant to display in a library's public
     # catalog.
-    marc_record = Column(Unicode, default=None)
+    marc_record = Column(String, default=None)
 
     @property
     def title(self):
@@ -312,9 +315,13 @@ class Work(Base):
         return complaints
 
     def __repr__(self):
-        return (u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
-                self.id, self.title, self.author, ", ".join([g.name for g in self.genres]), self.language,
-                len(self.license_pools))).encode("utf8")
+        return native_string(
+            u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
+                self.id, self.title, self.author,
+                ", ".join([g.name for g in self.genres]), self.language,
+                len(self.license_pools)
+            )
+        )
 
     @classmethod
     def missing_coverage_from(

@@ -655,7 +655,7 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
             self.log.error(
                 "Exception processing work %r", work, exc_info=e
             )
-            exception = str(e)
+            exception = unicode(e)
 
         if exception:
             # Unlike with most Monitors, an exception is not a good

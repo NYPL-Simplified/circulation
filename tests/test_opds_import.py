@@ -725,7 +725,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # A Representation was imported for the summary with known
         # content.
         description_rep = description.resource.representation
-        eq_("This is a summary!", description_rep.content)
+        eq_(b"This is a summary!", description_rep.content)
         eq_(Representation.TEXT_PLAIN, description_rep.media_type)
 
         # A Representation was imported for the image with a media type
@@ -1576,14 +1576,14 @@ class TestMirroring(OPDSImporterTest):
 
     def test_resources_are_mirrored_on_import(self):
 
-        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+        svg = u"""<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
     <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
 </svg>"""
 
-        open_png = open(self.sample_cover_path("test-book-cover.png")).read()
+        open_png = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
 
         http = DummyHTTPClient()
         http.queue_response(
@@ -1671,9 +1671,10 @@ class TestMirroring(OPDSImporterTest):
 
         eq_(5, len(s3.uploaded))
 
-        eq_("I am 10441.epub.images", s3.content[0])
-        eq_(svg, s3.content[1])
-        eq_("I am 10557.epub.images", s3.content[2])
+        svg_bytes = svg.encode("utf8")
+        eq_(b"I am 10441.epub.images", s3.content[0])
+        eq_(svg_bytes, s3.content[1])
+        eq_(b"I am 10557.epub.images", s3.content[2])
         eq_(open_png, s3.content[3])
         #We don't know what the thumbnail is, but we know it's smaller than the
         #original cover image.
@@ -1748,9 +1749,9 @@ class TestMirroring(OPDSImporterTest):
 
         eq_([e1, e2], imported_editions)
         eq_(8, len(s3.uploaded))
-        eq_("I am a new version of 10441.epub.images", s3.content[5])
-        eq_(svg, s3.content[6])
-        eq_("I am a new version of 10557.epub.images", s3.content[7])
+        eq_(b"I am a new version of 10441.epub.images", s3.content[5])
+        eq_(svg_bytes, s3.content[6])
+        eq_(b"I am a new version of 10557.epub.images", s3.content[7])
 
 
     def test_content_resources_not_mirrored_on_import_if_no_collection(self):
@@ -2145,7 +2146,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(None, progress.finish)
 
     def test_update_headers(self):
-        """Test the _update_headers helper method."""
+        # Test the _update_headers helper method.
         monitor = OPDSImportMonitor(
             self._db, collection=self._default_collection,
             import_class=OPDSImporter

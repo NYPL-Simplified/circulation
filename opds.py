@@ -8,7 +8,6 @@ import copy
 import datetime
 import feedparser
 import logging
-import md5
 import os
 import random
 import re
@@ -1169,7 +1168,7 @@ class AcquisitionFeed(OPDSFeed):
             xml = etree.fromstring(xml)
         else:
             xml = self._make_entry_xml(work, edition)
-            data = etree.tostring(xml)
+            data = etree.tounicode(xml)
             if field and use_cache:
                 setattr(work, field, data)
 
@@ -1227,7 +1226,7 @@ class AcquisitionFeed(OPDSFeed):
                 links.append(AtomFeed.link(rel=rel, href=url, type=image_type))
 
         content = self.annotator.content(work)
-        if isinstance(content, str):
+        if isinstance(content, bytes):
             content = content.decode("utf8")
 
         content_type = 'html'
@@ -1415,7 +1414,7 @@ class AcquisitionFeed(OPDSFeed):
                 elements.append(thumbnail_link)
         if description:
             content = description.representation.content
-            if isinstance(content, str):
+            if isinstance(content, bytes):
                 content = content.decode("utf8")
             description_e = AtomFeed.summary(content, type='html')
             elements.append(description_e)
@@ -1806,10 +1805,8 @@ class TestAnnotatorWithGroup(TestAnnotator):
         lanes = self.lanes_by_work.get(work, None)
 
         if lanes:
-            lane_name = lanes[0]['lane'].display_name
-            additional_lanes = lanes[1:]
-            if additional_lanes:
-                self.lanes_by_work[work] = additional_lanes
+            lane_dic = lanes.pop(0)
+            lane_name = lane_dic['lane'].display_name
         else:
             lane_name = str(work.id)
         return ("http://group/%s" % lane_name,

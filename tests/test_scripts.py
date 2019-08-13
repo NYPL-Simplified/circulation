@@ -455,7 +455,7 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
 
         # The exception that crashed the second monitor was stored as
         # .exception, in case we want to look at it.
-        eq_("Doomed!", m2.exception.message)
+        eq_("Doomed!", unicode(m2.exception))
         eq_(None, getattr(m1, 'exception', None))
 
 
@@ -1396,15 +1396,15 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
         script = script or self.script
         migrations = script.fetch_migration_files()[0]
         migrations_sorted = script.sort_migrations(migrations)
-        last_migration_date = filter(lambda m: m.endswith('.py'), migrations_sorted)[-1][0:8]
+        last_migration_date = [x for x in migrations_sorted if x.endswith('.py')][-1][0:8]
         self.assert_matches_timestamp(timestamp, last_migration_date)
 
     def assert_matches_latest_migration(self, timestamp, script=None):
         script = script or self.script
         migrations = script.fetch_migration_files()[0]
         migrations_sorted = script.sort_migrations(migrations)
-        py_migration = filter(lambda m: m.endswith('.py'), migrations_sorted)[-1][0:8]
-        sql_migration = filter(lambda m: m.endswith('.sql'), migrations_sorted)[-1][0:8]
+        py_migration = [x for x in migrations_sorted if x.endswith('.py')][-1][0:8]
+        sql_migration = [x for x in migrations_sorted if x.endswith('.sql')][-1][0:8]
         last_migration_date = py_migration if int(py_migration) > int(sql_migration) else sql_migration
         self.assert_matches_timestamp(timestamp, last_migration_date)
 

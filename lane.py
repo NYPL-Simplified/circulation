@@ -1253,7 +1253,7 @@ class WorkList(object):
         """
         return sorted(
             [x for x in self.children if x.visible],
-            key = lambda x: (x.priority, x.display_name)
+            key = lambda x: (x.priority, x.display_name or "")
         )
 
     @property
@@ -2245,7 +2245,7 @@ class Lane(Base, DatabaseBackedWorkList):
     @property
     def visible_children(self):
         children = [lane for lane in self.sublanes if lane.visible]
-        return sorted(children, key=lambda x: (x.priority, x.display_name))
+        return sorted(children, key=lambda x: (x.priority, x.display_name or ""))
 
     @property
     def parentage(self):

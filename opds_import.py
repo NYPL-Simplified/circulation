@@ -1,10 +1,12 @@
 from nose.tools import set_trace
-from StringIO import StringIO
+from io import (
+    StringIO,
+    BytesIO,
+)
 from collections import (
     defaultdict,
     Counter,
 )
-import base64
 import datetime
 import dateutil
 import feedparser
@@ -64,6 +66,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
+from util.string_helpers import base64
 from mirror import MirrorUploader
 from selftest import HasSelfTests
 
@@ -929,7 +932,13 @@ class OPDSImporter(object):
         values = {}
         failures = {}
         parser = cls.PARSER_CLASS()
-        root = etree.parse(StringIO(feed))
+        if isinstance(feed, bytes):
+            inp = BytesIO(feed)
+        else:
+            # NOTE: etree will not parse certain Unicode strings.
+            # It's generally better to feed it a bytestring.
+            inp = StringIO(feed)
+        root = etree.parse(inp)
 
         # Some OPDS feeds (eg Standard Ebooks) contain relative urls,
         # so we need the feed's self URL to extract links. If none was
@@ -1629,7 +1638,8 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
     def _update_headers(self, headers):
         headers = dict(headers or {})
         if self.username and self.password and not 'Authorization' in headers:
-            auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
+            creds = "%s:%s" % (self.username, self.password)
+            auth_header = "Basic %s" % base64.b64encode(creds)
             headers['Authorization'] = auth_header
 
         if not 'Accept' in headers:

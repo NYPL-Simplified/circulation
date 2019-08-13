@@ -1,5 +1,4 @@
 from nose.tools import set_trace
-import base64
 import datetime
 import isbnlib
 import os
@@ -60,6 +59,7 @@ from util.http import (
     HTTP,
     BadResponseException,
 )
+from util.string_helpers import base64
 from util.worker_pools import RLock
 
 from testing import MockRequestsResponse

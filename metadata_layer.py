@@ -439,7 +439,7 @@ class ContributorData(object):
             log = logging.getLogger("Abstract metadata layer")
             if (response.status_code == 200
                 and response.headers['Content-Type'].startswith('text/plain')):
-                sort_name = response.content.decode("utf8")
+                sort_name = response.content
                 log.info(
                     "Canonicalizer found sort name for %r: %s => %s",
                     identifier_obj, self.display_name, sort_name
@@ -793,7 +793,7 @@ class MetaToModelUtility(object):
             )
             return
 
-        if representation.status_code / 100 not in (2,3):
+        if representation.status_code // 100 not in (2,3):
             self.log.info(
                 "Representation %s gave %s status code, not mirroring.",
                 representation.url, representation.status_code
@@ -2294,7 +2294,7 @@ class CSVMetadataImporter(object):
         Unicode.
         """
         value = row.get(name, default)
-        if isinstance(value, basestring):
+        if isinstance(value, bytes):
             value = value.decode("utf8")
         return value
 

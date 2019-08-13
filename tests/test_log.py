@@ -10,7 +10,7 @@ from nose.tools import (
 
 from . import DatabaseTest
 from ..log import (
-    UTF8Formatter,
+    StringFormatter,
     JSONFormatter,
     LogglyHandler,
     CloudWatchLogHandler,
@@ -33,16 +33,16 @@ class TestJSONFormatter(object):
         formatter = JSONFormatter("some app")
         eq_("some app", formatter.app_name)
 
+        exc_info = None
         # Cause an exception so we can capture its exc_info()
         try:
             raise ValueError("fake exception")
-        except ValueError, e:
-            pass
-        exception = sys.exc_info()
+        except ValueError as e:
+            exc_info = sys.exc_info()
 
         record = logging.LogRecord(
             "some logger", logging.DEBUG, "pathname",
-            104, "A message", {}, exception, None
+            104, "A message", {}, exc_info, None
         )
         data = json.loads(formatter.format(record))
         eq_("some logger", data['name'])
@@ -136,7 +136,7 @@ class TestLogConfiguration(DatabaseTest):
 
         [stream_handler] = [x for x in handlers
                             if isinstance(x, logging.StreamHandler)]
-        assert isinstance(stream_handler.formatter, UTF8Formatter)
+        assert isinstance(stream_handler.formatter, StringFormatter)
         eq_(template, stream_handler.formatter._fmt)
 
         # If testing=True, then the database configuration is ignored,
@@ -177,7 +177,7 @@ class TestLogConfiguration(DatabaseTest):
             app_name="some app"
         )
         formatter = handler.formatter
-        assert isinstance(formatter, UTF8Formatter)
+        assert isinstance(formatter, StringFormatter)
         eq_(template, formatter._fmt)
 
         # Configure a similar handler for JSON output.

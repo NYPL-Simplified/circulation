@@ -153,12 +153,12 @@ class AtomFeed(object):
         )
 
 
+    # TODO PYTHON3 rename to __str__
     def __unicode__(self):
         if self.feed is None:
             return None
 
-        string_tree = etree.tostring(self.feed, pretty_print=True)
-        return string_tree.encode("utf8")
+        return etree.tounicode(self.feed, pretty_print=True)
 
 
 
@@ -200,7 +200,7 @@ class OPDSMessage(object):
         self.message = message
 
     def __str__(self):
-        return etree.tostring(self.tag)
+        return etree.tounicode(self.tag)
 
     def __repr__(self):
         return etree.tostring(self.tag)

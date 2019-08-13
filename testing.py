@@ -13,6 +13,8 @@ from nose.tools import (
     set_trace,
     eq_,
 )
+# TODO PYTHON3
+# from psycopg2.errors import UndefinedTable
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from config import Configuration
@@ -110,10 +112,14 @@ def package_setup():
         try:
             engine.execute(statement)
         except ProgrammingError, e:
+            # TODO PYTHON3
+            # if isinstance(e.orig, UndefinedTable):
             if 'does not exist' in e.message:
                 # This is the first time running these tests
                 # on this server, and the tables don't exist yet.
                 pass
+            else:
+                raise e
 
 
 def package_teardown():
@@ -554,6 +560,8 @@ class DatabaseTest(object):
             self._db, Representation, url=url)
         repr.media_type = media_type
         if media_type and content:
+            if isinstance(content, unicode):
+                content = content.encode("utf8")
             repr.content = content
             repr.fetched_at = datetime.utcnow()
             if mirrored:
@@ -971,7 +979,9 @@ class DatabaseTest(object):
         """A Representation of the sample cover with the given filename."""
         sample_cover_path = self.sample_cover_path(name)
         return self._representation(
-            media_type="image/png", content=open(sample_cover_path).read())[0]
+            media_type="image/png",
+            content=open(sample_cover_path, 'rb').read()
+        )[0]
 
 
 class SearchClientForTesting(ExternalSearchIndex):
@@ -1377,13 +1387,15 @@ class MockRequestsResponse(object):
         content = self.content
         # The queued content might be a JSON string or it might
         # just be the object you'd get from loading a JSON string.
-        if isinstance(content, basestring):
+        if isinstance(content, (unicode, bytes)):
             content = json.loads(self.content)
         return content
 
     @property
     def text(self):
-        return self.content.decode("utf8")
+        if isinstance(self.content, bytes):
+            return self.content.decode("utf8")
+        return self.content
 
     def raise_for_status(self):
         """Null implementation of raise_for_status, a method

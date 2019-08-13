@@ -72,7 +72,7 @@ class TestHeartbeatController(object):
             response = controller.heartbeat()
         eq_(200, response.status_code)
         eq_(controller.HEALTH_CHECK_TYPE, response.headers.get('Content-Type'))
-        data = json.loads(response.data)
+        data = json.loads(response.data.decode("utf8"))
         eq_('pass', data['status'])
 
         # Create a .version file.
@@ -94,7 +94,7 @@ class TestHeartbeatController(object):
         content_type = response.headers.get('Content-Type')
         eq_(controller.HEALTH_CHECK_TYPE, content_type)
 
-        data = json.loads(response.data)
+        data = json.loads(response.data.decode("utf8"))
         eq_('pass', data['status'])
         eq_('ba.na.na', data['version'])
         eq_('ba.na.na-10-ssssssssss', data['releaseID'])
@@ -194,8 +194,9 @@ class TestURNLookupController(DatabaseTest):
             eq_(200, response.status_code)
             eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
                 response.headers['Content-Type'])
-            assert identifier.urn in response.data
-            assert work.title in response.data
+            response_data = response.data.decode("utf8")
+            assert identifier.urn in response_data
+            assert work.title in response_data
 
     def test_permalink(self):
         work = self._work(with_license_pool=True)
@@ -209,8 +210,9 @@ class TestURNLookupController(DatabaseTest):
             eq_(200, response.status_code)
             eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
                 response.headers['Content-Type'])
-            assert identifier.urn in response.data
-            assert work.title in response.data
+            response_data = response.data.decode("utf8")
+            assert identifier.urn in response_data
+            assert work.title in response_data
 
 
 class TestComplaintController(DatabaseTest):
@@ -226,14 +228,14 @@ class TestComplaintController(DatabaseTest):
         with self.app.test_request_context("/"):
             response = self.controller.register(None, "{}")
         assert response.status.startswith('400')
-        body = json.loads(response.data)
+        body = json.loads(response.data.decode("utf8"))
         eq_("No license pool specified", body['title'])
 
     def test_invalid_document(self):
         with self.app.test_request_context("/"):
             response = self.controller.register(self.pool, "not {a} valid document")
         assert response.status.startswith('400')
-        body = json.loads(response.data)
+        body = json.loads(response.data.decode("utf8"))
         eq_("Invalid problem detail document", body['title'])
 
     def test_invalid_type(self):
@@ -241,7 +243,7 @@ class TestComplaintController(DatabaseTest):
         with self.app.test_request_context("/"):
             response = self.controller.register(self.pool, data)
         assert response.status.startswith('400')
-        body = json.loads(response.data)
+        body = json.loads(response.data.decode("utf8"))
         eq_("Unrecognized problem type: http://not-a-recognized-type/",
             body['title']
         )
@@ -433,7 +435,7 @@ class TestErrorHandler(DatabaseTest):
             except Exception, exception:
                 response = handler.handle(exception)
             eq_(500, response.status_code)
-            eq_("An internal error occured", response.data)
+            eq_("An internal error occured", response.data.decode("utf8"))
 
 
     def test_unhandled_error_debug(self):
@@ -449,7 +451,7 @@ class TestErrorHandler(DatabaseTest):
             except Exception, exception:
                 response = handler.handle(exception)
             eq_(500, response.status_code)
-            assert response.data.startswith('Traceback (most recent call last)')
+            assert response.data.startswith(b'Traceback (most recent call last)')
 
 
     def test_handle_error_as_problem_detail_document(self):
@@ -461,7 +463,7 @@ class TestErrorHandler(DatabaseTest):
                 response = handler.handle(exception)
 
             eq_(400, response.status_code)
-            data = json.loads(response.data)
+            data = json.loads(response.data.decode("utf8"))
             eq_(INVALID_URN.title, data['title'])
 
             # Since we are not in debug mode, the debug_message is
@@ -480,7 +482,7 @@ class TestErrorHandler(DatabaseTest):
                 response = handler.handle(exception)
 
             eq_(400, response.status_code)
-            data = json.loads(response.data)
+            data = json.loads(response.data.decode("utf8"))
             eq_(INVALID_URN.title, data['title'])
             assert data['debug_message'].startswith(
                 u"A debug_message which should only appear in debug mode.\n\n"
