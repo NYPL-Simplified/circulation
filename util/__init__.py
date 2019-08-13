@@ -8,7 +8,7 @@ from collections import (
 )
 import os
 import re
-import string as stdlib_string
+import string
 from sqlalchemy import distinct
 from sqlalchemy.sql.functions import func
 
@@ -863,7 +863,7 @@ class TitleProcessor(object):
             return None
         subtitle = subtitled_title.replace(main_title, '')
         while (subtitle and
-                (subtitle[0] in stdlib_string.whitespace+':.')):
+                (subtitle[0] in string.whitespace+':.')):
             # Trim any leading whitespace or colons
             subtitle = subtitle[1:]
         if not subtitle:
