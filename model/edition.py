@@ -43,6 +43,8 @@ from ..util import (
     TitleProcessor
 )
 from ..util.permanent_work_id import WorkIDCalculator
+from ..util.string_helpers import native_string
+
 
 class Edition(Base, EditionConstants):
 
@@ -131,13 +133,12 @@ class Edition(Base, EditionConstants):
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
     def __repr__(self):
-        # TODO PYTHON3 repr is unicode string
         id_repr = repr(self.primary_identifier).decode("utf8")
         a = (u"Edition %s [%r] (%s/%s/%s)" % (
             self.id, id_repr, self.title,
             ", ".join([x.sort_name for x in self.contributors]),
             self.language))
-        return a.encode("utf8")
+        return native_string(a)
 
     @property
     def language_code(self):

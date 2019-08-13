@@ -52,7 +52,9 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 import urllib
+from ..util.string_helpers import native_string
 from ..util.summary import SummaryEvaluator
+
 
 @total_ordering
 class Identifier(Base, IdentifierConstants):
@@ -80,14 +82,14 @@ class Identifier(Base, IdentifierConstants):
     coverage_records = relationship("CoverageRecord", backref="identifier")
 
     def __repr__(self):
-        # TODO PYTHON3 repr is unicode string
         records = self.primarily_identifies
         if records and records[0].title:
             title = u' prim_ed=%d ("%s")' % (records[0].id, records[0].title)
         else:
             title = ""
-        return (u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id,
-                                    title)).encode("utf8")
+        return native_string(
+            u"%s/%s ID=%s%s" % (self.type, self.identifier, self.id, title)
+        )
 
     # One Identifier may serve as the primary identifier for
     # several Editions.

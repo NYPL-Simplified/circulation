@@ -32,6 +32,7 @@ from edition import Edition
 from identifier import Identifier
 from measurement import Measurement
 from ..util import LanguageCodes
+from ..util.string_helpers import native_string
 
 from collections import Counter
 import datetime
@@ -314,10 +315,13 @@ class Work(Base):
         return complaints
 
     def __repr__(self):
-        # TODO PYTHON3 __repr__ is unicode string
-        return (u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
-                self.id, self.title, self.author, ", ".join([g.name for g in self.genres]), self.language,
-                len(self.license_pools))).encode("utf8")
+        return native_string(
+            u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
+                self.id, self.title, self.author,
+                ", ".join([g.name for g in self.genres]), self.language,
+                len(self.license_pools)
+            )
+        )
 
     @classmethod
     def missing_coverage_from(

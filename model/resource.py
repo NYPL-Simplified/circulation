@@ -20,6 +20,7 @@ from licensing import (
     LicensePoolDeliveryMechanism,
 )
 from ..util.http import HTTP
+from ..util.string_helpers import native_string
 
 from io import BytesIO
 import datetime
@@ -616,10 +617,7 @@ class Representation(Base, MediaTypes):
         elif self.resource:
             # This really shouldn't happen.
             url = self.resource.url
-        # TODO PYTHON3 This always returns a Unicode string.
-        if isinstance(url, unicode):
-            url = url.encode("utf8")
-        return url
+        return native_string(url)
 
     @property
     def is_usable(self):

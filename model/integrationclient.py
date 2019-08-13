@@ -20,7 +20,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     relationship,
 )
-from ..util.string_helpers import random_string
+from ..util.string_helpers import (
+    native_string,
+    random_string,
+)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
@@ -45,8 +48,9 @@ class IntegrationClient(Base):
     holds = relationship('Hold', backref='integration_client')
 
     def __repr__(self):
-        # TODO PYTHON3 repr is unicode string
-        return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
+        return native_string(
+            u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)
+        )
 
     @classmethod
     def for_url(cls, _db, url):

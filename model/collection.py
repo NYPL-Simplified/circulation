@@ -55,7 +55,10 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 
-from ..util.string_helpers import base64
+from ..util.string_helpers import (
+    base64,
+    native_string,
+)
 
 class Collection(Base, HasFullTableCache):
 
@@ -164,9 +167,11 @@ class Collection(Base, HasFullTableCache):
     GLOBAL_COLLECTION_DATA_SOURCES = [DataSource.ENKI]
 
     def __repr__(self):
-        # TODO PYTHON3 repr is unicode string
-        return (u'<Collection "%s"/"%s" ID=%d>' %
-                (self.name, self.protocol, self.id)).encode('utf8')
+        return native_string(
+            u'<Collection "%s"/"%s" ID=%d>' % (
+                self.name, self.protocol, self.id
+            )
+        )
 
     def cache_key(self):
         return (self.name, self.external_integration.protocol)

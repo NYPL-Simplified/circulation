@@ -5,6 +5,7 @@
 import base64 as stdlib_base64
 import binascii
 import os
+import sys
 
 class UnicodeAwareBase64(object):
     """Simulate the interface of the base64 module, but make it look as
@@ -64,3 +65,22 @@ def random_string(size):
     :return: A Unicode string.
     """
     return binascii.hexlify(os.urandom(size)).decode("utf8")
+
+
+def native_string(x):
+    """Convert a bytestring or a Unicode string to the 'native string'
+    class for this version of Python.
+
+    In Python 2, the native string class is a bytestring. In Python 3,
+    the native string class is a Unicode string.
+
+    This function exists to smooth the conversion process and can be
+    removed once we convert to Python 3.
+    """
+    if sys.version_info.major == 2:
+        if isinstance(x, unicode):
+            x = x.encode("utf8")
+    else:
+        if isinstance(x, bytes):
+            x = x.decode("utf8")
+    return x
