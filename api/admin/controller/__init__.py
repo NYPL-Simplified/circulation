@@ -595,7 +595,7 @@ class PatronController(AdminCirculationManagerController):
         """Look up personal information about a patron via the ILS.
 
         :param authenticator: A LibraryAuthenticator. This is for mocking
-        during tests; it's not necessary to provide it normally.
+            during tests; it's not necessary to provide it normally.
         """
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
@@ -607,7 +607,7 @@ class PatronController(AdminCirculationManagerController):
         to the patron's Adobe Account ID.
 
         :param authenticator: A LibraryAuthenticator. This is for mocking
-        during tests; it's not necessary to provide it normal
+            during tests; it's not necessary to provide it normal
         """
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
@@ -774,7 +774,7 @@ class CustomListsController(AdminCirculationManagerController):
             # If this list was used to populate any lanes, those
             # lanes need to have their counts updated.
             for lane in Lane.affected_by_customlist(list):
-                lane.update_size(self._db)
+                lane.update_size(self._db, self.search_engine)
 
         new_collections = []
         for collection_id in collections:
@@ -846,16 +846,24 @@ class CustomListsController(AdminCirculationManagerController):
             # Build the list of affected lanes before modifying the
             # CustomList.
             affected_lanes = Lane.affected_by_customlist(list)
+            surviving_lanes = []
             for lane in affected_lanes:
-                lane.update_size(self._db)
-                # There's only one custom list in the lane and it's going
-                # to be deleted.
-                if lane.size == 0 and len(lane._customlist_ids) == 1:
+                if (lane.list_datasource == None
+                    and len(lane.customlist_ids) == 1):
+                    # This Lane is based solely upon this custom list,
+                    # which is about to be deleted. Delete the Lane
+                    # itself.
                     self._db.delete(lane)
+                else:
+                    surviving_lanes.append(lane)
             for entry in list.entries:
                 self._db.delete(entry)
             self._db.delete(list)
-
+            self._db.flush()
+            # Update the size for any lanes affected by this
+            # CustomList which _weren't_ deleted.
+            for lane in surviving_lanes:
+                lane.update_size(self._db, self.search_engine)
             return Response(unicode(_("Deleted")), 200)
 
 
@@ -943,7 +951,7 @@ class LanesController(AdminCirculationManagerController):
             for list in lane.customlists:
                 if list.id not in custom_list_ids:
                     lane.customlists.remove(list)
-            lane.update_size(self._db)
+            lane.update_size(self._db, self.search_engine)
 
             if is_new:
                 return Response(unicode(lane.id), 201)
@@ -1701,8 +1709,10 @@ class SettingsController(AdminCirculationManagerController):
             return UNKNOWN_PROTOCOL
 
     def _get_settings(self):
-        [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
-        return protocol.get("settings")
+        if hasattr(self, 'protocols'):
+            [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
+            return protocol.get("settings")
+        return []
 
     def validate_formats(self, settings=None, validator=None):
         # If the service has self.protocols set, we can extract the list of settings here;

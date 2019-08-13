@@ -964,7 +964,9 @@ class WorkController(AdminCirculationManagerController):
                         affected_lanes.add(lane)
 
             # If any list changes affected lanes, update their sizes.
+            # NOTE: This may not make a difference until the
+            # works are actually re-indexed.
             for lane in affected_lanes:
-                lane.update_size(self._db)
+                lane.update_size(self._db, self.search_engine)
 
             return Response(unicode(_("Success")), 200)

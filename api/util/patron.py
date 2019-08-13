@@ -53,11 +53,9 @@ class PatronUtility(object):
         """Raise an exception unless the patron currently has borrowing
         privileges.
 
-        :raise AuthorizationExpired: If the patron's authorization has
-        expired.
+        :raises AuthorizationExpired: If the patron's authorization has expired.
+        :raises OutstandingFines: If the patron has too many outstanding fines.
 
-        :raise OutstandingFines: If the patron has too many outstanding
-        fines.
         """
         now = datetime.datetime.utcnow()
         if not cls.authorization_is_active(patron):

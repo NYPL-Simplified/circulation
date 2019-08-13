@@ -163,8 +163,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         """Does the Millenium Patron API approve of these credentials?
 
         :return: False if the credentials are invalid. If they are
-        valid, a PatronData that serves only to indicate which
-        authorization identifier the patron prefers.
+            valid, a PatronData that serves only to indicate which
+            authorization identifier the patron prefers.
         """
         if not self.collects_password:
             # We don't even look at the password. If the patron exists, they
@@ -271,10 +271,10 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         """Convert an HTML patron dump to a PatronData object.
 
         :param current_identifier: Either the authorization identifier
-        the patron just logged in with, or the one currently
-        associated with their Patron record. Keeping track of this
-        ensures we don't change a patron's preferred authorization
-        identifier out from under them.
+            the patron just logged in with, or the one currently
+            associated with their Patron record. Keeping track of this
+            ensures we don't change a patron's preferred authorization
+            identifier out from under them.
 
         :param content: The HTML document containing the patron dump.
         """
