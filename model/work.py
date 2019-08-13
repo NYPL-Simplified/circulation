@@ -218,7 +218,7 @@ class Work(Base):
     # A precalculated MARC record containing metadata about this
     # work that would be relevant to display in a library's public
     # catalog.
-    marc_record = Column(Binary, default=None)
+    marc_record = Column(String, default=None)
 
     @property
     def title(self):
