@@ -79,6 +79,8 @@ class CustomList(Base):
 
     def __lt__(self, other):
         """Comparison implementation for total_ordering."""
+        if other is None or not isinstance(other, CustomList):
+            return False
         return (
             self.foreign_identifier, self.name
         ) < (

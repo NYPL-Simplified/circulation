@@ -810,6 +810,8 @@ class Identifier(Base, IdentifierConstants):
 
     def __lt__(self, other):
         """Comparison implementation for total_ordering."""
+        if other is None or not isinstance(other, Identifier):
+            return False
         return (self.type, self.identifier) < (other.type, other.identifier)
 
 
