@@ -1069,11 +1069,25 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             bearer_token_signing_secret='foo'
         )
 
-        # A token is created and signed with the bearer token.
         token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
-        eq_(u"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6InNvbWUgdG9rZW4iLCJpc3MiOiJvYXV0aDEifQ.toy4qdoziL99SN4q9DRMdN-3a0v81CfVjwJVFNUt_mk",
-            token1
-        )
+
+        # We know the bearer token is a JWT-like string that looks
+        # like this. There's no timestamp in the payload, so this won't
+        # change over time.
+        expect_jwtlike = u'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbiI6InNvbWUgdG9rZW4iLCJpc3MiOiJvYXV0aDEifQ.tolCFBIKqtp2NORHtwy5-44GwAwDIma2pebPGXvPY-g'
+        eq_(token1, expect_jwtlike)
+
+        # We can't call jwt.decode to peek into expect_jwt, because
+        # it's not a proper JWT and the signature verification will
+        # fail.  But if you're debugging this test and you need to
+        # look at the pieces that make up expect_jwt, you can call
+        # PyJWT._load(), like so:
+        from jwt.api_jwt import _jwt_global_obj
+        loaded = _jwt_global_obj._load(expect_jwtlike)
+        payload = loaded[0]
+        payload_dict = json.loads(payload)
+        eq_("some token", payload_dict['token'])
+        eq_(oauth1.NAME, payload_dict['iss'])
 
         # Varying the name of the OAuth provider varies the bearer
         # token.

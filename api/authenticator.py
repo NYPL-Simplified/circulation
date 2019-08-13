@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from api.annotations import AnnotationWriter
 from api.opds import LibraryAnnotator
+from collections import OrderedDict
 from config import (
     Configuration,
     CannotLoadConfiguration,
@@ -825,13 +826,12 @@ class LibraryAuthenticator(object):
         When the patron uses the bearer token in the Authenticate header,
         it will be decoded with `decode_bearer_token_from_header`.
         """
-        payload = dict(
-            token=provider_token,
-            # I'm not sure this is the correct way to use an
-            # Issuer claim (https://tools.ietf.org/html/rfc7519#section-4.1.1).
-            # Maybe we should use something custom instead.
-            iss=provider_name,
-        )
+        payload = OrderedDict()
+        payload['token'] = provider_token
+        # I'm not sure this is the correct way to use an
+        # Issuer claim (https://tools.ietf.org/html/rfc7519#section-4.1.1).
+        # Maybe we should use something custom instead.
+        payload['iss'] = provider_name
         return jwt.encode(
             payload, self.bearer_token_signing_secret, algorithm='HS256'
         ).decode("utf8")
