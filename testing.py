@@ -1367,6 +1367,10 @@ class DummyHTTPClient(object):
         self.requests.append(url)
         return self.responses.pop(0)
 
+    def do_post(self, url, data, *wargs, **kwargs):
+        self.requests.append((url, data))
+        return self.responses.pop(0)
+
 
 class MockRequestsResponse(object):
     """A mock object that simulates an HTTP response from the
@@ -1377,6 +1381,7 @@ class MockRequestsResponse(object):
         self.headers = headers
         self.content = content
         self.url = url or "http://url/"
+        self.encoding = "utf-8"
 
     def json(self):
         content = self.content
@@ -1391,3 +1396,9 @@ class MockRequestsResponse(object):
         if isinstance(self.content, bytes):
             return self.content.decode("utf8")
         return self.content
+
+    def raise_for_status(self):
+        """Null implementation of raise_for_status, a method
+        implemented by real requests Response objects.
+        """
+        pass

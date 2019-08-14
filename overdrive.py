@@ -425,7 +425,7 @@ class OverdriveAPI(object):
             item_id=identifier
         )
         status_code, headers, content = self.get(url, {})
-        if isinstance(content, basestring):
+        if isinstance(content, (bytes, unicode)):
             content = json.loads(content)
         return OverdriveRepresentationExtractor.book_info_to_metadata(content)
 
