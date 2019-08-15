@@ -531,6 +531,10 @@ class Collection(Base, HasFullTableCache):
             # For OPDS Import collections only, we store the URL to
             # the OPDS feed (the "account ID") and the data source.
             collection.external_account_id = account_id
+            if data_source and not isinstance(data_source, DataSource):
+                data_source = DataSource.lookup(
+                    _db, data_source, autocreate=True
+                )
             collection.data_source = data_source
 
         return collection, is_new
