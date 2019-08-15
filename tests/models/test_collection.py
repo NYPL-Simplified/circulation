@@ -441,6 +441,15 @@ class TestCollection(DatabaseTest):
         eq_(expected, opds.metadata_identifier)
 
     def test_from_metadata_identifier(self):
+        # A ValueError results if we try to look up using an invalid
+        # identifier.
+        assert_raises_regexp(
+            ValueError,
+            "Metadata identifier 'not a real identifier' is invalid: Incorrect padding",
+            Collection.from_metadata_identifier,
+            self._db, "not a real identifier"
+        )
+
         # If a mirrored collection doesn't exist, it is created.
         self.collection.external_account_id = 'id'
         mirror_collection, is_new = Collection.from_metadata_identifier(
@@ -460,6 +469,9 @@ class TestCollection(DatabaseTest):
         )[0]
         mirror_collection.create_external_integration(collection.protocol)
         # Confirm that there's no external_account_id and no DataSource.
+
+        # TODO I don't understand why we don't store this information,
+        # even if only to keep it in an easy-to-read form.
         eq_(None, mirror_collection.external_account_id)
         eq_(None, mirror_collection.data_source)
 
