@@ -468,8 +468,11 @@ class Collection(Base, HasFullTableCache):
         this Collection on the metadata wrangler. This identifier is
         composed of the Collection protocol and account identifier.
 
-        In the metadata wrangler, this identifier is used as the unique
-        name of the collection.
+        A circulation manager provides a Collection's metadata
+        identifier as part of collection registration. The metadata
+        wrangler creates a corresponding Collection on its side,
+        _named after_ the metadata identifier -- regardless of the name
+        of that collection on the circulation manager side.
         """
         account_id = self.unique_account_id
         if self.protocol == ExternalIntegration.OPDS_IMPORT:
@@ -486,35 +489,57 @@ class Collection(Base, HasFullTableCache):
         return encode(metadata_identifier)
 
     @classmethod
-    def from_metadata_identifier(cls, _db, metadata_identifier, data_source=None):
-        """Finds or creates a Collection on the metadata wrangler, based
-        on its unique metadata_identifier
-        """
-        collection = get_one(_db, Collection, name=metadata_identifier)
-        is_new = False
-
-        opds_collection_without_url = (
-            collection and collection.protocol==ExternalIntegration.OPDS_IMPORT
-            and not collection.external_account_id
-        )
-
-        if not collection or opds_collection_without_url:
+    def _decode_metadata_identifier(cls, metadata_identifier):
+        """Invert the metadata_identifier property."""
+        if not metadata_identifier:
+            raise ValueError("No metadata identifier provided.")
+        try:
             decode = base64.urlsafe_b64decode
             details = decode(metadata_identifier)
             encoded_details  = details.split(':', 1)
             [protocol, account_id] = [decode(d) for d in encoded_details]
-
-            if not collection:
-                collection, is_new = create(
-                    _db, Collection, name=metadata_identifier
+        except (TypeError, ValueError) as e:
+            raise ValueError(
+                u"Metadata identifier '%s' is invalid: %s" % (
+                    metadata_identifier, unicode(e)
                 )
-                collection.create_external_integration(protocol)
+            )
+        return protocol, account_id
 
-            if protocol == ExternalIntegration.OPDS_IMPORT:
-                # Share the feed URL so the Metadata Wrangler can find it.
-                collection.external_account_id = account_id
+    @classmethod
+    def from_metadata_identifier(cls, _db, metadata_identifier, data_source=None):
+        """Finds or creates a Collection on the metadata wrangler, based
+        on its unique metadata_identifier.
+        """
 
-        if data_source:
+        # Decode the metadata identifier into a protocol and an
+        # account ID. If the metadata identifier is invalid, this
+        # will raise an exception.
+        protocol, account_id = cls._decode_metadata_identifier(metadata_identifier)
+
+        # Now that we know the metadata identifier is valid, try to
+        # look up a collection named after it.
+        collection = get_one(_db, Collection, name=metadata_identifier)
+        is_new = False
+
+        if not collection:
+            # Create a collection named after the metadata
+            # identifier. Give it an ExternalIntegration with the
+            # corresponding protocol, and set its data source and
+            # external_account_id.
+            collection, is_new = create(
+                _db, Collection, name=metadata_identifier
+            )
+            collection.create_external_integration(protocol)
+
+        if protocol == ExternalIntegration.OPDS_IMPORT:
+            # For OPDS Import collections only, we store the URL to
+            # the OPDS feed (the "account ID") and the data source.
+            collection.external_account_id = account_id
+            if data_source and not isinstance(data_source, DataSource):
+                data_source = DataSource.lookup(
+                    _db, data_source, autocreate=True
+                )
             collection.data_source = data_source
 
         return collection, is_new

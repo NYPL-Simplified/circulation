@@ -441,36 +441,75 @@ class TestCollection(DatabaseTest):
         eq_(expected, opds.metadata_identifier)
 
     def test_from_metadata_identifier(self):
+
+        data_source = "New data source"
+
+        # A ValueError results if we try to look up using an invalid
+        # identifier.
+        assert_raises_regexp(
+            ValueError,
+            "Metadata identifier 'not a real identifier' is invalid: Incorrect padding",
+            Collection.from_metadata_identifier,
+            self._db, "not a real identifier", data_source=data_source
+        )
+
+        # Of if we pass in the empty string.
+        assert_raises_regexp(
+            ValueError,
+            "No metadata identifier provided",
+            Collection.from_metadata_identifier,
+            self._db, "", data_source=data_source
+        )
+
+        # No new data source was created.
+        def new_data_source():
+            return DataSource.lookup(self._db, data_source)
+        eq_(None, new_data_source())
+
         # If a mirrored collection doesn't exist, it is created.
         self.collection.external_account_id = 'id'
         mirror_collection, is_new = Collection.from_metadata_identifier(
-            self._db, self.collection.metadata_identifier
+            self._db, self.collection.metadata_identifier,
+            data_source=data_source
         )
         eq_(True, is_new)
         eq_(self.collection.metadata_identifier, mirror_collection.name)
         eq_(self.collection.protocol, mirror_collection.protocol)
-        # Because this isn't an OPDS collection, no account details are held.
+
+        # Because this isn't an OPDS collection, the external account
+        # ID is not stored, the data source is the default source for
+        # the protocol, and no new data source was created.
         eq_(None, mirror_collection.external_account_id)
+        eq_(DataSource.OVERDRIVE, mirror_collection.data_source.name)
+        eq_(None, new_data_source())
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)
         mirror_collection = create(
             self._db, Collection,
-            name=collection.metadata_identifier,
+            name=collection.metadata_identifier
         )[0]
         mirror_collection.create_external_integration(collection.protocol)
+
         # Confirm that there's no external_account_id and no DataSource.
+        # TODO I don't understand why we don't store this information,
+        # even if only to keep it in an easy-to-read form.
         eq_(None, mirror_collection.external_account_id)
         eq_(None, mirror_collection.data_source)
+        eq_(None, new_data_source())
 
-        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        # Now try a lookup of an OPDS Import-type collection.
         result, is_new = Collection.from_metadata_identifier(
-            self._db, collection.metadata_identifier, data_source=source
+            self._db, collection.metadata_identifier, data_source=data_source
         )
         eq_(False, is_new)
         eq_(mirror_collection, result)
         # The external_account_id and data_source have been set now.
         eq_(collection.external_account_id, mirror_collection.external_account_id)
+
+        # A new DataSource object has been created.
+        source = new_data_source()
+        eq_("New data source", source.name)
         eq_(source, mirror_collection.data_source)
 
     def test_catalog_identifier(self):
