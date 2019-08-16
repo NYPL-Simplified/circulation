@@ -453,6 +453,14 @@ class TestCollection(DatabaseTest):
             self._db, "not a real identifier", data_source=data_source
         )
 
+        # Of if we pass in the empty string.
+        assert_raises_regexp(
+            ValueError,
+            "No metadata identifier provided",
+            Collection.from_metadata_identifier,
+            self._db, "", data_source=data_source
+        )
+
         # No new data source was created.
         def new_data_source():
             return DataSource.lookup(self._db, data_source)

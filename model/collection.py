@@ -488,6 +488,8 @@ class Collection(Base, HasFullTableCache):
     @classmethod
     def _decode_metadata_identifier(cls, metadata_identifier):
         """Invert the metadata_identifier property."""
+        if not metadata_identifier:
+            raise ValueError("No metadata identifier provided.")
         try:
             decode = base64.urlsafe_b64decode
             details = decode(metadata_identifier)
