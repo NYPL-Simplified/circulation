@@ -192,7 +192,7 @@ class AdobeVendorIDRequestHandler(object):
             data = parser.process(data)
         except Exception, e:
             logging.error("Error processing %s", data, exc_info=e)
-            return self.error_document(self.AUTH_ERROR_TYPE, str(e))
+            return self.error_document(self.AUTH_ERROR_TYPE, unicode(e))
         user_id = label = None
         if not data:
             return self.error_document(
@@ -229,7 +229,7 @@ class AdobeVendorIDRequestHandler(object):
             label = urn_to_label(data['user'])
         except Exception, e:
             return self.error_document(
-                self.ACCOUNT_INFO_ERROR_TYPE, str(e))
+                self.ACCOUNT_INFO_ERROR_TYPE, unicode(e))
 
         if label:
             return self.ACCOUNT_INFO_RESPONSE_TEMPLATE % dict(label=label)
