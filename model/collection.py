@@ -468,8 +468,11 @@ class Collection(Base, HasFullTableCache):
         this Collection on the metadata wrangler. This identifier is
         composed of the Collection protocol and account identifier.
 
-        In the metadata wrangler, this identifier is used as the unique
-        name of the collection.
+        A circulation manager provides a Collection's metadata
+        identifier as part of collection registration. The metadata
+        wrangler creates a corresponding Collection on its side,
+        _named after_ the metadata identifier -- regardless of the name
+        of that collection on the circulation manager side.
         """
         account_id = self.unique_account_id
         if self.protocol == ExternalIntegration.OPDS_IMPORT:
