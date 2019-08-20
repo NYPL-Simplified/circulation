@@ -471,7 +471,7 @@ class Collection(Base, HasFullTableCache):
         A circulation manager provides a Collection's metadata
         identifier as part of collection registration. The metadata
         wrangler creates a corresponding Collection on its side,
-        _named after_ the metadata identifier -- regardless of the name
+        *named after* the metadata identifier -- regardless of the name
         of that collection on the circulation manager side.
         """
         account_id = self.unique_account_id
