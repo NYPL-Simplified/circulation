@@ -595,7 +595,7 @@ class PatronController(AdminCirculationManagerController):
         """Look up personal information about a patron via the ILS.
 
         :param authenticator: A LibraryAuthenticator. This is for mocking
-        during tests; it's not necessary to provide it normally.
+            during tests; it's not necessary to provide it normally.
         """
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
@@ -607,7 +607,7 @@ class PatronController(AdminCirculationManagerController):
         to the patron's Adobe Account ID.
 
         :param authenticator: A LibraryAuthenticator. This is for mocking
-        during tests; it's not necessary to provide it normal
+            during tests; it's not necessary to provide it normal
         """
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
@@ -1709,8 +1709,10 @@ class SettingsController(AdminCirculationManagerController):
             return UNKNOWN_PROTOCOL
 
     def _get_settings(self):
-        [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
-        return protocol.get("settings")
+        if hasattr(self, 'protocols'):
+            [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
+            return protocol.get("settings")
+        return []
 
     def validate_formats(self, settings=None, validator=None):
         # If the service has self.protocols set, we can extract the list of settings here;

@@ -373,11 +373,10 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         """Check out a book on behalf of a patron.
 
         :param patron_obj: a Patron object for the patron who wants
-        to check out the book.
+            to check out the book.
 
-        :param patron_password: The patron's alleged password.  Not
-        used here since Bibliotheca trusts Simplified to do the check ahead of
-        time.
+        :param patron_password: The patron's alleged password.  Not used here
+            since Bibliotheca trusts Simplified to do the check ahead of time.
 
         :param licensepool: LicensePool for the book to be checked out.
 
@@ -529,11 +528,11 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         suitable for serving to a mobile client.
 
         :param license_pool: A LicensePool for the title in question.
-        This will be used to fill in basic bibliographic information.
+            This will be used to fill in basic bibliographic information.
 
         :param findaway_license: A string containing a Findaway
-           license document via Bibliotheca, or a dictionary
-           representing such a document loaded into JSON form.
+            license document via Bibliotheca, or a dictionary
+            representing such a document loaded into JSON form.
         """
         if isinstance(findaway_license, basestring):
             findaway_license = json.loads(findaway_license)

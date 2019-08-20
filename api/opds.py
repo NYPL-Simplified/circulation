@@ -219,11 +219,11 @@ class CirculationManagerAnnotator(Annotator):
         methods.
 
         :param direct_fulfillment_delivery_mechanisms: A way to
-        fulfill each LicensePoolDeliveryMechanism in this list will be
-        presented as a link with
-        rel="http://opds-spec.org/acquisition/open-access", indicating
-        that it can be downloaded with no intermediate steps such as
-        authentication.
+            fulfill each LicensePoolDeliveryMechanism in this list will be
+            presented as a link with
+            rel="http://opds-spec.org/acquisition/open-access", indicating
+            that it can be downloaded with no intermediate steps such as
+            authentication.
         """
         can_borrow = False
         can_fulfill = False
@@ -701,8 +701,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
     @classmethod
     def related_books_available(cls, work, library):
-        """:return: bool asserting whether related books might exist for
-        a particular Work
+        """:return: bool asserting whether related books might exist for a particular Work
         """
         contributions = work.sort_author and work.sort_author != Edition.UNKNOWN_AUTHOR
 

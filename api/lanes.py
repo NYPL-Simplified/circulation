@@ -238,19 +238,15 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
     This means:
 
     * A "%(language)s Adult Fiction" lane containing sublanes for each fiction
-    genre.
-
+        genre.
     * A "%(language)s Adult Nonfiction" lane containing sublanes for
-    each nonfiction genre.
-
+        each nonfiction genre.
     * A "%(language)s YA Fiction" lane containing sublanes for the
-      most popular YA fiction genres.
-
+        most popular YA fiction genres.
     * A "%(language)s YA Nonfiction" lane containing sublanes for the
-      most popular YA fiction genres.
-
+        most popular YA fiction genres.
     * A "%(language)s Children and Middle Grade" lane containing
-      sublanes for childrens' books at different age levels.
+        sublanes for childrens' books at different age levels.
 
     :param library: Newly created lanes will be associated with this
         library.

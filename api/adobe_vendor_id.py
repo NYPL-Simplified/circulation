@@ -192,7 +192,7 @@ class AdobeVendorIDRequestHandler(object):
             data = parser.process(data)
         except Exception, e:
             logging.error("Error processing %s", data, exc_info=e)
-            return self.error_document(self.AUTH_ERROR_TYPE, str(e))
+            return self.error_document(self.AUTH_ERROR_TYPE, unicode(e))
         user_id = label = None
         if not data:
             return self.error_document(
@@ -229,7 +229,7 @@ class AdobeVendorIDRequestHandler(object):
             label = urn_to_label(data['user'])
         except Exception, e:
             return self.error_document(
-                self.ACCOUNT_INFO_ERROR_TYPE, str(e))
+                self.ACCOUNT_INFO_ERROR_TYPE, unicode(e))
 
         if label:
             return self.ACCOUNT_INFO_RESPONSE_TEMPLATE % dict(label=label)
@@ -679,11 +679,10 @@ class AuthdataUtility(object):
     def from_config(cls, library, _db=None):
         """Initialize an AuthdataUtility from site configuration.
 
-        :return: An AuthdataUtility if one is configured; otherwise
-        None.
+        :return: An AuthdataUtility if one is configured; otherwise None.
 
         :raise CannotLoadConfiguration: If an AuthdataUtility is
-        incompletely configured.
+            incompletely configured.
         """
         _db = _db or Session.object_session(library)
         if not _db:
@@ -822,7 +821,7 @@ class AuthdataUtility(object):
         :return: a 2-tuple (library_uri, patron_identifier)
 
         :raise jwt.exceptions.DecodeError: When the JWT is not valid
-        for any reason.
+            for any reason.
         """
 
         self.log.info("Authdata.decode() received authdata %s", authdata)

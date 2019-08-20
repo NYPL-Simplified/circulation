@@ -286,9 +286,9 @@ class CirculationManager(object):
         try:
             self._external_search = self.setup_search()
             self.external_search_initialization_exception = None
-        except CannotLoadConfiguration, e:
+        except Exception, e:
             self.log.error(
-                "Exception loading search configuration: %s", e
+                "Exception initializing search engine: %s", e
             )
             self._external_search = None
             self.external_search_initialization_exception = e
@@ -1119,12 +1119,12 @@ class LoanController(CirculationManagerController):
         except PatronAuthorizationFailedException, e:
             problem_doc = INVALID_CREDENTIALS
         except PatronLoanLimitReached, e:
-            problem_doc = LOAN_LIMIT_REACHED.with_debug(str(e))
+            problem_doc = LOAN_LIMIT_REACHED.with_debug(unicode(e))
         except PatronHoldLimitReached, e:
             problem_doc = e.as_problem_detail_document()
         except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
         except OutstandingFines, e:
             problem_doc = OUTSTANDING_FINES.detailed(
@@ -1135,16 +1135,16 @@ class LoanController(CirculationManagerController):
         except AuthorizationBlocked, e:
             return e.as_problem_detail_document(debug=False)
         except CannotLoan, e:
-            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
+            problem_doc = CHECKOUT_FAILED.with_debug(unicode(e))
         except CannotHold, e:
-            problem_doc = HOLD_FAILED.with_debug(str(e))
+            problem_doc = HOLD_FAILED.with_debug(unicode(e))
         except CannotRenew, e:
-            problem_doc = RENEW_FAILED.with_debug(str(e))
+            problem_doc = RENEW_FAILED.with_debug(unicode(e))
         except NotFoundOnRemote, e:
             problem_doc = NOT_FOUND_ON_REMOTE
         except CirculationException, e:
             # Generic circulation error.
-            problem_doc = CHECKOUT_FAILED.with_debug(str(e))
+            problem_doc = CHECKOUT_FAILED.with_debug(unicode(e))
 
         if problem_doc:
             return problem_doc
@@ -1344,15 +1344,15 @@ class LoanController(CirculationManagerController):
             )
         except CannotFulfill, e:
             return CANNOT_FULFILL.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
         except FormatNotAvailable, e:
             return NO_ACCEPTABLE_FORMAT.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
         except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
-                str(e), status_code=e.status_code
+                unicode(e), status_code=e.status_code
             )
 
         headers = dict()
@@ -1459,7 +1459,7 @@ class LoanController(CirculationManagerController):
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=503)
             except CannotReturn, e:
                 title = _("Loan deleted locally but remote failed.")
-                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503).with_debug(str(e))
+                return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, 503).with_debug(unicode(e))
         elif hold:
             if not self.circulation.can_revoke_hold(pool, hold):
                 title = _("Cannot release a hold once it enters reserved state.")
@@ -1468,7 +1468,7 @@ class LoanController(CirculationManagerController):
                 self.circulation.release_hold(patron, credential, pool)
             except CannotReleaseHold, e:
                 title = _("Hold released locally but remote failed.")
-                return CANNOT_RELEASE_HOLD.detailed(title, 503).with_debug(str(e))
+                return CANNOT_RELEASE_HOLD.detailed(title, 503).with_debug(unicode(e))
 
         work = pool.work
         annotator = self.manager.annotator(None)
@@ -1940,9 +1940,9 @@ class SharedCollectionController(CirculationManagerController):
         try:
             response = self.shared_collection.register(collection, url)
         except InvalidInputException, e:
-            return INVALID_REGISTRATION.detailed(str(e))
+            return INVALID_REGISTRATION.detailed(unicode(e))
         except AuthorizationFailedException, e:
-            return INVALID_CREDENTIALS.detailed(str(e))
+            return INVALID_CREDENTIALS.detailed(unicode(e))
         except RemoteInitiatedServerError, e:
             return e.as_problem_detail_document(debug=False)
 
@@ -2004,11 +2004,11 @@ class SharedCollectionController(CirculationManagerController):
         try:
             loan = self.shared_collection.borrow(collection, client, pool, hold)
         except AuthorizationFailedException, e:
-            return INVALID_CREDENTIALS.detailed(str(e))
+            return INVALID_CREDENTIALS.detailed(unicode(e))
         except NoAvailableCopies, e:
-            return NO_AVAILABLE_LICENSE.detailed(str(e))
+            return NO_AVAILABLE_LICENSE.detailed(unicode(e))
         except CannotLoan, e:
-            return CHECKOUT_FAILED.detailed(str(e))
+            return CHECKOUT_FAILED.detailed(unicode(e))
         except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
         if loan and isinstance(loan, Loan):
@@ -2036,11 +2036,11 @@ class SharedCollectionController(CirculationManagerController):
         try:
             self.shared_collection.revoke_loan(collection, client, loan)
         except AuthorizationFailedException, e:
-            return INVALID_CREDENTIALS.detailed(str(e))
+            return INVALID_CREDENTIALS.detailed(unicode(e))
         except NotCheckedOut, e:
-            return NO_ACTIVE_LOAN.detailed(str(e))
+            return NO_ACTIVE_LOAN.detailed(unicode(e))
         except CannotReturn, e:
-            return COULD_NOT_MIRROR_TO_REMOTE.detailed(str(e))
+            return COULD_NOT_MIRROR_TO_REMOTE.detailed(unicode(e))
         return Response(_("Success"), 200)
 
     def fulfill(self, collection_name, loan_id, mechanism_id, do_get=HTTP.get_with_timeout):
@@ -2074,9 +2074,9 @@ class SharedCollectionController(CirculationManagerController):
         try:
             fulfillment = self.shared_collection.fulfill(collection, client, loan, mechanism)
         except AuthorizationFailedException, e:
-            return INVALID_CREDENTIALS.detailed(str(e))
+            return INVALID_CREDENTIALS.detailed(unicode(e))
         except CannotFulfill, e:
-            return CANNOT_FULFILL.detailed(str(e))
+            return CANNOT_FULFILL.detailed(unicode(e))
         except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
         headers = dict()
@@ -2129,11 +2129,11 @@ class SharedCollectionController(CirculationManagerController):
         try:
             self.shared_collection.revoke_hold(collection, client, hold)
         except AuthorizationFailedException, e:
-            return INVALID_CREDENTIALS.detailed(str(e))
+            return INVALID_CREDENTIALS.detailed(unicode(e))
         except NotOnHold, e:
-            return NO_ACTIVE_HOLD.detailed(str(e))
+            return NO_ACTIVE_HOLD.detailed(unicode(e))
         except CannotReleaseHold, e:
-            return CANNOT_RELEASE_HOLD.detailed(str(e))
+            return CANNOT_RELEASE_HOLD.detailed(unicode(e))
         return Response(_("Success"), 200)
 
 class StaticFileController(CirculationManagerController):

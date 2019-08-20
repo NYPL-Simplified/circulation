@@ -50,12 +50,14 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.username = "user1"
         integration.password = "pass1"
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
+        integration.setting(p.INSTITUTION_ID).value = "MAIN"
         provider = p(self._default_library, integration)
 
         # A SIPClient was initialized based on the integration values.
         eq_("user1", provider.login_user_id)
         eq_("pass1", provider.login_password)
         eq_("\t", provider.field_separator)
+        eq_("MAIN", provider.institution_id)
         eq_("server.com", provider.server)
 
         # Default port is 6001.

@@ -306,7 +306,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
         :param licensepool: The Identifier of the book to be checked out is
-        attached to this licensepool.
+            attached to this licensepool.
 
         :return True on success, raises circulation exceptions on failure.
         """
@@ -335,7 +335,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
         :param licensepool: The Identifier of the book to be checked out is
-        attached to this licensepool.
+            attached to this licensepool.
         :param internal_format: Represents the patron's desired book format.  Ignored for now.
 
         :return LoanInfo on success, None on failure.
@@ -384,7 +384,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :param patron_id RBDigital internal id
         :param item_id isbn
         :return A dictionary of information on the transaction or error status and message
-            Calling methods are expected to use this dictionary to create XxxInfo objects.
+        Calling methods are expected to use this dictionary to create XxxInfo objects.
+
         """
         endpoint = "checkouts"
         if hold:
@@ -433,13 +434,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         represent the entire book or only one part of it.
 
         :param part: When the patron wants to fulfill a specific part
-        of the book, rather than the title as a whole, this will be
-        set to a string representation of the numeric position of the
-        desired part.
+            of the book, rather than the title as a whole, this will be
+            set to a string representation of the numeric position of the
+            desired part.
 
         :param fulfill_part_url: When the book can be fulfilled in
-        parts, this function will take a part number and generate the
-        URL to fulfill that specific part.
+            parts, this function will take a part number and generate the
+            URL to fulfill that specific part.
 
         :return a FulfillmentInfo object.
         """
@@ -481,7 +482,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
         :param licensepool: The Identifier of the book to be checked out is
-        attached to this licensepool.
+            attached to this licensepool.
         :param internal_format: Represents the patron's desired book format.  Ignored for now.
 
         :return: A HoldInfo object on success, None on failure
@@ -522,7 +523,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
         :param licensepool: The Identifier of the book to be checked out is
-        attached to this licensepool.
+            attached to this licensepool.
 
         :return True on success, raises circulation exceptions on failure.
         """
@@ -916,12 +917,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         associated with their circulation manager account.
 
         :param remote_identifier: Depending on the context, this may
-        be the patron's actual barcode, or a random string _based_ on
-        their barcode.
+            be the patron's actual barcode, or a random string _based_ on
+            their barcode.
 
         :return: The internal RBdigital patron ID for the given
-        identifier, or None if there is no corresponding RBdigital
-        account.
+            identifier, or None if there is no corresponding RBdigital
+            account.
+
         """
         action="patron_id"
         url = "%s/rpc/libraries/%s/patrons/%s" % (
@@ -1322,12 +1324,12 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :param media_type 'eBook'/'eAudio'
 
         :return A list of dictionary items, each item giving "yes/no" answer on a book's current availability to lend.
-        Example of returned item format:
-            "timeStamp": "2016-10-07T16:11:52.5887333Z"
-            "isbn": "9781420128567"
-            "mediaType": "eBook"
-            "availability": false
-            "titleId": 39764
+            Example of returned item format:
+                "timeStamp": "2016-10-07T16:11:52.5887333Z"
+                "isbn": "9781420128567"
+                "mediaType": "eBook"
+                "availability": false
+                "titleId": 39764
         """
         url = "%s/libraries/%s/media/%s/availability" % (self.base_url, str(self.library_id), media_type)
 
@@ -1505,15 +1507,15 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         """
         Form a rest-ful search query, send to RBDigital, and obtain the results.
 
-        :param mediatype Facet to limit results by media type.  Options are: "eAudio", "eBook".
-        :param genres The books found lie at intersection of genres passed.
-        :audience Facet to limit results by target age group.  Options include (there may be more): "adult",
+        :param mediatype: Facet to limit results by media type.  Options are: "eAudio", "eBook".
+        :param genres: The books found lie at intersection of genres passed.
+        :param audience: Facet to limit results by target age group.  Options include (there may be more): "adult",
             "beginning-reader", "childrens", "young-adult".
-        :param availability Facet to limit results by copies left.  Options are "available", "unavailable", or None
-        :param author Full name to search on.
-        :param author Book title to search on.
-        :param page_index Used for paginated result sets.  Zero-based.
-        :param verbosity "basic" returns smaller number of response json lines than "complete", etc..
+        :param availability: Facet to limit results by copies left.  Options are "available", "unavailable", or None
+        :param author: Full name to search on.
+        :param title: Book title to search on.
+        :param page_index: Used for paginated result sets.  Zero-based.
+        :param verbosity: "basic" returns smaller number of response json lines than "complete", etc..
 
         :return the response object
         """
@@ -1565,7 +1567,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         parse access documents.
 
         :return: A FulfillmentInfo if the part could be fulfilled;
-        a ProblemDetail otherwise.
+            a ProblemDetail otherwise.
         """
         if self.content_type != Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             raise CannotPartiallyFulfill(
@@ -2303,12 +2305,12 @@ class AudiobookManifest(CoreAudiobookManifest):
         spine item.
 
         :param file_data: A dictionary of information about this spine
-        item, obtained from RBdigital.
+            item, obtained from RBdigital.
 
         :param alternate_url: A URL generated by the circulation manager
-        (as opposed to being generated by RBdigital) for fulfilling this
-        spine item as an audio file (as opposed to a JSON document that
-        links to an audio file).
+            (as opposed to being generated by RBdigital) for fulfilling this
+            spine item as an audio file (as opposed to a JSON document that
+            links to an audio file).
         """
         href = file_data.get('downloadUrl')
         duration = file_data.get('minutes') * 60
