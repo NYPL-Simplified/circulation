@@ -146,6 +146,7 @@
     <span class="n">DatabaseWorker</span><span class="p">,</span>
     <span class="n">DatabasePool</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">cmp_to_key</span>
 
 <div class="viewcode-block" id="Script"><a class="viewcode-back" href="../../core.html#core.scripts.Script">[docs]</a><span class="k">class</span> <span class="nc">Script</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -2191,7 +2192,7 @@
 <span class="sd">        one.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="k">def</span> <span class="nf">compare_migrations</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">compare_migrations</span><span class="p">(</span><span class="n">first</span><span class="p">):</span>
             <span class="sd">&quot;&quot;&quot;Compares migrations according to ideal sorting order.</span>
 
 <span class="sd">            - All Python migrations run after all SQL migrations.</span>
@@ -2201,27 +2202,29 @@
 <span class="sd">            - If two migrations with the same timestamp, have counters,</span>
 <span class="sd">              migrations are sorted by counter (asc).</span>
 <span class="sd">            &quot;&quot;&quot;</span>
-            <span class="k">if</span> <span class="n">first</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.py&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">second</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.sql&#39;</span><span class="p">):</span>
-                <span class="k">return</span> <span class="mi">1</span>
-            <span class="k">elif</span> <span class="n">first</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.sql&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">second</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.py&#39;</span><span class="p">):</span>
-                <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
-            <span class="n">first_datestamp</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">first</span><span class="p">[:</span><span class="mi">8</span><span class="p">])</span>
-            <span class="n">second_datestamp</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">second</span><span class="p">[:</span><span class="mi">8</span><span class="p">])</span>
-            <span class="n">datestamp_difference</span> <span class="o">=</span> <span class="n">first_datestamp</span> <span class="o">-</span> <span class="n">second_datestamp</span>
-            <span class="k">if</span> <span class="n">datestamp_difference</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">datestamp_difference</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">first</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.py&#39;</span><span class="p">):</span>
+                <span class="n">key</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">key</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">key</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">first</span><span class="p">[:</span><span class="mi">8</span><span class="p">]))</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">key</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
             <span class="c1"># Both migrations have the same timestamp, so compare using</span>
             <span class="c1"># their counters (default to 0 if no counter is included)</span>
-            <span class="n">first_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MIGRATION_WITH_COUNTER</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">first</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
-            <span class="n">second_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MIGRATION_WITH_COUNTER</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">second</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first_count</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">first_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MIGRATION_WITH_COUNTER</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">first_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">first_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">first_count</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">second_count</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-                <span class="n">second_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">second_count</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="k">return</span> <span class="n">first_count</span> <span class="o">-</span> <span class="n">second_count</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">first_count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">key</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">first_count</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">migrations</span><span class="p">,</span> <span class="nb">cmp</span><span class="o">=</span><span class="n">compare_migrations</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">key</span>
+
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">migrations</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">compare_migrations</span><span class="p">)</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">directories_by_priority</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2532,16 +2535,30 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="n">last_run_date</span><span class="p">,</span>
                 <span class="n">counter</span><span class="o">=</span><span class="n">counter</span><span class="p">,</span> <span class="n">migration_name</span><span class="o">=</span><span class="n">migration_file</span>
             <span class="p">)</span>
+        
+        <span class="c1"># Nothing to update</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
 
-        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span> <span class="ow">and</span>
-            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span> <span class="o">&lt;</span> <span class="n">last_run_date</span> <span class="ow">or</span>
-            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span><span class="o">==</span><span class="n">last_run_date</span> <span class="ow">and</span>
-             <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;</span> <span class="n">counter</span><span class="p">))</span>
-        <span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="n">last_run_date</span><span class="p">,</span>
-                <span class="n">counter</span><span class="o">=</span><span class="n">counter</span><span class="p">,</span> <span class="n">migration_name</span><span class="o">=</span><span class="n">migration_file</span>
-            <span class="p">)</span></div></div>
+        <span class="c1"># The last script that ran had an earlier timestamp than the current script</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span> <span class="o">&gt;</span> <span class="n">last_run_date</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># The dates of the scrips are the same so compare the counters</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">finish</span><span class="o">==</span><span class="n">last_run_date</span><span class="p">:</span>
+            <span class="c1"># The current script has no counter, so it&#39;s the same script that ran</span>
+            <span class="c1"># or an earlier script that ran</span>
+            <span class="k">if</span> <span class="n">counter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="c1"># The previous script has a higher counter</span>
+            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">counter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">counter</span> <span class="o">&gt;</span> <span class="n">counter</span><span class="p">):</span>
+                <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">overall_timestamp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="n">last_run_date</span><span class="p">,</span>
+            <span class="n">counter</span><span class="o">=</span><span class="n">counter</span><span class="p">,</span> <span class="n">migration_name</span><span class="o">=</span><span class="n">migration_file</span>
+        <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="DatabaseMigrationInitializationScript"><a class="viewcode-back" href="../../core.html#core.scripts.DatabaseMigrationInitializationScript">[docs]</a><span class="k">class</span> <span class="nc">DatabaseMigrationInitializationScript</span><span class="p">(</span><span class="n">DatabaseMigrationScript</span><span class="p">):</span>
@@ -2816,6 +2833,7 @@
 
 <div class="viewcode-block" id="Explain.write"><a class="viewcode-back" href="../../core.html#core.scripts.Explain.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Write a string to self.stdout.&quot;&quot;&quot;</span>
+        <span class="c1"># TODO PYTHON3 we write unicode to stdout, not bytes.</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
             <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">s</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">):</span>

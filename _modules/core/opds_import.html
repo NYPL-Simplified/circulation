@@ -34,12 +34,14 @@
             
   <h1>Source code for core.opds_import</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">StringIO</span><span class="p">,</span>
+    <span class="n">BytesIO</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">defaultdict</span><span class="p">,</span>
     <span class="n">Counter</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">dateutil</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
@@ -99,6 +101,7 @@
     <span class="n">OPDSFeed</span><span class="p">,</span>
     <span class="n">OPDSMessage</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="k">import</span> <span class="n">base64</span>
 <span class="kn">from</span> <span class="nn">mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
 <span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="n">HasSelfTests</span>
 
@@ -964,7 +967,13 @@
         <span class="n">values</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">failures</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PARSER_CLASS</span><span class="p">()</span>
-        <span class="n">root</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">StringIO</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">inp</span> <span class="o">=</span> <span class="n">BytesIO</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># NOTE: etree will not parse certain Unicode strings.</span>
+            <span class="c1"># It&#39;s generally better to feed it a bytestring.</span>
+            <span class="n">inp</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
 
         <span class="c1"># Some OPDS feeds (eg Standard Ebooks) contain relative urls,</span>
         <span class="c1"># so we need the feed&#39;s self URL to extract links. If none was</span>
@@ -1664,7 +1673,8 @@
     <span class="k">def</span> <span class="nf">_update_headers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">headers</span><span class="p">):</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span> <span class="ow">or</span> <span class="p">{})</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">password</span> <span class="ow">and</span> <span class="ow">not</span> <span class="s1">&#39;Authorization&#39;</span> <span class="ow">in</span> <span class="n">headers</span><span class="p">:</span>
-            <span class="n">auth_header</span> <span class="o">=</span> <span class="s2">&quot;Basic </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">username</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">))</span>
+            <span class="n">creds</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">username</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">)</span>
+            <span class="n">auth_header</span> <span class="o">=</span> <span class="s2">&quot;Basic </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">creds</span><span class="p">)</span>
             <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Authorization&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">auth_header</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;Accept&#39;</span> <span class="ow">in</span> <span class="n">headers</span><span class="p">:</span>

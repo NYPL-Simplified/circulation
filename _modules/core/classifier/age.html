@@ -265,7 +265,7 @@
                     <span class="k">if</span> <span class="n">young</span> <span class="o">&gt;</span> <span class="mi">99</span><span class="p">:</span>
                         <span class="c1"># This is not an age at all.</span>
                         <span class="n">young</span> <span class="o">=</span> <span class="kc">None</span>
-                    <span class="k">if</span> <span class="n">young</span> <span class="o">&gt;</span> <span class="n">old</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">young</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">old</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">young</span> <span class="o">&gt;</span> <span class="n">old</span><span class="p">):</span>
                         <span class="n">young</span><span class="p">,</span> <span class="n">old</span> <span class="o">=</span> <span class="n">old</span><span class="p">,</span> <span class="n">young</span>
                     <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="n">young</span><span class="p">,</span> <span class="n">old</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>

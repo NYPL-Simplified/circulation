@@ -62,6 +62,7 @@
 
 <span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">total_ordering</span>
 <span class="kn">import</span> <span class="nn">isbnlib</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">random</span>
@@ -86,9 +87,12 @@
     <span class="n">or_</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
 <span class="kn">from</span> <span class="nn">..util.summary</span> <span class="k">import</span> <span class="n">SummaryEvaluator</span>
 
-<div class="viewcode-block" id="Identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier">[docs]</a><span class="k">class</span> <span class="nc">Identifier</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">IdentifierConstants</span><span class="p">):</span>
+
+<div class="viewcode-block" id="Identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier">[docs]</a><span class="nd">@total_ordering</span>
+<span class="k">class</span> <span class="nc">Identifier</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">IdentifierConstants</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A way of uniquely referring to a particular edition.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -118,8 +122,9 @@
             <span class="n">title</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; prim_ed=</span><span class="si">%d</span><span class="s1"> (&quot;</span><span class="si">%s</span><span class="s1">&quot;)&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> ID=</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-                                    <span class="n">title</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2"> ID=</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span>
+        <span class="p">)</span>
 
     <span class="c1"># One Identifier may serve as the primary identifier for</span>
     <span class="c1"># several Editions.</span>
@@ -827,7 +832,23 @@
         <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">minimal_opds_entry</span><span class="p">(</span>
             <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">cover</span><span class="o">=</span><span class="n">cover_image</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
             <span class="n">quality</span><span class="o">=</span><span class="n">quality</span><span class="p">,</span> <span class="n">most_recent_update</span><span class="o">=</span><span class="n">most_recent_update</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Equality implementation for total_ordering.&quot;&quot;&quot;</span>
+        <span class="c1"># We don&#39;t want an Identifier to be == an IdentifierData</span>
+        <span class="c1"># with the same data.</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Comparison implementation for total_ordering.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span></div>
+
 
 <div class="viewcode-block" id="Equivalency"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Equivalency">[docs]</a><span class="k">class</span> <span class="nc">Equivalency</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An assertion that two Identifiers identify the same work.</span>
@@ -869,7 +890,7 @@
             <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">strength</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">votes</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">r</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span>
 
 <div class="viewcode-block" id="Equivalency.for_identifiers"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Equivalency.for_identifiers">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">,</span> <span class="n">exclude_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>

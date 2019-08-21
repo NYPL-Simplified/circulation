@@ -37,11 +37,11 @@
     <span class="n">numbers</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">numbers</span><span class="p">)</span>
     <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">numbers</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">length</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">high_middle</span> <span class="o">=</span> <span class="n">numbers</span><span class="p">[</span><span class="n">length</span><span class="o">/</span><span class="mi">2</span><span class="p">]</span>
-        <span class="n">low_middle</span> <span class="o">=</span> <span class="n">numbers</span><span class="p">[</span><span class="n">length</span><span class="o">/</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">high_middle</span> <span class="o">=</span> <span class="n">numbers</span><span class="p">[</span><span class="n">length</span><span class="o">//</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">low_middle</span> <span class="o">=</span> <span class="n">numbers</span><span class="p">[</span><span class="n">length</span><span class="o">//</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">high_middle</span> <span class="o">+</span> <span class="n">low_middle</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">numbers</span><span class="p">[</span><span class="n">length</span><span class="o">/</span><span class="mi">2</span><span class="p">]</span></div>
+        <span class="k">return</span> <span class="n">numbers</span><span class="p">[</span><span class="n">length</span><span class="o">//</span><span class="mi">2</span><span class="p">]</span></div>
 </pre></div>
 
           </div>

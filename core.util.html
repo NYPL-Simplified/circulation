@@ -715,17 +715,17 @@ identifier.</p>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">
-<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1eb3fd0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x31d0d40&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">
-<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1edb650&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x30dd160&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">
-<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1eb2f50&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x31cfcc0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -945,6 +945,95 @@ those who inspect the problem document.</p>
 <div class="section" id="module-core.util.stopwords">
 <span id="core-util-stopwords-module"></span><h2>core.util.stopwords module<a class="headerlink" href="#module-core.util.stopwords" title="Permalink to this headline">¶</a></h2>
 <p>Sets of stopwords.</p>
+</div>
+<div class="section" id="module-core.util.string_helpers">
+<span id="core-util-string-helpers-module"></span><h2>core.util.string_helpers module<a class="headerlink" href="#module-core.util.string_helpers" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="core.util.string_helpers.UnicodeAwareBase64">
+<em class="property">class </em><code class="descclassname">core.util.string_helpers.</code><code class="descname">UnicodeAwareBase64</code><span class="sig-paren">(</span><em>encoding</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/string_helpers.html#UnicodeAwareBase64"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Simulate the interface of the base64 module, but make it look as
+though base64-encoding and -decoding works on Unicode strings.</p>
+<p>Behind the scenes, Unicode strings are encoded to a particular
+encoding, then base64-encoded or -decoded, then decoded from that
+encoding.</p>
+<p>Since we get Unicode strings out of the database, this lets us
+base64-encode and -decode strings based on those strings, without
+worrying about encoding to bytes and then decoding.</p>
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.b64decode">
+<code class="descname">b64decode</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.b64decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.b64encode">
+<code class="descname">b64encode</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.b64encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.decodestring">
+<code class="descname">decodestring</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.decodestring" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.encodestring">
+<code class="descname">encodestring</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.encodestring" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.standard_b64decode">
+<code class="descname">standard_b64decode</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.standard_b64decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.standard_b64encode">
+<code class="descname">standard_b64encode</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.standard_b64encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.urlsafe_b64decode">
+<code class="descname">urlsafe_b64decode</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.urlsafe_b64decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.urlsafe_b64encode">
+<code class="descname">urlsafe_b64encode</code><span class="sig-paren">(</span><em>s</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.urlsafe_b64encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.util.string_helpers.UnicodeAwareBase64.wrap">
+<code class="descname">wrap</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/string_helpers.html#UnicodeAwareBase64.wrap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.string_helpers.UnicodeAwareBase64.wrap" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.string_helpers.native_string">
+<code class="descclassname">core.util.string_helpers.</code><code class="descname">native_string</code><span class="sig-paren">(</span><em>x</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/string_helpers.html#native_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.string_helpers.native_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a bytestring or a Unicode string to the ‘native string’
+class for this version of Python.</p>
+<p>In Python 2, the native string class is a bytestring. In Python 3,
+the native string class is a Unicode string.</p>
+<p>This function exists to smooth the conversion process and can be
+removed once we convert to Python 3.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.string_helpers.random_string">
+<code class="descclassname">core.util.string_helpers.</code><code class="descname">random_string</code><span class="sig-paren">(</span><em>size</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/string_helpers.html#random_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.string_helpers.random_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a random string of binary, encoded as hex digits.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Param:</th><td class="field-body">Size of binary string in bytes.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A Unicode string.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </div>
 <div class="section" id="module-core.util.summary">
 <span id="core-util-summary-module"></span><h2>core.util.summary module<a class="headerlink" href="#module-core.util.summary" title="Permalink to this headline">¶</a></h2>
