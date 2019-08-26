@@ -800,6 +800,10 @@ class ODLImporter(OPDSImporter):
             protection_tags = parser._xpath(odl_license_tag, 'odl:protection') or []
             for protection_tag in protection_tags:
                 drm_scheme = subtag(protection_tag, 'dcterms:format')
+
+                if 'audiobook+json' in drm_scheme and 'profile' in drm_scheme:
+                    drm_scheme = drm_scheme.split('profile=')[1]
+                
                 drm_schemes.append(drm_scheme)
             if not drm_schemes:
                 formats.append(FormatData(

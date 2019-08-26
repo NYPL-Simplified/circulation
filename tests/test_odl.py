@@ -1244,9 +1244,10 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         canadianity_perpetual = dict(checkouts=dict(available=1))
         midnight_loan_limited_1 = dict(checkouts=dict(left=20, available=1))
         midnight_loan_limited_2 = dict(checkouts=dict(left=52, available=1))
+        everglades_loan = dict(checkouts=dict(left=10, available=5))
         mock_responses = [json.dumps(r) for r in [
             warrior_time_limited, canadianity_loan_limited, canadianity_perpetual,
-            midnight_loan_limited_1, midnight_loan_limited_2,
+            midnight_loan_limited_1, midnight_loan_limited_2, everglades_loan
         ]]
         def do_get(url, headers):
             return 200, {}, mock_responses.pop(0)
@@ -1267,15 +1268,16 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         # LicensePoolDeliveryMechanisms.
 
         # The importer created 4 editions, pools, and works.
-        eq_(4, len(imported_editions))
-        eq_(4, len(imported_pools))
-        eq_(4, len(imported_works))
+        eq_(5, len(imported_editions))
+        eq_(5, len(imported_pools))
+        eq_(5, len(imported_works))
 
-        [canadianity, warrior, blazing, midnight] = sorted(imported_editions, key=lambda x: x.title)
+        [canadianity, everglades, warrior, blazing, midnight] = sorted(imported_editions, key=lambda x: x.title)
         eq_("The Blazing World", blazing.title)
         eq_("Sun Warrior", warrior.title)
         eq_("Canadianity", canadianity.title)
         eq_("The Midnight Dance", midnight.title)
+        eq_("Everglades Wildguide", everglades.title)
 
         # This book is open access and has no 'odl:license' tag.
         [blazing_pool] = [p for p in imported_pools if p.identifier == blazing.primary_identifier]
@@ -1302,6 +1304,14 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         eq_(datetime.datetime(2019, 3, 31, 03, 13, 35), license.expires)
         eq_(None, license.remaining_checkouts)
         eq_(1, license.concurrent_checkouts)
+
+        # This item is open access audiobook.
+        [everglades_pool] = [p for p in imported_pools if p.identifier == everglades.primary_identifier]
+        eq_(True, everglades_pool.open_access)
+        [lpdm, lpdm2] = everglades_pool.delivery_mechanisms
+
+        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, lpdm2.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.AUDIOBOOK_NO_DRM, lpdm2.delivery_mechanism.drm_scheme)
 
         # This book has two 'odl:license' tags for the same format and drm scheme
         # (this happens if the library purchases two copies).

@@ -303,6 +303,7 @@ class CirculationManagerAnnotator(Annotator):
         if can_fulfill:
             if active_fulfillment:
                 # We're making an entry for a specific fulfill link.
+                # TODO note: this is for open access items
                 type = active_fulfillment.content_type
                 url = active_fulfillment.content_link
                 rel = OPDSFeed.ACQUISITION_REL
@@ -399,9 +400,10 @@ class CirculationManagerAnnotator(Annotator):
         if rep:
             if rep.media_type:
                 kw['type'] = rep.media_type
+            if lpdm.delivery_mechanism.drm_scheme == DeliveryMechanism.AUDIOBOOK_NO_DRM:
+                kw['type'] = kw['type'] + ';profile=' + DeliveryMechanism.AUDIOBOOK_NO_DRM
             href = rep.public_url
         kw['href'] = cdnify(href)
-
         link_tag = AcquisitionFeed.link(**kw)
         link_tag.attrib.update(self.rights_attributes(lpdm))
         always_available = OPDSFeed.makeelement(
@@ -1064,6 +1066,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             library_short_name=self.library.short_name,
             _external=True
         )
+        set_trace()
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
             types=format_types
