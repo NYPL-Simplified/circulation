@@ -1402,6 +1402,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     STREAMING_DRM = u"Streaming"
     OVERDRIVE_DRM = u"Overdrive DRM"
     BEARER_TOKEN = u"application/vnd.librarysimplified.bearer-token+json"
+    AUDIOBOOK_NO_DRM = u"http://www.feedbooks.com/audiobooks/access-restriction"
 
     STREAMING_PROFILE = ';profile="http://librarysimplified.org/terms/profiles/streaming-media"'
     MEDIA_TYPES_FOR_STREAMING = {

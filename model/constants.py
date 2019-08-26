@@ -248,8 +248,12 @@ class MediaTypes(object):
         SVG_MEDIA_TYPE,
     ]
 
+    # If an open access book is imported and not any of these media types,
+    # then it won't show up in an OPDS feed.
     SUPPORTED_BOOK_MEDIA_TYPES = [
-        EPUB_MEDIA_TYPE
+        EPUB_MEDIA_TYPE,
+        PDF_MEDIA_TYPE,
+        AUDIOBOOK_MANIFEST_MEDIA_TYPE
     ]
 
     # Most of the time, if you believe a resource to be media type A,

@@ -1161,6 +1161,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         xml = None
         field = self.annotator.opds_cache_field
+        # set_trace()
         if field and work and not force_create and use_cache:
             xml = getattr(work, field)
 
