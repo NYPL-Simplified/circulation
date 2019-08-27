@@ -801,8 +801,9 @@ class ODLImporter(OPDSImporter):
             for protection_tag in protection_tags:
                 drm_scheme = subtag(protection_tag, 'dcterms:format')
 
-                if 'audiobook+json' in drm_scheme and 'profile' in drm_scheme:
-                    drm_scheme = drm_scheme.split('profile=')[1]
+                if 'audiobook+json' in drm_scheme and
+                    DeliveryMechanism.AUDIOBOOK_DRM in drm_scheme:
+                    drm_scheme = AUDIOBOOK_DRM
                 
                 drm_schemes.append(drm_scheme)
             if not drm_schemes:

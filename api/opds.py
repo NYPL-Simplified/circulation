@@ -400,8 +400,6 @@ class CirculationManagerAnnotator(Annotator):
         if rep:
             if rep.media_type:
                 kw['type'] = rep.media_type
-            if lpdm.delivery_mechanism.drm_scheme == DeliveryMechanism.AUDIOBOOK_NO_DRM:
-                kw['type'] = kw['type'] + ';profile=' + DeliveryMechanism.AUDIOBOOK_NO_DRM
             href = rep.public_url
         kw['href'] = cdnify(href)
         link_tag = AcquisitionFeed.link(**kw)
