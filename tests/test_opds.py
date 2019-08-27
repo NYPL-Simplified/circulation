@@ -466,6 +466,7 @@ class TestOPDS(DatabaseTest):
         # TODO PYTHON3 order of attrs is different
         eq_(etree.tounicode(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
 
+        # A direct acquisition link to a document with embedded access restriction rules.
         c = m(rel, href, ['application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction'])
         eq_(etree.tounicode(c), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction"/>' % href)
 
@@ -1797,11 +1798,11 @@ class TestAcquisitionFeed(DatabaseTest):
 
         audiobook_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
-            DeliveryMechanism.AUDIOBOOK_DRM
+            DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
         )
 
         eq_(
-            [Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + ';profile=' + DeliveryMechanism.AUDIOBOOK_DRM],
+            [Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE],
             m(audiobook_drm)
         )
 

@@ -26,14 +26,14 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record):
         message = unicode(record.msg)
+        def no_bytestring(s):
+            if isinstance(s, str):
+                s = unicode(s)
+            return s
 
         if record.args:
-            recordArgs = ()
-            for a in record.args:
-                if isinstance(a, str):
-                    a = unicode(a)
-                recordArgs = recordArgs + (a,)
-            message = message % recordArgs
+            record_args = tuple([no_bytestring(arg) for arg in record.args])
+            message = message % record_args
         data = dict(
             host=self.hostname,
             app=self.app_name,

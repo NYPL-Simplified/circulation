@@ -316,6 +316,21 @@ class TestOPDSImporter(OPDSImporterTest):
         link = OPDSImporter.extract_link(relative, "http://server")
         eq_("http://server/foo/bar", link.href)
 
+    def test_get_medium_from_links(self):
+        audio_links = [
+            LinkData(href="url", rel="http://opds-spec.org/acquisition/", media_type="application/audiobook+json"),
+            LinkData(href="url", rel="http://opds-spec.org/image"),
+        ]
+        book_links = [
+            LinkData(href="url", rel="http://opds-spec.org/image"),
+            LinkData(href="url", rel="http://opds-spec.org/acquisition/", media_type="application/epub+zip"),
+        ]
+
+        m = OPDSImporter.get_medium_from_links
+
+        eq_(m(audio_links), "Audio")
+        eq_(m(book_links), "Book")
+
     def test_extract_link_rights_uri(self):
 
         # Most of the time, a link's rights URI is inherited from the entry.
