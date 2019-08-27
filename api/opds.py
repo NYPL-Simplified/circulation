@@ -303,7 +303,6 @@ class CirculationManagerAnnotator(Annotator):
         if can_fulfill:
             if active_fulfillment:
                 # We're making an entry for a specific fulfill link.
-                # TODO note: this is for open access items
                 type = active_fulfillment.content_type
                 url = active_fulfillment.content_link
                 rel = OPDSFeed.ACQUISITION_REL
