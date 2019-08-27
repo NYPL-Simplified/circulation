@@ -1322,7 +1322,7 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         [lpdm] = poetry_pool.delivery_mechanisms
 
         eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
-        eq_(DeliveryMechanism.AUDIOBOOK_DRM, lpdm.delivery_mechanism.drm_scheme)
+        eq_(DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM, lpdm.delivery_mechanism.drm_scheme)
 
         # This book has two 'odl:license' tags for the same format and drm scheme
         # (this happens if the library purchases two copies).

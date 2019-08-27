@@ -274,7 +274,7 @@
   This is a collection of poems read by LibriVox volunteers for the month of March 2010. LibriVox project page: Short Poetry Collection 087 For more information, or to volunteer, please visit LibriVox.org M4B Audiobook (17MB)
   </summary>
   <odl:license>
-    <dcterms:identifier xsi:type="dcterms:URI">1</dcterms:identifier>
+    <dcterms:identifier xsi:type="dcterms:URI">6</dcterms:identifier>
     <dcterms:format>application/audiobook+json</dcterms:format>
     <dcterms:source>http://www.feedbooks.com</dcterms:source>
     <opds:price currencycode="USD">60.00</opds:price>
@@ -293,5 +293,7 @@
       <odl:tts>false</odl:tts>
     </odl:protection>
   </odl:license>
+  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=6" rel="self"/>
 </entry>
 </feed>

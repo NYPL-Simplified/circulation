@@ -39,6 +39,7 @@ from core.model import (
     IntegrationClient,
     LicensePool,
     Loan,
+    MediaTypes,
     RightsStatus,
     Session,
     create,
@@ -801,8 +802,8 @@ class ODLImporter(OPDSImporter):
             for protection_tag in protection_tags:
                 drm_scheme = subtag(protection_tag, 'dcterms:format')
 
-                if 'audiobook+json' in drm_scheme and DeliveryMechanism.AUDIOBOOK_DRM in drm_scheme:
-                    drm_scheme = AUDIOBOOK_DRM
+                if MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE in drm_scheme and DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM in drm_scheme:
+                    drm_scheme = DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
                 
                 drm_schemes.append(drm_scheme)
             if not drm_schemes:
