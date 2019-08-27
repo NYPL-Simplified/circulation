@@ -38,6 +38,7 @@ from model import (
     CustomList,
     CustomListEntry,
     DataSource,
+    DeliveryMechanism,
     Hyperlink,
     PresentationCalculationPolicy,
     Resource,
@@ -1597,7 +1598,10 @@ class AcquisitionFeed(OPDSFeed):
         # Finally, you get the goodies.
         media = delivery_mechanism.content_type_media_type
         if media:
+            if delivery_mechanism.drm_scheme == DeliveryMechanism.AUDIOBOOK_DRM:
+                media += ';profile=' + delivery_mechanism.drm_scheme
             types.append(media)
+
         return types
 
 
