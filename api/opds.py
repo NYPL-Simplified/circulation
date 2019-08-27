@@ -1064,7 +1064,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             library_short_name=self.library.short_name,
             _external=True
         )
-        set_trace()
+
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
             types=format_types

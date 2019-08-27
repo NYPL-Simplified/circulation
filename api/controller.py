@@ -532,7 +532,6 @@ class CirculationManagerController(BaseCirculationManagerController):
                 self._db, Lane, id=lane_identifier, library_id=library_id
             )
 
-        # set_trace()
         if not lane:
             return NO_SUCH_LANE.detailed(
                 _("Lane %(lane_identifier)s does not exist or is not associated with library %(library_id)s",
