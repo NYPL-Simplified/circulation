@@ -78,8 +78,6 @@
     <span class="n">TitleProcessor</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">..util.permanent_work_id</span> <span class="k">import</span> <span class="n">WorkIDCalculator</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
-
 
 <div class="viewcode-block" id="Edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition">[docs]</a><span class="k">class</span> <span class="nc">Edition</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">):</span>
 
@@ -173,7 +171,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">id_repr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
             <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">sort_name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">contributors</span><span class="p">]),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">language_code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

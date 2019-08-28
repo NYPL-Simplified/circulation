@@ -1182,7 +1182,7 @@ Collections they create.</p>
 <dt id="core.model.collection.Collection.from_metadata_identifier">
 <em class="property">classmethod </em><code class="descname">from_metadata_identifier</code><span class="sig-paren">(</span><em>_db</em>, <em>metadata_identifier</em>, <em>data_source=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/collection.html#Collection.from_metadata_identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.Collection.from_metadata_identifier" title="Permalink to this definition">¶</a></dt>
 <dd><p>Finds or creates a Collection on the metadata wrangler, based
-on its unique metadata_identifier.</p>
+on its unique metadata_identifier</p>
 </dd></dl>
 
 <dl class="attribute">
@@ -1227,11 +1227,8 @@ the metadata wrangler.</p>
 <dd><p>Identifier based on collection details that uniquely represents
 this Collection on the metadata wrangler. This identifier is
 composed of the Collection protocol and account identifier.</p>
-<p>A circulation manager provides a Collection’s metadata
-identifier as part of collection registration. The metadata
-wrangler creates a corresponding Collection on its side,
-<em>named after</em> the metadata identifier – regardless of the name
-of that collection on the circulation manager side.</p>
+<p>In the metadata wrangler, this identifier is used as the unique
+name of the collection.</p>
 </dd></dl>
 
 <dl class="attribute">
@@ -2718,12 +2715,12 @@ has this value.</li>
 
 <dl class="attribute">
 <dt id="core.model.constants.MediaTypes.extension">
-<code class="descname">extension</code><em class="property"> = '.zip'</em><a class="headerlink" href="#core.model.constants.MediaTypes.extension" title="Permalink to this definition">¶</a></dt>
+<code class="descname">extension</code><em class="property"> = 'mobi'</em><a class="headerlink" href="#core.model.constants.MediaTypes.extension" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.constants.MediaTypes.media_type">
-<code class="descname">media_type</code><em class="property"> = u'application/vnd.librarysimplified.scorm+zip'</em><a class="headerlink" href="#core.model.constants.MediaTypes.media_type" title="Permalink to this definition">¶</a></dt>
+<code class="descname">media_type</code><em class="property"> = u'application/x-mobipocket-ebook'</em><a class="headerlink" href="#core.model.constants.MediaTypes.media_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

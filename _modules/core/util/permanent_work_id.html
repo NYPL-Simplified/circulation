@@ -34,7 +34,7 @@
             
   <h1>Source code for core.util.permanent_work_id</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">hashlib</span> <span class="k">import</span> <span class="n">md5</span>
+<span class="kn">import</span> <span class="nn">md5</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">struct</span>
 <span class="kn">import</span> <span class="nn">unicodedata</span>
@@ -44,7 +44,7 @@
 <div class="viewcode-block" id="WorkIDCalculator.permanent_id"><a class="viewcode-back" href="../../../core.util.html#core.util.permanent_work_id.WorkIDCalculator.permanent_id">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">permanent_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">normalized_title</span><span class="p">,</span> <span class="n">normalized_author</span><span class="p">,</span>
                      <span class="n">grouping_category</span><span class="p">):</span>
-        <span class="n">digest</span> <span class="o">=</span> <span class="n">md5</span><span class="p">()</span>
+        <span class="n">digest</span> <span class="o">=</span> <span class="n">md5</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">(</span><span class="n">normalized_title</span><span class="p">,</span> <span class="n">normalized_author</span><span class="p">,</span> <span class="n">grouping_category</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span> <span class="ow">or</span> <span class="n">i</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">i</span> <span class="o">=</span> <span class="s1">&#39;--null--&#39;</span>

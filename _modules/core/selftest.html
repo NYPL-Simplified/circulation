@@ -78,7 +78,7 @@
         <span class="n">f</span> <span class="o">=</span> <span class="n">AtomFeed</span><span class="o">.</span><span class="n">_strftime</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
             <span class="n">exception</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-                          <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">),</span>
+                          <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
                           <span class="s2">&quot;debug_message&quot;</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span> <span class="p">}</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
@@ -105,7 +105,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">,</span> <span class="n">IntegrationException</span><span class="p">):</span>
                 <span class="n">exception</span> <span class="o">=</span> <span class="s2">&quot; exception=</span><span class="si">%r</span><span class="s2"> debug=</span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-                    <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">debug_message</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -296,7 +296,7 @@
         <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
             <span class="n">exception</span> <span class="o">=</span> <span class="n">message</span>
-            <span class="n">message</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">exception</span><span class="p">)</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">exception</span><span class="o">.</span><span class="n">message</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">debug_message</span><span class="p">:</span>
                 <span class="n">debug_message</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
         <span class="n">exception</span> <span class="o">=</span> <span class="n">IntegrationException</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">debug_message</span><span class="p">)</span>

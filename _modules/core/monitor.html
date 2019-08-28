@@ -690,7 +690,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Exception processing work </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span>
             <span class="p">)</span>
-            <span class="n">exception</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">exception</span><span class="p">:</span>
             <span class="c1"># Unlike with most Monitors, an exception is not a good</span>

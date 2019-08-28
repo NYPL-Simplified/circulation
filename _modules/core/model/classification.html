@@ -55,7 +55,6 @@
     <span class="n">Erotica</span><span class="p">,</span>
     <span class="n">GenreData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
 
 <span class="kn">import</span> <span class="nn">logging</span>
 
@@ -207,7 +206,7 @@
             <span class="n">age_range</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="n">a</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;[</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s%s%s%s%s%s</span><span class="s1">]&#39;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span> <span class="n">genre</span><span class="p">,</span> <span class="n">age_range</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">target_age_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

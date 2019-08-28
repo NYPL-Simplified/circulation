@@ -38,7 +38,6 @@
 <span class="c1"># MediaTypes</span>
 
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">OrderedDict</span>
 
 <div class="viewcode-block" id="DataSourceConstants"><a class="viewcode-back" href="../../../core.model.html#core.model.constants.DataSourceConstants">[docs]</a><span class="k">class</span> <span class="nc">DataSourceConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="n">GUTENBERG</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Gutenberg&quot;</span>
@@ -295,26 +294,24 @@
     <span class="c1"># to stick with A.</span>
     <span class="n">GENERIC_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCTET_STREAM_MEDIA_TYPE</span><span class="p">]</span>
 
-    <span class="n">FILE_EXTENSIONS</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">(</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;epub&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">MOBI_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;mobi&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">PDF_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;pdf&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">MP3_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;mp3&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">MP4_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;mp4&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">WMV_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;wmv&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">JPEG_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;jpg&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">PNG_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;png&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">SVG_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;svg&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">GIF_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;gif&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">ZIP_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;zip&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">TEXT_PLAIN</span><span class="p">,</span> <span class="s2">&quot;txt&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;html&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">APPLICATION_XML_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;xml&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;audiobook-manifest&quot;</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">SCORM_MEDIA_TYPE</span><span class="p">,</span> <span class="s2">&quot;zip&quot;</span><span class="p">)</span>
-        <span class="p">]</span>
-    <span class="p">)</span>
+    <span class="n">FILE_EXTENSIONS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">EPUB_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;epub&quot;</span><span class="p">,</span>
+        <span class="n">MOBI_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;mobi&quot;</span><span class="p">,</span>
+        <span class="n">PDF_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;pdf&quot;</span><span class="p">,</span>
+        <span class="n">MP3_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;mp3&quot;</span><span class="p">,</span>
+        <span class="n">MP4_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;mp4&quot;</span><span class="p">,</span>
+        <span class="n">WMV_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;wmv&quot;</span><span class="p">,</span>
+        <span class="n">JPEG_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;jpg&quot;</span><span class="p">,</span>
+        <span class="n">PNG_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;png&quot;</span><span class="p">,</span>
+        <span class="n">SVG_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;svg&quot;</span><span class="p">,</span>
+        <span class="n">GIF_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;gif&quot;</span><span class="p">,</span>
+        <span class="n">ZIP_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;zip&quot;</span><span class="p">,</span>
+        <span class="n">TEXT_PLAIN</span><span class="p">:</span> <span class="s2">&quot;txt&quot;</span><span class="p">,</span>
+        <span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;html&quot;</span><span class="p">,</span>
+        <span class="n">APPLICATION_XML_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;xml&quot;</span><span class="p">,</span>
+        <span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;audiobook-manifest&quot;</span><span class="p">,</span>
+        <span class="n">SCORM_MEDIA_TYPE</span><span class="p">:</span> <span class="s2">&quot;zip&quot;</span>
+    <span class="p">}</span>
 
     <span class="n">COMMON_EBOOK_EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.epub&#39;</span><span class="p">,</span> <span class="s1">&#39;.pdf&#39;</span><span class="p">]</span>
     <span class="n">COMMON_IMAGE_EXTENSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.jpg&#39;</span><span class="p">,</span> <span class="s1">&#39;.jpeg&#39;</span><span class="p">,</span> <span class="s1">&#39;.png&#39;</span><span class="p">,</span> <span class="s1">&#39;.gif&#39;</span><span class="p">]</span>
@@ -324,14 +321,8 @@
         <span class="s2">&quot;.htm&quot;</span> <span class="p">:</span> <span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span>
         <span class="s2">&quot;.jpeg&quot;</span> <span class="p">:</span> <span class="n">JPEG_MEDIA_TYPE</span><span class="p">,</span>
     <span class="p">}</span>
-
     <span class="k">for</span> <span class="n">media_type</span><span class="p">,</span> <span class="n">extension</span> <span class="ow">in</span> <span class="n">FILE_EXTENSIONS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">extension</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">extension</span>
-        <span class="k">if</span> <span class="n">extension</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">MEDIA_TYPE_FOR_EXTENSION</span><span class="p">:</span>
-            <span class="c1"># FILE_EXTENSIONS lists more common extensions first.  If</span>
-            <span class="c1"># multiple media types have the same extension, the most</span>
-            <span class="c1"># common media type will be used.</span>
-            <span class="n">MEDIA_TYPE_FOR_EXTENSION</span><span class="p">[</span><span class="n">extension</span><span class="p">]</span> <span class="o">=</span> <span class="n">media_type</span></div>
+        <span class="n">MEDIA_TYPE_FOR_EXTENSION</span><span class="p">[</span><span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">extension</span><span class="p">]</span> <span class="o">=</span> <span class="n">media_type</span></div>
 </pre></div>
 
           </div>

@@ -48,8 +48,6 @@
     <span class="n">set_trace</span><span class="p">,</span>
     <span class="n">eq_</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="c1"># TODO PYTHON3</span>
-<span class="c1"># from psycopg2.errors import UndefinedTable</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="k">import</span> <span class="n">ProgrammingError</span>
 <span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
@@ -147,14 +145,10 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">ProgrammingError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="c1"># TODO PYTHON3</span>
-            <span class="c1"># if isinstance(e.orig, UndefinedTable):</span>
             <span class="k">if</span> <span class="s1">&#39;does not exist&#39;</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">:</span>
                 <span class="c1"># This is the first time running these tests</span>
                 <span class="c1"># on this server, and the tables don&#39;t exist yet.</span>
-                <span class="k">pass</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">e</span></div>
+                <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="package_teardown"><a class="viewcode-back" href="../../core.html#core.testing.package_teardown">[docs]</a><span class="k">def</span> <span class="nf">package_teardown</span><span class="p">():</span>
@@ -595,8 +589,6 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
         <span class="nb">repr</span><span class="o">.</span><span class="n">media_type</span> <span class="o">=</span> <span class="n">media_type</span>
         <span class="k">if</span> <span class="n">media_type</span> <span class="ow">and</span> <span class="n">content</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">unicode</span><span class="p">):</span>
-                <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
             <span class="nb">repr</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
             <span class="nb">repr</span><span class="o">.</span><span class="n">fetched_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">mirrored</span><span class="p">:</span>
@@ -1014,9 +1006,7 @@
         <span class="sd">&quot;&quot;&quot;A Representation of the sample cover with the given filename.&quot;&quot;&quot;</span>
         <span class="n">sample_cover_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_cover_path</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_representation</span><span class="p">(</span>
-            <span class="n">media_type</span><span class="o">=</span><span class="s2">&quot;image/png&quot;</span><span class="p">,</span>
-            <span class="n">content</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">sample_cover_path</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div></div>
+            <span class="n">media_type</span><span class="o">=</span><span class="s2">&quot;image/png&quot;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">sample_cover_path</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span></div></div>
 
 
 <div class="viewcode-block" id="SearchClientForTesting"><a class="viewcode-back" href="../../core.html#core.testing.SearchClientForTesting">[docs]</a><span class="k">class</span> <span class="nc">SearchClientForTesting</span><span class="p">(</span><span class="n">ExternalSearchIndex</span><span class="p">):</span>
@@ -1400,10 +1390,6 @@
 
 <div class="viewcode-block" id="DummyHTTPClient.do_get"><a class="viewcode-back" href="../../core.html#core.testing.DummyHTTPClient.do_get">[docs]</a>    <span class="k">def</span> <span class="nf">do_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="DummyHTTPClient.do_post"><a class="viewcode-back" href="../../core.html#core.testing.DummyHTTPClient.do_post">[docs]</a>    <span class="k">def</span> <span class="nf">do_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="n">wargs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div></div>
 
 
@@ -1416,27 +1402,18 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="n">headers</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span> <span class="ow">or</span> <span class="s2">&quot;http://url/&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">encoding</span> <span class="o">=</span> <span class="s2">&quot;utf-8&quot;</span>
 
 <div class="viewcode-block" id="MockRequestsResponse.json"><a class="viewcode-back" href="../../core.html#core.testing.MockRequestsResponse.json">[docs]</a>    <span class="k">def</span> <span class="nf">json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
         <span class="c1"># The queued content might be a JSON string or it might</span>
         <span class="c1"># just be the object you&#39;d get from loading a JSON string.</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="n">unicode</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
             <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">content</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">text</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
-
-<div class="viewcode-block" id="MockRequestsResponse.raise_for_status"><a class="viewcode-back" href="../../core.html#core.testing.MockRequestsResponse.raise_for_status">[docs]</a>    <span class="k">def</span> <span class="nf">raise_for_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Null implementation of raise_for_status, a method</span>
-<span class="sd">        implemented by real requests Response objects.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

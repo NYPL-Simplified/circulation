@@ -100,7 +100,6 @@
 <li class="toctree-l2"><a class="reference internal" href="core.util.html#module-core.util.personal_names">core.util.personal_names module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="core.util.html#module-core.util.problem_detail">core.util.problem_detail module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="core.util.html#module-core.util.stopwords">core.util.stopwords module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.util.html#module-core.util.string_helpers">core.util.string_helpers module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="core.util.html#module-core.util.summary">core.util.summary module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="core.util.html#module-core.util.titles">core.util.titles module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="core.util.html#module-core.util.web_publication_manifest">core.util.web_publication_manifest module</a></li>
@@ -382,7 +381,7 @@ server.</p>
 <dl class="class">
 <dt id="core.config.Configuration">
 <em class="property">class </em><code class="descclassname">core.config.</code><code class="descname">Configuration</code><a class="reference internal" href="_modules/core/config.html#Configuration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.Configuration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#core.config.ConfigurationConstants" title="core.config.ConfigurationConstants"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.config.ConfigurationConstants</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="attribute">
 <dt id="core.config.Configuration.ALLOW_HOLDS">
 <code class="descname">ALLOW_HOLDS</code><em class="property"> = 'allow_holds'</em><a class="headerlink" href="#core.config.Configuration.ALLOW_HOLDS" title="Permalink to this definition">¶</a></dt>
@@ -469,6 +468,11 @@ server.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.config.Configuration.DEFAULT_FACET_KEY_PREFIX">
+<code class="descname">DEFAULT_FACET_KEY_PREFIX</code><em class="property"> = 'facets_default_'</em><a class="headerlink" href="#core.config.Configuration.DEFAULT_FACET_KEY_PREFIX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.config.Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY">
 <code class="descname">DEFAULT_MINIMUM_FEATURED_QUALITY</code><em class="property"> = 0.65</em><a class="headerlink" href="#core.config.Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -476,6 +480,11 @@ server.</p>
 <dl class="attribute">
 <dt id="core.config.Configuration.DEFAULT_OPDS_FORMAT">
 <code class="descname">DEFAULT_OPDS_FORMAT</code><em class="property"> = 'verbose_opds_entry'</em><a class="headerlink" href="#core.config.Configuration.DEFAULT_OPDS_FORMAT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.config.Configuration.ENABLED_FACETS_KEY_PREFIX">
+<code class="descname">ENABLED_FACETS_KEY_PREFIX</code><em class="property"> = 'facets_enabled_'</em><a class="headerlink" href="#core.config.Configuration.ENABLED_FACETS_KEY_PREFIX" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -822,22 +831,6 @@ has not changed.</li>
 <code class="descname">x</code><a class="headerlink" href="#core.config.Configuration.x" title="Permalink to this definition">¶</a></dt>
 <dd><p>alias of <a class="reference internal" href="#core.entrypoint.EbooksEntryPoint" title="core.entrypoint.EbooksEntryPoint"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.entrypoint.EbooksEntryPoint</span></code></a></p>
 </dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="core.config.ConfigurationConstants">
-<em class="property">class </em><code class="descclassname">core.config.</code><code class="descname">ConfigurationConstants</code><a class="reference internal" href="_modules/core/config.html#ConfigurationConstants"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.config.ConfigurationConstants" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="attribute">
-<dt id="core.config.ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX">
-<code class="descname">DEFAULT_FACET_KEY_PREFIX</code><em class="property"> = 'facets_default_'</em><a class="headerlink" href="#core.config.ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.config.ConfigurationConstants.ENABLED_FACETS_KEY_PREFIX">
-<code class="descname">ENABLED_FACETS_KEY_PREFIX</code><em class="property"> = 'facets_enabled_'</em><a class="headerlink" href="#core.config.ConfigurationConstants.ENABLED_FACETS_KEY_PREFIX" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 </dd></dl>
 
@@ -1877,7 +1870,7 @@ renders entry points as a set of tabs.</p>
 
 <dl class="attribute">
 <dt id="core.entrypoint.EntryPoint.DISPLAY_TITLES">
-<code class="descname">DISPLAY_TITLES</code><em class="property"> = {&lt;class 'core.entrypoint.EbooksEntryPoint'&gt;: 'eBooks', &lt;class 'core.entrypoint.AudiobooksEntryPoint'&gt;: 'Audiobooks', &lt;class 'core.entrypoint.EverythingEntryPoint'&gt;: 'All'}</em><a class="headerlink" href="#core.entrypoint.EntryPoint.DISPLAY_TITLES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DISPLAY_TITLES</code><em class="property"> = {&lt;class 'core.entrypoint.EverythingEntryPoint'&gt;: 'All', &lt;class 'core.entrypoint.EbooksEntryPoint'&gt;: 'eBooks', &lt;class 'core.entrypoint.AudiobooksEntryPoint'&gt;: 'Audiobooks'}</em><a class="headerlink" href="#core.entrypoint.EntryPoint.DISPLAY_TITLES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -4883,7 +4876,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-13813618-4408-42d0-9458-f73310afa7d9'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-cf7c1e4d-9b6d-45f2-8ebc-8e280d065315'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5108,29 +5101,6 @@ certain way.</p>
 </dd></dl>
 
 <dl class="class">
-<dt id="core.log.StringFormatter">
-<em class="property">class </em><code class="descclassname">core.log.</code><code class="descname">StringFormatter</code><span class="sig-paren">(</span><em>fmt=None</em>, <em>datefmt=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#StringFormatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.StringFormatter" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">logging.Formatter</span></code></p>
-<p>Encode all output as a string.</p>
-<p>In Python 2, this means a UTF-8 bytestring. In Python 3, it means a
-Unicode string.</p>
-<dl class="method">
-<dt id="core.log.StringFormatter.format">
-<code class="descname">format</code><span class="sig-paren">(</span><em>record</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#StringFormatter.format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.StringFormatter.format" title="Permalink to this definition">¶</a></dt>
-<dd><p>Format the specified record as text.</p>
-<p>The record’s attribute dictionary is used as the operand to a
-string formatting operation which yields the returned string.
-Before formatting the dictionary, a couple of preparatory steps
-are carried out. The message attribute of the record is computed
-using LogRecord.getMessage(). If the formatting string uses the
-time (as determined by a call to usesTime(), formatTime() is
-called to format the event time. If there is exception information,
-it is formatted using formatException() and appended to the message.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
 <dt id="core.log.SysLogger">
 <em class="property">class </em><code class="descclassname">core.log.</code><code class="descname">SysLogger</code><a class="reference internal" href="_modules/core/log.html#SysLogger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.SysLogger" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.log.Logger" title="core.log.Logger"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.log.Logger</span></code></a></p>
@@ -5163,6 +5133,27 @@ it is formatted using formatException() and appended to the message.</p>
 <dt id="core.log.SysLogger.from_configuration">
 <em class="property">classmethod </em><code class="descname">from_configuration</code><span class="sig-paren">(</span><em>_db</em>, <em>testing=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#SysLogger.from_configuration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.SysLogger.from_configuration" title="Permalink to this definition">¶</a></dt>
 <dd><p>Should be implemented in each logging class.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.log.UTF8Formatter">
+<em class="property">class </em><code class="descclassname">core.log.</code><code class="descname">UTF8Formatter</code><span class="sig-paren">(</span><em>fmt=None</em>, <em>datefmt=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#UTF8Formatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.UTF8Formatter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">logging.Formatter</span></code></p>
+<p>Encode all Unicode output to UTF-8 to prevent encoding errors.</p>
+<dl class="method">
+<dt id="core.log.UTF8Formatter.format">
+<code class="descname">format</code><span class="sig-paren">(</span><em>record</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/log.html#UTF8Formatter.format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.log.UTF8Formatter.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Format the specified record as text.</p>
+<p>The record’s attribute dictionary is used as the operand to a
+string formatting operation which yields the returned string.
+Before formatting the dictionary, a couple of preparatory steps
+are carried out. The message attribute of the record is computed
+using LogRecord.getMessage(). If the formatting string uses the
+time (as determined by a call to usesTime(), formatTime() is
+called to format the event time. If there is exception information,
+it is formatted using formatException() and appended to the message.</p>
 </dd></dl>
 
 </dd></dl>
@@ -9067,14 +9058,12 @@ characters themselves alone.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>key</strong> – Either a key, or a list of parts to be
-assembled into a key.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>key</strong> – Either a key, or a list of parts to be assembled into a key.</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A bytestring that can be used as an S3 key.</td>
 </tr>
 </tbody>
 </table>
-<p>TODO PYTHON3 This is rewritten to return a Unicode string.</p>
 </dd></dl>
 
 <dl class="classmethod">
@@ -10986,11 +10975,6 @@ You can also use nosetest –nocapture.</p>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="core.testing.DummyHTTPClient.do_post">
-<code class="descname">do_post</code><span class="sig-paren">(</span><em>url</em>, <em>data</em>, <em>*wargs</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DummyHTTPClient.do_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DummyHTTPClient.do_post" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
 <dt id="core.testing.DummyHTTPClient.queue_requests_response">
 <code class="descname">queue_requests_response</code><span class="sig-paren">(</span><em>response_code</em>, <em>media_type='text/html'</em>, <em>other_headers=None</em>, <em>content=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#DummyHTTPClient.queue_requests_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.DummyHTTPClient.queue_requests_response" title="Permalink to this definition">¶</a></dt>
 <dd><p>Queue a response of the type produced by HTTP.get_with_timeout.</p>
@@ -11139,13 +11123,6 @@ WorkCoverageProvider, and must be handled in a subclass.</p>
 <dt id="core.testing.MockRequestsResponse.json">
 <code class="descname">json</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#MockRequestsResponse.json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.MockRequestsResponse.json" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
-
-<dl class="method">
-<dt id="core.testing.MockRequestsResponse.raise_for_status">
-<code class="descname">raise_for_status</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#MockRequestsResponse.raise_for_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.MockRequestsResponse.raise_for_status" title="Permalink to this definition">¶</a></dt>
-<dd><p>Null implementation of raise_for_status, a method
-implemented by real requests Response objects.</p>
-</dd></dl>
 
 <dl class="attribute">
 <dt id="core.testing.MockRequestsResponse.text">

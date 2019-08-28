@@ -65,6 +65,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
 
+<span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">exists</span><span class="p">,</span>
@@ -88,11 +89,6 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
     <span class="n">or_</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="p">(</span>
-    <span class="n">base64</span><span class="p">,</span>
-    <span class="n">native_string</span><span class="p">,</span>
 <span class="p">)</span>
 
 <div class="viewcode-block" id="Collection"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection">[docs]</a><span class="k">class</span> <span class="nc">Collection</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
@@ -202,11 +198,8 @@
     <span class="n">GLOBAL_COLLECTION_DATA_SOURCES</span> <span class="o">=</span> <span class="p">[</span><span class="n">DataSource</span><span class="o">.</span><span class="n">ENKI</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
-            <span class="sa">u</span><span class="s1">&#39;&lt;Collection &quot;</span><span class="si">%s</span><span class="s1">&quot;/&quot;</span><span class="si">%s</span><span class="s1">&quot; ID=</span><span class="si">%d</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s1">&#39;&lt;Collection &quot;</span><span class="si">%s</span><span class="s1">&quot;/&quot;</span><span class="si">%s</span><span class="s1">&quot; ID=</span><span class="si">%d</span><span class="s1">&gt;&#39;</span> <span class="o">%</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Collection.cache_key"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.cache_key">[docs]</a>    <span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span></div>
@@ -503,12 +496,12 @@
 <span class="sd">        this Collection on the metadata wrangler. This identifier is</span>
 <span class="sd">        composed of the Collection protocol and account identifier.</span>
 
-<span class="sd">        A circulation manager provides a Collection&#39;s metadata</span>
-<span class="sd">        identifier as part of collection registration. The metadata</span>
-<span class="sd">        wrangler creates a corresponding Collection on its side,</span>
-<span class="sd">        *named after* the metadata identifier -- regardless of the name</span>
-<span class="sd">        of that collection on the circulation manager side.</span>
+<span class="sd">        In the metadata wrangler, this identifier is used as the unique</span>
+<span class="sd">        name of the collection.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="n">detail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64encode</span><span class="p">(</span><span class="n">detail</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+
         <span class="n">account_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_account_id</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span><span class="p">:</span>
             <span class="c1"># Remove ending / from OPDS url that could duplicate the collection</span>
@@ -516,65 +509,44 @@
             <span class="k">while</span> <span class="n">account_id</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
                 <span class="n">account_id</span> <span class="o">=</span> <span class="n">account_id</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 
-        <span class="n">encode</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64encode</span>
         <span class="n">account_id</span> <span class="o">=</span> <span class="n">encode</span><span class="p">(</span><span class="n">account_id</span><span class="p">)</span>
         <span class="n">protocol</span> <span class="o">=</span> <span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">)</span>
 
         <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="n">protocol</span> <span class="o">+</span> <span class="s1">&#39;:&#39;</span> <span class="o">+</span> <span class="n">account_id</span>
         <span class="k">return</span> <span class="n">encode</span><span class="p">(</span><span class="n">metadata_identifier</span><span class="p">)</span>
 
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_decode_metadata_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metadata_identifier</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Invert the metadata_identifier property.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata_identifier</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No metadata identifier provided.&quot;</span><span class="p">)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">decode</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64decode</span>
-            <span class="n">details</span> <span class="o">=</span> <span class="n">decode</span><span class="p">(</span><span class="n">metadata_identifier</span><span class="p">)</span>
-            <span class="n">encoded_details</span>  <span class="o">=</span> <span class="n">details</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="p">[</span><span class="n">protocol</span><span class="p">,</span> <span class="n">account_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">decode</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">encoded_details</span><span class="p">]</span>
-        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">u</span><span class="s2">&quot;Metadata identifier &#39;</span><span class="si">%s</span><span class="s2">&#39; is invalid: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-                    <span class="n">metadata_identifier</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">account_id</span>
-
 <div class="viewcode-block" id="Collection.from_metadata_identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.from_metadata_identifier">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_metadata_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">metadata_identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Finds or creates a Collection on the metadata wrangler, based</span>
-<span class="sd">        on its unique metadata_identifier.</span>
+<span class="sd">        on its unique metadata_identifier</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># Decode the metadata identifier into a protocol and an</span>
-        <span class="c1"># account ID. If the metadata identifier is invalid, this</span>
-        <span class="c1"># will raise an exception.</span>
-        <span class="n">protocol</span><span class="p">,</span> <span class="n">account_id</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_decode_metadata_identifier</span><span class="p">(</span><span class="n">metadata_identifier</span><span class="p">)</span>
-
-        <span class="c1"># Now that we know the metadata identifier is valid, try to</span>
-        <span class="c1"># look up a collection named after it.</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">metadata_identifier</span><span class="p">)</span>
         <span class="n">is_new</span> <span class="o">=</span> <span class="kc">False</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span><span class="p">:</span>
-            <span class="c1"># Create a collection named after the metadata</span>
-            <span class="c1"># identifier. Give it an ExternalIntegration with the</span>
-            <span class="c1"># corresponding protocol, and set its data source and</span>
-            <span class="c1"># external_account_id.</span>
-            <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">metadata_identifier</span>
-            <span class="p">)</span>
-            <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="n">opds_collection_without_url</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">collection</span> <span class="ow">and</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span><span class="o">==</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_account_id</span>
+        <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span><span class="p">:</span>
-            <span class="c1"># For OPDS Import collections only, we store the URL to</span>
-            <span class="c1"># the OPDS feed (the &quot;account ID&quot;) and the data source.</span>
-            <span class="n">collection</span><span class="o">.</span><span class="n">external_account_id</span> <span class="o">=</span> <span class="n">account_id</span>
-            <span class="k">if</span> <span class="n">data_source</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_source</span><span class="p">,</span> <span class="n">DataSource</span><span class="p">):</span>
-                <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
-                    <span class="n">_db</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span> <span class="ow">or</span> <span class="n">opds_collection_without_url</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="n">detail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64decode</span><span class="p">(</span><span class="n">detail</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+
+            <span class="n">details</span> <span class="o">=</span> <span class="n">decode</span><span class="p">(</span><span class="n">metadata_identifier</span><span class="p">)</span>
+            <span class="n">encoded_details</span>  <span class="o">=</span> <span class="n">details</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">[</span><span class="n">protocol</span><span class="p">,</span> <span class="n">account_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">decode</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">encoded_details</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span><span class="p">:</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
+                    <span class="n">_db</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">metadata_identifier</span>
                 <span class="p">)</span>
+                <span class="n">collection</span><span class="o">.</span><span class="n">create_external_integration</span><span class="p">(</span><span class="n">protocol</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span><span class="p">:</span>
+                <span class="c1"># Share the feed URL so the Metadata Wrangler can find it.</span>
+               <span class="n">collection</span><span class="o">.</span><span class="n">external_account_id</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">account_id</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data_source</span><span class="p">:</span>
             <span class="n">collection</span><span class="o">.</span><span class="n">data_source</span> <span class="o">=</span> <span class="n">data_source</span>
 
         <span class="k">return</span> <span class="n">collection</span><span class="p">,</span> <span class="n">is_new</span></div>
