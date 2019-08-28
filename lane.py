@@ -12,7 +12,7 @@ from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 from sqlalchemy.dialects.postgresql import JSON
 
-from accept_types import parse_header
+import accept
 
 from config import Configuration
 from flask_babel import lazy_gettext as _
@@ -804,8 +804,8 @@ class SearchFacets(FacetsWithEntryPoint):
         language_header = get_header("Accept-Language")
         languages = None
         if language_header:
-            languages = parse_header(language_header)
-            languages = map(str, languages)
+            languages = accept.parse(language_header)
+            languages = [l.media_type for l in languages]
             languages = map(LanguageCodes.iso_639_2_for_locale, languages)
             languages = [l for l in languages if l]
         languages = languages or None

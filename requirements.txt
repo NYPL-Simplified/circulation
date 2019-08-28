@@ -1,5 +1,5 @@
 # Requirements for core
-accept_types==0.3.0
+accept
 boto3
 feedparser
 pillow

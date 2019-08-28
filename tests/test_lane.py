@@ -1110,7 +1110,7 @@ class TestSearchFacets(DatabaseTest):
 
         # Try again with bogus media and languages.
         arguments['media'] = 'Unknown Media'
-        headers['Accept-Language'] = "xx, ql"
+        headers['Accept-Language'] = "xx, ql;q=0"
 
         # None of the bogus information was used.
         facets = from_request()
