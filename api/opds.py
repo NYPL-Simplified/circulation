@@ -401,7 +401,6 @@ class CirculationManagerAnnotator(Annotator):
                 kw['type'] = rep.media_type
             href = rep.public_url
         kw['href'] = cdnify(href)
-
         link_tag = AcquisitionFeed.link(**kw)
         link_tag.attrib.update(self.rights_attributes(lpdm))
         always_available = OPDSFeed.makeelement(
@@ -1064,6 +1063,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             library_short_name=self.library.short_name,
             _external=True
         )
+
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
             types=format_types
