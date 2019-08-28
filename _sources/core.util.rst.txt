@@ -84,6 +84,14 @@ core.util.stopwords module
     :undoc-members:
     :show-inheritance:
 
+core.util.string\_helpers module
+--------------------------------
+
+.. automodule:: core.util.string_helpers
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 core.util.summary module
 ------------------------
 

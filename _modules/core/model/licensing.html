@@ -1437,7 +1437,9 @@
     <span class="n">STREAMING_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Streaming&quot;</span>
     <span class="n">OVERDRIVE_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Overdrive DRM&quot;</span>
     <span class="n">BEARER_TOKEN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.librarysimplified.bearer-token+json&quot;</span>
+    <span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://www.feedbooks.com/audiobooks/access-restriction&quot;</span>
 
+    <span class="n">FEEDBOOKS_AUDIOBOOK_PROFILE</span> <span class="o">=</span> <span class="s1">&#39;;profile=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span>
     <span class="n">STREAMING_PROFILE</span> <span class="o">=</span> <span class="s1">&#39;;profile=&quot;http://librarysimplified.org/terms/profiles/streaming-media&quot;&#39;</span>
     <span class="n">MEDIA_TYPES_FOR_STREAMING</span> <span class="o">=</span> <span class="p">{</span>
         <span class="n">STREAMING_TEXT_CONTENT_TYPE</span><span class="p">:</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">TEXT_HTML_MEDIA_TYPE</span>
@@ -1551,6 +1553,8 @@
 <span class="sd">        content type, assuming it&#39;s represented as a media type.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_media_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content_type</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">drm_scheme</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_PROFILE</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span>
 
         <span class="n">media_type_for_streaming</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MEDIA_TYPES_FOR_STREAMING</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content_type</span><span class="p">)</span>

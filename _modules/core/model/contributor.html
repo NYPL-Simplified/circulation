@@ -64,6 +64,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">..util.personal_names</span> <span class="k">import</span> <span class="n">display_name_to_sort_name</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
 
 <div class="viewcode-block" id="Contributor"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor">[docs]</a><span class="k">class</span> <span class="nc">Contributor</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Someone (usually human) who contributes to books.&quot;&quot;&quot;</span>
@@ -191,7 +192,9 @@
             <span class="n">extra</span> <span class="o">+=</span> <span class="s2">&quot; lc=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span><span class="p">:</span>
             <span class="n">extra</span> <span class="o">+=</span> <span class="s2">&quot; viaf=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span>
-        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Contributor </span><span class="si">%d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;Contributor </span><span class="si">%d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">)</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="Contributor.author_contributor_tiers"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor.author_contributor_tiers">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">author_contributor_tiers</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>

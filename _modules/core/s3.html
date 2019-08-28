@@ -253,14 +253,18 @@
             <span class="n">url</span> <span class="o">+=</span> <span class="s2">&quot;/&quot;</span>
         <span class="k">return</span> <span class="n">url</span></div>
 
+
 <div class="viewcode-block" id="S3Uploader.key_join"><a class="viewcode-back" href="../../core.html#core.s3.S3Uploader.key_join">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">key_join</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Quote the path portions of an S3 key while leaving the path</span>
 <span class="sd">        characters themselves alone.</span>
 
-<span class="sd">        :param key: Either a key, or a list of parts to be assembled into a key.</span>
+<span class="sd">        :param key: Either a key, or a list of parts to be</span>
+<span class="sd">                    assembled into a key.</span>
 
 <span class="sd">        :return: A bytestring that can be used as an S3 key.</span>
+
+<span class="sd">        TODO PYTHON3 This is rewritten to return a Unicode string.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
             <span class="n">parts</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
@@ -402,7 +406,7 @@
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Multipart upload of </span><span class="si">%s</span><span class="s2"> failed: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mirror_to</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
             <span class="n">upload</span><span class="o">.</span><span class="n">abort</span><span class="p">()</span>
-            <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span></div></div>
+            <span class="n">representation</span><span class="o">.</span><span class="n">mirror_exception</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">)</span></div></div>
 
 <span class="c1"># MirrorUploader.implementation will instantiate an S3Uploader</span>
 <span class="c1"># for storage integrations with protocol &#39;Amazon S3&#39;.</span>

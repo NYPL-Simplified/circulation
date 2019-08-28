@@ -354,7 +354,7 @@
             <span class="c1"># other people will be notified that it&#39;s their turn,</span>
             <span class="c1"># they&#39;ll wait a while, get a reservation, and then keep</span>
             <span class="c1"># the book for a while, and so on.</span>
-            <span class="n">cycles</span> <span class="o">+=</span> <span class="n">queue_position</span> <span class="o">/</span> <span class="n">total_licenses</span>
+            <span class="n">cycles</span> <span class="o">+=</span> <span class="n">queue_position</span> <span class="o">//</span> <span class="n">total_licenses</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">total_licenses</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">queue_position</span> <span class="o">%</span> <span class="n">total_licenses</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
                 <span class="n">cycles</span> <span class="o">-=</span> <span class="mi">1</span>
         <span class="k">return</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">cycle_period</span> <span class="o">*</span> <span class="n">cycles</span><span class="p">)</span>

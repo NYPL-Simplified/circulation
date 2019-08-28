@@ -74,6 +74,7 @@
     <span class="n">IntegrationClient</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">Loan</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
     <span class="n">RightsStatus</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
     <span class="n">create</span><span class="p">,</span>
@@ -835,6 +836,10 @@
             <span class="n">protection_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;odl:protection&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">protection_tag</span> <span class="ow">in</span> <span class="n">protection_tags</span><span class="p">:</span>
                 <span class="n">drm_scheme</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">protection_tag</span><span class="p">,</span> <span class="s1">&#39;dcterms:format&#39;</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span> <span class="ow">in</span> <span class="n">drm_scheme</span> <span class="ow">and</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span> <span class="ow">in</span> <span class="n">drm_scheme</span><span class="p">:</span>
+                    <span class="n">drm_scheme</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span>
+                
                 <span class="n">drm_schemes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">drm_scheme</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">drm_schemes</span><span class="p">:</span>
                 <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FormatData</span><span class="p">(</span>

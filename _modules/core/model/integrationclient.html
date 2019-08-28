@@ -55,6 +55,10 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">relationship</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">native_string</span><span class="p">,</span>
+    <span class="n">random_string</span><span class="p">,</span>
+<span class="p">)</span>
 
 <div class="viewcode-block" id="IntegrationClient"><a class="viewcode-back" href="../../../core.model.html#core.model.integrationclient.IntegrationClient">[docs]</a><span class="k">class</span> <span class="nc">IntegrationClient</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A client that has authenticated access to this application.</span>
@@ -79,7 +83,9 @@
     <span class="n">holds</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Hold&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;integration_client&#39;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;&lt;IntegrationClient: URL=</span><span class="si">%s</span><span class="s2"> ID=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
+            <span class="sa">u</span><span class="s2">&quot;&lt;IntegrationClient: URL=</span><span class="si">%s</span><span class="s2"> ID=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="IntegrationClient.for_url"><a class="viewcode-back" href="../../../core.model.html#core.model.integrationclient.IntegrationClient.for_url">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
@@ -130,7 +136,7 @@
         <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="IntegrationClient.randomize_secret"><a class="viewcode-back" href="../../../core.model.html#core.model.integrationclient.IntegrationClient.randomize_secret">[docs]</a>    <span class="k">def</span> <span class="nf">randomize_secret</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">shared_secret</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">urandom</span><span class="p">(</span><span class="mi">24</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;hex&#39;</span><span class="p">))</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shared_secret</span> <span class="o">=</span> <span class="n">random_string</span><span class="p">(</span><span class="mi">24</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>
