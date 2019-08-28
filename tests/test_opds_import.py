@@ -193,6 +193,8 @@ class OPDSImporterTest(DatabaseTest):
             os.path.join(self.resource_path, "content_server.opds")).read()
         self.content_server_mini_feed = open(
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
+        self.audiobooks_opds = open(
+            os.path.join(self.resource_path, "audiobooks.opds")).read()
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
@@ -1459,6 +1461,32 @@ class TestOPDSImporter(OPDSImporterTest):
         http.queue_response(404, content=enough_content)
         monitor = OPDSImporter(self._db, None, http_get=http.do_get)
         eq_(False, monitor._is_open_access_link(url, None))
+    
+    def test_import_open_access_audiobook(self):
+        feed = self.audiobooks_opds
+        download_manifest_url = 'https://api.archivelab.org/books/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox/opds_audio_manifest'
+        
+        importer = OPDSImporter(
+            self._db,
+            collection=self._default_collection,
+        )
+
+        imported_editions, imported_pools, imported_works, failures = (
+            importer.import_from_feed(feed)
+        )
+
+        eq_(1, len(imported_editions))
+
+        [august] = imported_editions
+        eq_("Zhitiia Sviatykh, v. 12 - August", august.title)
+
+        [august_pool] = imported_pools
+        eq_(True, august_pool.open_access)
+        eq_(download_manifest_url, august_pool._open_access_download_url)
+
+        [lpdm] = august_pool.delivery_mechanisms
+        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.NO_DRM, lpdm.delivery_mechanism.drm_scheme)
 
 
 class TestCombine(object):

@@ -27,7 +27,7 @@ class JSONFormatter(logging.Formatter):
     def format(self, record):
         message = unicode(record.msg)
         def no_bytestring(s):
-            if isinstance(s, str):
+            if isinstance(s, bytes):
                 s = unicode(s)
             return s
 

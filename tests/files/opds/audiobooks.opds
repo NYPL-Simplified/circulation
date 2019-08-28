@@ -4,34 +4,10 @@
 <updated>2019-08-19T00:00:00Z</updated>
 <link rel="self" href="https://s3.amazonaws.com/open.minitex.org/librevox"/>
 <entry>
-  <id>urn:uuid:f6ea5431-bc4d-437d-8de5-a3bde04a5c43</id>
-  <title>Everglades Wildguide</title>
-  <bibframe:distribution bibframe:ProviderName="LibriVox"/>
-  <author>
-  <name>Jean Craighead George</name>
-  <simplified:sort_name>George, Jean Craighead</simplified:sort_name>
-  </author>
-  <summary type="html">
-  LibriVox recording of Everglades Wildguide by Jean Craighead George Read in English by VfkaBT This is a United States National Parks guidebook written by a popular young people's nature writer, Jean Craighead George. It covers the Everglades in detail, from its mangrove swamps to its sawgrass prairies. (Summary by Matt Pierard) For further information, including links to online text, reader information, RSS feeds, CD cover or other formats (if available), please go to the LibriVox catalog page for this recording. For more free audio books or to become a volunteer reader, visit LibriVox.org . M4B Audiobook (57MB)
-  </summary>
-  <updated>2017-07-01T19:36:25Z</updated>
-  <link href="https://archive.org/services/img/evergladeswildguide_1707_librivox" type="image/jpeg" rel="http://opds-spec.org/image"/>
-  <link href="https://archive.org/services/img/evergladeswildguide_1707_librivox" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>
-  <dcterms:issued>2017</dcterms:issued>
-  <link href="https://dp.la/exchange/audiobook" type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction" rel="http://opds-spec.org/acquisition" />
-  <category term="librivox" label="librivox"/>
-  <category term="audiobooks" label="audiobooks"/>
-  <category term="nature" label="nature"/>
-  <category term="ecology" label="ecology"/>
-  <category term="florida everglades" label="florida everglades"/>
-  <category term="united states department of the interior" label="united states department of the interior"/>
-</entry>
-<entry>
   <title>Zhitiia Sviatykh, v. 12 - August</title>
   <id>urn:uuid:836f559f-3bfd-4b33-96f7-0bd1878a5dab</id>
   <updated>2008-11-24T13:27:00Z</updated>
   <link href="https://api.archivelab.org/books/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox/opds_audio_manifest" type="application/audiobook+json" rel="http://opds-spec.org/acquisition/open-access"/>
-  <link href="https://archive.org/details/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox" type="text/html" rel="http://opds-spec.org/acquisition/open-access" dcterms:rights="https://creativecommons.org/licenses/by-nc-nd/4.0/"/>
   <link href="https://archive.org/services/img/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox" type="image/jpeg" rel="http://opds-spec.org/image"/>
   <link href="https://archive.org/services/img/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>
   <dcterms:issued>2008</dcterms:issued>
