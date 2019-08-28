@@ -41,6 +41,10 @@ class TestDeliveryMechanism(DatabaseTest):
             self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
         self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
             self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
+        self.audiobook_drm_scheme, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+            DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
+        )
 
     def test_implicit_medium(self):
         eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
@@ -68,6 +72,8 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
         eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             self.overdrive_streaming_text.content_type_media_type)
+        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE,
+            self.audiobook_drm_scheme.content_type_media_type)
 
     def test_default_fulfillable(self):
         mechanism, is_new = DeliveryMechanism.lookup(

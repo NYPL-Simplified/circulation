@@ -33,6 +33,7 @@ from ..model import (
     CustomListEntry,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Genre,
     Measurement,
@@ -464,6 +465,10 @@ class TestOPDS(DatabaseTest):
         b = m(rel, href, ["application/epub"])
         # TODO PYTHON3 order of attrs is different
         eq_(etree.tounicode(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
+
+        # A direct acquisition link to a document with embedded access restriction rules.
+        c = m(rel, href, ['application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction'])
+        eq_(etree.tounicode(c), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction"/>' % href)
 
     def test_group_uri(self):
         work = self._work(with_open_access_download=True, authors="Alice")
@@ -1789,6 +1794,16 @@ class TestAcquisitionFeed(DatabaseTest):
             [OPDSFeed.ENTRY_TYPE,
              Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE],
             m(overdrive_streaming_text)
+        )
+
+        audiobook_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+            DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
+        )
+
+        eq_(
+            [Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE + DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_PROFILE],
+            m(audiobook_drm)
         )
 
         # Test a case where there is a DRM scheme but no underlying

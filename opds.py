@@ -38,6 +38,7 @@ from model import (
     CustomList,
     CustomListEntry,
     DataSource,
+    DeliveryMechanism,
     Hyperlink,
     PresentationCalculationPolicy,
     Resource,
@@ -1161,6 +1162,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         xml = None
         field = self.annotator.opds_cache_field
+
         if field and work and not force_create and use_cache:
             xml = getattr(work, field)
 
@@ -1597,6 +1599,7 @@ class AcquisitionFeed(OPDSFeed):
         media = delivery_mechanism.content_type_media_type
         if media:
             types.append(media)
+
         return types
 
 

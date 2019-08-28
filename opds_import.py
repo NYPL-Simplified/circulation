@@ -56,7 +56,7 @@ from model import (
     Subject,
     get_one,
 )
-
+from model.constants import MediaTypes
 from coverage import CoverageFailure
 from util.http import (
     BadResponseException,
@@ -562,7 +562,6 @@ class OPDSImporter(object):
         # If parsing the overall feed throws an exception, we should address that before
         # moving on. Let the exception propagate.
         metadata_objs, failures = self.extract_feed_data(feed, feed_url)
-
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
             # key is identifier.urn here
@@ -1295,8 +1294,6 @@ class OPDSImporter(object):
                 alternate_identifiers.append(v)
         data['identifiers'] = alternate_identifiers
 
-        data['medium'] = cls.extract_medium(entry_tag)
-
         data['contributors'] = []
         for author_tag in parser._xpath(entry_tag, 'atom:author'):
             contributor = cls.extract_contributor(parser, author_tag)
@@ -1321,6 +1318,9 @@ class OPDSImporter(object):
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
 
+        derived_medium = cls.get_medium_from_links(data['links'])
+        data['medium'] = cls.extract_medium(entry_tag, derived_medium)
+
         series_tag = parser._xpath(entry_tag, 'schema:Series')
         if series_tag:
             data['series'], data['series_position'] = cls.extract_series(series_tag[0])
@@ -1340,6 +1340,21 @@ class OPDSImporter(object):
         return data
 
     @classmethod
+    def get_medium_from_links(cls, links):
+        """Get medium type if found in the links."""
+        links = [l for l in links if 'http://opds-spec.org/acquisition/' in l.rel]
+        derived_medium = None
+        for link in links:
+            if link.media_type == MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
+                derived_medium = Edition.AUDIO_MEDIUM
+                break
+            elif link.media_type == MediaTypes.EPUB_MEDIA_TYPE:
+                derived_medium = Edition.BOOK_MEDIUM
+                break
+        
+        return derived_medium
+
+    @classmethod
     def extract_identifier(cls, identifier_tag):
         """Turn a <dcterms:identifier> tag into an IdentifierData object."""
         try:
@@ -1349,7 +1364,7 @@ class OPDSImporter(object):
             return None
 
     @classmethod
-    def extract_medium(cls, entry_tag):
+    def extract_medium(cls, entry_tag, derived_medium):
         """Derive a value for Edition.medium from <atom:entry
         schema:additionalType>.
         """
@@ -1357,7 +1372,7 @@ class OPDSImporter(object):
         # If no additionalType is given, assume we're talking about an
         # ebook.
         default_additional_type = Edition.medium_to_additional_type[
-            Edition.BOOK_MEDIUM
+            derived_medium or Edition.BOOK_MEDIUM
         ]
         additional_type = entry_tag.get('{http://schema.org/}additionalType',
                                         default_additional_type)

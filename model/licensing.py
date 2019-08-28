@@ -1402,7 +1402,9 @@ class DeliveryMechanism(Base, HasFullTableCache):
     STREAMING_DRM = u"Streaming"
     OVERDRIVE_DRM = u"Overdrive DRM"
     BEARER_TOKEN = u"application/vnd.librarysimplified.bearer-token+json"
+    FEEDBOOKS_AUDIOBOOK_DRM = u"http://www.feedbooks.com/audiobooks/access-restriction"
 
+    FEEDBOOKS_AUDIOBOOK_PROFILE = ';profile="%s"' % FEEDBOOKS_AUDIOBOOK_DRM
     STREAMING_PROFILE = ';profile="http://librarysimplified.org/terms/profiles/streaming-media"'
     MEDIA_TYPES_FOR_STREAMING = {
         STREAMING_TEXT_CONTENT_TYPE: MediaTypes.TEXT_HTML_MEDIA_TYPE
@@ -1516,6 +1518,8 @@ class DeliveryMechanism(Base, HasFullTableCache):
         content type, assuming it's represented as a media type.
         """
         if self.is_media_type(self.content_type):
+            if self.drm_scheme == self.FEEDBOOKS_AUDIOBOOK_DRM:
+                return self.content_type + self.FEEDBOOKS_AUDIOBOOK_PROFILE
             return self.content_type
 
         media_type_for_streaming = self.MEDIA_TYPES_FOR_STREAMING.get(self.content_type)

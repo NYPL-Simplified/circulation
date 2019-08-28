@@ -25,9 +25,15 @@ class JSONFormatter(logging.Formatter):
         self.app_name = app_name or LogConfiguration.DEFAULT_APP_NAME
 
     def format(self, record):
-        message = record.msg
+        message = unicode(record.msg)
+        def no_bytestring(s):
+            if isinstance(s, bytes):
+                s = unicode(s)
+            return s
+
         if record.args:
-            message = record.msg % record.args
+            record_args = tuple([no_bytestring(arg) for arg in record.args])
+            message = message % record_args
         data = dict(
             host=self.hostname,
             app=self.app_name,
