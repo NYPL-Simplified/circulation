@@ -50,6 +50,8 @@ from core.model import (
     Identifier,
     Library,
     LicensePool,
+    LinkRelations,
+    MediaTypes,
     Representation,
     Session,
     Subject,
@@ -970,6 +972,33 @@ class BibliographicParser(Axis360Parser):
             )
 
         language = self.text_of_subtag(element, 'axis:language', ns)
+
+        thumbnail_url = self.text_of_subtag(element, 'axis:imageUrl', ns)
+        if thumbnail_url:
+            # We presume all images from this service are JPEGs.
+            media_type = MediaTypes.JPEG_MEDIA_TYPE
+            if '/Medium/' in thumbnail_url:
+                # We know about a URL hack for this service that lets us
+                # get a larger image.
+                full_size_url = thumbnail_url.replace("/Medium/", "/Large/")
+            else:
+                # If the URL hack won't work, treat the image we got
+                # as both the full-sized image and its thumbnail.
+                # This won't happen unless B&T changes the service.
+                full_size_url = thumbnail_url
+
+            thumbnail = LinkData(
+                rel=LinkRelations.THUMBNAIL_IMAGE,
+                href=thumbnail_url,
+                media_type=media_type
+            )
+            image = LinkData(
+                rel=LinkRelations.IMAGE,
+                href=full_size_url,
+                media_type=media_type,
+                thumbnail=thumbnail
+            )
+            links.append(image)
 
         # We don't use this for anything.
         # file_size = self.int_of_optional_subtag(element, 'axis:fileSize', ns)

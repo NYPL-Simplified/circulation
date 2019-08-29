@@ -23,6 +23,8 @@ from core.model import (
     Hyperlink,
     Identifier,
     LicensePool,
+    LinkRelations,
+    MediaTypes,
     Representation,
     Subject,
     create,
@@ -796,13 +798,28 @@ class TestParsers(Axis360Test):
         # for this.
         eq_(None, bib2.series)
 
-        # Book #1 has a description.
-        [description] = bib1.links
+        # Book #1 has two links -- a description and a cover image.
+        [description, cover] = bib1.links
         eq_(Hyperlink.DESCRIPTION, description.rel)
         eq_(Representation.TEXT_PLAIN, description.media_type)
         assert description.content.startswith(
             "John McCain's deeply moving memoir"
         )
+
+        # The cover image simulates the current state of the B&T cover
+        # service, where we get a thumbnail-sized image URL in the
+        # Axis 360 API response and we can hack the URL to get the
+        # full-sized image URL.
+        eq_(LinkRelations.IMAGE, cover.rel)
+        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Large/Empty",
+            cover.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.media_type)
+
+        eq_(LinkRelations.THUMBNAIL_IMAGE, cover.thumbnail.rel)
+        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Medium/Empty",
+            cover.thumbnail.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.thumbnail.media_type)
+
 
         # Book #1 has a primary author, another author and a narrator.
         #
@@ -843,34 +860,19 @@ class TestParsers(Axis360Test):
                    if x.type==Subject.AXIS_360_AUDIENCE]
         eq_(u'General Adult', adult)
 
-        # Both books have an associated cover image with thumbnail.
+        # The second book has a cover image simulating some possible
+        # future case, where B&T change their cover service so that
+        # the size URL hack no longer works. In this case, we treat
+        # the image URL as both the full-sized image and the
+        # thumbnail.
+        [cover] = bib2.links
+        eq_(LinkRelations.IMAGE, cover.rel)
+        eq_("http://some-other-server/image.jpg", cover.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.media_type)
 
-        # The first cover image simulates the current scenario, where
-        # we get a thumbnail-sized image URL in the API response and
-        # we can hack the URL to get the full-sized image URL.
-        [cover1] = bib1.links
-        eq_(LinkRelations.IMAGE_REL, cover1.rel)
-        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Large/Empty",
-            cover1.url)
-        eq_("image/jpeg", cover1.media_type)
-
-        eq_(LinkRelations.THUMBNAIL_REL, cover1.thumbnail.rel)
-        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Medium/Empty",
-            cover1.thumbnail.url)
-        eq_("image/jpeg", cover1.thumbnail.media_type)
-
-        # The second cover image simulates some possible future case
-        # where Baker & Taylor changes the URL format so that the size
-        # hack no longer works. In this case, we treat the image URL
-        # as both the full-sized image and the thumbnail.
-        [cover2] = bib2.links
-        eq_(LinkRelations.IMAGE_REL, cover2.rel)
-        eq_("http://some-other-server/image.jpg", cover2.url)
-        eq_("image/jpeg", cover2.media_type)
-
-        eq_(LinkRelations.THUMBNAIL_REL, cover2.thumbnail.rel)
-        eq_("http://some-other-server/image.jpg", cover2.thumbnail.url)
-        eq_("image/jpeg", cover2.thumbnail.media_type)
+        eq_(LinkRelations.THUMBNAIL_IMAGE, cover.thumbnail.rel)
+        eq_("http://some-other-server/image.jpg", cover.thumbnail.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.thumbnail.media_type)
 
         '''
         TODO:  Perhaps want to test formats separately.
