@@ -422,7 +422,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         self.update_licensepools_for_identifiers([licensepool.identifier])
 
     def update_licensepools_for_identifiers(self, identifiers):
-        """Update availability information for a list of books.
+        """Update availability and bibliographic information for
+        a list of books.
 
         If the book has never been seen before, a new LicensePool
         will be created for the book.
@@ -431,18 +432,52 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
         circulation information.
         """
         remainder = set(identifiers)
-        for bibliographic, availability in self._fetch_remote_availability(identifiers):
-            identifier, is_new = bibliographic.primary_identifier.load(self._db)
+        for bibliographic, availability in self._fetch_remote_availability(
+                identifiers
+        ):
+            edition, ignore1, license_pool, ignore2 = self.update_book(
+                bibliographic, availability
+            )
+            identifier = license_pool.identifier
             if identifier in remainder:
                 remainder.remove(identifier)
-            pool, is_new = availability.license_pool(self._db, self.collection)
-            availability.apply(self._db, pool.collection)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
         # been removed from the collection without us being notified.
         for removed_identifier in remainder:
             self._reap(removed_identifier)
+
+    def update_book(self, bibliographic, availability, analytics=None):
+        """Create or update a single book based on bibliographic
+        and availability data from the Axis 360 API.
+
+        :param bibliographic: A Metadata object containing
+            bibliographic data about this title.
+        :param availability: A CirculationData object containing
+            availability data about this title.
+        """
+        analytics = analytics or Analytics(self._db)
+        license_pool, new_license_pool = availability.license_pool(
+            self._db, self.collection, analytics
+        )
+        edition, new_edition = bibliographic.edition(self._db)
+        license_pool.edition = edition
+        policy = ReplacementPolicy(
+            identifiers=False,
+            subjects=True,
+            contributions=True,
+            formats=True,
+            links=True,
+            analytics=analytics,
+        )
+
+        # NOTE: availability is bibliographic.circulation, so it's a
+        # little redundant to call availability.apply() -- it's taken
+        # care of inside bibliographic.apply().
+        bibliographic.apply(edition, self.collection, replace=policy)
+        availability.apply(self._db, self.collection, replace=policy)
+        return edition, new_edition, license_pool, new_license_pool
 
     def _fetch_remote_availability(self, identifiers):
         """Retrieve availability information for the specified identifiers.
@@ -561,25 +596,10 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
                 self._db.commit()
         progress.achievements = "Modified titles: %d." % count
 
-    def process_book(self, bibliographic, availability):
-
-        analytics = Analytics(self._db)
-        license_pool, new_license_pool = availability.license_pool(
-            self._db, self.collection, analytics
+    def process_book(self, bibliographic, circulation):
+        edition, new_edition, license_pool, new_license_pool = self.api.update_book(
+            bibliographic, circulation
         )
-        edition, new_edition = bibliographic.edition(self._db)
-        license_pool.edition = edition
-        policy = ReplacementPolicy(
-            identifiers=False,
-            subjects=True,
-            contributions=True,
-            formats=True,
-            analytics=analytics,
-        )
-        availability.apply(self._db, self.collection, replace=policy)
-        if new_edition:
-            bibliographic.apply(edition, self.collection, replace=policy)
-
         if new_license_pool or new_edition:
             # At this point we have done work equivalent to that done by
             # the Axis360BibliographicCoverageProvider. Register that the
@@ -589,6 +609,7 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
             self.bibliographic_coverage_provider.add_coverage_record_for(
                 identifier
             )
+
 
         return edition, license_pool
 
@@ -737,6 +758,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
 
     def process_items(self, identifiers):
         self.api.update_licensepools_for_identifiers(identifiers)
+
 
 class Axis360Parser(XMLParser):
 
