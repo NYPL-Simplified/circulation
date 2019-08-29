@@ -85,6 +85,8 @@
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">Library</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
+    <span class="n">LinkRelations</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
@@ -455,7 +457,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">update_licensepools_for_identifiers</span><span class="p">([</span><span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="Axis360API.update_licensepools_for_identifiers"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.update_licensepools_for_identifiers">[docs]</a>    <span class="k">def</span> <span class="nf">update_licensepools_for_identifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Update availability information for a list of books.</span>
+        <span class="sd">&quot;&quot;&quot;Update availability and bibliographic information for</span>
+<span class="sd">        a list of books.</span>
 
 <span class="sd">        If the book has never been seen before, a new LicensePool</span>
 <span class="sd">        will be created for the book.</span>
@@ -464,18 +467,52 @@
 <span class="sd">        circulation information.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">remainder</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">identifiers</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">bibliographic</span><span class="p">,</span> <span class="n">availability</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_availability</span><span class="p">(</span><span class="n">identifiers</span><span class="p">):</span>
-            <span class="n">identifier</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">bibliographic</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">bibliographic</span><span class="p">,</span> <span class="n">availability</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_availability</span><span class="p">(</span>
+                <span class="n">identifiers</span>
+        <span class="p">):</span>
+            <span class="n">edition</span><span class="p">,</span> <span class="n">ignore1</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">ignore2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_book</span><span class="p">(</span>
+                <span class="n">bibliographic</span><span class="p">,</span> <span class="n">availability</span>
+            <span class="p">)</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">identifier</span>
             <span class="k">if</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">remainder</span><span class="p">:</span>
                 <span class="n">remainder</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
-            <span class="n">pool</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">availability</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
-            <span class="n">availability</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">pool</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
 
         <span class="c1"># We asked Axis about n books. It sent us n-k responses. Those</span>
         <span class="c1"># k books are the identifiers in `remainder`. These books have</span>
         <span class="c1"># been removed from the collection without us being notified.</span>
         <span class="k">for</span> <span class="n">removed_identifier</span> <span class="ow">in</span> <span class="n">remainder</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_reap</span><span class="p">(</span><span class="n">removed_identifier</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Axis360API.update_book"><a class="viewcode-back" href="../../api.html#api.axis.Axis360API.update_book">[docs]</a>    <span class="k">def</span> <span class="nf">update_book</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bibliographic</span><span class="p">,</span> <span class="n">availability</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create or update a single book based on bibliographic</span>
+<span class="sd">        and availability data from the Axis 360 API.</span>
+
+<span class="sd">        :param bibliographic: A Metadata object containing</span>
+<span class="sd">            bibliographic data about this title.</span>
+<span class="sd">        :param availability: A CirculationData object containing</span>
+<span class="sd">            availability data about this title.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics</span> <span class="ow">or</span> <span class="n">Analytics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">license_pool</span><span class="p">,</span> <span class="n">new_license_pool</span> <span class="o">=</span> <span class="n">availability</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">analytics</span>
+        <span class="p">)</span>
+        <span class="n">edition</span><span class="p">,</span> <span class="n">new_edition</span> <span class="o">=</span> <span class="n">bibliographic</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">license_pool</span><span class="o">.</span><span class="n">edition</span> <span class="o">=</span> <span class="n">edition</span>
+        <span class="n">policy</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="p">(</span>
+            <span class="n">identifiers</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">subjects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">contributions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">formats</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">links</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">analytics</span><span class="o">=</span><span class="n">analytics</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># NOTE: availability is bibliographic.circulation, so it&#39;s a</span>
+        <span class="c1"># little redundant to call availability.apply() -- it&#39;s taken</span>
+        <span class="c1"># care of inside bibliographic.apply().</span>
+        <span class="n">bibliographic</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
+        <span class="n">availability</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">edition</span><span class="p">,</span> <span class="n">new_edition</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">new_license_pool</span></div>
 
     <span class="k">def</span> <span class="nf">_fetch_remote_availability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Retrieve availability information for the specified identifiers.</span>
@@ -594,25 +631,10 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="n">progress</span><span class="o">.</span><span class="n">achievements</span> <span class="o">=</span> <span class="s2">&quot;Modified titles: </span><span class="si">%d</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">count</span></div>
 
-<div class="viewcode-block" id="Axis360CirculationMonitor.process_book"><a class="viewcode-back" href="../../api.html#api.axis.Axis360CirculationMonitor.process_book">[docs]</a>    <span class="k">def</span> <span class="nf">process_book</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bibliographic</span><span class="p">,</span> <span class="n">availability</span><span class="p">):</span>
-
-        <span class="n">analytics</span> <span class="o">=</span> <span class="n">Analytics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-        <span class="n">license_pool</span><span class="p">,</span> <span class="n">new_license_pool</span> <span class="o">=</span> <span class="n">availability</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">analytics</span>
+<div class="viewcode-block" id="Axis360CirculationMonitor.process_book"><a class="viewcode-back" href="../../api.html#api.axis.Axis360CirculationMonitor.process_book">[docs]</a>    <span class="k">def</span> <span class="nf">process_book</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bibliographic</span><span class="p">,</span> <span class="n">circulation</span><span class="p">):</span>
+        <span class="n">edition</span><span class="p">,</span> <span class="n">new_edition</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">new_license_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">update_book</span><span class="p">(</span>
+            <span class="n">bibliographic</span><span class="p">,</span> <span class="n">circulation</span>
         <span class="p">)</span>
-        <span class="n">edition</span><span class="p">,</span> <span class="n">new_edition</span> <span class="o">=</span> <span class="n">bibliographic</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-        <span class="n">license_pool</span><span class="o">.</span><span class="n">edition</span> <span class="o">=</span> <span class="n">edition</span>
-        <span class="n">policy</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="p">(</span>
-            <span class="n">identifiers</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">subjects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">contributions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">formats</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">analytics</span><span class="o">=</span><span class="n">analytics</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">availability</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">new_edition</span><span class="p">:</span>
-            <span class="n">bibliographic</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
-
         <span class="k">if</span> <span class="n">new_license_pool</span> <span class="ow">or</span> <span class="n">new_edition</span><span class="p">:</span>
             <span class="c1"># At this point we have done work equivalent to that done by</span>
             <span class="c1"># the Axis360BibliographicCoverageProvider. Register that the</span>
@@ -622,6 +644,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">bibliographic_coverage_provider</span><span class="o">.</span><span class="n">add_coverage_record_for</span><span class="p">(</span>
                 <span class="n">identifier</span>
             <span class="p">)</span>
+
 
         <span class="k">return</span> <span class="n">edition</span><span class="p">,</span> <span class="n">license_pool</span></div></div>
 
@@ -770,6 +793,7 @@
 
 <div class="viewcode-block" id="AxisCollectionReaper.process_items"><a class="viewcode-back" href="../../api.html#api.axis.AxisCollectionReaper.process_items">[docs]</a>    <span class="k">def</span> <span class="nf">process_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">update_licensepools_for_identifiers</span><span class="p">(</span><span class="n">identifiers</span><span class="p">)</span></div></div>
+
 
 <div class="viewcode-block" id="Axis360Parser"><a class="viewcode-back" href="../../api.html#api.axis.Axis360Parser">[docs]</a><span class="k">class</span> <span class="nc">Axis360Parser</span><span class="p">(</span><span class="n">XMLParser</span><span class="p">):</span>
 
@@ -1005,6 +1029,35 @@
             <span class="p">)</span>
 
         <span class="n">language</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:language&#39;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
+
+        <span class="n">thumbnail_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">text_of_optional_subtag</span><span class="p">(</span>
+            <span class="n">element</span><span class="p">,</span> <span class="s1">&#39;axis:imageUrl&#39;</span><span class="p">,</span> <span class="n">ns</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">thumbnail_url</span><span class="p">:</span>
+            <span class="c1"># We presume all images from this service are JPEGs.</span>
+            <span class="n">media_type</span> <span class="o">=</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">JPEG_MEDIA_TYPE</span>
+            <span class="k">if</span> <span class="s1">&#39;/Medium/&#39;</span> <span class="ow">in</span> <span class="n">thumbnail_url</span><span class="p">:</span>
+                <span class="c1"># We know about a URL hack for this service that lets us</span>
+                <span class="c1"># get a larger image.</span>
+                <span class="n">full_size_url</span> <span class="o">=</span> <span class="n">thumbnail_url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/Medium/&quot;</span><span class="p">,</span> <span class="s2">&quot;/Large/&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># If the URL hack won&#39;t work, treat the image we got</span>
+                <span class="c1"># as both the full-sized image and its thumbnail.</span>
+                <span class="c1"># This won&#39;t happen unless B&amp;T changes the service.</span>
+                <span class="n">full_size_url</span> <span class="o">=</span> <span class="n">thumbnail_url</span>
+
+            <span class="n">thumbnail</span> <span class="o">=</span> <span class="n">LinkData</span><span class="p">(</span>
+                <span class="n">rel</span><span class="o">=</span><span class="n">LinkRelations</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">,</span>
+                <span class="n">href</span><span class="o">=</span><span class="n">thumbnail_url</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="n">media_type</span>
+            <span class="p">)</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">LinkData</span><span class="p">(</span>
+                <span class="n">rel</span><span class="o">=</span><span class="n">LinkRelations</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">,</span>
+                <span class="n">href</span><span class="o">=</span><span class="n">full_size_url</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="n">media_type</span><span class="p">,</span>
+                <span class="n">thumbnail</span><span class="o">=</span><span class="n">thumbnail</span>
+            <span class="p">)</span>
+            <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
 
         <span class="c1"># We don&#39;t use this for anything.</span>
         <span class="c1"># file_size = self.int_of_optional_subtag(element, &#39;axis:fileSize&#39;, ns)</span>
