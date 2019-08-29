@@ -973,7 +973,9 @@ class BibliographicParser(Axis360Parser):
 
         language = self.text_of_subtag(element, 'axis:language', ns)
 
-        thumbnail_url = self.text_of_subtag(element, 'axis:imageUrl', ns)
+        thumbnail_url = self.text_of_optional_subtag(
+            element, 'axis:imageUrl', ns
+        )
         if thumbnail_url:
             # We presume all images from this service are JPEGs.
             media_type = MediaTypes.JPEG_MEDIA_TYPE
