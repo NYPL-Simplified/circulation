@@ -39,11 +39,12 @@ HOME=/var/www/circulation
 30 21 * * * root core/bin/run -d 60 metadata_upload_coverage >> /var/log/cron.log 2>&1
 0 3 * * 3 root core/bin/run -d 60 metadata_wrangler_auxiliary_metadata >> /var/log/cron.log 2>&1
 
-# If any works are missing up-to-date presentation editions, add them.
-0 20 * * * root core/bin/run work_presentation_editions >> /var/log/cron.log 2>&1
+# If any works are missing presentation editions, add them.
+0 */3 * * * root core/bin/run work_presentation_editions >> /var/log/cron.log 2>&1
 
-# If any works are missing up-to-date classifications, classify them them.
-30 20 * * * root core/bin/run work_classification >> /var/log/cron.log 2>&1
+# If any works are missing up-to-date classifications, classify them.
+# This also incorporates new data from the metadata wrangler.
+0 */3 * * * root core/bin/run work_classification >> /var/log/cron.log 2>&1
 
 # If any works are classified under unprocessed subjects, reclassify
 # those works.
