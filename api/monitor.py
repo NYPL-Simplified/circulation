@@ -131,13 +131,15 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
                     possible_new_timestamp
                     and possible_new_timestamp > new_timestamp
             ):
-                # We imported an OPDS feed that included an entry
-                # with a certain 'last updated' timestamp. We make the
-                # assumption here that if there were an OPDS entry with
-                # a prior timestamp, the server would have sent it to us
-                # earlier. Thus, we can update the timestamp associated
-                # with this Monitor so that the next time it runs, it
-                # only asks for entries updated after this time.
+                # We imported an OPDS feed that included an entry with
+                # a certain 'last updated' timestamp (or was empty but
+                # included a feed-level 'last updated' timestamp. We
+                # make the assumption here that if there were an OPDS
+                # entry with a timestamp prior to this one, the server
+                # would have sent it to us already. Thus, we can
+                # update the timestamp associated with this Monitor so
+                # that the next time it runs, it only asks for entries
+                # updated after this time.
                 new_timestamp = possible_new_timestamp
             seen_links.add(url)
 
@@ -197,6 +199,18 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
             # server would have sent it and we would have an even
             # earlier date.
             timestamp = min(update_dates)
+        else:
+            # Look for a timestamp on the feed level.
+            feed_timestamp = self.importer._datetime(
+                parsed['feed'], 'updated_parsed'
+            )
+
+            # Subtract one day from the time to reduce the chance of
+            # race conditions. Otherwise, work done but not committed
+            # to the database might result in a new entry showing up
+            # with an earlier timestamp than this.
+            if feed_timestamp:
+                timestamp = feed_timestamp - datetime.timedelta(days=1)
 
         # Add all links with rel='next' to the queue.
         next_links = self.importer.extract_next_links(parsed)

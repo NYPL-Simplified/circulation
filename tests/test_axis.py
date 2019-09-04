@@ -11,6 +11,7 @@ from nose.tools import (
 )
 
 from core.analytics import Analytics
+from core.mock_analytics_provider import MockAnalyticsProvider
 from core.coverage import CoverageFailure
 
 from core.model import (
@@ -23,6 +24,8 @@ from core.model import (
     Hyperlink,
     Identifier,
     LicensePool,
+    LinkRelations,
+    MediaTypes,
     Representation,
     Subject,
     create,
@@ -99,6 +102,48 @@ class Axis360Test(DatabaseTest):
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'axis')
+
+    # Sample bibliographic and availability data you can use in a test
+    # without having to parse it from an XML file.
+    BIBLIOGRAPHIC_DATA = Metadata(
+        DataSource.AXIS_360,
+        publisher=u'Random House Inc',
+        language='eng',
+        title=u'Faith of My Fathers : A Family Memoir',
+        imprint=u'Random House Inc2',
+        published=datetime.datetime(2000, 3, 7, 0, 0),
+        primary_identifier=IdentifierData(
+            type=Identifier.AXIS_360_ID,
+            identifier=u'0003642860'
+        ),
+        identifiers = [
+            IdentifierData(type=Identifier.ISBN, identifier=u'9780375504587')
+        ],
+        contributors = [
+            ContributorData(sort_name=u"McCain, John",
+                            roles=[Contributor.PRIMARY_AUTHOR_ROLE]
+                        ),
+            ContributorData(sort_name=u"Salter, Mark",
+                            roles=[Contributor.AUTHOR_ROLE]
+                        ),
+        ],
+        subjects = [
+            SubjectData(type=Subject.BISAC,
+                        identifier=u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
+            SubjectData(type=Subject.FREEFORM_AUDIENCE,
+                        identifier=u'Adult'),
+        ],
+    )
+
+    AVAILABILITY_DATA = CirculationData(
+        data_source=DataSource.AXIS_360,
+        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier,
+        licenses_owned=9,
+        licenses_available=8,
+        licenses_reserved=0,
+        patrons_in_hold_queue=0,
+        last_checked=datetime.datetime(2015, 5, 20, 2, 9, 8),
+    )
 
 
 class TestAxis360API(Axis360Test):
@@ -561,48 +606,72 @@ class TestAxis360API(Axis360Test):
         eq_('POST', kwargs['method'])
         eq_('Findaway content ID', kwargs['params']['fndcontentid'])
 
+    def test_update_book(self):
+        # Verify that the update_book method takes a Metadata and a
+        # CirculationData object, and creates appropriate data model
+        # objects.
+
+        analytics = MockAnalyticsProvider()
+        api = MockAxis360API(self._db, self.collection)
+        e, e_new, lp, lp_new = api.update_book(
+            self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA,
+            analytics=analytics
+        )
+        # A new LicensePool and Edition were created.
+        eq_(True, lp_new)
+        eq_(True, e_new)
+
+        # The LicensePool reflects what it said in AVAILABILITY_DATA
+        eq_(9, lp.licenses_owned)
+
+        # There's a presentation-ready Work created for the
+        # LicensePool.
+        eq_(True, lp.work.presentation_ready)
+        eq_(e, lp.work.presentation_edition)
+
+        # The Edition reflects what it said in BIBLIOGRAPHIC_DATA
+        eq_(u'Faith of My Fathers : A Family Memoir', e.title)
+
+        # Three analytics events were sent out.
+        #
+        # It's not super important to test which ones, but they are:
+        # 1. The creation of the LicensePool
+        # 2. The setting of licenses_owned to 9
+        # 3. The setting of licenses_available to 8
+        eq_(3, analytics.count)
+
+        # Now change a bit of the data and call the method again.
+        new_circulation = CirculationData(
+            data_source=DataSource.AXIS_360,
+            primary_identifier=self.BIBLIOGRAPHIC_DATA.primary_identifier,
+            licenses_owned=8,
+            licenses_available=7,
+        )
+
+        e2, e_new, lp2, lp_new = api.update_book(
+            self.BIBLIOGRAPHIC_DATA, new_circulation,
+            analytics=analytics
+        )
+
+        # The same LicensePool and Edition are returned -- no new ones
+        # are created.
+        eq_(e2, e)
+        eq_(False, e_new)
+        eq_(lp2, lp)
+        eq_(False, lp_new)
+
+        # The LicensePool has been updated to reflect the new
+        # CirculationData
+        eq_(8, lp.licenses_owned)
+        eq_(7, lp.licenses_available)
+
+        # Two more circulation events have been sent out -- one for
+        # the licenses_owned change and one for the licenses_available
+        # change.
+        eq_(5, analytics.count)
+
 
 class TestCirculationMonitor(Axis360Test):
-
-    BIBLIOGRAPHIC_DATA = Metadata(
-        DataSource.AXIS_360,
-        publisher=u'Random House Inc',
-        language='eng',
-        title=u'Faith of My Fathers : A Family Memoir',
-        imprint=u'Random House Inc2',
-        published=datetime.datetime(2000, 3, 7, 0, 0),
-        primary_identifier=IdentifierData(
-            type=Identifier.AXIS_360_ID,
-            identifier=u'0003642860'
-        ),
-        identifiers = [
-            IdentifierData(type=Identifier.ISBN, identifier=u'9780375504587')
-        ],
-        contributors = [
-            ContributorData(sort_name=u"McCain, John",
-                            roles=[Contributor.PRIMARY_AUTHOR_ROLE]
-                        ),
-            ContributorData(sort_name=u"Salter, Mark",
-                            roles=[Contributor.AUTHOR_ROLE]
-                        ),
-        ],
-        subjects = [
-            SubjectData(type=Subject.BISAC,
-                        identifier=u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
-            SubjectData(type=Subject.FREEFORM_AUDIENCE,
-                        identifier=u'Adult'),
-        ],
-    )
-
-    AVAILABILITY_DATA = CirculationData(
-        data_source=DataSource.AXIS_360,
-        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier,
-        licenses_owned=9,
-        licenses_available=8,
-        licenses_reserved=0,
-        patrons_in_hold_queue=0,
-        last_checked=datetime.datetime(2015, 5, 20, 2, 9, 8),
-    )
 
     def test_run(self):
         class Mock(Axis360CirculationMonitor):
@@ -796,13 +865,28 @@ class TestParsers(Axis360Test):
         # for this.
         eq_(None, bib2.series)
 
-        # Book #1 has a description.
-        [description] = bib1.links
+        # Book #1 has two links -- a description and a cover image.
+        [description, cover] = bib1.links
         eq_(Hyperlink.DESCRIPTION, description.rel)
         eq_(Representation.TEXT_PLAIN, description.media_type)
         assert description.content.startswith(
             "John McCain's deeply moving memoir"
         )
+
+        # The cover image simulates the current state of the B&T cover
+        # service, where we get a thumbnail-sized image URL in the
+        # Axis 360 API response and we can hack the URL to get the
+        # full-sized image URL.
+        eq_(LinkRelations.IMAGE, cover.rel)
+        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Large/Empty",
+            cover.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.media_type)
+
+        eq_(LinkRelations.THUMBNAIL_IMAGE, cover.thumbnail.rel)
+        eq_("http://contentcafecloud.baker-taylor.com/Jacket.svc/D65D0665-050A-487B-9908-16E6D8FF5C3E/9780375504587/Medium/Empty",
+            cover.thumbnail.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.thumbnail.media_type)
+
 
         # Book #1 has a primary author, another author and a narrator.
         #
@@ -842,6 +926,20 @@ class TestParsers(Axis360Test):
         [adult] = [x.identifier for x in subjects
                    if x.type==Subject.AXIS_360_AUDIENCE]
         eq_(u'General Adult', adult)
+
+        # The second book has a cover image simulating some possible
+        # future case, where B&T change their cover service so that
+        # the size URL hack no longer works. In this case, we treat
+        # the image URL as both the full-sized image and the
+        # thumbnail.
+        [cover] = bib2.links
+        eq_(LinkRelations.IMAGE, cover.rel)
+        eq_("http://some-other-server/image.jpg", cover.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.media_type)
+
+        eq_(LinkRelations.THUMBNAIL_IMAGE, cover.thumbnail.rel)
+        eq_("http://some-other-server/image.jpg", cover.thumbnail.href)
+        eq_(MediaTypes.JPEG_MEDIA_TYPE, cover.thumbnail.media_type)
 
         '''
         TODO:  Perhaps want to test formats separately.
