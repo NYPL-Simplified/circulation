@@ -202,8 +202,8 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         self.monitor.timestamp().finish = before
 
         # We're going to ask the metadata wrangler for updates, but
-        # there will be none.
-        data = sample_data('metadata_updates_empty_response.opds', 'opds')
+        # there will be none -- not even a feed-level update
+        data = sample_data('metadata_updates_empty_response_no_feed_timestamp.opds', 'opds')
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
@@ -215,8 +215,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         eq_(before, self.monitor.timestamp().finish)
 
         # If timestamp.finish is None before the update is run, and
-        # there are no updates, the default rules about updating
-        # Timestamp.finish will not apply -- it will be explicitly set
+        # there are no updates, the timestamp will be set
         # to None.
         self.monitor.timestamp().finish = None
         self.lookup.queue_response(
