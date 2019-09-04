@@ -872,6 +872,11 @@ class Work(Base):
 
         edition_changed = self.calculate_presentation_edition(policy)
 
+        if not self.presentation_edition:
+            # Without a presentation edition, we can't calculate presentation
+            # for the work.
+            return
+
         if policy.choose_cover or policy.set_edition_metadata:
             cover_changed = self.presentation_edition.calculate_presentation(policy)
             edition_changed = edition_changed or cover_changed

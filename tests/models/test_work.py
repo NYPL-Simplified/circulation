@@ -309,6 +309,25 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
+    def test_calculate_presentation_with_no_presentation_edition(self):
+        # Calling calculate_presentation() on a work with no
+        # presentation edition won't do anything, but at least it doesn't
+        # crash.
+        work = self._work()
+        work.presentation_edition = None
+        work.coverage_records = []
+        self._db.commit()
+        work.calculate_presentation()
+
+        # The work is not presentation-ready.
+        eq_(False, work.presentation_ready)
+
+        # Work was done to choose the presentation edition, but since no
+        # presentation edition was found, no other work was done.
+        [choose_edition] = work.coverage_records
+        eq_(WorkCoverageRecord.CHOOSE_EDITION_OPERATION,
+            choose_edition.operation)
+
     def test_calculate_presentation_sets_presentation_ready_based_on_content(self):
 
         # This work is incorrectly presentation-ready; its presentation
