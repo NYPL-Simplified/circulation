@@ -132,9 +132,11 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         eq_([(None, None)], self.monitor.imports)
         eq_(1, len(self.lookup.requests))
 
-        # The timestamp's finish date was not updated because nothing
-        # was in the feed.
-        eq_(None, self.monitor.timestamp().finish)
+        # Since there were no <entry> tags, the timestamp's finish
+        # date was set to the <updated> date of the feed itself, minus
+        # one day (to avoid race conditions).
+        eq_(datetime.datetime(2016, 9, 19, 19, 37, 10),
+            self.monitor.timestamp().finish)
 
     def test_run_once(self):
         # Setup authentication and Metadata Wrangler details.
