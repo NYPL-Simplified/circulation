@@ -282,7 +282,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request_with_timeout</span><span class="p">(</span>
                 <span class="n">method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">body</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
-                <span class="n">allow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+                <span class="n">allow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span>
+            <span class="p">)</span></div>
 
 <div class="viewcode-block" id="BibliothecaAPI.get_bibliographic_info_for"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI.get_bibliographic_info_for">[docs]</a>    <span class="k">def</span> <span class="nf">get_bibliographic_info_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">editions</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">results</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
@@ -795,8 +796,29 @@
                 <span class="n">LinkData</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">DESCRIPTION</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">description</span><span class="p">)</span>
             <span class="p">)</span>
 
+        <span class="c1"># Presume all images from Bibliotheca are JPEG.</span>
+        <span class="n">media_type</span> <span class="o">=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">JPEG_MEDIA_TYPE</span>
         <span class="n">cover_url</span> <span class="o">=</span> <span class="n">value</span><span class="p">(</span><span class="s2">&quot;CoverLinkURL&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;&amp;&quot;</span><span class="p">)</span>
-        <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LinkData</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">cover_url</span><span class="p">))</span>
+        <span class="n">cover_link</span> <span class="o">=</span> <span class="n">LinkData</span><span class="p">(</span>
+            <span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">cover_url</span><span class="p">,</span>
+            <span class="n">media_type</span><span class="o">=</span><span class="n">media_type</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Unless the URL format has drastically changed, we should be</span>
+        <span class="c1"># able to generate a thumbnail URL based on the full-size</span>
+        <span class="c1"># cover URL found in the response document.</span>
+        <span class="c1">#</span>
+        <span class="c1"># NOTE: this is an undocumented feature of the Bibliotheca API</span>
+        <span class="c1"># which was discovered by investigating the BookLinkURL.</span>
+        <span class="k">if</span> <span class="s1">&#39;/delivery/img&#39;</span> <span class="ow">in</span> <span class="n">cover_url</span><span class="p">:</span>
+            <span class="n">thumbnail_url</span> <span class="o">=</span> <span class="n">cover_url</span> <span class="o">+</span> <span class="s2">&quot;&amp;size=NORMAL&quot;</span>
+            <span class="n">thumbnail</span> <span class="o">=</span> <span class="n">LinkData</span><span class="p">(</span>
+                <span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">,</span>
+                <span class="n">href</span><span class="o">=</span><span class="n">thumbnail_url</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="n">media_type</span>
+            <span class="p">)</span>
+            <span class="n">cover_link</span><span class="o">.</span><span class="n">thumbnail</span> <span class="o">=</span> <span class="n">thumbnail</span>
+        <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cover_link</span><span class="p">)</span>
 
         <span class="n">alternate_url</span> <span class="o">=</span> <span class="n">value</span><span class="p">(</span><span class="s2">&quot;BookLinkURL&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;&amp;&quot;</span><span class="p">)</span>
         <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LinkData</span><span class="p">(</span><span class="n">rel</span><span class="o">=</span><span class="s1">&#39;alternate&#39;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">alternate_url</span><span class="p">))</span>
