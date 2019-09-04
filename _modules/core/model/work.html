@@ -907,6 +907,11 @@
 
         <span class="n">edition_changed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_presentation_edition</span><span class="p">(</span><span class="n">policy</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">:</span>
+            <span class="c1"># Without a presentation edition, we can&#39;t calculate presentation</span>
+            <span class="c1"># for the work.</span>
+            <span class="k">return</span>
+
         <span class="k">if</span> <span class="n">policy</span><span class="o">.</span><span class="n">choose_cover</span> <span class="ow">or</span> <span class="n">policy</span><span class="o">.</span><span class="n">set_edition_metadata</span><span class="p">:</span>
             <span class="n">cover_changed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">calculate_presentation</span><span class="p">(</span><span class="n">policy</span><span class="p">)</span>
             <span class="n">edition_changed</span> <span class="o">=</span> <span class="n">edition_changed</span> <span class="ow">or</span> <span class="n">cover_changed</span>

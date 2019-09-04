@@ -166,13 +166,15 @@
                     <span class="n">possible_new_timestamp</span>
                     <span class="ow">and</span> <span class="n">possible_new_timestamp</span> <span class="o">&gt;</span> <span class="n">new_timestamp</span>
             <span class="p">):</span>
-                <span class="c1"># We imported an OPDS feed that included an entry</span>
-                <span class="c1"># with a certain &#39;last updated&#39; timestamp. We make the</span>
-                <span class="c1"># assumption here that if there were an OPDS entry with</span>
-                <span class="c1"># a prior timestamp, the server would have sent it to us</span>
-                <span class="c1"># earlier. Thus, we can update the timestamp associated</span>
-                <span class="c1"># with this Monitor so that the next time it runs, it</span>
-                <span class="c1"># only asks for entries updated after this time.</span>
+                <span class="c1"># We imported an OPDS feed that included an entry with</span>
+                <span class="c1"># a certain &#39;last updated&#39; timestamp (or was empty but</span>
+                <span class="c1"># included a feed-level &#39;last updated&#39; timestamp. We</span>
+                <span class="c1"># make the assumption here that if there were an OPDS</span>
+                <span class="c1"># entry with a timestamp prior to this one, the server</span>
+                <span class="c1"># would have sent it to us already. Thus, we can</span>
+                <span class="c1"># update the timestamp associated with this Monitor so</span>
+                <span class="c1"># that the next time it runs, it only asks for entries</span>
+                <span class="c1"># updated after this time.</span>
                 <span class="n">new_timestamp</span> <span class="o">=</span> <span class="n">possible_new_timestamp</span>
             <span class="n">seen_links</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
@@ -232,6 +234,18 @@
             <span class="c1"># server would have sent it and we would have an even</span>
             <span class="c1"># earlier date.</span>
             <span class="n">timestamp</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">update_dates</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Look for a timestamp on the feed level.</span>
+            <span class="n">feed_timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">importer</span><span class="o">.</span><span class="n">_datetime</span><span class="p">(</span>
+                <span class="n">parsed</span><span class="p">[</span><span class="s1">&#39;feed&#39;</span><span class="p">],</span> <span class="s1">&#39;updated_parsed&#39;</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Subtract one day from the time to reduce the chance of</span>
+            <span class="c1"># race conditions. Otherwise, work done but not committed</span>
+            <span class="c1"># to the database might result in a new entry showing up</span>
+            <span class="c1"># with an earlier timestamp than this.</span>
+            <span class="k">if</span> <span class="n">feed_timestamp</span><span class="p">:</span>
+                <span class="n">timestamp</span> <span class="o">=</span> <span class="n">feed_timestamp</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="c1"># Add all links with rel=&#39;next&#39; to the queue.</span>
         <span class="n">next_links</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">importer</span><span class="o">.</span><span class="n">extract_next_links</span><span class="p">(</span><span class="n">parsed</span><span class="p">)</span>

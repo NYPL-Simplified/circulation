@@ -39,6 +39,78 @@
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
 </div>
+<div class="section" id="module-core.util.accept_language">
+<span id="core-util-accept-language-module"></span><h2>core.util.accept_language module<a class="headerlink" href="#module-core.util.accept_language" title="Permalink to this headline">¶</a></h2>
+<p>A package to parse Accept-Language headers.</p>
+<p>This is based on accept_language.py. Here is the original licensing
+information for accept_language.py:</p>
+<p>Copyright [2017] [Chatbot Developers]</p>
+<p>Licensed under the Apache License, Version 2.0 (the “License”);
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.apache.org/licenses/LICENSE-2.0">http://www.apache.org/licenses/LICENSE-2.0</a></div></blockquote>
+<p>Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an “AS IS” BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.</p>
+<dl class="class">
+<dt id="core.util.accept_language.Lang">
+<em class="property">class </em><code class="descclassname">core.util.accept_language.</code><code class="descname">Lang</code><span class="sig-paren">(</span><em>language</em>, <em>locale</em>, <em>quality</em><span class="sig-paren">)</span><a class="headerlink" href="#core.util.accept_language.Lang" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></p>
+<dl class="attribute">
+<dt id="core.util.accept_language.Lang.language">
+<code class="descname">language</code><a class="headerlink" href="#core.util.accept_language.Lang.language" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.util.accept_language.Lang.locale">
+<code class="descname">locale</code><a class="headerlink" href="#core.util.accept_language.Lang.locale" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.util.accept_language.Lang.quality">
+<code class="descname">quality</code><a class="headerlink" href="#core.util.accept_language.Lang.quality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="core.util.accept_language.parse_accept_language">
+<code class="descclassname">core.util.accept_language.</code><code class="descname">parse_accept_language</code><span class="sig-paren">(</span><em>accept_language_str</em>, <em>default_quality=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/accept_language.html#parse_accept_language"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.accept_language.parse_accept_language" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse a RFC 2616 Accept-Language string.
+<a class="reference external" href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14">https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14</a></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>accept_language_str</strong> (<em>str</em>) – A string in RFC 2616 format.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">List of <cite>Lang</cite> namedtuples.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">list</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Example:</th><td class="field-body"><div class="first last highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">parse_accept_language</span><span class="p">(</span><span class="s1">&#39;en-US,el;q=0.8&#39;</span><span class="p">)</span>
+<span class="go">[</span>
+<span class="go">    Lang(locale=&#39;en_US&#39;, language=&#39;en&#39;, quality=1.0),</span>
+<span class="go">    Lang(locale=None, language=&#39;el&#39;, quality=0.8),</span>
+<span class="go">]</span>
+</pre></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
 <div class="section" id="module-core.util.authentication_for_opds">
 <span id="core-util-authentication-for-opds-module"></span><h2>core.util.authentication_for_opds module<a class="headerlink" href="#module-core.util.authentication_for_opds" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
@@ -715,17 +787,17 @@ identifier.</p>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">
-<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2a26fa0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2bdb170&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">
-<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2b025a0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2ce1200&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">
-<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2b28a60&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2bda0f0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

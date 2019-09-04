@@ -4,6 +4,14 @@ core.util package
 Submodules
 ----------
 
+core.util.accept\_language module
+---------------------------------
+
+.. automodule:: core.util.accept_language
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 core.util.authentication\_for\_opds module
 ------------------------------------------
 
