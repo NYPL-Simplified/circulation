@@ -182,6 +182,14 @@ api.lanes module
     :undoc-members:
     :show-inheritance:
 
+api.local\_analytics\_exporter module
+-------------------------------------
+
+.. automodule:: api.local_analytics_exporter
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 api.marc module
 ---------------
 

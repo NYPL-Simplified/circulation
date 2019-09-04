@@ -136,7 +136,6 @@
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">func</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">desc</span><span class="p">,</span> <span class="n">nullslast</span><span class="p">,</span> <span class="n">or_</span><span class="p">,</span> <span class="n">and_</span><span class="p">,</span> <span class="n">distinct</span><span class="p">,</span> <span class="n">select</span><span class="p">,</span> <span class="n">join</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">lazyload</span>
 
 <span class="kn">from</span> <span class="nn">api.admin.templates</span> <span class="k">import</span> <span class="n">admin</span> <span class="k">as</span> <span class="n">admin_template</span>
 <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="k">import</span> <span class="n">LibraryAuthenticator</span>
@@ -157,6 +156,8 @@
 <span class="kn">from</span> <span class="nn">api.admin.template_styles</span> <span class="k">import</span> <span class="o">*</span>
 
 <span class="kn">from</span> <span class="nn">core.selftest</span> <span class="k">import</span> <span class="n">HasSelfTests</span>
+
+<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="k">import</span> <span class="n">LocalAnalyticsExporter</span>
 
 <div class="viewcode-block" id="setup_admin_controllers"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.setup_admin_controllers">[docs]</a><span class="k">def</span> <span class="nf">setup_admin_controllers</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Set up all the controllers that will be used by the admin parts of the web app.&quot;&quot;&quot;</span>
@@ -1292,58 +1293,10 @@
         <span class="n">date</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
         <span class="n">next_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-                <span class="n">CirculationEvent</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">,</span> <span class="n">Work</span><span class="p">,</span> <span class="n">Edition</span>
-            <span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">license_pool_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Work</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">work_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Edition</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">date</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;</span> <span class="n">next_date</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">asc</span><span class="p">())</span>
-        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span> \
-            <span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">lazyload</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">))</span> \
-            <span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">lazyload</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">))</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="n">exporter</span> <span class="o">=</span> <span class="n">LocalAnalyticsExporter</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">exporter</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">next_date</span><span class="p">)</span>
 
-        <span class="n">work_ids</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
-
-        <span class="n">subquery</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> \
-            <span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span> <span class="n">Genre</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Genre</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">work_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">work_ids</span><span class="p">))</span> \
-            <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">affinity</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span> \
-            <span class="o">.</span><span class="n">subquery</span><span class="p">()</span>
-        <span class="n">genre_query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> \
-            <span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">subquery</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span> <span class="n">func</span><span class="o">.</span><span class="n">string_agg</span><span class="p">(</span><span class="n">subquery</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">))</span> \
-            <span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">subquery</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">subquery</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">work_id</span><span class="p">)</span>
-        <span class="n">genres</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">genre_query</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-
-        <span class="n">header</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;event&quot;</span><span class="p">,</span> <span class="s2">&quot;identifier&quot;</span><span class="p">,</span> <span class="s2">&quot;identifier_type&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;author&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;audience&quot;</span><span class="p">,</span> <span class="s2">&quot;publisher&quot;</span><span class="p">,</span> <span class="s2">&quot;language&quot;</span><span class="p">,</span> <span class="s2">&quot;target_age&quot;</span><span class="p">,</span> <span class="s2">&quot;genres&quot;</span>
-        <span class="p">]</span>
-
-        <span class="k">def</span> <span class="nf">result_to_row</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
-            <span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span> <span class="o">=</span> <span class="n">result</span>
-            <span class="k">return</span> <span class="p">[</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">start</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-                <span class="n">event</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
-                <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">,</span>
-                <span class="s2">&quot;fiction&quot;</span> <span class="k">if</span> <span class="n">work</span><span class="o">.</span><span class="n">fiction</span> <span class="k">else</span> <span class="s2">&quot;nonfiction&quot;</span><span class="p">,</span>
-                <span class="n">work</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">publisher</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
-                <span class="n">work</span><span class="o">.</span><span class="n">target_age_string</span><span class="p">,</span>
-                <span class="n">genres</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">work</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-            <span class="p">]</span>
-
-        <span class="k">return</span> <span class="p">[</span><span class="n">header</span><span class="p">]</span> <span class="o">+</span> <span class="nb">map</span><span class="p">(</span><span class="n">result_to_row</span><span class="p">,</span> <span class="n">results</span><span class="p">),</span> <span class="n">date</span></div></div>
+        <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">date</span></div></div>
 
 <div class="viewcode-block" id="SettingsController"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.SettingsController">[docs]</a><span class="k">class</span> <span class="nc">SettingsController</span><span class="p">(</span><span class="n">AdminCirculationManagerController</span><span class="p">):</span>
 

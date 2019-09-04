@@ -168,6 +168,7 @@
 <span class="kn">from</span> <span class="nn">api.onix</span> <span class="k">import</span> <span class="n">ONIXExtractor</span>
 <span class="kn">from</span> <span class="nn">core.marc</span> <span class="k">import</span> <span class="n">MARCExporter</span>
 <span class="kn">from</span> <span class="nn">api.marc</span> <span class="k">import</span> <span class="n">LibraryAnnotator</span> <span class="k">as</span> <span class="n">MARCLibraryAnnotator</span>
+<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="k">import</span> <span class="n">LocalAnalyticsExporter</span>
 
 <div class="viewcode-block" id="Script"><a class="viewcode-back" href="../scripts.html#scripts.Script">[docs]</a><span class="k">class</span> <span class="nc">Script</span><span class="p">(</span><span class="n">CoreScript</span><span class="p">):</span>
 <div class="viewcode-block" id="Script.load_config"><a class="viewcode-back" href="../scripts.html#scripts.Script.load_config">[docs]</a>    <span class="k">def</span> <span class="nf">load_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1741,6 +1742,33 @@
     <span class="n">IMPORTER_CLASS</span> <span class="o">=</span> <span class="n">SharedODLImporter</span>
     <span class="n">MONITOR_CLASS</span> <span class="o">=</span> <span class="n">SharedODLImportMonitor</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">SharedODLImporter</span><span class="o">.</span><span class="n">NAME</span></div>
+
+<div class="viewcode-block" id="LocalAnalyticsExportScript"><a class="viewcode-back" href="../scripts.html#scripts.LocalAnalyticsExportScript">[docs]</a><span class="k">class</span> <span class="nc">LocalAnalyticsExportScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Export circulation events for a date range to a CSV file.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="LocalAnalyticsExportScript.arg_parser"><a class="viewcode-back" href="../scripts.html#scripts.LocalAnalyticsExportScript.arg_parser">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">arg_parser</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s1">&#39;--start&#39;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Include circulation events that happened at or after this time.&quot;</span><span class="p">,</span>
+            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s1">&#39;--end&#39;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Include circulation events that happened before this time.&quot;</span><span class="p">,</span>
+            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">parser</span></div>
+
+<div class="viewcode-block" id="LocalAnalyticsExportScript.do_run"><a class="viewcode-back" href="../scripts.html#scripts.LocalAnalyticsExportScript.do_run">[docs]</a>    <span class="k">def</span> <span class="nf">do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exporter</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_parser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">cmd_args</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">start</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">parsed</span><span class="o">.</span><span class="n">end</span>
+
+        <span class="n">exporter</span> <span class="o">=</span> <span class="n">exporter</span> <span class="ow">or</span> <span class="n">LocalAnalyticsExporter</span><span class="p">()</span>
+        <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">exporter</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span></div></div>
 </pre></div>
 
           </div>

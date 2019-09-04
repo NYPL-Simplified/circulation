@@ -728,10 +728,10 @@
 </li>
       <li><a href="api.html#module-api.coverage">api.coverage (module)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.custom_index">api.custom_index (module)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.custom_patron_catalog">api.custom_patron_catalog (module)</a>
 </li>
       <li><a href="api.html#module-api.enki">api.enki (module)</a>
@@ -747,6 +747,8 @@
       <li><a href="api.html#module-api.kansas_patron">api.kansas_patron (module)</a>
 </li>
       <li><a href="api.html#module-api.lanes">api.lanes (module)</a>
+</li>
+      <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
 </li>
       <li><a href="api.html#module-api.marc">api.marc (module)</a>
 </li>
@@ -958,6 +960,8 @@
         <li><a href="scripts.html#scripts.DirectoryImportScript.arg_parser">(scripts.DirectoryImportScript class method)</a>
 </li>
         <li><a href="scripts.html#scripts.LaneResetScript.arg_parser">(scripts.LaneResetScript class method)</a>
+</li>
+        <li><a href="scripts.html#scripts.LocalAnalyticsExportScript.arg_parser">(scripts.LocalAnalyticsExportScript class method)</a>
 </li>
       </ul></li>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI.ARGUMENT_TIME_FORMAT">ARGUMENT_TIME_FORMAT (api.bibliotheca.BibliothecaAPI attribute)</a>
@@ -3628,10 +3632,10 @@
 </li>
       <li><a href="core.model.html#core.model.PresentationCalculationPolicy.DEFAULT_THRESHOLD">DEFAULT_THRESHOLD (core.model.PresentationCalculationPolicy attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.authenticator.OAuthAuthenticationProvider.DEFAULT_TOKEN_EXPIRATION_DAYS">DEFAULT_TOKEN_EXPIRATION_DAYS (api.authenticator.OAuthAuthenticationProvider attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.web_publication_manifest.AudiobookManifest.DEFAULT_TYPE">DEFAULT_TYPE (core.util.web_publication_manifest.AudiobookManifest attribute)</a>
 
       <ul>
@@ -4033,6 +4037,8 @@
 </li>
         <li><a href="scripts.html#scripts.LoanReaperScript.do_run">(scripts.LoanReaperScript method)</a>
 </li>
+        <li><a href="scripts.html#scripts.LocalAnalyticsExportScript.do_run">(scripts.LocalAnalyticsExportScript method)</a>
+</li>
         <li><a href="scripts.html#scripts.NYTBestSellerListsScript.do_run">(scripts.NYTBestSellerListsScript method)</a>
 </li>
         <li><a href="scripts.html#scripts.NovelistSnapshotScript.do_run">(scripts.NovelistSnapshotScript method)</a>
@@ -4386,10 +4392,10 @@
 </li>
       <li><a href="core.html#core.opensearch.OpenSearchDocument.escape_entities">escape_entities() (core.opensearch.OpenSearchDocument class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.estimate_language_collections_for_library">estimate_language_collections_for_library() (api.config.Configuration class method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.library.Library.estimated_holdings_by_language">estimated_holdings_by_language() (core.model.library.Library method)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.estimated_quality">estimated_quality (core.model.resource.Resource attribute)</a>
@@ -4507,6 +4513,8 @@
       <li><a href="core.html#core.scripts.Explain.explain_work">explain_work() (core.scripts.Explain method)</a>
 </li>
       <li><a href="core.html#core.scripts.Explain.explain_work_coverage_record">explain_work_coverage_record() (core.scripts.Explain method)</a>
+</li>
+      <li><a href="api.html#api.local_analytics_exporter.LocalAnalyticsExporter.export">export() (api.local_analytics_exporter.LocalAnalyticsExporter method)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.extension">extension (core.model.constants.MediaTypes attribute)</a>
 </li>
@@ -7253,6 +7261,10 @@
       <li><a href="core.model.html#core.model.resource.Representation.local_path">local_path (core.model.resource.Representation attribute)</a>
 </li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.local_patron_lookup">local_patron_lookup() (api.authenticator.BasicAuthenticationProvider method)</a>
+</li>
+      <li><a href="api.html#api.local_analytics_exporter.LocalAnalyticsExporter">LocalAnalyticsExporter (class in api.local_analytics_exporter)</a>
+</li>
+      <li><a href="scripts.html#scripts.LocalAnalyticsExportScript">LocalAnalyticsExportScript (class in scripts)</a>
 </li>
       <li><a href="core.html#core.local_analytics_provider.LocalAnalyticsProvider">LocalAnalyticsProvider (class in core.local_analytics_provider)</a>
 </li>
@@ -12948,6 +12960,8 @@
 </li>
       <li><a href="core.util.html#core.util.string_helpers.UnicodeAwareBase64">UnicodeAwareBase64 (class in core.util.string_helpers)</a>
 </li>
+      <li><a href="api.html#api.local_analytics_exporter.UnicodeWriter">UnicodeWriter (class in api.local_analytics_exporter)</a>
+</li>
       <li><a href="core.model.html#core.model.collection.Collection.unique_account_id">unique_account_id (core.model.collection.Collection attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.unique_key">unique_key (core.model.cachedfeed.CachedFeed attribute)</a>
@@ -13709,6 +13723,10 @@
 </li>
       </ul></li>
       <li><a href="core.html#core.scripts.Explain.write">write() (core.scripts.Explain method)</a>
+</li>
+      <li><a href="api.html#api.local_analytics_exporter.UnicodeWriter.writerow">writerow() (api.local_analytics_exporter.UnicodeWriter method)</a>
+</li>
+      <li><a href="api.html#api.local_analytics_exporter.UnicodeWriter.writerows">writerows() (api.local_analytics_exporter.UnicodeWriter method)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.ErrorParser.wrong_status">wrong_status (api.bibliotheca.ErrorParser attribute)</a>
 </li>
