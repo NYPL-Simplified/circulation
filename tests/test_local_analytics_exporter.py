@@ -26,14 +26,21 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         [lp1] = w1.license_pools
         [lp2] = w2.license_pools
         edition1 = w1.presentation_edition
+        edition1.publisher = "A publisher"
+        edition1.imprint = "An imprint"
         edition2 = w2.presentation_edition
         identifier1 = w1.presentation_edition.primary_identifier
         identifier2 = w2.presentation_edition.primary_identifier
-        genres = self._db.query(Genre).all()
+        genres = self._db.query(Genre).order_by(Genre.name).all()
         get_one_or_create(self._db, WorkGenre, work=w1, genre=genres[0], affinity=0.2)
         get_one_or_create(self._db, WorkGenre, work=w1, genre=genres[1], affinity=0.3)
         get_one_or_create(self._db, WorkGenre, work=w1, genre=genres[2], affinity=0.5)
-        ordered_genre_string = ",".join([genres[2].name, genres[1].name, genres[0].name])
+
+        # We expect the genre with the highest affinity to be put first.
+        ordered_genre_string = ",".join(
+            [genres[2].name, genres[1].name, genres[0].name]
+        )
+        print "Expecting %s" % ordered_genre_string
         get_one_or_create(self._db, WorkGenre, work=w2, genre=genres[1], affinity=0.5)
         types = [
             CirculationEvent.DISTRIBUTOR_CHECKIN,
@@ -66,9 +73,10 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         eq_(["fiction"]*num, [row[6] for row in rows])
         eq_([w1.audience]*num, [row[7] for row in rows])
         eq_([edition1.publisher or '']*num, [row[8] for row in rows])
-        eq_([edition1.language]*num, [row[9] for row in rows])
-        eq_([w1.target_age_string]*num, [row[10] for row in rows])
-        eq_([ordered_genre_string]*num, [row[11] for row in rows])
+        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
+        eq_([edition1.language]*num, [row[10] for row in rows])
+        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
+        eq_([ordered_genre_string]*num, [row[12] for row in rows])
 
         output = exporter.export(self._db, today, time + timedelta(minutes=1))
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
@@ -82,9 +90,10 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         eq_(["fiction"]*(num+1), [row[6] for row in rows])
         eq_([w1.audience]*num + [w2.audience], [row[7] for row in rows])
         eq_([edition1.publisher or '']*num + [edition2.publisher or ''], [row[8] for row in rows])
-        eq_([edition1.language]*num + [edition2.language], [row[9] for row in rows])
-        eq_([w1.target_age_string]*num + [w2.target_age_string], [row[10] for row in rows])
-        eq_([ordered_genre_string]*num + [genres[1].name], [row[11] for row in rows])
+        eq_([edition1.imprint or '']*num + [edition2.imprint or ''], [row[9] for row in rows])
+        eq_([edition1.language]*num + [edition2.language], [row[10] for row in rows])
+        eq_([w1.target_age_string or ""]*num + [w2.target_age_string or ''], [row[11] for row in rows])
+        eq_([ordered_genre_string]*num + [genres[1].name], [row[12] for row in rows])
 
         output = exporter.export(self._db, today, today)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)

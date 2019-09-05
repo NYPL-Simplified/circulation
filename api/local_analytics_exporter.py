@@ -12,6 +12,7 @@ from sqlalchemy.sql.expression import (
     case,
     literal_column,
     join,
+    or_,
 )
 
 from core.model import (
@@ -72,8 +73,8 @@ class LocalAnalyticsExporter(object):
                 Edition.sort_title,
                 Edition.sort_author,
                 case(
-                    [(Work.fiction==True, literal_column("'Fiction'"))],
-                    else_=literal_column("'Nonfiction'")
+                    [(Work.fiction==True, literal_column("'fiction'"))],
+                    else_=literal_column("'nonfiction'")
                 ).label("fiction"),
                 Work.id.label("work_id"),
                 Work.audience,
@@ -114,7 +115,8 @@ class LocalAnalyticsExporter(object):
         #
 
         # This Alias selects some number of rows, each containing one
-        # string column (Genre.name).
+        # string column (Genre.name). Genres with higher affinities with
+        # this work go first.
         genres_alias = select(
             [Genre.name.label("genre_name")]
         ).select_from(
@@ -124,6 +126,8 @@ class LocalAnalyticsExporter(object):
             )
         ).where(
             WorkGenre.work_id==work_id_column
+        ).order_by(
+            WorkGenre.affinity.desc(), Genre.name
         ).alias("genres_subquery")
 
         # Use array_agg() to consolidate the rows into one row -- this
@@ -133,7 +137,7 @@ class LocalAnalyticsExporter(object):
         genres = select(
             [
                 func.array_to_string(
-                    func.array_agg(genres_alias.c.genre_name), ", "
+                    func.array_agg(genres_alias.c.genre_name), ","
                 )
             ]
         ).select_from(genres_alias)
@@ -149,12 +153,19 @@ class LocalAnalyticsExporter(object):
         )
 
         # Concatenate the lower and upper bounds with a dash in the
-        # middle.
-        target_age_string = select(
-            [
-                func.concat(target_age.c.lower, "-", target_age.c.upper),
-            ]
-        ).select_from(target_age)
+        # middle. If both lower and upper bound are empty, just give
+        # the empty string.
+        target_age_string = select([
+            case(
+                [
+                    (or_(target_age.c.lower != None,
+                         target_age.c.upper != None),
+                     func.concat(target_age.c.lower, "-", target_age.c.upper))
+                ],
+                else_=literal_column("''")
+            )
+        ]).select_from(target_age)
+
 
         # Build the main query out of the subqueries.
         events = events_alias.c
