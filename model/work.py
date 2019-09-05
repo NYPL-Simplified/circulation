@@ -1591,28 +1591,8 @@ class Work(Base):
         ).alias("genres_subquery")
         genres_json = query_to_json_array(genres)
 
-        # If the upper limit of the target age is inclusive, we leave
-        # it alone. Otherwise, we subtract one to make it inclusive.
-        upper_field = func.upper(Work.target_age)
-        upper = case(
-            [(func.upper_inc(Work.target_age), upper_field)],
-            else_=upper_field-1
-        ).label('upper')
-
-        # If the lower limit of the target age is inclusive, we leave
-        # it alone. Otherwise, we add one to make it inclusive.
-        lower_field = func.lower(Work.target_age)
-        lower = case(
-            [(func.lower_inc(Work.target_age), lower_field)],
-            else_=lower_field+1
-        ).label('lower')
-
-        # Subquery for target age. This has to be a subquery so it can become a
-        # nested object in the final json.
-        target_age = select(
-            [upper, lower]
-        ).where(
-            Work.id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
+        target_age = cls.target_age_query(
+            literal_column(works_alias.name + "." + works_alias.c.work_id.name)
         ).alias('target_age_subquery')
         target_age_json = query_to_json(target_age)
 
@@ -1670,6 +1650,33 @@ class Work(Base):
         result = _db.execute(search_json)
         if result:
             return [r[0] for r in result]
+
+    @classmethod
+    def target_age_query(self, foreign_work_id_field):
+        # If the upper limit of the target age is inclusive, we leave
+        # it alone. Otherwise, we subtract one to make it inclusive.
+        upper_field = func.upper(Work.target_age)
+        upper = case(
+            [(func.upper_inc(Work.target_age), upper_field)],
+            else_=upper_field-1
+        ).label('upper')
+
+        # If the lower limit of the target age is inclusive, we leave
+        # it alone. Otherwise, we add one to make it inclusive.
+        lower_field = func.lower(Work.target_age)
+        lower = case(
+            [(func.lower_inc(Work.target_age), lower_field)],
+            else_=lower_field+1
+        ).label('lower')
+
+        # Subquery for target age. This has to be a subquery so it can
+        # become a nested object in the final json.
+        target_age = select(
+            [upper, lower]
+        ).where(
+            Work.id==foreign_work_id_field
+        )
+        return target_age
 
     def to_search_document(self):
         """Generate a search document for this Work."""
