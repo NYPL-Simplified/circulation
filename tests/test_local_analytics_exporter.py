@@ -40,7 +40,6 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         ordered_genre_string = ",".join(
             [genres[2].name, genres[1].name, genres[0].name]
         )
-        print "Expecting %s" % ordered_genre_string
         get_one_or_create(self._db, WorkGenre, work=w2, genre=genres[1], affinity=0.5)
         types = [
             CirculationEvent.DISTRIBUTOR_CHECKIN,

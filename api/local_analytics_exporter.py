@@ -154,7 +154,8 @@ class LocalAnalyticsExporter(object):
 
         # Concatenate the lower and upper bounds with a dash in the
         # middle. If both lower and upper bound are empty, just give
-        # the empty string.
+        # the empty string. This simulates the behavior of
+        # Work.target_age_string.
         target_age_string = select([
             case(
                 [
