@@ -101,7 +101,6 @@ from core.classifier import (
 from datetime import datetime, timedelta
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
-from sqlalchemy.orm import lazyload
 
 from api.admin.templates import admin as admin_template
 from api.authenticator import LibraryAuthenticator
@@ -122,6 +121,8 @@ from api.adobe_vendor_id import AuthdataUtility
 from api.admin.template_styles import *
 
 from core.selftest import HasSelfTests
+
+from api.local_analytics_exporter import LocalAnalyticsExporter
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -1257,58 +1258,10 @@ class DashboardController(AdminCirculationManagerController):
         date = flask.request.args.get("date", default)
         next_date = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)
 
-        query = self._db.query(
-                CirculationEvent, Identifier, Work, Edition
-            ) \
-            .join(LicensePool, LicensePool.id == CirculationEvent.license_pool_id) \
-            .join(Identifier, Identifier.id == LicensePool.identifier_id) \
-            .join(Work, Work.id == LicensePool.work_id) \
-            .join(Edition, Edition.id == Work.presentation_edition_id) \
-            .filter(CirculationEvent.start >= date) \
-            .filter(CirculationEvent.start < next_date) \
-            .order_by(CirculationEvent.start.asc())
-        query = query \
-            .options(lazyload(Identifier.licensed_through)) \
-            .options(lazyload(Work.license_pools))
-        results = query.all()
+        exporter = LocalAnalyticsExporter()
+        data = exporter.export(self._db, date, next_date)
 
-        work_ids = map(lambda result: result[2].id, results)
-
-        subquery = self._db \
-            .query(WorkGenre.work_id, Genre.name) \
-            .join(Genre) \
-            .filter(WorkGenre.work_id.in_(work_ids)) \
-            .order_by(WorkGenre.affinity.desc()) \
-            .subquery()
-        genre_query = self._db \
-            .query(subquery.c.work_id, func.string_agg(subquery.c.name, ",")) \
-            .select_from(subquery) \
-            .group_by(subquery.c.work_id)
-        genres = dict(genre_query.all())
-
-        header = [
-            "time", "event", "identifier", "identifier_type", "title", "author",
-            "fiction", "audience", "publisher", "language", "target_age", "genres"
-        ]
-
-        def result_to_row(result):
-            (event, identifier, work, edition) = result
-            return [
-                str(event.start) or "",
-                event.type,
-                identifier.identifier,
-                identifier.type,
-                edition.title,
-                edition.author,
-                "fiction" if work.fiction else "nonfiction",
-                work.audience,
-                edition.publisher,
-                edition.language,
-                work.target_age_string,
-                genres.get(work.id)
-            ]
-
-        return [header] + map(result_to_row, results), date
+        return data, date
 
 class SettingsController(AdminCirculationManagerController):
 
