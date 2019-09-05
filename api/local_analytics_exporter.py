@@ -1,8 +1,7 @@
 from nose.tools import set_trace
 import logging
-import csv
-import codecs
-from StringIO import StringIO
+import unicodecsv as csv
+from io import BytesIO
 
 from sqlalchemy.sql import (
     func,
@@ -13,10 +12,6 @@ from sqlalchemy.sql.expression import (
     case,
     literal_column,
     join,
-)
-from sqlalchemy.orm import (
-    defer,
-    lazyload
 )
 
 from core.model import (
@@ -30,13 +25,47 @@ from core.model import (
 )
 
 class LocalAnalyticsExporter(object):
-    def export(self, _db, start, end):
-        import time
-        s = time.time()
+    """Export large numbers of analytics events in CSV format."""
 
+    def export(self, _db, start, end):
+
+        # Get the results from the database.
+        query = self.analytics_query(start, end)
+        results = _db.execute(query)
+
+        # Write the CSV file to a BytesIO.
+        header = [
+            "time", "event", "identifier", "identifier_type", "title", "author",
+            "fiction", "audience", "publisher", "imprint", "language",
+            "target_age", "genres"
+        ]
+        output = BytesIO()
+        writer = csv.writer(output, encoding="utf-8")
+        writer.writerow(header)
+        writer.writerows(results)
+
+        return output.getvalue()
+
+    def analytics_query(self, start, end):
+        """Build a database query that fetches rows of analytics data.
+
+        This method uses low-level SQLAlchemy code to do all
+        calculations and data conversations in the database. It's
+        modeled after Work.to_search_documents, which generates a
+        large JSON document entirely in the database.
+
+        :return: An iterator of results, each of which can be written
+            directly to a CSV file.
+        """
+
+        # Build the primary query. This is a query against the
+        # CirculationEvent table and a few other tables joined against
+        # it. This makes up the bulk of the data.
         events_alias = select(
             [
-                func.to_char(CirculationEvent.start, "YYYY-MM-DD HH24:MI:SS").label("start"),
+                func.to_char(
+                    CirculationEvent.start, "YYYY-MM-DD HH24:MI:SS"
+                ).label("start"),
                 CirculationEvent.type.label("event_type"),
                 Identifier.identifier,
                 Identifier.type.label("identifier_type"),
@@ -74,11 +103,18 @@ class LocalAnalyticsExporter(object):
             CirculationEvent.start.asc()
         ).alias("events_alias")
 
+        # A subquery can hook into the main query by referencing its
+        # 'work_id' field in its WHERE clause.
         work_id_column = literal_column(
             events_alias.name + "." + events_alias.c.work_id.name
         )
-        # This subquery gets the list of genres associated with a work
-        # as a single comma-separated string.
+
+        # This subquery gets the names of a Work's genres as a single
+        # comma-separated string.
+        #
+
+        # This Alias selects some number of rows, each containing one
+        # string column (Genre.name).
         genres_alias = select(
             [Genre.name.label("genre_name")]
         ).select_from(
@@ -89,6 +125,11 @@ class LocalAnalyticsExporter(object):
         ).where(
             WorkGenre.work_id==work_id_column
         ).alias("genres_subquery")
+
+        # Use array_agg() to consolidate the rows into one row -- this
+        # gives us a single value, an array of strings, for each
+        # Work. Then use array_to_string to convert the array into a
+        # single comma-separated string.
         genres = select(
             [
                 func.array_to_string(
@@ -97,17 +138,25 @@ class LocalAnalyticsExporter(object):
             ]
         ).select_from(genres_alias)
 
+        # This subquery gets the a Work's target age as a single string.
+        #
+
+        # This Alias selects two fields: the lower and upper bounds of
+        # the Work's target age. This reuses code originally written
+        # for Work.to_search_documents().
         target_age = Work.target_age_query(work_id_column).alias(
             "target_age_subquery"
         )
+
+        # Concatenate the lower and upper bounds with a dash in the
+        # middle.
         target_age_string = select(
             [
                 func.concat(target_age.c.lower, "-", target_age.c.upper),
             ]
         ).select_from(target_age)
 
-
-        # Build the main query.
+        # Build the main query out of the subqueries.
         events = events_alias.c
         query = select(
             [
@@ -118,7 +167,6 @@ class LocalAnalyticsExporter(object):
                 events.sort_title,
                 events.sort_author,
                 events.fiction,
-                events.work_id,
                 events.audience,
                 events.publisher,
                 events.imprint,
@@ -129,52 +177,4 @@ class LocalAnalyticsExporter(object):
         ).select_from(
             events_alias
         )
-
-        results = _db.execute(query)
-
-        header = [
-            "time", "event", "identifier", "identifier_type", "title", "author",
-            "fiction", "audience", "publisher", "imprint", "language",
-            "target_age", "genres"
-        ]
-
-        output = StringIO()
-        writer = UnicodeWriter(output)
-        writer.writerow(header)
-        writer.writerows(results)
-
-        v = output.getvalue()
-        finish = time.time()
-        return ""
-
-
-class UnicodeWriter:
-    """
-    A CSV writer for Unicode data.
-    """
-
-    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
-        # Redirect output to a queue
-        self.queue = StringIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.stream = f
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def writerow(self, row):
-        self.writer.writerow(
-            [s.encode("utf-8") if hasattr(s, "encode") else "" for s in row]
-        )
-        # Fetch UTF-8 output from the queue ...
-        data = self.queue.getvalue()
-        data = data.decode("utf-8")
-        # ... and reencode it into the target encoding
-        data = self.encoder.encode(data)
-        # write to the target stream
-        self.stream.write(data)
-        # empty queue
-        self.queue.truncate(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
-
+        return query
