@@ -33,11 +33,22 @@
           <div class="body" role="main">
             
   <h1>Source code for api.local_analytics_exporter</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">csv</span><span class="o">,</span> <span class="nn">codecs</span><span class="o">,</span> <span class="nn">cStringIO</span>
-<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">unicodecsv</span> <span class="k">as</span> <span class="nn">csv</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="k">import</span> <span class="n">BytesIO</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">func</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">lazyload</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">func</span><span class="p">,</span>
+    <span class="n">select</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">and_</span><span class="p">,</span>
+    <span class="n">case</span><span class="p">,</span>
+    <span class="n">literal_column</span><span class="p">,</span>
+    <span class="n">join</span><span class="p">,</span>
+    <span class="n">or_</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
@@ -50,97 +61,170 @@
 <span class="p">)</span>
 
 <div class="viewcode-block" id="LocalAnalyticsExporter"><a class="viewcode-back" href="../../api.html#api.local_analytics_exporter.LocalAnalyticsExporter">[docs]</a><span class="k">class</span> <span class="nc">LocalAnalyticsExporter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Export large numbers of analytics events in CSV format.&quot;&quot;&quot;</span>
+
 <div class="viewcode-block" id="LocalAnalyticsExporter.export"><a class="viewcode-back" href="../../api.html#api.local_analytics_exporter.LocalAnalyticsExporter.export">[docs]</a>    <span class="k">def</span> <span class="nf">export</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
 
-        <span class="n">query</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-                <span class="n">CirculationEvent</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">,</span> <span class="n">Work</span><span class="p">,</span> <span class="n">Edition</span>
-            <span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">license_pool_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Work</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">work_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Edition</span><span class="p">,</span> <span class="n">Edition</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition_id</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">asc</span><span class="p">())</span>
-        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span> \
-            <span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">lazyload</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">))</span> \
-            <span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">lazyload</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">))</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="c1"># Get the results from the database.</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics_query</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
 
-        <span class="n">work_ids</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
-
-        <span class="n">subquery</span> <span class="o">=</span> <span class="n">_db</span> \
-            <span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span> <span class="n">Genre</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Genre</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">work_id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">work_ids</span><span class="p">))</span> \
-            <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">affinity</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span> \
-            <span class="o">.</span><span class="n">subquery</span><span class="p">()</span>
-        <span class="n">genre_query</span> <span class="o">=</span> <span class="n">_db</span> \
-            <span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">subquery</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span> <span class="n">func</span><span class="o">.</span><span class="n">string_agg</span><span class="p">(</span><span class="n">subquery</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">))</span> \
-            <span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">subquery</span><span class="p">)</span> \
-            <span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="n">subquery</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">work_id</span><span class="p">)</span>
-        <span class="n">genres</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">genre_query</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-
+        <span class="c1"># Write the CSV file to a BytesIO.</span>
         <span class="n">header</span> <span class="o">=</span> <span class="p">[</span>
             <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;event&quot;</span><span class="p">,</span> <span class="s2">&quot;identifier&quot;</span><span class="p">,</span> <span class="s2">&quot;identifier_type&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;author&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;audience&quot;</span><span class="p">,</span> <span class="s2">&quot;publisher&quot;</span><span class="p">,</span> <span class="s2">&quot;language&quot;</span><span class="p">,</span> <span class="s2">&quot;target_age&quot;</span><span class="p">,</span> <span class="s2">&quot;genres&quot;</span>
+            <span class="s2">&quot;fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;audience&quot;</span><span class="p">,</span> <span class="s2">&quot;publisher&quot;</span><span class="p">,</span> <span class="s2">&quot;imprint&quot;</span><span class="p">,</span> <span class="s2">&quot;language&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;target_age&quot;</span><span class="p">,</span> <span class="s2">&quot;genres&quot;</span>
         <span class="p">]</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">BytesIO</span><span class="p">()</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">writerows</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">result_to_row</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
-            <span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">edition</span><span class="p">)</span> <span class="o">=</span> <span class="n">result</span>
-            <span class="k">return</span> <span class="p">[</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">start</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-                <span class="n">event</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
-                <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">author</span><span class="p">,</span>
-                <span class="s2">&quot;fiction&quot;</span> <span class="k">if</span> <span class="n">work</span><span class="o">.</span><span class="n">fiction</span> <span class="k">else</span> <span class="s2">&quot;nonfiction&quot;</span><span class="p">,</span>
-                <span class="n">work</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">publisher</span><span class="p">,</span>
-                <span class="n">edition</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
-                <span class="n">work</span><span class="o">.</span><span class="n">target_age_string</span><span class="p">,</span>
-                <span class="n">genres</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">work</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-            <span class="p">]</span>
+        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span></div>
 
-        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">header</span><span class="p">]</span> <span class="o">+</span> <span class="nb">map</span><span class="p">(</span><span class="n">result_to_row</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
+<div class="viewcode-block" id="LocalAnalyticsExporter.analytics_query"><a class="viewcode-back" href="../../api.html#api.local_analytics_exporter.LocalAnalyticsExporter.analytics_query">[docs]</a>    <span class="k">def</span> <span class="nf">analytics_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build a database query that fetches rows of analytics data.</span>
 
-        <span class="n">output</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
-        <span class="n">writer</span> <span class="o">=</span> <span class="n">UnicodeWriter</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
-        <span class="n">writer</span><span class="o">.</span><span class="n">writerows</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span></div></div>
+<span class="sd">        This method uses low-level SQLAlchemy code to do all</span>
+<span class="sd">        calculations and data conversations in the database. It&#39;s</span>
+<span class="sd">        modeled after Work.to_search_documents, which generates a</span>
+<span class="sd">        large JSON document entirely in the database.</span>
 
+<span class="sd">        :return: An iterator of results, each of which can be written</span>
+<span class="sd">            directly to a CSV file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="UnicodeWriter"><a class="viewcode-back" href="../../api.html#api.local_analytics_exporter.UnicodeWriter">[docs]</a><span class="k">class</span> <span class="nc">UnicodeWriter</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A CSV writer for Unicode data.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+        <span class="c1"># Build the primary query. This is a query against the</span>
+        <span class="c1"># CirculationEvent table and a few other tables joined against</span>
+        <span class="c1"># it. This makes up the bulk of the data.</span>
+        <span class="n">events_alias</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">func</span><span class="o">.</span><span class="n">to_char</span><span class="p">(</span>
+                    <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="s2">&quot;YYYY-MM-DD HH24:MI:SS&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">),</span>
+                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s2">&quot;event_type&quot;</span><span class="p">),</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">Identifier</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s2">&quot;identifier_type&quot;</span><span class="p">),</span>
+                <span class="n">Edition</span><span class="o">.</span><span class="n">sort_title</span><span class="p">,</span>
+                <span class="n">Edition</span><span class="o">.</span><span class="n">sort_author</span><span class="p">,</span>
+                <span class="n">case</span><span class="p">(</span>
+                    <span class="p">[(</span><span class="n">Work</span><span class="o">.</span><span class="n">fiction</span><span class="o">==</span><span class="kc">True</span><span class="p">,</span> <span class="n">literal_column</span><span class="p">(</span><span class="s2">&quot;&#39;fiction&#39;&quot;</span><span class="p">))],</span>
+                    <span class="n">else_</span><span class="o">=</span><span class="n">literal_column</span><span class="p">(</span><span class="s2">&quot;&#39;nonfiction&#39;&quot;</span><span class="p">)</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s2">&quot;fiction&quot;</span><span class="p">),</span>
+                <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s2">&quot;work_id&quot;</span><span class="p">),</span>
+                <span class="n">Work</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span>
+                <span class="n">Edition</span><span class="o">.</span><span class="n">publisher</span><span class="p">,</span>
+                <span class="n">Edition</span><span class="o">.</span><span class="n">imprint</span><span class="p">,</span>
+                <span class="n">Edition</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
+            <span class="p">],</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span>
+            <span class="n">join</span><span class="p">(</span>
+                <span class="n">CirculationEvent</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">,</span>
+                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">license_pool_id</span><span class="o">==</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">Identifier</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">Work</span><span class="p">,</span>
+                <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">work_id</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">Edition</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition_id</span><span class="o">==</span><span class="n">Edition</span><span class="o">.</span><span class="n">id</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">and_</span><span class="p">(</span>
+                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">,</span>
+                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;</span> <span class="n">end</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+            <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">asc</span><span class="p">()</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;events_alias&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">csv</span><span class="o">.</span><span class="n">excel</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
-        <span class="c1"># Redirect output to a queue</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">dialect</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">f</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span> <span class="o">=</span> <span class="n">codecs</span><span class="o">.</span><span class="n">getincrementalencoder</span><span class="p">(</span><span class="n">encoding</span><span class="p">)()</span>
-
-<div class="viewcode-block" id="UnicodeWriter.writerow"><a class="viewcode-back" href="../../api.html#api.local_analytics_exporter.UnicodeWriter.writerow">[docs]</a>    <span class="k">def</span> <span class="nf">writerow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="s2">&quot;encode&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span>
+        <span class="c1"># A subquery can hook into the main query by referencing its</span>
+        <span class="c1"># &#39;work_id&#39; field in its WHERE clause.</span>
+        <span class="n">work_id_column</span> <span class="o">=</span> <span class="n">literal_column</span><span class="p">(</span>
+            <span class="n">events_alias</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">events_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">work_id</span><span class="o">.</span><span class="n">name</span>
         <span class="p">)</span>
-        <span class="c1"># Fetch UTF-8 output from the queue ...</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
-        <span class="c1"># ... and reencode it into the target encoding</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="c1"># write to the target stream</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="c1"># empty queue</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">truncate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="UnicodeWriter.writerows"><a class="viewcode-back" href="../../api.html#api.local_analytics_exporter.UnicodeWriter.writerows">[docs]</a>    <span class="k">def</span> <span class="nf">writerows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rows</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">row</span><span class="p">)</span></div></div>
+        <span class="c1"># This subquery gets the names of a Work&#39;s genres as a single</span>
+        <span class="c1"># comma-separated string.</span>
+        <span class="c1">#</span>
 
+        <span class="c1"># This Alias selects some number of rows, each containing one</span>
+        <span class="c1"># string column (Genre.name). Genres with higher affinities with</span>
+        <span class="c1"># this work go first.</span>
+        <span class="n">genres_alias</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">Genre</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s2">&quot;genre_name&quot;</span><span class="p">)]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span>
+            <span class="n">join</span><span class="p">(</span>
+                <span class="n">WorkGenre</span><span class="p">,</span> <span class="n">Genre</span><span class="p">,</span>
+                <span class="n">WorkGenre</span><span class="o">.</span><span class="n">genre_id</span><span class="o">==</span><span class="n">Genre</span><span class="o">.</span><span class="n">id</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">WorkGenre</span><span class="o">.</span><span class="n">work_id</span><span class="o">==</span><span class="n">work_id_column</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+            <span class="n">WorkGenre</span><span class="o">.</span><span class="n">affinity</span><span class="o">.</span><span class="n">desc</span><span class="p">(),</span> <span class="n">Genre</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;genres_subquery&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Use array_agg() to consolidate the rows into one row -- this</span>
+        <span class="c1"># gives us a single value, an array of strings, for each</span>
+        <span class="c1"># Work. Then use array_to_string to convert the array into a</span>
+        <span class="c1"># single comma-separated string.</span>
+        <span class="n">genres</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">func</span><span class="o">.</span><span class="n">array_to_string</span><span class="p">(</span>
+                    <span class="n">func</span><span class="o">.</span><span class="n">array_agg</span><span class="p">(</span><span class="n">genres_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">genre_name</span><span class="p">),</span> <span class="s2">&quot;,&quot;</span>
+                <span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">genres_alias</span><span class="p">)</span>
+
+        <span class="c1"># This subquery gets the a Work&#39;s target age as a single string.</span>
+        <span class="c1">#</span>
+
+        <span class="c1"># This Alias selects two fields: the lower and upper bounds of</span>
+        <span class="c1"># the Work&#39;s target age. This reuses code originally written</span>
+        <span class="c1"># for Work.to_search_documents().</span>
+        <span class="n">target_age</span> <span class="o">=</span> <span class="n">Work</span><span class="o">.</span><span class="n">target_age_query</span><span class="p">(</span><span class="n">work_id_column</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span>
+            <span class="s2">&quot;target_age_subquery&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Concatenate the lower and upper bounds with a dash in the</span>
+        <span class="c1"># middle. If both lower and upper bound are empty, just give</span>
+        <span class="c1"># the empty string. This simulates the behavior of</span>
+        <span class="c1"># Work.target_age_string.</span>
+        <span class="n">target_age_string</span> <span class="o">=</span> <span class="n">select</span><span class="p">([</span>
+            <span class="n">case</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="p">(</span><span class="n">or_</span><span class="p">(</span><span class="n">target_age</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">lower</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">target_age</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">upper</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">),</span>
+                     <span class="n">func</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">target_age</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">target_age</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">upper</span><span class="p">))</span>
+                <span class="p">],</span>
+                <span class="n">else_</span><span class="o">=</span><span class="n">literal_column</span><span class="p">(</span><span class="s2">&quot;&#39;&#39;&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">])</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">target_age</span><span class="p">)</span>
+
+
+        <span class="c1"># Build the main query out of the subqueries.</span>
+        <span class="n">events</span> <span class="o">=</span> <span class="n">events_alias</span><span class="o">.</span><span class="n">c</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">start</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">event_type</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">identifier_type</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">sort_title</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">sort_author</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">fiction</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">publisher</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">imprint</span><span class="p">,</span>
+                <span class="n">events</span><span class="o">.</span><span class="n">language</span><span class="p">,</span>
+                <span class="n">target_age_string</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;target_age&#39;</span><span class="p">),</span>
+                <span class="n">genres</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;genres&#39;</span><span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span>
+            <span class="n">events_alias</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">query</span></div></div>
 </pre></div>
 
           </div>

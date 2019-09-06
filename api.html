@@ -3264,12 +3264,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4ea0000&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x343c6a0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4d98760&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x33e9870&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3284,7 +3284,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x514f5c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x371f220&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7783,25 +7783,29 @@ returned.</p>
 <dt id="api.local_analytics_exporter.LocalAnalyticsExporter">
 <em class="property">class </em><code class="descclassname">api.local_analytics_exporter.</code><code class="descname">LocalAnalyticsExporter</code><a class="reference internal" href="_modules/api/local_analytics_exporter.html#LocalAnalyticsExporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.LocalAnalyticsExporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Export large numbers of analytics events in CSV format.</p>
+<dl class="method">
+<dt id="api.local_analytics_exporter.LocalAnalyticsExporter.analytics_query">
+<code class="descname">analytics_query</code><span class="sig-paren">(</span><em>start</em>, <em>end</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#LocalAnalyticsExporter.analytics_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.LocalAnalyticsExporter.analytics_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a database query that fetches rows of analytics data.</p>
+<p>This method uses low-level SQLAlchemy code to do all
+calculations and data conversations in the database. It’s
+modeled after Work.to_search_documents, which generates a
+large JSON document entirely in the database.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An iterator of results, each of which can be written
+directly to a CSV file.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="method">
 <dt id="api.local_analytics_exporter.LocalAnalyticsExporter.export">
 <code class="descname">export</code><span class="sig-paren">(</span><em>_db</em>, <em>start</em>, <em>end</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#LocalAnalyticsExporter.export"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.LocalAnalyticsExporter.export" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.local_analytics_exporter.UnicodeWriter">
-<em class="property">class </em><code class="descclassname">api.local_analytics_exporter.</code><code class="descname">UnicodeWriter</code><span class="sig-paren">(</span><em>f</em>, <em>dialect=&lt;class csv.excel&gt;</em>, <em>encoding='utf-8'</em>, <em>**kwds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#UnicodeWriter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.UnicodeWriter" title="Permalink to this definition">¶</a></dt>
-<dd><p>A CSV writer for Unicode data.</p>
-<dl class="method">
-<dt id="api.local_analytics_exporter.UnicodeWriter.writerow">
-<code class="descname">writerow</code><span class="sig-paren">(</span><em>row</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#UnicodeWriter.writerow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.UnicodeWriter.writerow" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.local_analytics_exporter.UnicodeWriter.writerows">
-<code class="descname">writerows</code><span class="sig-paren">(</span><em>rows</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#UnicodeWriter.writerows"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.UnicodeWriter.writerows" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8064,7 +8068,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 14, 19, 57, 15, 962971)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 16, 12, 45, 7, 582584)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

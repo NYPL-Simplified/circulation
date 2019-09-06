@@ -1626,28 +1626,8 @@
         <span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;genres_subquery&quot;</span><span class="p">)</span>
         <span class="n">genres_json</span> <span class="o">=</span> <span class="n">query_to_json_array</span><span class="p">(</span><span class="n">genres</span><span class="p">)</span>
 
-        <span class="c1"># If the upper limit of the target age is inclusive, we leave</span>
-        <span class="c1"># it alone. Otherwise, we subtract one to make it inclusive.</span>
-        <span class="n">upper_field</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span>
-        <span class="n">upper</span> <span class="o">=</span> <span class="n">case</span><span class="p">(</span>
-            <span class="p">[(</span><span class="n">func</span><span class="o">.</span><span class="n">upper_inc</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">),</span> <span class="n">upper_field</span><span class="p">)],</span>
-            <span class="n">else_</span><span class="o">=</span><span class="n">upper_field</span><span class="o">-</span><span class="mi">1</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;upper&#39;</span><span class="p">)</span>
-
-        <span class="c1"># If the lower limit of the target age is inclusive, we leave</span>
-        <span class="c1"># it alone. Otherwise, we add one to make it inclusive.</span>
-        <span class="n">lower_field</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span>
-        <span class="n">lower</span> <span class="o">=</span> <span class="n">case</span><span class="p">(</span>
-            <span class="p">[(</span><span class="n">func</span><span class="o">.</span><span class="n">lower_inc</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">),</span> <span class="n">lower_field</span><span class="p">)],</span>
-            <span class="n">else_</span><span class="o">=</span><span class="n">lower_field</span><span class="o">+</span><span class="mi">1</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;lower&#39;</span><span class="p">)</span>
-
-        <span class="c1"># Subquery for target age. This has to be a subquery so it can become a</span>
-        <span class="c1"># nested object in the final json.</span>
-        <span class="n">target_age</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">upper</span><span class="p">,</span> <span class="n">lower</span><span class="p">]</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">literal_column</span><span class="p">(</span><span class="n">works_alias</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">works_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">work_id</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">target_age</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">target_age_query</span><span class="p">(</span>
+            <span class="n">literal_column</span><span class="p">(</span><span class="n">works_alias</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">works_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">work_id</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s1">&#39;target_age_subquery&#39;</span><span class="p">)</span>
         <span class="n">target_age_json</span> <span class="o">=</span> <span class="n">query_to_json</span><span class="p">(</span><span class="n">target_age</span><span class="p">)</span>
 
@@ -1705,6 +1685,33 @@
         <span class="n">result</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">search_json</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Work.target_age_query"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.target_age_query">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">target_age_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">foreign_work_id_field</span><span class="p">):</span>
+        <span class="c1"># If the upper limit of the target age is inclusive, we leave</span>
+        <span class="c1"># it alone. Otherwise, we subtract one to make it inclusive.</span>
+        <span class="n">upper_field</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span>
+        <span class="n">upper</span> <span class="o">=</span> <span class="n">case</span><span class="p">(</span>
+            <span class="p">[(</span><span class="n">func</span><span class="o">.</span><span class="n">upper_inc</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">),</span> <span class="n">upper_field</span><span class="p">)],</span>
+            <span class="n">else_</span><span class="o">=</span><span class="n">upper_field</span><span class="o">-</span><span class="mi">1</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;upper&#39;</span><span class="p">)</span>
+
+        <span class="c1"># If the lower limit of the target age is inclusive, we leave</span>
+        <span class="c1"># it alone. Otherwise, we add one to make it inclusive.</span>
+        <span class="n">lower_field</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">)</span>
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">case</span><span class="p">(</span>
+            <span class="p">[(</span><span class="n">func</span><span class="o">.</span><span class="n">lower_inc</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">),</span> <span class="n">lower_field</span><span class="p">)],</span>
+            <span class="n">else_</span><span class="o">=</span><span class="n">lower_field</span><span class="o">+</span><span class="mi">1</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="s1">&#39;lower&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Subquery for target age. This has to be a subquery so it can</span>
+        <span class="c1"># become a nested object in the final json.</span>
+        <span class="n">target_age</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">upper</span><span class="p">,</span> <span class="n">lower</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">foreign_work_id_field</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">target_age</span></div>
 
 <div class="viewcode-block" id="Work.to_search_document"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.to_search_document">[docs]</a>    <span class="k">def</span> <span class="nf">to_search_document</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Generate a search document for this Work.&quot;&quot;&quot;</span>
