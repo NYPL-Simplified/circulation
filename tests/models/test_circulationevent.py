@@ -1,11 +1,16 @@
 # encoding: utf-8
 from nose.tools import (
+    assert_raises,
     eq_,
     set_trace,
 )
 import datetime
+from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
-from ...model import get_one_or_create
+from ...model import (
+    create,
+    get_one_or_create
+)
 from ...model.circulationevent import CirculationEvent
 from ...model.datasource import DataSource
 from ...model.identifier import Identifier
@@ -64,10 +69,9 @@ class TestCirculationEvent(DatabaseTest):
         old_value = self._get_int(data, 'old_value')
         new_value = self._get_int(data, 'new_value')
         delta = self._get_int(data, 'delta')
-        foreign_patron_id = data.get("foreign_patron_id")
         event, was_new = get_one_or_create(
             _db, CirculationEvent, license_pool=license_pool,
-            type=type, start=start, foreign_patron_id=foreign_patron_id,
+            type=type, start=start,
             create_method_kwargs=dict(
                 old_value=old_value,
                 new_value=new_value,
@@ -106,3 +110,51 @@ class TestCirculationEvent(DatabaseTest):
         # The creator of a circulation event is responsible for also
         # updating the dataset.
         eq_(0, event.license_pool.licenses_owned)
+
+    def test_uniqueness_constraints_no_library(self):
+        # If library is null, then license_pool + type + start must be
+        # unique.
+        pool = self._licensepool(edition=None)
+        now = datetime.datetime.utcnow()
+        kwargs = dict(
+            license_pool=pool, type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+        )
+        event = create(self._db, CirculationEvent, start=now, **kwargs)
+
+        # Different timestamp -- no problem.
+        now2 = datetime.datetime.utcnow()
+        event2 = create(self._db, CirculationEvent, start=now2, **kwargs)
+        assert event != event2
+
+        # Reuse the timestamp and you get an IntegrityError which ruins the
+        # entire transaction.
+        assert_raises(
+            IntegrityError, create, self._db, CirculationEvent, start=now,
+            **kwargs
+        )
+        self._db.rollback()
+
+    def test_uniqueness_constraints_with_library(self):
+        # If library is provided, then license_pool + library + type +
+        # start must be unique.
+        pool = self._licensepool(edition=None)
+        now = datetime.datetime.utcnow()
+        kwargs = dict(
+            license_pool=pool,
+            library=self._default_library,
+            type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+        )
+        event = create(self._db, CirculationEvent, start=now, **kwargs)
+
+        # Different timestamp -- no problem.
+        now2 = datetime.datetime.utcnow()
+        event2 = create(self._db, CirculationEvent, start=now2, **kwargs)
+        assert event != event2
+
+        # Reuse the timestamp and you get an IntegrityError which ruins the
+        # entire transaction.
+        assert_raises(
+            IntegrityError, create, self._db, CirculationEvent, start=now,
+            **kwargs
+        )
+        self._db.rollback()
