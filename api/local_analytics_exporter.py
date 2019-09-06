@@ -1,8 +1,19 @@
-import csv, codecs, cStringIO
-from StringIO import StringIO
+from nose.tools import set_trace
+import logging
+import unicodecsv as csv
+from io import BytesIO
 
-from sqlalchemy.sql import func
-from sqlalchemy.orm import lazyload
+from sqlalchemy.sql import (
+    func,
+    select,
+)
+from sqlalchemy.sql.expression import (
+    and_,
+    case,
+    literal_column,
+    join,
+    or_,
+)
 
 from core.model import (
     CirculationEvent,
@@ -15,94 +26,167 @@ from core.model import (
 )
 
 class LocalAnalyticsExporter(object):
+    """Export large numbers of analytics events in CSV format."""
+
     def export(self, _db, start, end):
 
-        query = _db.query(
-                CirculationEvent, Identifier, Work, Edition
-            ) \
-            .join(LicensePool, LicensePool.id == CirculationEvent.license_pool_id) \
-            .join(Identifier, Identifier.id == LicensePool.identifier_id) \
-            .join(Work, Work.id == LicensePool.work_id) \
-            .join(Edition, Edition.id == Work.presentation_edition_id) \
-            .filter(CirculationEvent.start >= start) \
-            .filter(CirculationEvent.start < end) \
-            .order_by(CirculationEvent.start.asc())
-        query = query \
-            .options(lazyload(Identifier.licensed_through)) \
-            .options(lazyload(Work.license_pools))
-        results = query.all()
+        # Get the results from the database.
+        query = self.analytics_query(start, end)
+        results = _db.execute(query)
 
-        work_ids = map(lambda result: result[2].id, results)
-
-        subquery = _db \
-            .query(WorkGenre.work_id, Genre.name) \
-            .join(Genre) \
-            .filter(WorkGenre.work_id.in_(work_ids)) \
-            .order_by(WorkGenre.affinity.desc()) \
-            .subquery()
-        genre_query = _db \
-            .query(subquery.c.work_id, func.string_agg(subquery.c.name, ",")) \
-            .select_from(subquery) \
-            .group_by(subquery.c.work_id)
-        genres = dict(genre_query.all())
-
+        # Write the CSV file to a BytesIO.
         header = [
             "time", "event", "identifier", "identifier_type", "title", "author",
-            "fiction", "audience", "publisher", "language", "target_age", "genres"
+            "fiction", "audience", "publisher", "imprint", "language",
+            "target_age", "genres"
         ]
+        output = BytesIO()
+        writer = csv.writer(output, encoding="utf-8")
+        writer.writerow(header)
+        writer.writerows(results)
 
-        def result_to_row(result):
-            (event, identifier, work, edition) = result
-            return [
-                str(event.start) or "",
-                event.type,
-                identifier.identifier,
-                identifier.type,
-                edition.title,
-                edition.author,
-                "fiction" if work.fiction else "nonfiction",
-                work.audience,
-                edition.publisher,
-                edition.language,
-                work.target_age_string,
-                genres.get(work.id)
-            ]
-
-        data = [header] + map(result_to_row, results)
-
-        output = StringIO()
-        writer = UnicodeWriter(output)
-        writer.writerows(data)
         return output.getvalue()
 
+    def analytics_query(self, start, end):
+        """Build a database query that fetches rows of analytics data.
 
-class UnicodeWriter:
-    """
-    A CSV writer for Unicode data.
-    """
+        This method uses low-level SQLAlchemy code to do all
+        calculations and data conversations in the database. It's
+        modeled after Work.to_search_documents, which generates a
+        large JSON document entirely in the database.
 
-    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
-        # Redirect output to a queue
-        self.queue = StringIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.stream = f
-        self.encoder = codecs.getincrementalencoder(encoding)()
+        :return: An iterator of results, each of which can be written
+            directly to a CSV file.
+        """
 
-    def writerow(self, row):
-        self.writer.writerow(
-            [s.encode("utf-8") if hasattr(s, "encode") else "" for s in row]
+        # Build the primary query. This is a query against the
+        # CirculationEvent table and a few other tables joined against
+        # it. This makes up the bulk of the data.
+        events_alias = select(
+            [
+                func.to_char(
+                    CirculationEvent.start, "YYYY-MM-DD HH24:MI:SS"
+                ).label("start"),
+                CirculationEvent.type.label("event_type"),
+                Identifier.identifier,
+                Identifier.type.label("identifier_type"),
+                Edition.sort_title,
+                Edition.sort_author,
+                case(
+                    [(Work.fiction==True, literal_column("'fiction'"))],
+                    else_=literal_column("'nonfiction'")
+                ).label("fiction"),
+                Work.id.label("work_id"),
+                Work.audience,
+                Edition.publisher,
+                Edition.imprint,
+                Edition.language,
+            ],
+        ).select_from(
+            join(
+                CirculationEvent, LicensePool,
+                CirculationEvent.license_pool_id==LicensePool.id
+            ).join(
+                Identifier,
+                LicensePool.identifier_id==Identifier.id
+            ).join(
+                Work,
+                Work.id==LicensePool.work_id
+            ).join(
+                Edition, Work.presentation_edition_id==Edition.id
+            )
+        ).where(
+            and_(
+                CirculationEvent.start >= start,
+                CirculationEvent.start < end
+            )
+        ).order_by(
+            CirculationEvent.start.asc()
+        ).alias("events_alias")
+
+        # A subquery can hook into the main query by referencing its
+        # 'work_id' field in its WHERE clause.
+        work_id_column = literal_column(
+            events_alias.name + "." + events_alias.c.work_id.name
         )
-        # Fetch UTF-8 output from the queue ...
-        data = self.queue.getvalue()
-        data = data.decode("utf-8")
-        # ... and reencode it into the target encoding
-        data = self.encoder.encode(data)
-        # write to the target stream
-        self.stream.write(data)
-        # empty queue
-        self.queue.truncate(0)
 
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
+        # This subquery gets the names of a Work's genres as a single
+        # comma-separated string.
+        #
 
+        # This Alias selects some number of rows, each containing one
+        # string column (Genre.name). Genres with higher affinities with
+        # this work go first.
+        genres_alias = select(
+            [Genre.name.label("genre_name")]
+        ).select_from(
+            join(
+                WorkGenre, Genre,
+                WorkGenre.genre_id==Genre.id
+            )
+        ).where(
+            WorkGenre.work_id==work_id_column
+        ).order_by(
+            WorkGenre.affinity.desc(), Genre.name
+        ).alias("genres_subquery")
+
+        # Use array_agg() to consolidate the rows into one row -- this
+        # gives us a single value, an array of strings, for each
+        # Work. Then use array_to_string to convert the array into a
+        # single comma-separated string.
+        genres = select(
+            [
+                func.array_to_string(
+                    func.array_agg(genres_alias.c.genre_name), ","
+                )
+            ]
+        ).select_from(genres_alias)
+
+        # This subquery gets the a Work's target age as a single string.
+        #
+
+        # This Alias selects two fields: the lower and upper bounds of
+        # the Work's target age. This reuses code originally written
+        # for Work.to_search_documents().
+        target_age = Work.target_age_query(work_id_column).alias(
+            "target_age_subquery"
+        )
+
+        # Concatenate the lower and upper bounds with a dash in the
+        # middle. If both lower and upper bound are empty, just give
+        # the empty string. This simulates the behavior of
+        # Work.target_age_string.
+        target_age_string = select([
+            case(
+                [
+                    (or_(target_age.c.lower != None,
+                         target_age.c.upper != None),
+                     func.concat(target_age.c.lower, "-", target_age.c.upper))
+                ],
+                else_=literal_column("''")
+            )
+        ]).select_from(target_age)
+
+
+        # Build the main query out of the subqueries.
+        events = events_alias.c
+        query = select(
+            [
+                events.start,
+                events.event_type,
+                events.identifier,
+                events.identifier_type,
+                events.sort_title,
+                events.sort_author,
+                events.fiction,
+                events.audience,
+                events.publisher,
+                events.imprint,
+                events.language,
+                target_age_string.label('target_age'),
+                genres.label('genres'),
+            ]
+        ).select_from(
+            events_alias
+        )
+        return query
