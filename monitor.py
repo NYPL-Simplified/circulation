@@ -18,6 +18,7 @@ from model import (
     get_one,
     get_one_or_create,
     CachedFeed,
+    CirculationEvent,
     Collection,
     CollectionMissing,
     CoverageRecord,
@@ -849,3 +850,37 @@ class CollectionReaper(ReaperMonitor):
         """
         collection.delete()
 ReaperMonitor.REGISTRY.append(CollectionReaper)
+
+
+class CirculationEventScrubber(ReaperMonitor):
+    """Scrub location information from old CirculationEvents.
+
+    Unlike the other ReaperMonitors, this class doesn't delete rows
+    from the database -- it only clears out the 'location' column for
+    such rows.
+    """
+    MODEL_CLASS = CirculationEvent
+    TIMESTAMP_FIELD = 'start'
+    MAX_AGE = datetime.timedelta(days=365)
+
+    def run_once(self, *args, **kwargs):
+        rows_scrubbed = 0
+        qu = self.query()
+        self.log.info("Scrubbing %d row(s)", qu.count())
+        for i in qu:
+            self.scrub(i)
+            rows_scrubbed += 1
+        return TimestampData(achievements="Items scrubbed: %d" % rows_scrubbed)
+
+    @property
+    def where_clause(self):
+        """To be scrubbed, rows must be old _and_ have a location."""
+        return and_(
+            super(CirculationEventScrubber, self).where_clause,
+            CirculationEvent.location != None
+        )
+
+    def scrub(self, row):
+        """Clear out a CirculationManager's location."""
+        row.location = None
+ReaperMonitor.REGISTRY.append(CirculationEventScrubber)
