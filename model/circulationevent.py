@@ -132,6 +132,9 @@ class CirculationEvent(Base):
     @classmethod
     def log(cls, _db, license_pool, event_name, old_value, new_value,
             start=None, end=None, library=None, location=None):
+        """Log a CirculationEvent to the database, assuming it
+        hasn't already been recorded.
+        """
         if new_value is None or old_value is None:
             delta = None
         else:
@@ -140,7 +143,6 @@ class CirculationEvent(Base):
             start = datetime.datetime.utcnow()
         if not end:
             end = start
-        logging.info("EVENT %s %s=>%s", event_name, old_value, new_value)
         event, was_new = get_one_or_create(
             _db, CirculationEvent, license_pool=license_pool,
             type=event_name, start=start, library=library,
@@ -152,4 +154,6 @@ class CirculationEvent(Base):
                 location=location
             )
         )
+        if was_new:
+            logging.info("EVENT %s %s=>%s", event_name, old_value, new_value)
         return event, was_new
