@@ -131,7 +131,7 @@ class CirculationEvent(Base):
 
     @classmethod
     def log(cls, _db, license_pool, event_name, old_value, new_value,
-            start=None, end=None, library=None):
+            start=None, end=None, library=None, location=None):
         if new_value is None or old_value is None:
             delta = None
         else:
@@ -148,6 +148,8 @@ class CirculationEvent(Base):
                 old_value=old_value,
                 new_value=new_value,
                 delta=delta,
-                end=end)
+                end=end,
+                location=location
             )
+        )
         return event, was_new
