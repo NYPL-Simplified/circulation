@@ -1769,7 +1769,7 @@ class TestDashboardController(AdminControllerTest):
         eq_(identifier.identifier, row[2])
         eq_(identifier.type, row[3])
         eq_(edition.title, row[4])
-        eq_(genres[0].name, row[11])
+        eq_(genres[0].name, row[12])
 
     def test_stats_patrons(self):
         with self.request_context_with_admin("/"):
