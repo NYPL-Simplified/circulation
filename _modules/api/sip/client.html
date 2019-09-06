@@ -67,6 +67,7 @@
 <span class="kn">import</span> <span class="nn">socket</span>
 <span class="kn">import</span> <span class="nn">ssl</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">api.sip.dialect</span> <span class="k">import</span> <span class="n">GenericILS</span>
 <span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
 
 <span class="c1"># SIP2 defines a large number of fields which are used in request and</span>
@@ -274,7 +275,7 @@
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_server</span><span class="p">,</span> <span class="n">target_port</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">use_ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="kc">None</span>
+                 <span class="n">use_ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">GenericILS</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initialize a client for (but do not connect to) a SIP2 server.</span>
 
@@ -318,6 +319,7 @@
             <span class="c1"># We&#39;re implicitly logged in.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">must_log_in</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">login_password</span> <span class="o">=</span> <span class="n">login_password</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dialect</span> <span class="o">=</span> <span class="n">dialect</span>
 
 <div class="viewcode-block" id="SIPClient.login"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.login">[docs]</a>    <span class="k">def</span> <span class="nf">login</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Log in to the SIP server if required.&quot;&quot;&quot;</span>
@@ -340,10 +342,13 @@
 
 <div class="viewcode-block" id="SIPClient.end_session"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.end_session">[docs]</a>    <span class="k">def</span> <span class="nf">end_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Send end session message.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_request</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">end_session_message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_session_response_parser</span><span class="p">,</span>
-            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
-        <span class="p">)</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dialect</span><span class="o">.</span><span class="n">sendEndSession</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_request</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">end_session_message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_session_response_parser</span><span class="p">,</span>
+                <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="SIPClient.connect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.SIPClient.connect">[docs]</a>    <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a socket connection to a SIP server.&quot;&quot;&quot;</span>
@@ -875,6 +880,8 @@
             <span class="n">login_password</span><span class="o">=</span><span class="n">login_password</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="n">institution_id</span>
         <span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">read_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_count</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="p">[]</span>
@@ -890,16 +897,15 @@
         <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="MockSIPClient.do_send"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.do_send">[docs]</a>    <span class="k">def</span> <span class="nf">do_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_count</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MockSIPClient.read_message"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.read_message">[docs]</a>    <span class="k">def</span> <span class="nf">read_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Read a response message off the queue.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">read_count</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
         <span class="k">return</span> <span class="n">response</span></div>
-
-<div class="viewcode-block" id="MockSIPClient.end_session"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.end_session">[docs]</a>    <span class="k">def</span> <span class="nf">end_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="MockSIPClient.disconnect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.MockSIPClient.disconnect">[docs]</a>    <span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span></div></div>

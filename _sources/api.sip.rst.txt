@@ -12,6 +12,14 @@ api.sip.client module
     :undoc-members:
     :show-inheritance:
 
+api.sip.dialect module
+----------------------
+
+.. automodule:: api.sip.dialect
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------
