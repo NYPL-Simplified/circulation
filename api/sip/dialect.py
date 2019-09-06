@@ -12,12 +12,10 @@ class Dialect:
     # Map a string to the correct class
     @staticmethod
     def load_dialect(dialect):
-        if dialect == Dialect.GENERIC_ILS:
-            return GenericILS
-        elif dialect == Dialect.AG_VERSO:
+        if dialect == Dialect.AG_VERSO:
             return AutoGraphicsVerso
         else:
-            return None
+            return GenericILS
 
 class GenericILS(Dialect):
     sendEndSession = True
