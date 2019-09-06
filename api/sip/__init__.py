@@ -10,6 +10,7 @@ from core.util.http import RemoteIntegrationException
 from core.util import MoneyUtility
 from core.model import ExternalIntegration
 import json
+from api.sip.dialect import Dialect as Sip2Dialect
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -24,6 +25,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     USE_SSL = "use_ssl"
     SSL_CERTIFICATE = "ssl_certificate"
     SSL_KEY = "ssl_key"
+    ILS = "ils"
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("Server"), "required": True },
@@ -39,6 +41,16 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
               { "key": "false", "label": _("Connect to the SIP2 server over an ordinary socket connection")},
           ],
           "default": "false",
+          "required": True,
+        },
+        { "key": ILS, "label": _("ILS"),
+          "description": _("Some ILS require specific SIP2 settings. If the ILS you are using is in the list please pick it otherwise select 'Generic ILS'."),
+          "type": "select",
+          "options": [
+              {"key": Sip2Dialect.GENERIC_ILS, "label": _("Generic ILS")},
+              {"key": Sip2Dialect.AG_VERSO, "label": _("Auto-Graphics VERSO")},
+          ],
+          "default": Sip2Dialect.GENERIC_ILS,
           "required": True,
         },
         { "key": SSL_CERTIFICATE, "label": _("SSL Certificate"),
@@ -117,6 +129,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.use_ssl = integration.setting(self.USE_SSL).json_value
         self.ssl_cert = integration.setting(self.SSL_CERTIFICATE).value
         self.ssl_key = integration.setting(self.SSL_KEY).value
+        self.dialect = Sip2Dialect.load_dialect(integration.setting(self.ILS).value)
         self.client = client
 
     def patron_information(self, username, password):
@@ -128,7 +141,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                     target_server=self.server, target_port=self.port,
                     login_user_id=self.login_user_id, login_password=self.login_password,
                     location_code=self.location_code, institution_id=self.institution_id, separator=self.field_separator,
-                    use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key
+                    use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key,
+                    dialect=self.dialect
                 )
             sip.connect()
             sip.login()
@@ -174,7 +188,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 target_server=self.server, target_port=self.port,
                 login_user_id=self.login_user_id, login_password=self.login_password,
                 location_code=self.location_code, institution_id=self.institution_id, separator=self.field_separator,
-                use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key
+                use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key,
+                dialect=self.dialect
             )
         
         connection = self.run_test(
