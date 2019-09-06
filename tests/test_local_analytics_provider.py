@@ -44,6 +44,7 @@ class TestLocalAnalyticsProvider(DatabaseTest):
         [event] = qu.all()
 
         eq_(lp, event.license_pool)
+        eq_(self._default_library, event.library)
         eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, event.type)
         eq_(now, event.start)
 

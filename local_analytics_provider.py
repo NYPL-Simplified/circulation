@@ -28,6 +28,8 @@ class LocalAnalyticsProvider(object):
             return
 
         CirculationEvent.log(
-          _db, license_pool, event_type, old_value, new_value, start=time)
+            _db, license_pool, event_type, old_value, new_value, start=time,
+            library=library
+        )
 
 Provider = LocalAnalyticsProvider
