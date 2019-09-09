@@ -235,7 +235,6 @@ class MockCirculationAPI(CirculationAPI):
             self.remotes[source] = remote
         return self.remotes[source]
 
-
 class MockSharedCollectionAPI(SharedCollectionAPI):
     def __init__(self, *args, **kwargs):
         super(MockSharedCollectionAPI, self).__init__(*args, **kwargs)
