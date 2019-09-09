@@ -79,6 +79,7 @@ from core.entrypoint import (
     EverythingEntryPoint,
     AudiobooksEntryPoint,
 )
+from core.local_analytics_provider import LocalAnalyticsProvider
 from core.model import (
     Annotation,
     CachedMARCFile,
@@ -3789,6 +3790,9 @@ class TestAnalyticsController(CirculationControllerTest):
             goal=ExternalIntegration.ANALYTICS_GOAL,
             protocol="core.local_analytics_provider",
         )
+        integration.setting(
+            LocalAnalyticsProvider.LOCATION_SOURCE
+        ).value = LocalAnalyticsProvider.LOCATION_SOURCE_NEIGHBORHOOD
         self.manager.analytics = Analytics(self._db)
 
         with self.request_context_with_library("/"):
@@ -3817,9 +3821,10 @@ class TestAnalyticsController(CirculationControllerTest):
                 eq_(None, circulation_event.location)
                 self._db.delete(circulation_event)
 
-        # If the patron has an associated neighborhood, the
-        # CirculationEvent is created with that neighborhood as its
-        # location.
+        # If the patron has an associated neighborhood, and the
+        # analytics controller is set up to use patron neighborhood as
+        # event location, then the CirculationEvent is created with
+        # that neighborhood as its location.
         patron.neighborhood = "Mars Grid 4810579"
         with self.request_context_with_library("/"):
             flask.request.patron = patron
