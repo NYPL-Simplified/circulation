@@ -547,6 +547,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # Test our heuristics for extracting postal codes from address fields.
         m = MilleniumPatronAPI.extract_postal_code
         eq_("93203", m("1 Main Street$Arvin CA 93203"))
+        eq_("93203", m("1 Main Street\nArvin CA 93203"))
         eq_("93203", m("10145 Main Street$Arvin CA 93203"))
         eq_("93203", m("10145 Main Street$Arvin CA$93203"))
         eq_("93203", m("10145-6789 Main Street$Arvin CA 93203-1234"))
