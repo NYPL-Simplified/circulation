@@ -3796,8 +3796,36 @@ class TestAnalyticsController(CirculationControllerTest):
             eq_(400, response.status_code)
             eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
 
+        # If there is no active patron, or if the patron has no
+        # associated neighborhood, the CirculationEvent is created
+        # with no location.
+        patron = self._patron()
+        for request_patron in (None, patron):
+            with self.request_context_with_library("/"):
+                flask.request.patron = request_patron
+                response = self.manager.analytics_controller.track_event(
+                    self.identifier.type, self.identifier.identifier,
+                    "open_book"
+                )
+                eq_(200, response.status_code)
+
+                circulation_event = get_one(
+                    self._db, CirculationEvent,
+                    type="open_book",
+                    license_pool=self.lp
+                )
+                eq_(None, circulation_event.location)
+                self._db.delete(circulation_event)
+
+        # If the patron has an associated neighborhood, the
+        # CirculationEvent is created with that neighborhood as its
+        # location.
+        patron.neighborhood = "Mars Grid 4810579"
         with self.request_context_with_library("/"):
-            response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "open_book")
+            flask.request.patron = patron
+            response = self.manager.analytics_controller.track_event(
+                self.identifier.type, self.identifier.identifier, "open_book"
+            )
             eq_(200, response.status_code)
 
             circulation_event = get_one(
@@ -3805,8 +3833,8 @@ class TestAnalyticsController(CirculationControllerTest):
                 type="open_book",
                 license_pool=self.lp
             )
-            assert circulation_event != None
-
+            eq_(patron.neighborhood, circulation_event.location)
+            self._db.delete(circulation_event)
 
 class TestDeviceManagementProtocolController(ControllerTest):
 

@@ -459,6 +459,65 @@ class CirculationAPI(object):
             return True
         return False
 
+    def _collect_event(self, patron, licensepool, name,
+                       include_neighborhood=False):
+        """Collect an analytics event.
+
+        :param patron: The Patron associated with the event. If this
+            is not specified, the current request's authenticated
+            patron will be used.
+        :param licensepool: The LicensePool associated with the event.
+        :param name: The name of the event.
+        :param include_neighborhood: If this is True, _and_ the
+            current request's authenticated patron is the same as the
+            patron in `patron`, _and_ the authenticated patron has
+            associated neighborhood information obtained from the ILS,
+            then that neighborhood information (but not the patron's
+            identity) will be associated with the circulation event.
+        """
+        if not self.analytics:
+            return
+
+        # It would be really useful to know which patron caused this
+        # this event -- this will help us get a library and
+        # potentially a neighborhood.
+        if flask.request:
+            request_patron = getattr(flask.request, 'patron', None)
+        else:
+            request_patron = None
+        patron = patron or request_patron
+
+        # We need to figure out which library is associated with
+        # this circulation event.
+        if patron:
+            # The library of the patron who caused the event.
+            library = patron.library
+        elif flask.request:
+            # The library associated with the current request.
+            library = flask.request.library
+        else:
+            # The library associated with the CirculationAPI itself.
+            library = self.library
+
+        neighborhood = None
+        if (include_neighborhood and flask.request
+            and request_patron and request_patron == patron):
+            neighborhood = getattr(request_patron, 'neighborhood', None)
+        return self.analytics.collect_event(
+            library, licensepool, name, neighborhood=neighborhood
+        )
+
+    def _collect_checkout_event(self, patron, licensepool):
+        """A simple wrapper around _collect_event for handling checkouts.
+
+        This is called in two different places -- one when loaning
+        licensed books and one when 'loaning' open-access books.
+        """
+        return self._collect_event(
+            patron, licensepool, CirculationEvent.CM_CHECKOUT,
+            include_neighborhood=True
+        )
+
     def borrow(self, patron, pin, licensepool, delivery_mechanism,
                hold_notification_email=None):
         """Either borrow a book or put it on hold. Don't worry about fulfilling
@@ -671,29 +730,18 @@ class CirculationAPI(object):
             hold_info.external_identifier,
         )
 
-        if hold and is_new and self.analytics:
+        if hold and is_new:
             # Send out an analytics event to record the fact that
             # a hold was initiated through the circulation
             # manager.
-            self.analytics.collect_event(
-                patron.library, licensepool,
-                CirculationEvent.CM_HOLD_PLACE,
+            self._collect_event(
+                patron, licensepool, CirculationEvent.CM_HOLD_PLACE
             )
 
         if existing_loan:
             self._db.delete(existing_loan)
         __transaction.commit()
         return None, hold, is_new
-
-    def _collect_checkout_event(self, patron, licensepool):
-        """Collect an analytics event indicating the given LicensePool
-        was checked out via the circulation manager.
-        """
-        if self.analytics:
-            self.analytics.collect_event(
-                patron.library, licensepool,
-                CirculationEvent.CM_CHECKOUT,
-            )
 
     def can_fulfill_without_loan(self, patron, pool, lpdm):
         """Can we deliver the given book in the given format to the given
@@ -794,16 +842,10 @@ class CirculationAPI(object):
         # Send out an analytics event to record the fact that
         # a fulfillment was initiated through the circulation
         # manager.
-        if self.analytics:
-            if patron:
-                library = patron.library
-            elif flask.request:
-                library = flask.request.library
-            else:
-                library = None
-            self.analytics.collect_event(
-                library, licensepool, CirculationEvent.CM_FULFILL,
-            )
+        self._collect_event(
+            patron, licensepool, CirculationEvent.CM_FULFILL,
+            include_neighborhood=True
+        )
 
         # Make sure the delivery mechanism we just used is associated
         # with the loan, if any.
@@ -880,11 +922,9 @@ class CirculationAPI(object):
             # Send out an analytics event to record the fact that
             # a loan was revoked through the circulation
             # manager.
-            if self.analytics:
-                self.analytics.collect_event(
-                    patron.library, licensepool,
-                    CirculationEvent.CM_CHECKIN,
-                )
+            self._collect_event(
+                patron, licensepool, CirculationEvent.CM_CHECKIN
+            )
 
         # Any other CannotReturn exception will be propagated upwards
         # at this point.
@@ -914,11 +954,9 @@ class CirculationAPI(object):
             # Send out an analytics event to record the fact that
             # a hold was revoked through the circulation
             # manager.
-            if self.analytics:
-                self.analytics.collect_event(
-                    patron.library, licensepool,
-                    CirculationEvent.CM_HOLD_RELEASE,
-                )
+            self._collect_event(
+                patron, licensepool, CirculationEvent.CM_HOLD_RELEASE,
+            )
 
         return True
 
