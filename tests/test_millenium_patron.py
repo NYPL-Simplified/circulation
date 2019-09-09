@@ -557,6 +557,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
         eq_(None, m("10145 Main Street Apartment 123456$Arvin CA"))
         eq_(None, m("10145 Main Street$Arvin CA"))
+        eq_(None, m("123 Main Street"))
 
         # Some cases where we incorrectly detect a ZIP code where there is none.
         eq_('12345', m("10145 Main Street, Apartment #12345$Arvin CA"))
