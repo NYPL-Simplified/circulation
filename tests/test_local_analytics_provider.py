@@ -84,3 +84,22 @@ class TestLocalAnalyticsProvider(DatabaseTest):
             "Either library or license_pool must be provided.",
             self.la.collect_event, None, None, "event", now
         )
+
+    def test_neighborhood_is_location(self):
+        # If a 'neighborhood' argument is provided, its value
+        # is used as CirculationEvent.location.
+
+        event, is_new = self.la.collect_event(
+            self._default_library, None, "event", datetime.datetime.utcnow(),
+            neighborhood="Vacant Lot"
+        )
+        eq_(True, is_new)
+        eq_("Vacant Lot", event.location)
+
+        # No neighborhood == no location.
+        event2, is_new = self.la.collect_event(
+            self._default_library, None, "event", datetime.datetime.utcnow(),
+        )
+        assert event2 != event
+        eq_(True, is_new)
+        eq_(None, event2.location)

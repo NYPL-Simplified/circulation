@@ -27,9 +27,11 @@ class LocalAnalyticsProvider(object):
         if library and self.library_id and library.id != self.library_id:
             return
 
-        CirculationEvent.log(
+        neighborhood = kwargs.pop("neighborhood", None)
+
+        return CirculationEvent.log(
             _db, license_pool, event_type, old_value, new_value, start=time,
-            library=library
+            library=library, location=neighborhood
         )
 
 Provider = LocalAnalyticsProvider
