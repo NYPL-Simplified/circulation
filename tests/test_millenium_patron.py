@@ -80,6 +80,12 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
 
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Unrecognized Millenium Patron API neighborhood mode: nope.",
+            self.mock_api, neighborhood_mode="nope"
+        )
+
     def test__remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
         patrondata = PatronData(authorization_identifier="bad barcode")
