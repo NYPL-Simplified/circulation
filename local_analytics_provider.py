@@ -9,8 +9,35 @@ class LocalAnalyticsProvider(object):
     # A given site can only have one analytics provider.
     CARDINALITY = 1
 
+    # Where to get the 'location' of an analytics event.
+    LOCATION_SOURCE = "location_source"
+
+    # The 'location' of an analytics event is the 'neighborhood' of
+    # the request's authenticated patron.
+    LOCATION_SOURCE_NEIGHBORHOOD = "neighborhood"
+
+    # Analytics events have no 'location'.
+    LOCATION_SOURCE_DISABLED = ""
+
+    SETTINGS = [
+        {
+            "key": LOCATION_SOURCE,
+            "label": _("Geographic location of events"),
+            "description": _("Local analytics events may have a geographic location associated with them. How should the location be determined?<p>Note: to use the patron's neighborhood as the event location, you must also tell your patron authentication mechanism how to <i>gather</i> a patron's neighborhood information."),
+            "default": LOCATION_SOURCE_DISABLED,
+            "type": "select",
+            "options": [
+                { "key": LOCATION_SOURCE_DISABLED, "label": _("Disable this feature.") },
+                { "key": LOCATION_SOURCE_NEIGHBORHOOD, "label": _("Use the patron's neighborhood as the event location.") },
+            ],
+        },
+    ]
+
     def __init__(self, integration, library=None):
         self.integration_id = integration.id
+        self.location_source = integration.setting(
+            self.LOCATION_SOURCE
+        ).value or self.LOCATION_SOURCE_DISABLED
         if library:
             self.library_id = library.id
         else:
@@ -27,7 +54,9 @@ class LocalAnalyticsProvider(object):
         if library and self.library_id and library.id != self.library_id:
             return
 
-        neighborhood = kwargs.pop("neighborhood", None)
+        neighborhood = None
+        if self.location_source == self.LOCATION_SOURCE_NEIGHBORHOOD:
+            neighborhood = kwargs.pop("neighborhood", None)
 
         return CirculationEvent.log(
             _db, license_pool, event_type, old_value, new_value, start=time,
