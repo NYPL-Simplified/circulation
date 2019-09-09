@@ -135,7 +135,7 @@ class TestCirculationEvent(DatabaseTest):
         eq_(-2, event.delta)  # calculated from old_value and new_value
         eq_(start, event.start)
         eq_(end, event.end)
-        eq_(location, location)
+        eq_(location, event.location)
 
         # If log finds another event with the same license pool,
         # library, event name, and start date, that event is returned
@@ -155,7 +155,7 @@ class TestCirculationEvent(DatabaseTest):
         eq_(-2, event.delta)
         eq_(start, event.start)
         eq_(end, event.end)
-        eq_(location, location)
+        eq_(location, event.location)
 
         # If no timestamp is provided, the current time is used. This
         # is the most common case, so basically a new event will be
@@ -171,7 +171,7 @@ class TestCirculationEvent(DatabaseTest):
         eq_(library, event.library)
         eq_(-2, event.delta)
         eq_(end, event.end)
-        eq_(location, location)
+        eq_(location, event.location)
 
     def test_uniqueness_constraints_no_library(self):
         # If library is null, then license_pool + type + start must be
