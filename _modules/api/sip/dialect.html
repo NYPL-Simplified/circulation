@@ -47,12 +47,10 @@
     <span class="c1"># Map a string to the correct class</span>
 <div class="viewcode-block" id="Dialect.load_dialect"><a class="viewcode-back" href="../../../api.sip.html#api.sip.dialect.Dialect.load_dialect">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">load_dialect</span><span class="p">(</span><span class="n">dialect</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">dialect</span> <span class="o">==</span> <span class="n">Dialect</span><span class="o">.</span><span class="n">GENERIC_ILS</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">GenericILS</span>
-        <span class="k">elif</span> <span class="n">dialect</span> <span class="o">==</span> <span class="n">Dialect</span><span class="o">.</span><span class="n">AG_VERSO</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dialect</span> <span class="o">==</span> <span class="n">Dialect</span><span class="o">.</span><span class="n">AG_VERSO</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">AutoGraphicsVerso</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span></div></div>
+            <span class="k">return</span> <span class="n">GenericILS</span></div></div>
 
 <div class="viewcode-block" id="GenericILS"><a class="viewcode-back" href="../../../api.sip.html#api.sip.dialect.GenericILS">[docs]</a><span class="k">class</span> <span class="nc">GenericILS</span><span class="p">(</span><span class="n">Dialect</span><span class="p">):</span>
     <span class="n">sendEndSession</span> <span class="o">=</span> <span class="kc">True</span></div>
