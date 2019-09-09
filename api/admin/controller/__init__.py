@@ -1243,7 +1243,6 @@ class DashboardController(AdminCirculationManagerController):
         events = map(lambda result: {
             "id": result.id,
             "type": result.type,
-            "patron_id": result.foreign_patron_id,
             "time": result.start,
             "book": {
                 "title": result.license_pool.work.title,
