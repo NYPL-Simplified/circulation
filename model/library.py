@@ -7,6 +7,7 @@ from . import (
     get_one,
 )
 from ..config import Configuration
+from circulationevent import CirculationEvent
 from edition import Edition
 from ..entrypoint import EntryPoint
 from ..facets import FacetConstants
@@ -105,6 +106,12 @@ class Library(Base, HasFullTableCache):
     settings = relationship(
         "ConfigurationSetting", backref="library",
         lazy="joined", cascade="all, delete-orphan",
+    )
+
+    # A Library may have many CirculationEvents
+    circulation_events = relationship(
+        "CirculationEvent", backref="library",
+        cascade='all, delete-orphan'
     )
 
     _cache = HasFullTableCache.RESET

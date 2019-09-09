@@ -17,8 +17,10 @@ from ..testing import (
 from ..metadata_layer import TimestampData
 
 from ..model import (
+    create,
     get_one,
     CachedFeed,
+    CirculationEvent,
     Subject,
     Collection,
     CollectionMissing,
@@ -35,6 +37,7 @@ from ..model import (
 
 from ..monitor import (
     CachedFeedReaper,
+    CirculationEventScrubber,
     CollectionMonitor,
     CollectionReaper,
     CoverageProvidersFailed,
@@ -1020,3 +1023,45 @@ class TestCollectionReaper(DatabaseTest):
         # one is unaffected.
         eq_([c1], self._db.query(Collection).all())
         eq_("Items deleted: 1", result.achievements)
+
+
+class TestCirculationEventScrubber(DatabaseTest):
+
+    def test_run_once(self):
+        # CirculationEvents are only scrubbed if they have a location
+        # *and* are older than MAX_AGE.
+        now = datetime.datetime.utcnow()
+        not_long_ago = (
+            now - CirculationEventScrubber.MAX_AGE + datetime.timedelta(days=1)
+        )
+        long_ago = (
+            now - CirculationEventScrubber.MAX_AGE - datetime.timedelta(days=1)
+        )
+
+        new, ignore = create(
+            self._db, CirculationEvent, start=now, location="loc"
+        )
+        recent, ignore = create(
+            self._db, CirculationEvent, start=not_long_ago, location="loc"
+        )
+        old, ignore = create(
+            self._db, CirculationEvent, start=long_ago, location="loc"
+        )
+        already_scrubbed, ignore = create(
+            self._db, CirculationEvent, start=long_ago, location=None
+        )
+
+        # Only the old unscrubbed CirculationEvent is eligible
+        # to be scrubbed.
+        m = CirculationEventScrubber(self._db)
+        eq_([old], m.query().all())
+
+        # Other reapers say items were 'deleted'; we say they were
+        # 'scrubbed'.
+        timestamp = m.run_once()
+        eq_("Items scrubbed: 1", timestamp.achievements)
+
+        # Only the old unscrubbed CirculationEvent has been scrubbed.
+        eq_(None, old.location)
+        for untouched in (new, recent):
+            eq_("loc", untouched.location)

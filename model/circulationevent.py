@@ -16,7 +16,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    UniqueConstraint,
+    Unicode,
 )
 
 class CirculationEvent(Base):
@@ -42,12 +42,54 @@ class CirculationEvent(Base):
     old_value = Column(Integer)
     delta = Column(Integer)
     new_value = Column(Integer)
-    foreign_patron_id = Column(String)
 
-    # A given license pool can only have one event of a given type for
-    # a given patron at a given time.
-    __table_args__ = (UniqueConstraint('license_pool_id', 'type', 'start',
-                                       'foreign_patron_id'),)
+    # The Library associated with the event, if it happened in the
+    # context of a particular Library and we know which one.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'),
+        index=True, nullable=True
+    )
+
+    # The geographic location associated with the event. This string
+    # may mean different things for different libraries. It might be a
+    # measurement of latitude and longitude, or it might be taken from
+    # a controlled vocabulary -- a list of library branch codes, for
+    # instance.
+    location = Column(Unicode, index=True)
+
+    __table_args__ = (
+        # Make it easy to list circulation events in descending
+        # order. This is used in the admin interface to show recent
+        # events.
+        #
+        # TODO: Maybe there should also be an index that takes
+        # library_id into account, for per-library event lists.
+        Index(
+            "ix_circulationevents_start_desc_nullslast",
+            start.desc().nullslast()
+        ),
+
+        # License pool ID + library ID + type + start must be unique.
+        Index(
+            "ix_circulationevents_license_pool_library_type_start",
+            license_pool_id,
+            library_id,
+            type,
+            start,
+            unique=True
+        ),
+
+        # However, library_id may be null. If this is so, then license pool ID
+        # + type + start must be unique.
+        Index(
+            "ix_circulationevents_license_pool_type_start",
+            license_pool_id,
+            type,
+            start,
+            unique=True,
+            postgresql_where=(library_id==None)
+        ),
+    )
 
     # Constants for use in logging circulation events to JSON
     SOURCE = u"source"
@@ -89,7 +131,10 @@ class CirculationEvent(Base):
 
     @classmethod
     def log(cls, _db, license_pool, event_name, old_value, new_value,
-            start=None, end=None, foreign_patron_id=None):
+            start=None, end=None, library=None, location=None):
+        """Log a CirculationEvent to the database, assuming it
+        hasn't already been recorded.
+        """
         if new_value is None or old_value is None:
             delta = None
         else:
@@ -98,17 +143,17 @@ class CirculationEvent(Base):
             start = datetime.datetime.utcnow()
         if not end:
             end = start
-        logging.info("EVENT %s %s=>%s", event_name, old_value, new_value)
         event, was_new = get_one_or_create(
             _db, CirculationEvent, license_pool=license_pool,
-            type=event_name, start=start, foreign_patron_id=foreign_patron_id,
+            type=event_name, start=start, library=library,
             create_method_kwargs=dict(
                 old_value=old_value,
                 new_value=new_value,
                 delta=delta,
-                end=end)
+                end=end,
+                location=location
             )
+        )
+        if was_new:
+            logging.info("EVENT %s %s=>%s", event_name, old_value, new_value)
         return event, was_new
-
-
-Index("ix_circulationevents_start_desc_nullslast", CirculationEvent.start.desc().nullslast())
