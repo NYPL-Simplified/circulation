@@ -365,6 +365,12 @@ class PatronData(object):
         if patron:
             self.apply(patron)
         __transaction.commit()
+
+        # Set patron.neighborhood so it can be accessed during request processing.
+        # This is not part of the database code above because this information is
+        # not stored in the database.
+        patron.neighborhood = self.neighborhood
+
         return patron, is_new
 
     @property
@@ -1890,6 +1896,13 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         are updated.
         """
         patrondata.apply(patron)
+
+        # The Patron model does not store .neighborhood, so this won't
+        # write to the database, but this will make any neighborhood
+        # information available through the course of the active
+        # request -- through flask.request.patron.neighborhood.
+        patron.neighborhood = patrondata.neighborhood
+
         if self.external_type_regular_expression:
             self.update_patron_external_type(patron)
 

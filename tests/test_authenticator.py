@@ -405,6 +405,13 @@ class TestPatronData(AuthenticatorTest):
         eq_(CirculationEvent.NEW_PATRON, analytics.event_type)
         eq_(1, analytics.count)
 
+        # Patron.neighborhood was set, even though there is no
+        # value and that's not a database field.
+        eq_(None, patron.neighborhood)
+
+        # Set a neighborhood and try again.
+        self.data.neighborhood = "Achewood"
+
         # The same patron is returned, and no analytics
         # event was sent.
         patron, is_new = self.data.get_or_create_patron(
@@ -412,6 +419,7 @@ class TestPatronData(AuthenticatorTest):
         )
         eq_('2', patron.authorization_identifier)
         eq_(False, is_new)
+        eq_("Achewood", patron.neighborhood)
         eq_(1, analytics.count)
 
     def test_to_response_parameters(self):
@@ -958,7 +966,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         patrondata = PatronData(
             permanent_id=patron.external_identifier,
             authorization_identifier=patron.authorization_identifier,
-            username=patron.username
+            username=patron.username, neighborhood="Achewood"
         )
         integration = self._external_integration(self._str)
         basic = MockBasicAuthenticationProvider(
@@ -976,6 +984,12 @@ class TestLibraryAuthenticator(AuthenticatorTest):
                 self._db, dict(username="foo", password="bar")
             )
         )
+
+        # Neighborhood information is being temporarily stored in the
+        # Patron object for use elsewhere in request processing. It
+        # won't be written to the database because there's no field in
+        # `patrons` to store it.
+        eq_("Achewood", patron.neighborhood)
 
         # OAuth doesn't work.
         problem = authenticator.authenticated_patron(
