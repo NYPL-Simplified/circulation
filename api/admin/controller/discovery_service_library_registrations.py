@@ -41,7 +41,7 @@ class DiscoveryServiceLibraryRegistrationsController(SettingsController):
         else:
             return self.process_post(registration_class, do_get, do_post)
 
-    def process_get(self):
+    def process_get(self, do_get=HTTP.debuggable_get):
         """Make a list of all discovery services, each with the
         list of libraries registered with that service and the
         status of the registration."""
@@ -50,6 +50,9 @@ class DiscoveryServiceLibraryRegistrationsController(SettingsController):
         for registry in RemoteRegistry.for_protocol_and_goal(
                 self._db, ExternalIntegration.OPDS_REGISTRATION, self.goal
         ):
+            access_problem, terms_of_service_link, terms_of_service_html = (
+                registry.fetch_registration_document(do_get=do_get)
+            )
             libraries = []
             for registration in registry.registrations:
                 library_info = self.get_library_info(registration)
@@ -59,6 +62,9 @@ class DiscoveryServiceLibraryRegistrationsController(SettingsController):
             services.append(
                 dict(
                     id=registry.integration.id,
+                    access_problem=access_problem,
+                    terms_of_service_link=terms_of_service_link,
+                    terms_of_service_html=terms_of_service_html,
                     libraries=libraries,
                 )
             )
