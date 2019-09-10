@@ -24,6 +24,9 @@ class TestLibraryRegistration(SettingsControllerTest):
     """Test the process of registering a library with a RemoteRegistry."""
 
     def test_discovery_service_library_registrations_get(self):
+        # TODO: GET now makes HTTP requests. It needs to take a mock
+        # do_get and we need to test various scenarios where it gets
+        # or doesn't get various things.
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.OPDS_REGISTRATION,
