@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
+import json
 from api.admin.problem_details import *
 from api.registry import (
     RemoteRegistry,
@@ -37,7 +38,7 @@ class DiscoveryServiceLibraryRegistrationsController(SettingsController):
         registration_class = registration_class or Registration
         self.require_system_admin()
         if flask.request.method == 'GET':
-            return self.process_get()
+            return self.process_get(do_get)
         else:
             return self.process_post(registration_class, do_get, do_post)
 
@@ -50,9 +51,20 @@ class DiscoveryServiceLibraryRegistrationsController(SettingsController):
         for registry in RemoteRegistry.for_protocol_and_goal(
                 self._db, ExternalIntegration.OPDS_REGISTRATION, self.goal
         ):
-            access_problem, terms_of_service_link, terms_of_service_html = (
+            result = (
                 registry.fetch_registration_document(do_get=do_get)
             )
+            if isinstance(result, ProblemDetail):
+                # Unlike most cases like this, a ProblemDetail doesn't
+                # mean the whole request is ruined -- just that one of
+                # the discovery services isn't working. Turn the
+                # ProblemDetail into a JSON object and return it for
+                # handling on the client side.
+                access_problem = json.loads(result.response[0])
+                terms_of_service_link = terms_of_service_html = None
+            else:
+                access_problem = None
+                terms_of_service_link, terms_of_service_html = result
             libraries = []
             for registration in registry.registrations:
                 library_info = self.get_library_info(registration)
