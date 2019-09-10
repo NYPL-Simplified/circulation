@@ -102,8 +102,8 @@ class RemoteRegistry(object):
         """Fetch the root catalog for this RemoteRegistry.
 
         :return: A ProblemDetail if there's a problem communicating
-        with the service or parsing the catalog; otherwise a 2-tuple
-        (registration URL, Adobe vendor ID).
+            with the service or parsing the catalog; otherwise a 2-tuple
+            (registration URL, Adobe vendor ID).
         """
         catalog_url = catalog_url or self.integration.url
         response = do_get(catalog_url)
@@ -133,8 +133,8 @@ class RemoteRegistry(object):
         :param response: A requests-style Response object.
 
         :return A ProblemDetail if there's a problem accessing the
-        catalog; otherwise a 2-tuple (registration URL, Adobe vendor
-        ID).
+            catalog; otherwise a 2-tuple (registration URL, Adobe vendor
+            ID).
         """
         result = cls._extract_links(response)
         if isinstance(result, ProblemDetail):
