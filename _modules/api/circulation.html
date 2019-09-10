@@ -494,6 +494,65 @@
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span></div>
 
+    <span class="k">def</span> <span class="nf">_collect_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span>
+                       <span class="n">include_neighborhood</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Collect an analytics event.</span>
+
+<span class="sd">        :param patron: The Patron associated with the event. If this</span>
+<span class="sd">            is not specified, the current request&#39;s authenticated</span>
+<span class="sd">            patron will be used.</span>
+<span class="sd">        :param licensepool: The LicensePool associated with the event.</span>
+<span class="sd">        :param name: The name of the event.</span>
+<span class="sd">        :param include_neighborhood: If this is True, _and_ the</span>
+<span class="sd">            current request&#39;s authenticated patron is the same as the</span>
+<span class="sd">            patron in `patron`, _and_ the authenticated patron has</span>
+<span class="sd">            associated neighborhood information obtained from the ILS,</span>
+<span class="sd">            then that neighborhood information (but not the patron&#39;s</span>
+<span class="sd">            identity) will be associated with the circulation event.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># It would be really useful to know which patron caused this</span>
+        <span class="c1"># this event -- this will help us get a library and</span>
+        <span class="c1"># potentially a neighborhood.</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">:</span>
+            <span class="n">request_patron</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">request_patron</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">patron</span> <span class="o">=</span> <span class="n">patron</span> <span class="ow">or</span> <span class="n">request_patron</span>
+
+        <span class="c1"># We need to figure out which library is associated with</span>
+        <span class="c1"># this circulation event.</span>
+        <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
+            <span class="c1"># The library of the patron who caused the event.</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span>
+        <span class="k">elif</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">:</span>
+            <span class="c1"># The library associated with the current request.</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The library associated with the CirculationAPI itself.</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span>
+
+        <span class="n">neighborhood</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">include_neighborhood</span> <span class="ow">and</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span>
+            <span class="ow">and</span> <span class="n">request_patron</span> <span class="ow">and</span> <span class="n">request_patron</span> <span class="o">==</span> <span class="n">patron</span><span class="p">):</span>
+            <span class="n">neighborhood</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">request_patron</span><span class="p">,</span> <span class="s1">&#39;neighborhood&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
+            <span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">neighborhood</span><span class="o">=</span><span class="n">neighborhood</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_collect_checkout_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A simple wrapper around _collect_event for handling checkouts.</span>
+
+<span class="sd">        This is called in two different places -- one when loaning</span>
+<span class="sd">        licensed books and one when &#39;loaning&#39; open-access books.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_event</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_CHECKOUT</span><span class="p">,</span>
+            <span class="n">include_neighborhood</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
 <div class="viewcode-block" id="CirculationAPI.borrow"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.borrow">[docs]</a>    <span class="k">def</span> <span class="nf">borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">,</span>
                <span class="n">hold_notification_email</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Either borrow a book or put it on hold. Don&#39;t worry about fulfilling</span>
@@ -706,29 +765,18 @@
             <span class="n">hold_info</span><span class="o">.</span><span class="n">external_identifier</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">hold</span> <span class="ow">and</span> <span class="n">is_new</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">hold</span> <span class="ow">and</span> <span class="n">is_new</span><span class="p">:</span>
             <span class="c1"># Send out an analytics event to record the fact that</span>
             <span class="c1"># a hold was initiated through the circulation</span>
             <span class="c1"># manager.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
-                <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
-                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_HOLD_PLACE</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_collect_event</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_HOLD_PLACE</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">existing_loan</span><span class="p">)</span>
         <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">hold</span><span class="p">,</span> <span class="n">is_new</span></div>
-
-    <span class="k">def</span> <span class="nf">_collect_checkout_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Collect an analytics event indicating the given LicensePool</span>
-<span class="sd">        was checked out via the circulation manager.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
-                <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
-                <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_CHECKOUT</span><span class="p">,</span>
-            <span class="p">)</span>
 
 <div class="viewcode-block" id="CirculationAPI.can_fulfill_without_loan"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.can_fulfill_without_loan">[docs]</a>    <span class="k">def</span> <span class="nf">can_fulfill_without_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">lpdm</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Can we deliver the given book in the given format to the given</span>
@@ -829,16 +877,10 @@
         <span class="c1"># Send out an analytics event to record the fact that</span>
         <span class="c1"># a fulfillment was initiated through the circulation</span>
         <span class="c1"># manager.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
-                <span class="n">library</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span>
-            <span class="k">elif</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">:</span>
-                <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
-                <span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_FULFILL</span><span class="p">,</span>
-            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_collect_event</span><span class="p">(</span>
+            <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_FULFILL</span><span class="p">,</span>
+            <span class="n">include_neighborhood</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
 
         <span class="c1"># Make sure the delivery mechanism we just used is associated</span>
         <span class="c1"># with the loan, if any.</span>
@@ -915,11 +957,9 @@
             <span class="c1"># Send out an analytics event to record the fact that</span>
             <span class="c1"># a loan was revoked through the circulation</span>
             <span class="c1"># manager.</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
-                    <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
-                    <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_CHECKIN</span><span class="p">,</span>
-                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_collect_event</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_CHECKIN</span>
+            <span class="p">)</span>
 
         <span class="c1"># Any other CannotReturn exception will be propagated upwards</span>
         <span class="c1"># at this point.</span>
@@ -949,11 +989,9 @@
             <span class="c1"># Send out an analytics event to record the fact that</span>
             <span class="c1"># a hold was revoked through the circulation</span>
             <span class="c1"># manager.</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span><span class="o">.</span><span class="n">collect_event</span><span class="p">(</span>
-                    <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
-                    <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_HOLD_RELEASE</span><span class="p">,</span>
-                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_collect_event</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CM_HOLD_RELEASE</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="kc">True</span></div>
 

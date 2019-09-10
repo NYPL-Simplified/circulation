@@ -44,8 +44,35 @@
     <span class="c1"># A given site can only have one analytics provider.</span>
     <span class="n">CARDINALITY</span> <span class="o">=</span> <span class="mi">1</span>
 
+    <span class="c1"># Where to get the &#39;location&#39; of an analytics event.</span>
+    <span class="n">LOCATION_SOURCE</span> <span class="o">=</span> <span class="s2">&quot;location_source&quot;</span>
+
+    <span class="c1"># The &#39;location&#39; of an analytics event is the &#39;neighborhood&#39; of</span>
+    <span class="c1"># the request&#39;s authenticated patron.</span>
+    <span class="n">LOCATION_SOURCE_NEIGHBORHOOD</span> <span class="o">=</span> <span class="s2">&quot;neighborhood&quot;</span>
+
+    <span class="c1"># Analytics events have no &#39;location&#39;.</span>
+    <span class="n">LOCATION_SOURCE_DISABLED</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOCATION_SOURCE</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Geographic location of events&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Local analytics events may have a geographic location associated with them. How should the location be determined?&lt;p&gt;Note: to use the patron&#39;s neighborhood as the event location, you must also tell your patron authentication mechanism how to &lt;i&gt;gather&lt;/i&gt; a patron&#39;s neighborhood information.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">LOCATION_SOURCE_DISABLED</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOCATION_SOURCE_DISABLED</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Disable this feature.&quot;</span><span class="p">)</span> <span class="p">},</span>
+                <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">LOCATION_SOURCE_NEIGHBORHOOD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Use the patron&#39;s neighborhood as the event location.&quot;</span><span class="p">)</span> <span class="p">},</span>
+            <span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">integration_id</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">location_source</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">LOCATION_SOURCE</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">LOCATION_SOURCE_DISABLED</span>
         <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span>
         <span class="k">else</span><span class="p">:</span>
@@ -62,9 +89,13 @@
         <span class="k">if</span> <span class="n">library</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span> <span class="ow">and</span> <span class="n">library</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">:</span>
             <span class="k">return</span>
 
-        <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+        <span class="n">neighborhood</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">location_source</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">LOCATION_SOURCE_NEIGHBORHOOD</span><span class="p">:</span>
+            <span class="n">neighborhood</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;neighborhood&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">old_value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
-            <span class="n">library</span><span class="o">=</span><span class="n">library</span>
+            <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="n">neighborhood</span>
         <span class="p">)</span></div></div>
 
 <span class="n">Provider</span> <span class="o">=</span> <span class="n">LocalAnalyticsProvider</span>

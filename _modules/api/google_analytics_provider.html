@@ -102,6 +102,11 @@
 
 
 <div class="viewcode-block" id="GoogleAnalyticsProvider.collect_event"><a class="viewcode-back" href="../../api.html#api.google_analytics_provider.GoogleAnalyticsProvider.collect_event">[docs]</a>    <span class="k">def</span> <span class="nf">collect_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="c1"># Explicitly destroy any neighborhood information -- we don&#39;t</span>
+        <span class="c1"># want to send this to third-party sources.</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;neighborhood&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
         <span class="n">client_id</span> <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span>
         <span class="n">fields</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
