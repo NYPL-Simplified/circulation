@@ -120,6 +120,7 @@ class PatronData(object):
                  fines=None,
                  block_reason=None,
                  library_identifier=None,
+                 neighborhood=None,
                  complete=True,
     ):
         """Store basic information about a patron.
@@ -177,11 +178,19 @@ class PatronData(object):
         :param library_identifier: A string pulled from the ILS that
         is used to determine if this user belongs to the current library.
 
+        :param neighborhood: A string pulled from the ILS that
+        identifies the patron's geographic location in a deliberately
+        imprecise way that makes sense to the library -- maybe the
+        patron's ZIP code or the name of their home branch. This data
+        is never stored in a way that can be associated with an
+        individual patron. Depending on library policy, this data may
+        be associated with circulation events -- but a circulation
+        event is not associated with the patron who triggered it.
+
         :param complete: Does this PatronData represent the most
         complete data we are likely to get for this patron from this
         data source, or is it an abbreviated version of more complete
         data we could get some other way?
-
         """
         self.permanent_id = permanent_id
 
@@ -201,6 +210,11 @@ class PatronData(object):
         # We do not store email address in the database, but we need
         # to have it available for notifications.
         self.email_address = email_address
+
+        # We do not store the patron's neighborhood in the database
+        # record, but we may need it to store in the database records
+        # for circulation events triggered by this patron.
+        self.neighborhood = neighborhood
 
     def __repr__(self):
         return "<PatronData permanent_id=%r authorization_identifier=%r username=%r>" % (
@@ -351,6 +365,12 @@ class PatronData(object):
         if patron:
             self.apply(patron)
         __transaction.commit()
+
+        # Set patron.neighborhood so it can be accessed during request processing.
+        # This is not part of the database code above because this information is
+        # not stored in the database.
+        patron.neighborhood = self.neighborhood
+
         return patron, is_new
 
     @property
@@ -1876,6 +1896,13 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         are updated.
         """
         patrondata.apply(patron)
+
+        # The Patron model does not store .neighborhood, so this won't
+        # write to the database, but this will make any neighborhood
+        # information available through the course of the active
+        # request -- through flask.request.patron.neighborhood.
+        patron.neighborhood = patrondata.neighborhood
+
         if self.external_type_regular_expression:
             self.update_patron_external_type(patron)
 

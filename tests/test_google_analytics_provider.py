@@ -85,7 +85,16 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         work.target_age = NumericRange(10, 15)
         [lp] = work.license_pools
         now = datetime.datetime.utcnow()
-        ga.collect_event(self._default_library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
+        ga.collect_event(
+            self._default_library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now,
+            neighborhood="Neighborhood will not be sent"
+        )
+
+        # Neighborhood information is not being sent -- that's for
+        # local consumption only.
+        assert 'Neighborhood' not in ga.params
+
+        # Let's take a look at what _is_ being sent.
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)
