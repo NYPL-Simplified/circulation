@@ -1704,7 +1704,7 @@ oauth_authentication_callback.</p>
 
 <dl class="class">
 <dt id="api.authenticator.PatronData">
-<em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">PatronData</code><span class="sig-paren">(</span><em>permanent_id=None</em>, <em>authorization_identifier=None</em>, <em>username=None</em>, <em>personal_name=None</em>, <em>email_address=None</em>, <em>authorization_expires=None</em>, <em>external_type=None</em>, <em>fines=None</em>, <em>block_reason=None</em>, <em>library_identifier=None</em>, <em>complete=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#PatronData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.PatronData" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.authenticator.</code><code class="descname">PatronData</code><span class="sig-paren">(</span><em>permanent_id=None</em>, <em>authorization_identifier=None</em>, <em>username=None</em>, <em>personal_name=None</em>, <em>email_address=None</em>, <em>authorization_expires=None</em>, <em>external_type=None</em>, <em>fines=None</em>, <em>block_reason=None</em>, <em>library_identifier=None</em>, <em>neighborhood=None</em>, <em>complete=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/authenticator.html#PatronData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.authenticator.PatronData" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A container for basic information about a patron.</p>
 <p>Like Metadata and CirculationData, this offers a layer of
@@ -3265,12 +3265,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41f5360&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4163180&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3ec0ee0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x42feee0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3285,7 +3285,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x41c5e70&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x476c4a0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7870,6 +7870,11 @@ Work, the client has expressed interest in this one.</td>
 <em class="property">class </em><code class="descclassname">api.millenium_patron.</code><code class="descname">MilleniumPatronAPI</code><span class="sig-paren">(</span><em>library</em>, <em>integration</em>, <em>analytics=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/millenium_patron.html#MilleniumPatronAPI"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.authenticator.BasicAuthenticationProvider" title="api.authenticator.BasicAuthenticationProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.authenticator.BasicAuthenticationProvider</span></code></a>, <a class="reference internal" href="core.util.html#core.util.xmlparser.XMLParser" title="core.util.xmlparser.XMLParser"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.xmlparser.XMLParser</span></code></a></p>
 <dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.ADDRESS_FIELD">
+<code class="descname">ADDRESS_FIELD</code><em class="property"> = 'ADDRESS[pa]'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.ADDRESS_FIELD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.AUTHENTICATION_MODE">
 <code class="descname">AUTHENTICATION_MODE</code><em class="property"> = 'auth_mode'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.AUTHENTICATION_MODE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -7930,6 +7935,16 @@ Work, the client has expressed interest in this one.</td>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.HOME_BRANCH_FIELD">
+<code class="descname">HOME_BRANCH_FIELD</code><em class="property"> = 'HOME LIBR[p53]'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.HOME_BRANCH_FIELD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.HOME_BRANCH_NEIGHBORHOOD_MODE">
+<code class="descname">HOME_BRANCH_NEIGHBORHOOD_MODE</code><em class="property"> = 'home_branch'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.HOME_BRANCH_NEIGHBORHOOD_MODE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.IDENTIFIER_BLACKLIST">
 <code class="descname">IDENTIFIER_BLACKLIST</code><em class="property"> = 'identifier_blacklist'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.IDENTIFIER_BLACKLIST" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -7950,6 +7965,21 @@ Work, the client has expressed interest in this one.</td>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.NEIGHBORHOOD_MODE">
+<code class="descname">NEIGHBORHOOD_MODE</code><em class="property"> = 'neighborhood_mode'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.NEIGHBORHOOD_MODE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.NEIGHBORHOOD_MODES">
+<code class="descname">NEIGHBORHOOD_MODES</code><em class="property"> = set(['disabled', 'home_branch', 'postal_code'])</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.NEIGHBORHOOD_MODES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.NO_NEIGHBORHOOD_MODE">
+<code class="descname">NO_NEIGHBORHOOD_MODE</code><em class="property"> = 'disabled'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.NO_NEIGHBORHOOD_MODE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.PATRON_TYPE_FIELD">
 <code class="descname">PATRON_TYPE_FIELD</code><em class="property"> = 'P TYPE[p47]'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.PATRON_TYPE_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -7965,13 +7995,23 @@ Work, the client has expressed interest in this one.</td>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.POSTAL_CODE_NEIGHBORHOOD_MODE">
+<code class="descname">POSTAL_CODE_NEIGHBORHOOD_MODE</code><em class="property"> = 'postal_code'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.POSTAL_CODE_NEIGHBORHOOD_MODE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.POSTAL_CODE_RES">
+<code class="descname">POSTAL_CODE_RES</code><em class="property"> = [&lt;_sre.SRE_Pattern object&gt;, &lt;_sre.SRE_Pattern object&gt;, &lt;_sre.SRE_Pattern object&gt;, &lt;_sre.SRE_Pattern object&gt;]</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.POSTAL_CODE_RES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.RECORD_NUMBER_FIELD">
 <code class="descname">RECORD_NUMBER_FIELD</code><em class="property"> = 'RECORD #[p81]'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.RECORD_NUMBER_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MilleniumPatronAPI.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'label': l'URL', 'key': u'url', 'format': 'url'}, {'default': 'true', 'type': 'select', 'options': [{'key': 'true', 'label': l'Verify Certificate Normally (Required for production)'}, {'key': 'false', 'label': l'Ignore Certificate Problems (For temporary testing only)'}], 'key': 'verify_certificate', 'label': l'Certificate Verification'}, {'description': l'Values of MBLOCK[p56] which mean a patron is blocked. By default, any value other than '-' indicates a block.', 'key': 'block_types', 'label': l'Block types'}, {'type': 'list', 'description': l'Identifiers containing any of these strings are ignored when finding the 'correct' identifier for a patron's record, even if it means they end up with no identifier at all. If librarians invalidate library cards by adding strings like &quot;EXPIRED&quot; or &quot;INVALID&quot; on to the beginning of the card number, put those strings here so the Circulation Manager knows they do not represent real card numbers.', 'key': 'identifier_blacklist', 'label': l'Identifier Blacklist'}, {'default': 'pin', 'type': 'select', 'options': [{'key': 'pin', 'label': l'PIN'}, {'key': 'family_name', 'label': l'Family Name'}], 'key': 'auth_mode', 'label': l'Authentication Mode'}, {'required': True, 'description': l'A valid identifier that can be used to test that patron authentication is working.', 'key': 'test_identifier', 'label': l'Test Identifier'}, {'description': l'The password for the test identifier.', 'key': 'test_password', 'label': l'Test Password'}, {'description': l'Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers.', 'default': '', 'required': True, 'label': l'Patron identifier barcode format', 'key': 'identifier_barcode_format', 'type': 'select', 'options': [{'key': 'Codabar', 'label': l'Patron identifiers are are rendered as barcodes in Codabar format'}, {'key': '', 'label': l'Patron identifiers are not rendered as barcodes'}]}, {'description': l'A patron's identifier will be immediately rejected if it doesn't match this regular expression.', 'key': u'identifier_regular_expression', 'label': l'Identifier Regular Expression'}, {'description': l'A patron's password will be immediately rejected if it doesn't match this regular expression.', 'key': u'password_regular_expression', 'label': l'Password Regular Expression'}, {'default': u'Default', 'required': True, 'label': l'Keyboard for identifier entry', 'key': u'identifier_keyboard', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Email address', 'label': l'Email address entry'}, {'key': u'Number pad', 'label': l'Number pad'}]}, {'default': u'Default', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Number pad', 'label': l'Number pad'}, {'key': u'No input', 'label': l'Patrons have no password and should not be prompted for one.'}], 'key': u'password_keyboard', 'label': l'Keyboard for password entry'}, {'type': 'number', 'key': u'identifier_maximum_length', 'label': l'Maximum identifier length'}, {'type': 'number', 'key': u'password_maximum_length', 'label': l'Maximum password length'}, {'key': u'identifier_label', 'label': l'Label for identifier entry'}, {'key': u'password_label', 'label': l'Label for password entry'}]</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'label': l'URL', 'key': u'url', 'format': 'url'}, {'default': 'true', 'type': 'select', 'options': [{'key': 'true', 'label': l'Verify Certificate Normally (Required for production)'}, {'key': 'false', 'label': l'Ignore Certificate Problems (For temporary testing only)'}], 'key': 'verify_certificate', 'label': l'Certificate Verification'}, {'description': l'Values of MBLOCK[p56] which mean a patron is blocked. By default, any value other than '-' indicates a block.', 'key': 'block_types', 'label': l'Block types'}, {'type': 'list', 'description': l'Identifiers containing any of these strings are ignored when finding the 'correct' identifier for a patron's record, even if it means they end up with no identifier at all. If librarians invalidate library cards by adding strings like &quot;EXPIRED&quot; or &quot;INVALID&quot; on to the beginning of the card number, put those strings here so the Circulation Manager knows they do not represent real card numbers.', 'key': 'identifier_blacklist', 'label': l'Identifier Blacklist'}, {'default': 'pin', 'type': 'select', 'options': [{'key': 'pin', 'label': l'PIN'}, {'key': 'family_name', 'label': l'Family Name'}], 'key': 'auth_mode', 'label': l'Authentication Mode'}, {'description': l'It's sometimes possible to guess a patron's neighborhood from their ILS record. You can use this when analyzing circulation activity by neighborhood. If you don't need to do this, it's better for patron privacy to disable this feature.', 'default': 'disabled', 'label': l'Patron neighborhood field', 'key': 'neighborhood_mode', 'type': 'select', 'options': [{'key': 'disabled', 'label': l'Disable this feature'}, {'key': 'home_branch', 'label': l'Patron's home library branch is their neighborhood.'}, {'key': 'postal_code', 'label': l'Patron's postal code is their neighborhood.'}]}, {'required': True, 'description': l'A valid identifier that can be used to test that patron authentication is working.', 'key': 'test_identifier', 'label': l'Test Identifier'}, {'description': l'The password for the test identifier.', 'key': 'test_password', 'label': l'Test Password'}, {'description': l'Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers.', 'default': '', 'required': True, 'label': l'Patron identifier barcode format', 'key': 'identifier_barcode_format', 'type': 'select', 'options': [{'key': 'Codabar', 'label': l'Patron identifiers are are rendered as barcodes in Codabar format'}, {'key': '', 'label': l'Patron identifiers are not rendered as barcodes'}]}, {'description': l'A patron's identifier will be immediately rejected if it doesn't match this regular expression.', 'key': u'identifier_regular_expression', 'label': l'Identifier Regular Expression'}, {'description': l'A patron's password will be immediately rejected if it doesn't match this regular expression.', 'key': u'password_regular_expression', 'label': l'Password Regular Expression'}, {'default': u'Default', 'required': True, 'label': l'Keyboard for identifier entry', 'key': u'identifier_keyboard', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Email address', 'label': l'Email address entry'}, {'key': u'Number pad', 'label': l'Number pad'}]}, {'default': u'Default', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Number pad', 'label': l'Number pad'}, {'key': u'No input', 'label': l'Patrons have no password and should not be prompted for one.'}], 'key': u'password_keyboard', 'label': l'Keyboard for password entry'}, {'type': 'number', 'key': u'identifier_maximum_length', 'label': l'Maximum identifier length'}, {'type': 'number', 'key': u'password_maximum_length', 'label': l'Maximum password length'}, {'key': u'identifier_label', 'label': l'Label for identifier entry'}, {'key': u'password_label', 'label': l'Label for password entry'}]</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -7983,6 +8023,12 @@ Work, the client has expressed interest in this one.</td>
 <dt id="api.millenium_patron.MilleniumPatronAPI.VERIFY_CERTIFICATE">
 <code class="descname">VERIFY_CERTIFICATE</code><em class="property"> = 'verify_certificate'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.VERIFY_CERTIFICATE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.millenium_patron.MilleniumPatronAPI.extract_postal_code">
+<em class="property">classmethod </em><code class="descname">extract_postal_code</code><span class="sig-paren">(</span><em>address</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/millenium_patron.html#MilleniumPatronAPI.extract_postal_code"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.extract_postal_code" title="Permalink to this definition">¶</a></dt>
+<dd><p>Try to extract a postal code from an address.</p>
+</dd></dl>
 
 <dl class="classmethod">
 <dt id="api.millenium_patron.MilleniumPatronAPI.family_name_match">
@@ -8040,6 +8086,11 @@ can override it.</p>
 <code class="descname">setting</code><em class="property"> = {'description': l'A specific identifier for the library or branch, if used in patron authentication', 'key': 'institution_id', 'label': l'Institution ID'}</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.setting" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="api.millenium_patron.MilleniumPatronAPI.x">
+<code class="descname">x</code><em class="property"> = '.*[^0-9]([0-9]{5})[^0-9]'</em><a class="headerlink" href="#api.millenium_patron.MilleniumPatronAPI.x" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 <dl class="class">
@@ -8069,7 +8120,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 19, 14, 7, 23, 774387)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 20, 19, 12, 45, 269884)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12872,7 +12923,12 @@ manager before connecting it to an ILS.</p>
 
 <dl class="attribute">
 <dt id="api.simple_authentication.SimpleAuthenticationProvider.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'description': l'A valid identifier that can be used to test that patron authentication is working.', 'key': 'test_identifier', 'label': l'Test Identifier'}, {'required': True, 'description': l'The password for the test identifier.', 'key': 'test_password', 'label': l'Test Password'}, {'description': l'Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers.', 'default': '', 'required': True, 'label': l'Patron identifier barcode format', 'key': 'identifier_barcode_format', 'type': 'select', 'options': [{'key': 'Codabar', 'label': l'Patron identifiers are are rendered as barcodes in Codabar format'}, {'key': '', 'label': l'Patron identifiers are not rendered as barcodes'}]}, {'description': l'A patron's identifier will be immediately rejected if it doesn't match this regular expression.', 'key': u'identifier_regular_expression', 'label': l'Identifier Regular Expression'}, {'description': l'A patron's password will be immediately rejected if it doesn't match this regular expression.', 'key': u'password_regular_expression', 'label': l'Password Regular Expression'}, {'default': u'Default', 'required': True, 'label': l'Keyboard for identifier entry', 'key': u'identifier_keyboard', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Email address', 'label': l'Email address entry'}, {'key': u'Number pad', 'label': l'Number pad'}]}, {'default': u'Default', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Number pad', 'label': l'Number pad'}, {'key': u'No input', 'label': l'Patrons have no password and should not be prompted for one.'}], 'key': u'password_keyboard', 'label': l'Keyboard for password entry'}, {'type': 'number', 'key': u'identifier_maximum_length', 'label': l'Maximum identifier length'}, {'type': 'number', 'key': u'password_maximum_length', 'label': l'Maximum password length'}, {'key': u'identifier_label', 'label': l'Label for identifier entry'}, {'key': u'password_label', 'label': l'Label for password entry'}, {'type': 'list', 'description': l'Identifiers for additional patrons to use in testing. The identifiers will all use the same test password as the first identifier.', 'key': 'additional_test_identifiers', 'label': l'Additional test identifiers'}]</em><a class="headerlink" href="#api.simple_authentication.SimpleAuthenticationProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'description': l'A valid identifier that can be used to test that patron authentication is working.', 'key': 'test_identifier', 'label': l'Test Identifier'}, {'required': True, 'description': l'The password for the test identifier.', 'key': 'test_password', 'label': l'Test Password'}, {'description': l'Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers.', 'default': '', 'required': True, 'label': l'Patron identifier barcode format', 'key': 'identifier_barcode_format', 'type': 'select', 'options': [{'key': 'Codabar', 'label': l'Patron identifiers are are rendered as barcodes in Codabar format'}, {'key': '', 'label': l'Patron identifiers are not rendered as barcodes'}]}, {'description': l'A patron's identifier will be immediately rejected if it doesn't match this regular expression.', 'key': u'identifier_regular_expression', 'label': l'Identifier Regular Expression'}, {'description': l'A patron's password will be immediately rejected if it doesn't match this regular expression.', 'key': u'password_regular_expression', 'label': l'Password Regular Expression'}, {'default': u'Default', 'required': True, 'label': l'Keyboard for identifier entry', 'key': u'identifier_keyboard', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Email address', 'label': l'Email address entry'}, {'key': u'Number pad', 'label': l'Number pad'}]}, {'default': u'Default', 'type': 'select', 'options': [{'key': u'Default', 'label': l'System default'}, {'key': u'Number pad', 'label': l'Number pad'}, {'key': u'No input', 'label': l'Patrons have no password and should not be prompted for one.'}], 'key': u'password_keyboard', 'label': l'Keyboard for password entry'}, {'type': 'number', 'key': u'identifier_maximum_length', 'label': l'Maximum identifier length'}, {'type': 'number', 'key': u'password_maximum_length', 'label': l'Maximum password length'}, {'key': u'identifier_label', 'label': l'Label for identifier entry'}, {'key': u'password_label', 'label': l'Label for password entry'}, {'type': 'list', 'description': l'Identifiers for additional patrons to use in testing. The identifiers will all use the same test password as the first identifier.', 'key': 'additional_test_identifiers', 'label': l'Additional test identifiers'}, {'description': l'For analytics purposes, all patrons will be 'from' this neighborhood.', 'key': 'neighborhood', 'label': l'Test neighborhood'}]</em><a class="headerlink" href="#api.simple_authentication.SimpleAuthenticationProvider.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.simple_authentication.SimpleAuthenticationProvider.TEST_NEIGHBORHOOD">
+<code class="descname">TEST_NEIGHBORHOOD</code><em class="property"> = 'neighborhood'</em><a class="headerlink" href="#api.simple_authentication.SimpleAuthenticationProvider.TEST_NEIGHBORHOOD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12882,7 +12938,7 @@ manager before connecting it to an ILS.</p>
 
 <dl class="classmethod">
 <dt id="api.simple_authentication.SimpleAuthenticationProvider.generate_patrondata">
-<em class="property">classmethod </em><code class="descname">generate_patrondata</code><span class="sig-paren">(</span><em>authorization_identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/simple_authentication.html#SimpleAuthenticationProvider.generate_patrondata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.simple_authentication.SimpleAuthenticationProvider.generate_patrondata" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">generate_patrondata</code><span class="sig-paren">(</span><em>authorization_identifier</em>, <em>neighborhood=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/simple_authentication.html#SimpleAuthenticationProvider.generate_patrondata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.simple_authentication.SimpleAuthenticationProvider.generate_patrondata" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">

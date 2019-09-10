@@ -51,10 +51,10 @@
     <span class="n">Index</span><span class="p">,</span>
     <span class="n">Integer</span><span class="p">,</span>
     <span class="n">String</span><span class="p">,</span>
-    <span class="n">UniqueConstraint</span><span class="p">,</span>
+    <span class="n">Unicode</span><span class="p">,</span>
 <span class="p">)</span>
 
-<div class="viewcode-block" id="CirculationEvent"><a class="viewcode-back" href="../../../core.model.html#core.model.circulationevent.CirculationEvent">[docs]</a><span class="k">class</span> <span class="nc">CirculationEvent</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+<div class="viewcode-block" id="CirculationEvent"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CirculationEvent">[docs]</a><span class="k">class</span> <span class="nc">CirculationEvent</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;Changes to a license pool&#39;s circulation status.</span>
 <span class="sd">    We log these so we can measure things like the velocity of</span>
@@ -77,12 +77,54 @@
     <span class="n">old_value</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
     <span class="n">delta</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
     <span class="n">new_value</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
-    <span class="n">foreign_patron_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">)</span>
 
-    <span class="c1"># A given license pool can only have one event of a given type for</span>
-    <span class="c1"># a given patron at a given time.</span>
-    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span><span class="n">UniqueConstraint</span><span class="p">(</span><span class="s1">&#39;license_pool_id&#39;</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span>
-                                       <span class="s1">&#39;foreign_patron_id&#39;</span><span class="p">),)</span>
+    <span class="c1"># The Library associated with the event, if it happened in the</span>
+    <span class="c1"># context of a particular Library and we know which one.</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span>
+        <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># The geographic location associated with the event. This string</span>
+    <span class="c1"># may mean different things for different libraries. It might be a</span>
+    <span class="c1"># measurement of latitude and longitude, or it might be taken from</span>
+    <span class="c1"># a controlled vocabulary -- a list of library branch codes, for</span>
+    <span class="c1"># instance.</span>
+    <span class="n">location</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="c1"># Make it easy to list circulation events in descending</span>
+        <span class="c1"># order. This is used in the admin interface to show recent</span>
+        <span class="c1"># events.</span>
+        <span class="c1">#</span>
+        <span class="c1"># TODO: Maybe there should also be an index that takes</span>
+        <span class="c1"># library_id into account, for per-library event lists.</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s2">&quot;ix_circulationevents_start_desc_nullslast&quot;</span><span class="p">,</span>
+            <span class="n">start</span><span class="o">.</span><span class="n">desc</span><span class="p">()</span><span class="o">.</span><span class="n">nullslast</span><span class="p">()</span>
+        <span class="p">),</span>
+
+        <span class="c1"># License pool ID + library ID + type + start must be unique.</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s2">&quot;ix_circulationevents_license_pool_library_type_start&quot;</span><span class="p">,</span>
+            <span class="n">license_pool_id</span><span class="p">,</span>
+            <span class="n">library_id</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">,</span>
+            <span class="n">start</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">),</span>
+
+        <span class="c1"># However, library_id may be null. If this is so, then license pool ID</span>
+        <span class="c1"># + type + start must be unique.</span>
+        <span class="n">Index</span><span class="p">(</span>
+            <span class="s2">&quot;ix_circulationevents_license_pool_type_start&quot;</span><span class="p">,</span>
+            <span class="n">license_pool_id</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">,</span>
+            <span class="n">start</span><span class="p">,</span>
+            <span class="n">unique</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">postgresql_where</span><span class="o">=</span><span class="p">(</span><span class="n">library_id</span><span class="o">==</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
 
     <span class="c1"># Constants for use in logging circulation events to JSON</span>
     <span class="n">SOURCE</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;source&quot;</span>
@@ -122,9 +164,12 @@
     <span class="c1"># The time format used when exporting to JSON.</span>
     <span class="n">TIME_FORMAT</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">T%H:%M:%S+00:00&quot;</span>
 
-<div class="viewcode-block" id="CirculationEvent.log"><a class="viewcode-back" href="../../../core.model.html#core.model.circulationevent.CirculationEvent.log">[docs]</a>    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="CirculationEvent.log"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CirculationEvent.log">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">event_name</span><span class="p">,</span> <span class="n">old_value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">,</span>
-            <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">foreign_patron_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Log a CirculationEvent to the database, assuming it</span>
+<span class="sd">        hasn&#39;t already been recorded.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">new_value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">old_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">delta</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
@@ -133,20 +178,20 @@
             <span class="n">start</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">end</span><span class="p">:</span>
             <span class="n">end</span> <span class="o">=</span> <span class="n">start</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;EVENT </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">=&gt;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">event_name</span><span class="p">,</span> <span class="n">old_value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span>
         <span class="n">event</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="p">,</span> <span class="n">license_pool</span><span class="o">=</span><span class="n">license_pool</span><span class="p">,</span>
-            <span class="nb">type</span><span class="o">=</span><span class="n">event_name</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">foreign_patron_id</span><span class="o">=</span><span class="n">foreign_patron_id</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">event_name</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span>
             <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
                 <span class="n">old_value</span><span class="o">=</span><span class="n">old_value</span><span class="p">,</span>
                 <span class="n">new_value</span><span class="o">=</span><span class="n">new_value</span><span class="p">,</span>
                 <span class="n">delta</span><span class="o">=</span><span class="n">delta</span><span class="p">,</span>
-                <span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">)</span>
+                <span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">,</span>
+                <span class="n">location</span><span class="o">=</span><span class="n">location</span>
             <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">was_new</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;EVENT </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">=&gt;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">event_name</span><span class="p">,</span> <span class="n">old_value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">event</span><span class="p">,</span> <span class="n">was_new</span></div></div>
-
-
-<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_circulationevents_start_desc_nullslast&quot;</span><span class="p">,</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">desc</span><span class="p">()</span><span class="o">.</span><span class="n">nullslast</span><span class="p">())</span>
 </pre></div>
 
           </div>

@@ -70,6 +70,8 @@
     <span class="n">RECORD_NUMBER_FIELD</span> <span class="o">=</span> <span class="s1">&#39;RECORD #[p81]&#39;</span>
     <span class="n">PATRON_TYPE_FIELD</span> <span class="o">=</span> <span class="s1">&#39;P TYPE[p47]&#39;</span>
     <span class="n">EXPIRATION_FIELD</span> <span class="o">=</span> <span class="s1">&#39;EXP DATE[p43]&#39;</span>
+    <span class="n">HOME_BRANCH_FIELD</span> <span class="o">=</span> <span class="s1">&#39;HOME LIBR[p53]&#39;</span>
+    <span class="n">ADDRESS_FIELD</span> <span class="o">=</span> <span class="s1">&#39;ADDRESS[pa]&#39;</span>
     <span class="n">BARCODE_FIELD</span> <span class="o">=</span> <span class="s1">&#39;P BARCODE[pb]&#39;</span>
     <span class="n">USERNAME_FIELD</span> <span class="o">=</span> <span class="s1">&#39;ALT ID[pu]&#39;</span>
     <span class="n">FINES_FIELD</span> <span class="o">=</span> <span class="s1">&#39;MONEY OWED[p96]&#39;</span>
@@ -96,6 +98,14 @@
     <span class="n">AUTHENTICATION_MODE</span> <span class="o">=</span> <span class="s1">&#39;auth_mode&#39;</span>
     <span class="n">PIN_AUTHENTICATION_MODE</span> <span class="o">=</span> <span class="s1">&#39;pin&#39;</span>
     <span class="n">FAMILY_NAME_AUTHENTICATION_MODE</span> <span class="o">=</span> <span class="s1">&#39;family_name&#39;</span>
+
+    <span class="n">NEIGHBORHOOD_MODE</span> <span class="o">=</span> <span class="s1">&#39;neighborhood_mode&#39;</span>
+    <span class="n">NO_NEIGHBORHOOD_MODE</span> <span class="o">=</span> <span class="s1">&#39;disabled&#39;</span>
+    <span class="n">HOME_BRANCH_NEIGHBORHOOD_MODE</span> <span class="o">=</span> <span class="s1">&#39;home_branch&#39;</span>
+    <span class="n">POSTAL_CODE_NEIGHBORHOOD_MODE</span> <span class="o">=</span> <span class="s1">&#39;postal_code&#39;</span>
+    <span class="n">NEIGHBORHOOD_MODES</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">NO_NEIGHBORHOOD_MODE</span><span class="p">,</span> <span class="n">HOME_BRANCH_NEIGHBORHOOD_MODE</span><span class="p">,</span> <span class="n">POSTAL_CODE_NEIGHBORHOOD_MODE</span><span class="p">]</span>
+    <span class="p">)</span>
 
     <span class="c1"># The field to use when seeing which values of MBLOCK[p56] mean a patron</span>
     <span class="c1"># is blocked. By default, any value other than &#39;-&#39; indicates a block.</span>
@@ -132,7 +142,19 @@
               <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">FAMILY_NAME_AUTHENTICATION_MODE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Family Name&quot;</span><span class="p">)</span> <span class="p">},</span>
           <span class="p">],</span>
           <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">PIN_AUTHENTICATION_MODE</span>
-        <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">NEIGHBORHOOD_MODE</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron neighborhood field&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;It&#39;s sometimes possible to guess a patron&#39;s neighborhood from their ILS record. You can use this when analyzing circulation activity by neighborhood. If you don&#39;t need to do this, it&#39;s better for patron privacy to disable this feature.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">NO_NEIGHBORHOOD_MODE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Disable this feature&quot;</span><span class="p">)</span> <span class="p">},</span>
+                <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">HOME_BRANCH_NEIGHBORHOOD_MODE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron&#39;s home library branch is their neighborhood.&quot;</span><span class="p">)</span> <span class="p">},</span>
+                <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">POSTAL_CODE_NEIGHBORHOOD_MODE</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Patron&#39;s postal code is their neighborhood.&quot;</span><span class="p">)</span> <span class="p">},</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">NO_NEIGHBORHOOD_MODE</span><span class="p">,</span>
+        <span class="p">},</span>
     <span class="p">]</span> <span class="o">+</span> <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span>
 
     <span class="c1"># Replace library settings to allow text in identifier field.</span>
@@ -187,6 +209,16 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">auth_mode</span> <span class="o">=</span> <span class="n">auth_mode</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">block_types</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">BLOCK_TYPES</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="kc">None</span>
+
+        <span class="n">neighborhood_mode</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">NEIGHBORHOOD_MODE</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_NEIGHBORHOOD_MODE</span>
+        <span class="k">if</span> <span class="n">neighborhood_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">NEIGHBORHOOD_MODES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Unrecognized Millenium Patron API neighborhood mode: </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">neighborhood_mode</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">neighborhood_mode</span> <span class="o">=</span> <span class="n">neighborhood_mode</span>
+
 
     <span class="c1"># Begin implementation of BasicAuthenticationProvider abstract</span>
     <span class="c1"># methods.</span>
@@ -321,6 +353,7 @@
         <span class="n">username</span> <span class="o">=</span> <span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">personal_name</span> <span class="o">=</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span>
         <span class="n">email_address</span> <span class="o">=</span> <span class="n">fines</span> <span class="o">=</span> <span class="n">external_type</span> <span class="o">=</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span>
         <span class="n">block_reason</span> <span class="o">=</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span>
+        <span class="n">neighborhood</span> <span class="o">=</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span>
 
         <span class="n">potential_identifiers</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_text_nodes</span><span class="p">(</span><span class="n">content</span><span class="p">):</span>
@@ -368,6 +401,12 @@
                     <span class="p">)</span>
             <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">PATRON_TYPE_FIELD</span><span class="p">:</span>
                 <span class="n">external_type</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">k</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOME_BRANCH_FIELD</span>
+                  <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighborhood_mode</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOME_BRANCH_NEIGHBORHOOD_MODE</span><span class="p">):</span>
+                <span class="n">neighborhood</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">k</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ADDRESS_FIELD</span>
+                  <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighborhood_mode</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">POSTAL_CODE_NEIGHBORHOOD_MODE</span><span class="p">):</span>
+                <span class="n">neighborhood</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_postal_code</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_MESSAGE_FIELD</span><span class="p">:</span>
                 <span class="c1"># An error has occured. Most likely the patron lookup</span>
                 <span class="c1"># failed.</span>
@@ -409,6 +448,7 @@
             <span class="n">fines</span><span class="o">=</span><span class="n">fines</span><span class="p">,</span>
             <span class="n">block_reason</span><span class="o">=</span><span class="n">block_reason</span><span class="p">,</span>
             <span class="n">library_identifier</span><span class="o">=</span><span class="n">library_identifier</span><span class="p">,</span>
+            <span class="n">neighborhood</span><span class="o">=</span><span class="n">neighborhood</span><span class="p">,</span>
             <span class="n">complete</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span></div>
@@ -425,7 +465,27 @@
                 <span class="c1"># This shouldn&#39;t happen, but there&#39;s no need to crash.</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Unexpected line in patron dump: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
                 <span class="k">continue</span>
-            <span class="k">yield</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
+            <span class="k">yield</span> <span class="n">kv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># A number of regular expressions for finding postal codes in</span>
+    <span class="c1"># freeform addresses, with more reliable techniques at the front.</span>
+    <span class="n">POSTAL_CODE_RES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">&quot;[^0-9]([0-9]</span><span class="si">{5}</span><span class="s2">)-[0-9]</span><span class="si">{4}</span><span class="s2">$&quot;</span><span class="p">,</span> <span class="c1"># ZIP+4 at end</span>
+            <span class="s2">&quot;[^0-9]([0-9]</span><span class="si">{5}</span><span class="s2">)$&quot;</span><span class="p">,</span> <span class="c1"># ZIP at end</span>
+            <span class="s2">&quot;.*[^0-9]([0-9]</span><span class="si">{5}</span><span class="s2">)-[0-9]</span><span class="si">{4}</span><span class="s2">[^0-9]&quot;</span><span class="p">,</span> <span class="c1"># ZIP+4 as close to end as possible without being at the end</span>
+            <span class="s2">&quot;.*[^0-9]([0-9]</span><span class="si">{5}</span><span class="s2">)[^0-9]&quot;</span><span class="p">,</span> <span class="c1"># ZIP as close to end as possible without being at the end</span>
+        <span class="p">]</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="MilleniumPatronAPI.extract_postal_code"><a class="viewcode-back" href="../../api.html#api.millenium_patron.MilleniumPatronAPI.extract_postal_code">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">extract_postal_code</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">address</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Try to extract a postal code from an address.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">POSTAL_CODE_RES</span><span class="p">:</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">address</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
 
 
 <div class="viewcode-block" id="MockMilleniumPatronAPI"><a class="viewcode-back" href="../../api.html#api.millenium_patron.MockMilleniumPatronAPI">[docs]</a><span class="k">class</span> <span class="nc">MockMilleniumPatronAPI</span><span class="p">(</span><span class="n">MilleniumPatronAPI</span><span class="p">):</span>

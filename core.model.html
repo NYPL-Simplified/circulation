@@ -503,13 +503,13 @@ individual books.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.model.circulationevent.CirculationEvent.foreign_patron_id">
-<code class="descname">foreign_patron_id</code><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.foreign_patron_id" title="Permalink to this definition">¶</a></dt>
+<dt id="core.model.circulationevent.CirculationEvent.id">
+<code class="descname">id</code><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.model.circulationevent.CirculationEvent.id">
-<code class="descname">id</code><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.id" title="Permalink to this definition">¶</a></dt>
+<dt id="core.model.circulationevent.CirculationEvent.library_id">
+<code class="descname">library_id</code><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.library_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -517,10 +517,17 @@ individual books.</p>
 <code class="descname">license_pool_id</code><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.license_pool_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="core.model.circulationevent.CirculationEvent.location">
+<code class="descname">location</code><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.location" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="classmethod">
 <dt id="core.model.circulationevent.CirculationEvent.log">
-<em class="property">classmethod </em><code class="descname">log</code><span class="sig-paren">(</span><em>_db</em>, <em>license_pool</em>, <em>event_name</em>, <em>old_value</em>, <em>new_value</em>, <em>start=None</em>, <em>end=None</em>, <em>foreign_patron_id=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/circulationevent.html#CirculationEvent.log"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.log" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<em class="property">classmethod </em><code class="descname">log</code><span class="sig-paren">(</span><em>_db</em>, <em>license_pool</em>, <em>event_name</em>, <em>old_value</em>, <em>new_value</em>, <em>start=None</em>, <em>end=None</em>, <em>library=None</em>, <em>location=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/circulationevent.html#CirculationEvent.log"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.circulationevent.CirculationEvent.log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Log a CirculationEvent to the database, assuming it
+hasn’t already been recorded.</p>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.circulationevent.CirculationEvent.new_value">
@@ -4955,6 +4962,11 @@ A circulation manager may serve many libraries.</p>
 <dl class="attribute">
 <dt id="core.model.library.Library.cachedmarcfiles">
 <code class="descname">cachedmarcfiles</code><a class="headerlink" href="#core.model.library.Library.cachedmarcfiles" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.library.Library.circulation_events">
+<code class="descname">circulation_events</code><a class="headerlink" href="#core.model.library.Library.circulation_events" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

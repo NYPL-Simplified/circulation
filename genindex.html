@@ -308,6 +308,8 @@
 </li>
       <li><a href="core.model.html#core.model.constants.EditionConstants.additional_type_to_medium">additional_type_to_medium (core.model.constants.EditionConstants attribute)</a>
 </li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.ADDRESS_FIELD">ADDRESS_FIELD (api.millenium_patron.MilleniumPatronAPI attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.admin.Admin">Admin (class in core.model.admin)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.ADMIN_AUTH_GOAL">ADMIN_AUTH_GOAL (core.model.configuration.ExternalIntegration attribute)</a>
@@ -2174,8 +2176,12 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.circulation_changelog">circulation_changelog() (core.model.licensing.LicensePool method)</a>
 </li>
-      <li><a href="core.model.html#core.model.licensing.LicensePool.circulation_events">circulation_events (core.model.licensing.LicensePool attribute)</a>
+      <li><a href="core.model.html#core.model.library.Library.circulation_events">circulation_events (core.model.library.Library attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.licensing.LicensePool.circulation_events">(core.model.licensing.LicensePool attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api.admin.controller.html#api.admin.controller.DashboardController.circulation_events">circulation_events() (api.admin.controller.DashboardController method)</a>
 
       <ul>
@@ -2189,6 +2195,8 @@
       <li><a href="core.html#core.metadata_layer.CirculationData">CirculationData (class in core.metadata_layer)</a>
 </li>
       <li><a href="core.model.html#core.model.circulationevent.CirculationEvent">CirculationEvent (class in core.model.circulationevent)</a>
+</li>
+      <li><a href="core.html#core.monitor.CirculationEventScrubber">CirculationEventScrubber (class in core.monitor)</a>
 </li>
       <li><a href="api.html#api.circulation_exceptions.CirculationException">CirculationException</a>
 </li>
@@ -2426,10 +2434,10 @@
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">commonAuthorPrefixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
-      <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">commonAuthorSuffixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">commonAuthorSuffixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
+</li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">commonSubtitlesPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.compatible_with">compatible_with() (core.model.licensing.DeliveryMechanism method)</a>
@@ -4400,10 +4408,10 @@
 </li>
       <li><a href="api.html#api.config.Configuration.estimate_language_collections_for_library">estimate_language_collections_for_library() (api.config.Configuration class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.library.Library.estimated_holdings_by_language">estimated_holdings_by_language() (core.model.library.Library method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.resource.Resource.estimated_quality">estimated_quality (core.model.resource.Resource attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.ESTIMATED_QUALITY_WEIGHT">ESTIMATED_QUALITY_WEIGHT (core.model.resource.Resource attribute)</a>
@@ -4663,6 +4671,8 @@
       <li><a href="core.html#core.opds_import.OPDSImporter.extract_metadata_from_elementtree">extract_metadata_from_elementtree() (core.opds_import.OPDSImporter class method)</a>
 </li>
       <li><a href="core.html#core.opds_import.OPDSImporter.extract_next_links">extract_next_links() (core.opds_import.OPDSImporter class method)</a>
+</li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.extract_postal_code">extract_postal_code() (api.millenium_patron.MilleniumPatronAPI class method)</a>
 </li>
       <li><a href="core.html#core.opds_import.OPDSImporter.extract_series">extract_series() (core.opds_import.OPDSImporter class method)</a>
 </li>
@@ -5061,8 +5071,6 @@
       <li><a href="core.model.html#core.model.integrationclient.IntegrationClient.for_url">for_url() (core.model.integrationclient.IntegrationClient class method)</a>
 </li>
       <li><a href="core.model.html#core.model.customlist.CustomList.foreign_identifier">foreign_identifier (core.model.customlist.CustomList attribute)</a>
-</li>
-      <li><a href="core.model.html#core.model.circulationevent.CirculationEvent.foreign_patron_id">foreign_patron_id (core.model.circulationevent.CirculationEvent attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.FOREWORD_ROLE">FOREWORD_ROLE (core.model.contributor.Contributor attribute)</a>
 </li>
@@ -5804,10 +5812,10 @@
         <li><a href="api.html#api.opds.LibraryAnnotator.HELP_LINKS">(api.opds.LibraryAnnotator attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.HELP_URI">HELP_URI (api.config.Configuration attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.help_uris">help_uris() (api.config.Configuration class method)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.HELP_WEB">HELP_WEB (api.config.Configuration attribute)</a>
@@ -5869,6 +5877,10 @@
       <li><a href="core.html#core.overdrive.OverdriveAPI.HOLDS_ENDPOINT">HOLDS_ENDPOINT (core.overdrive.OverdriveAPI attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.client.named.home_address">home_address (api.sip.client.named attribute)</a>
+</li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.HOME_BRANCH_FIELD">HOME_BRANCH_FIELD (api.millenium_patron.MilleniumPatronAPI attribute)</a>
+</li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.HOME_BRANCH_NEIGHBORHOOD_MODE">HOME_BRANCH_NEIGHBORHOOD_MODE (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
       <li><a href="core.html#core.log.JSONFormatter.hostname">hostname (core.log.JSONFormatter attribute)</a>
 </li>
@@ -6889,6 +6901,8 @@
 </li>
         <li><a href="core.model.html#core.model.cachedfeed.CachedMARCFile.library_id">(core.model.cachedfeed.CachedMARCFile attribute)</a>
 </li>
+        <li><a href="core.model.html#core.model.circulationevent.CirculationEvent.library_id">(core.model.circulationevent.CirculationEvent attribute)</a>
+</li>
         <li><a href="core.model.html#core.model.configuration.ConfigurationSetting.library_id">(core.model.configuration.ConfigurationSetting attribute)</a>
 </li>
         <li><a href="core.model.html#core.model.customlist.CustomList.library_id">(core.model.customlist.CustomList attribute)</a>
@@ -7288,8 +7302,12 @@
 </li>
       <li><a href="core.html#core.config.Configuration.localization_languages">localization_languages() (core.config.Configuration class method)</a>
 </li>
-      <li><a href="core.model.html#core.model.resource.Representation.location">location (core.model.resource.Representation attribute)</a>
+      <li><a href="core.model.html#core.model.circulationevent.CirculationEvent.location">location (core.model.circulationevent.CirculationEvent attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.resource.Representation.location">(core.model.resource.Representation attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.LOCATION_CODE">LOCATION_CODE (api.sip.SIP2AuthenticationProvider attribute)</a>
 </li>
       <li><a href="core.html#core.overdrive.OverdriveAPI.lock">lock (core.overdrive.OverdriveAPI attribute)</a>
@@ -7683,6 +7701,8 @@
 </li>
         <li><a href="core.html#core.monitor.CachedFeedReaper.MAX_AGE">(core.monitor.CachedFeedReaper attribute)</a>
 </li>
+        <li><a href="core.html#core.monitor.CirculationEventScrubber.MAX_AGE">(core.monitor.CirculationEventScrubber attribute)</a>
+</li>
         <li><a href="core.html#core.monitor.CredentialReaper.MAX_AGE">(core.monitor.CredentialReaper attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.PatronRecordReaper.MAX_AGE">(core.monitor.PatronRecordReaper attribute)</a>
@@ -8040,6 +8060,8 @@
         <li><a href="api.html#api.monitor.LoanReaper.MODEL_CLASS">(api.monitor.LoanReaper attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.CachedFeedReaper.MODEL_CLASS">(core.monitor.CachedFeedReaper attribute)</a>
+</li>
+        <li><a href="core.html#core.monitor.CirculationEventScrubber.MODEL_CLASS">(core.monitor.CirculationEventScrubber attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.CollectionReaper.MODEL_CLASS">(core.monitor.CollectionReaper attribute)</a>
 </li>
@@ -8416,12 +8438,12 @@
         <li><a href="core.html#core.opds.NavigationFeed.navigation">(core.opds.NavigationFeed class method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.custom_index.COPPAGate.navigation_entry">navigation_entry() (api.custom_index.COPPAGate class method)</a>
 </li>
       <li><a href="api.html#api.routes.navigation_feed">navigation_feed() (in module api.routes)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.NAVIGATION_FEED_TYPE">NAVIGATION_FEED_TYPE (core.util.opds_writer.OPDSFeed attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.NAVIGATION_TYPE">NAVIGATION_TYPE (core.model.cachedfeed.CachedFeed attribute)</a>
@@ -8451,6 +8473,10 @@
 </li>
       </ul></li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.needs_update">needs_update() (core.model.licensing.LicensePool method)</a>
+</li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.NEIGHBORHOOD_MODE">NEIGHBORHOOD_MODE (api.millenium_patron.MilleniumPatronAPI attribute)</a>
+</li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.NEIGHBORHOOD_MODES">NEIGHBORHOOD_MODES (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.overdrive.OverdriveClassifier.NEITHER_FICTION_NOR_NONFICTION">NEITHER_FICTION_NOR_NONFICTION (core.classifier.overdrive.OverdriveClassifier attribute)</a>
 </li>
@@ -8513,6 +8539,8 @@
       <li><a href="api.html#api.novelist.NoveListAPI.NO_ISBN_EQUIVALENCY">NO_ISBN_EQUIVALENCY (api.novelist.NoveListAPI attribute)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SettingsController.NO_MIRROR_INTEGRATION">NO_MIRROR_INTEGRATION (api.admin.controller.SettingsController attribute)</a>
+</li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.NO_NEIGHBORHOOD_MODE">NO_NEIGHBORHOOD_MODE (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
       <li><a href="core.html#core.coverage.IdentifierCoverageProvider.NO_SPECIFIED_TYPES">NO_SPECIFIED_TYPES (core.coverage.IdentifierCoverageProvider attribute)</a>
 </li>
@@ -9532,6 +9560,10 @@
 </li>
       <li><a href="core.util.html#core.util.http.HTTP.post_with_timeout">post_with_timeout() (core.util.http.HTTP class method)</a>
 </li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.POSTAL_CODE_NEIGHBORHOOD_MODE">POSTAL_CODE_NEIGHBORHOOD_MODE (api.millenium_patron.MilleniumPatronAPI attribute)</a>
+</li>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.POSTAL_CODE_RES">POSTAL_CODE_RES (api.millenium_patron.MilleniumPatronAPI attribute)</a>
+</li>
       <li><a href="core.classifier.html#core.classifier.bic.BICClassifier.PREFIX_LISTS">PREFIX_LISTS (core.classifier.bic.BICClassifier attribute)</a>
 </li>
       <li><a href="core.html#core.monitor.MakePresentationReadyMonitor.prepare">prepare() (core.monitor.MakePresentationReadyMonitor method)</a>
@@ -9614,10 +9646,10 @@
 </li>
       <li><a href="core.html#core.selftest.HasSelfTests.prior_test_results">prior_test_results() (core.selftest.HasSelfTests class method)</a>
 </li>
-      <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
+</li>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
 
       <ul>
@@ -10738,10 +10770,10 @@
 </li>
       <li><a href="api.html#api.custom_patron_catalog.CustomPatronCatalog.replace_link">replace_link() (api.custom_patron_catalog.CustomPatronCatalog class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.external_search.CurrentMapping.replacement">replacement (core.external_search.CurrentMapping attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY">REPLACEMENT_CSS_KEY (api.feedbooks.FeedbooksOPDSImporter attribute)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI.replacement_policy">replacement_policy() (api.bibliotheca.BibliothecaAPI class method)</a>
@@ -11125,6 +11157,8 @@
 </li>
         <li><a href="core.html#core.coverage.CollectionCoverageProvider.run_once">(core.coverage.CollectionCoverageProvider method)</a>
 </li>
+        <li><a href="core.html#core.monitor.CirculationEventScrubber.run_once">(core.monitor.CirculationEventScrubber method)</a>
+</li>
         <li><a href="core.html#core.monitor.Monitor.run_once">(core.monitor.Monitor method)</a>
 </li>
         <li><a href="core.html#core.monitor.ReaperMonitor.run_once">(core.monitor.ReaperMonitor method)</a>
@@ -11247,6 +11281,8 @@
       <li><a href="core.model.html#core.model.coverage.Timestamp.SCRIPT_TYPE">SCRIPT_TYPE (core.model.coverage.Timestamp attribute)</a>
 </li>
       <li><a href="scripts.html#module-scripts">scripts (module)</a>
+</li>
+      <li><a href="core.html#core.monitor.CirculationEventScrubber.scrub">scrub() (core.monitor.CirculationEventScrubber method)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.bisac.BISACClassifier.scrub_identifier">scrub_identifier() (core.classifier.bisac.BISACClassifier class method)</a>
 
@@ -11832,10 +11868,10 @@
 </li>
       <li><a href="api.html#api.routes.shared_collection_revoke_loan">shared_collection_revoke_loan() (in module api.routes)</a>
 </li>
-      <li><a href="core.model.html#core.model.integrationclient.IntegrationClient.shared_secret">shared_secret (core.model.integrationclient.IntegrationClient attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.model.html#core.model.integrationclient.IntegrationClient.shared_secret">shared_secret (core.model.integrationclient.IntegrationClient attribute)</a>
+</li>
       <li><a href="api.html#api.opds.SharedCollectionAnnotator">SharedCollectionAnnotator (class in api.opds)</a>
 </li>
       <li><a href="api.html#api.shared_collection.SharedCollectionAPI">SharedCollectionAPI (class in api.shared_collection)</a>
@@ -12616,6 +12652,8 @@
 </li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.TEST_IDENTIFIER">TEST_IDENTIFIER (api.authenticator.BasicAuthenticationProvider attribute)</a>
 </li>
+      <li><a href="api.html#api.simple_authentication.SimpleAuthenticationProvider.TEST_NEIGHBORHOOD">TEST_NEIGHBORHOOD (api.simple_authentication.SimpleAuthenticationProvider attribute)</a>
+</li>
       <li><a href="api.html#api.testing.VendorIDTest.TEST_NODE_VALUE">TEST_NODE_VALUE (api.testing.VendorIDTest attribute)</a>
 </li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.TEST_PASSWORD">TEST_PASSWORD (api.authenticator.BasicAuthenticationProvider attribute)</a>
@@ -12715,6 +12753,8 @@
       <ul>
         <li><a href="core.html#core.monitor.CachedFeedReaper.TIMESTAMP_FIELD">(core.monitor.CachedFeedReaper attribute)</a>
 </li>
+        <li><a href="core.html#core.monitor.CirculationEventScrubber.TIMESTAMP_FIELD">(core.monitor.CirculationEventScrubber attribute)</a>
+</li>
         <li><a href="core.html#core.monitor.CredentialReaper.TIMESTAMP_FIELD">(core.monitor.CredentialReaper attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.PatronRecordReaper.TIMESTAMP_FIELD">(core.monitor.PatronRecordReaper attribute)</a>
@@ -12728,10 +12768,10 @@
 </li>
       <li><a href="core.model.html#core.model.collection.Collection.timestamps">timestamps (core.model.collection.Collection attribute)</a>
 </li>
-      <li><a href="api.admin.controller.html#api.admin.controller.TimestampsController">TimestampsController (class in api.admin.controller)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.admin.controller.html#api.admin.controller.TimestampsController">TimestampsController (class in api.admin.controller)</a>
+</li>
       <li><a href="core.html#core.scripts.TimestampScript">TimestampScript (class in core.scripts)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.TINY_COLLECTION_LANGUAGES">TINY_COLLECTION_LANGUAGES (api.config.Configuration attribute)</a>
@@ -13555,6 +13595,8 @@
 </li>
         <li><a href="api.html#api.monitor.LoanlikeReaperMonitor.where_clause">(api.monitor.LoanlikeReaperMonitor attribute)</a>
 </li>
+        <li><a href="core.html#core.monitor.CirculationEventScrubber.where_clause">(core.monitor.CirculationEventScrubber attribute)</a>
+</li>
         <li><a href="core.html#core.monitor.CollectionReaper.where_clause">(core.monitor.CollectionReaper attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.ReaperMonitor.where_clause">(core.monitor.ReaperMonitor attribute)</a>
@@ -13758,9 +13800,11 @@
 <h2 id="X">X</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.classifier.html#core.classifier.age.AgeClassifier.x">x (core.classifier.age.AgeClassifier attribute)</a>
+      <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.x">x (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 
       <ul>
+        <li><a href="core.classifier.html#core.classifier.age.AgeClassifier.x">(core.classifier.age.AgeClassifier attribute)</a>
+</li>
         <li><a href="core.classifier.html#core.classifier.age.GradeLevelClassifier.x">(core.classifier.age.GradeLevelClassifier attribute)</a>
 </li>
         <li><a href="core.html#core.config.Configuration.x">(core.config.Configuration attribute)</a>

@@ -63,6 +63,8 @@
 
     <span class="n">ADDITIONAL_TEST_IDENTIFIERS</span> <span class="o">=</span> <span class="s1">&#39;additional_test_identifiers&#39;</span>
 
+    <span class="n">TEST_NEIGHBORHOOD</span> <span class="o">=</span> <span class="s1">&#39;neighborhood&#39;</span>
+
     <span class="n">basic_settings</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">basic_settings</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">setting</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">TEST_PASSWORD</span><span class="p">:</span>
@@ -73,6 +75,10 @@
           <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Additional test identifiers&quot;</span><span class="p">),</span>
           <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
           <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Identifiers for additional patrons to use in testing. The identifiers will all use the same test password as the first identifier.&quot;</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">TEST_NEIGHBORHOOD</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Test neighborhood&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;For analytics purposes, all patrons will be &#39;from&#39; this neighborhood.&quot;</span><span class="p">),</span>
         <span class="p">}</span>
     <span class="p">]</span>
 
@@ -94,6 +100,8 @@
             <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">additional_identifiers</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">test_identifiers</span> <span class="o">+=</span> <span class="p">[</span><span class="n">identifier</span><span class="p">,</span> <span class="n">identifier</span> <span class="o">+</span> <span class="s2">&quot;_username&quot;</span><span class="p">]</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">test_neighborhood</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TEST_NEIGHBORHOOD</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="kc">None</span>
+
 <div class="viewcode-block" id="SimpleAuthenticationProvider.remote_authenticate"><a class="viewcode-back" href="../../api.html#api.simple_authentication.SimpleAuthenticationProvider.remote_authenticate">[docs]</a>    <span class="k">def</span> <span class="nf">remote_authenticate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
         <span class="s2">&quot;Fake &#39;remote&#39; authentication.&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">username</span> <span class="ow">or</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collects_password</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">password</span><span class="p">):</span>
@@ -102,10 +110,10 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_patron</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_patrondata</span><span class="p">(</span><span class="n">username</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_patrondata</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_neighborhood</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SimpleAuthenticationProvider.generate_patrondata"><a class="viewcode-back" href="../../api.html#api.simple_authentication.SimpleAuthenticationProvider.generate_patrondata">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">generate_patrondata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">authorization_identifier</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">generate_patrondata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">authorization_identifier</span><span class="p">,</span> <span class="n">neighborhood</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 
         <span class="k">if</span> <span class="n">authorization_identifier</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_username&quot;</span><span class="p">):</span>
             <span class="n">username</span> <span class="o">=</span> <span class="n">authorization_identifier</span>
@@ -123,6 +131,7 @@
             <span class="n">personal_name</span><span class="o">=</span><span class="n">personal_name</span><span class="p">,</span>
             <span class="n">authorization_expires</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">fines</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">neighborhood</span><span class="o">=</span><span class="n">neighborhood</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">patrondata</span></div>
 

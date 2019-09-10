@@ -155,6 +155,7 @@
                  <span class="n">fines</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">block_reason</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">library_identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">neighborhood</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">complete</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Store basic information about a patron.</span>
@@ -212,11 +213,19 @@
 <span class="sd">        :param library_identifier: A string pulled from the ILS that</span>
 <span class="sd">        is used to determine if this user belongs to the current library.</span>
 
+<span class="sd">        :param neighborhood: A string pulled from the ILS that</span>
+<span class="sd">        identifies the patron&#39;s geographic location in a deliberately</span>
+<span class="sd">        imprecise way that makes sense to the library -- maybe the</span>
+<span class="sd">        patron&#39;s ZIP code or the name of their home branch. This data</span>
+<span class="sd">        is never stored in a way that can be associated with an</span>
+<span class="sd">        individual patron. Depending on library policy, this data may</span>
+<span class="sd">        be associated with circulation events -- but a circulation</span>
+<span class="sd">        event is not associated with the patron who triggered it.</span>
+
 <span class="sd">        :param complete: Does this PatronData represent the most</span>
 <span class="sd">        complete data we are likely to get for this patron from this</span>
 <span class="sd">        data source, or is it an abbreviated version of more complete</span>
 <span class="sd">        data we could get some other way?</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">permanent_id</span> <span class="o">=</span> <span class="n">permanent_id</span>
 
@@ -236,6 +245,11 @@
         <span class="c1"># We do not store email address in the database, but we need</span>
         <span class="c1"># to have it available for notifications.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">email_address</span> <span class="o">=</span> <span class="n">email_address</span>
+
+        <span class="c1"># We do not store the patron&#39;s neighborhood in the database</span>
+        <span class="c1"># record, but we may need it to store in the database records</span>
+        <span class="c1"># for circulation events triggered by this patron.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">neighborhood</span> <span class="o">=</span> <span class="n">neighborhood</span>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;PatronData permanent_id=</span><span class="si">%r</span><span class="s2"> authorization_identifier=</span><span class="si">%r</span><span class="s2"> username=</span><span class="si">%r</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
@@ -386,6 +400,12 @@
         <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
         <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Set patron.neighborhood so it can be accessed during request processing.</span>
+        <span class="c1"># This is not part of the database code above because this information is</span>
+        <span class="c1"># not stored in the database.</span>
+        <span class="n">patron</span><span class="o">.</span><span class="n">neighborhood</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neighborhood</span>
+
         <span class="k">return</span> <span class="n">patron</span><span class="p">,</span> <span class="n">is_new</span></div>
 
     <span class="nd">@property</span>
@@ -1911,6 +1931,13 @@
 <span class="sd">        are updated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">patrondata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="c1"># The Patron model does not store .neighborhood, so this won&#39;t</span>
+        <span class="c1"># write to the database, but this will make any neighborhood</span>
+        <span class="c1"># information available through the course of the active</span>
+        <span class="c1"># request -- through flask.request.patron.neighborhood.</span>
+        <span class="n">patron</span><span class="o">.</span><span class="n">neighborhood</span> <span class="o">=</span> <span class="n">patrondata</span><span class="o">.</span><span class="n">neighborhood</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">external_type_regular_expression</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">update_patron_external_type</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span></div>
 
