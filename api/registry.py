@@ -114,16 +114,16 @@ class RemoteRegistry(object):
     def fetch_registration_document(self, do_get=HTTP.debuggable_get):
         catalog = self.fetch_catalog(do_get=do_get)
         if isinstance(catalog, ProblemDetail):
-            return catalog, None, None
+            return catalog
         registration_url, vendor_id = catalog
 
         response = do_get(registration_url)
         if isinstance(response, ProblemDetail):
-            return response, None, None
+            return response
         terms_of_service_link, terms_of_service_html = (
             self._extract_registration_information(response)
         )
-        return None, terms_of_service_link, terms_of_service_html
+        return terms_of_service_link, terms_of_service_html
 
     @classmethod
     def _extract_catalog_information(cls, response):
@@ -132,11 +132,14 @@ class RemoteRegistry(object):
 
         :param response: A requests-style Response object.
 
-        :return A ProblemDetail if there's a problem parsing the
+        :return A ProblemDetail if there's a problem accessing the
         catalog; otherwise a 2-tuple (registration URL, Adobe vendor
         ID).
         """
-        catalog, links = cls._extract_links(response)
+        result = cls._extract_links(response)
+        if isinstance(result, ProblemDetail):
+            return result
+        catalog, links = result
         if catalog:
             vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
         else:
@@ -152,9 +155,19 @@ class RemoteRegistry(object):
 
     @classmethod
     def _extract_registration_information(cls, response):
+        """From an OPDS registration document, extract information that's
+        useful to kickstarting the OPDS Directory Registration Protocol.
+
+        The registration document is completely optional, so an
+        invalid or unintelligible document is treated the same as a
+        missing document.
+        """
         tos_link = None
         tos_html = None
-        catalog, links = cls._extract_links(response)
+        result = cls._extract_links(response)
+        if isinstance(result, ProblemDetail):
+            return None, None
+        catalog, links = result
         for link in links:
             if link.get("rel") != "terms-of-service":
                 continue
@@ -166,12 +179,15 @@ class RemoteRegistry(object):
             if is_http and not tos_link:
                 tos_link = url
             elif url.startswith("data:") and not tos_html:
-                tos_html = cls._decode_html_in_data_url(url)
+                try:
+                    tos_html = cls._decode_data_url(url)
+                except Exception, e:
+                    tos_html = None
         return tos_link, tos_html
 
     @classmethod
     def _extract_links(cls, response):
-        # The catalog URL must be either an OPDS 2 catalog or an OPDS 1 feed.
+        # The response must contain either an OPDS 2 catalog or an OPDS 1 feed.
         type = response.headers.get("Content-Type")
         if type and type.startswith(cls.OPDS_2_TYPE):
             # This is an OPDS 2 catalog.
@@ -187,18 +203,24 @@ class RemoteRegistry(object):
         return catalog, links
 
     @classmethod
-    def _decode_html_in_data_url(cls, url):
-        parts = url.split(",", 1)
+    def _decode_data_url(cls, url):
+        """Convert a data: URL to a string."""
+        if not url.startswith("data:"):
+            raise ValueError("Not a data: URL: %s" % url)
+        parts = url.split(",")
         if len(parts) != 2:
-            return None
+            raise ValueError("Invalid data: URL: %s" % url)
         header, encoded = parts
-        if header != "data:text/html;base64":
-            return None
-        html = None
-        try:
-            html = base64.b64decode(encoded)
-        except Exception, e:
-            return None
+        if not header.endswith(";base64"):
+            raise ValueError("data: URL not base64-encoded: %s" % url)
+        media_type = header[len("data:"):-len(";base64")]
+        if not any(
+                media_type.startswith(x) for x in ("text/html", "text/plain")
+        ):
+            raise ValueError(
+                "Unsupported media type in data: URL: %s" % media_type
+            )
+        html = base64.b64decode(encoded)
         return Sanitizer().sanitize(html)
 
 

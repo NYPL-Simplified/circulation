@@ -1,4 +1,5 @@
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -10,7 +11,11 @@ import os
 from . import (
     DatabaseTest
 )
-from core.testing import MockRequestsResponse
+from core.testing import (
+    DummyHTTPClient,
+    MockRequestsResponse,
+)
+from core.util.http import HTTP
 from core.util.problem_detail import (
     ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
@@ -19,6 +24,7 @@ from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
+from core.util.string_helpers import base64
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
 from api.problem_details import *
@@ -118,6 +124,235 @@ class TestRemoteRegistry(DatabaseTest):
         assert isinstance(registration, Registration)
         eq_(registry, registration.registry)
         eq_(self._default_library, registration.library)
+
+    def test__extract_catalog_information(self):
+        # Test our ability to extract a registration link and an
+        # Adobe Vendor ID from an OPDS 1 or OPDS 2 catalog.
+        def extract(document, type=RemoteRegistry.OPDS_2_TYPE):
+            response = MockRequestsResponse(
+                200, { "Content-Type" : type }, document
+            )
+            return RemoteRegistry._extract_catalog_information(response)
+
+        def assert_no_link(*args, **kwargs):
+            """Verify that calling _extract_catalog_information on the
+            given feed fails because there is no link with rel="register"
+            """
+            result = extract(*args, **kwargs)
+            eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+            eq_("The service at http://url/ did not provide a register link.",
+                result.detail)
+
+        # OPDS 2 feed with link and Adobe Vendor ID.
+        link = { 'rel': 'register', 'href': 'register url' }
+        metadata = { 'adobe_vendor_id': 'vendorid' }
+        feed = json.dumps(dict(links=[link], metadata=metadata))
+        eq_(("register url", "vendorid"), extract(feed))
+
+        # OPDS 2 feed with link and no Adobe Vendor ID
+        feed = json.dumps(dict(links=[link]))
+        eq_(("register url", None), extract(feed))
+
+        # OPDS 2 feed with no link.
+        feed = json.dumps(dict(metadata=metadata))
+        assert_no_link(feed)
+
+        # OPDS 1 feed with link.
+        feed = '<feed><link rel="register" href="register url"/></feed>'
+        eq_(("register url", None),
+            extract(feed, RemoteRegistry.OPDS_1_PREFIX + ";foo"))
+
+        # OPDS 1 feed with no link.
+        feed = '<feed></feed>'
+        assert_no_link(feed, RemoteRegistry.OPDS_1_PREFIX + ";foo")
+
+        # Non-OPDS document.
+        result = extract("plain text here", "text/plain")
+        eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+        eq_("The service at http://url/ did not return OPDS.",
+            result.detail)
+
+    def test_fetch_registration_document(self):
+        # Test our ability to retrieve terms-of-service information
+        # from a remote registry, assuming the registry makes that
+        # information available.
+
+        # First, test the case where we can't even get the catalog
+        # document.
+        class Mock(RemoteRegistry):
+            def fetch_catalog(self, do_get):
+                self.fetch_catalog_called_with = do_get
+                return REMOTE_INTEGRATION_FAILED
+
+        registry = Mock(object())
+        result = registry.fetch_registration_document()
+
+        # Our mock fetch_catalog was called with a method that would
+        # have made a real HTTP request.
+        eq_(HTTP.debuggable_get, registry.fetch_catalog_called_with)
+
+        # But the fetch_catalog method returned a problem detail,
+        # which became the return value of
+        # fetch_registration_document.
+        eq_(REMOTE_INTEGRATION_FAILED, result)
+
+        # Test the case where we get the catalog document but we can't
+        # get the registration document.
+        client = DummyHTTPClient()
+        client.responses.append(REMOTE_INTEGRATION_FAILED)
+        class Mock(RemoteRegistry):
+            def fetch_catalog(self, do_get):
+                return "http://register-here/", "vendor id"
+
+            def _extract_registration_information(self, response):
+                self._extract_registration_information_called_with = response
+                return "TOS link", "TOS HTML data"
+
+        registry = Mock(object())
+        result = registry.fetch_registration_document(client.do_get)
+        # A request was made to the registration URL mentioned in the catalog.
+        eq_("http://register-here/", client.requests.pop())
+        eq_([], client.requests)
+
+        # But the request returned a problem detail, which became the
+        # return value of the method.
+        eq_(REMOTE_INTEGRATION_FAILED, result)
+
+        # Finally, test the case where we can get both documents.
+
+        client.queue_requests_response(200, content="a registration document")
+        result = registry.fetch_registration_document(client.do_get)
+
+        # Another request was made to the registration URL.
+        eq_("http://register-here/", client.requests.pop())
+        eq_([], client.requests)
+
+        # Our mock of _extract_registration_information was called
+        # with the mock response to that request.
+        response = registry._extract_registration_information_called_with
+        eq_("a registration document", response.content)
+
+        # The return value of _extract_registration_information was
+        # propagated as the return value of
+        # fetch_registration_document.
+        eq_(("TOS link", "TOS HTML data"), result)
+
+    def test__extract_registration_information(self):
+        # Test our ability to extract terms-of-service information --
+        # a link and/or some HTML or textual instructions -- from a
+        # registration document.
+
+        def data_link(data, type="text/html"):
+            encoded = base64.b64encode(data)
+            return dict(
+                rel="terms-of-service",
+                href="data:%s;base64,%s" % (type, encoded)
+            )
+
+        class Mock(RemoteRegistry):
+            @classmethod
+            def _decode_data_url(cls, url):
+                cls.decoded = url
+                return "Decoded: " + RemoteRegistry._decode_data_url(url)
+
+        def extract(document, type=RemoteRegistry.OPDS_2_TYPE):
+            if type == RemoteRegistry.OPDS_2_TYPE:
+                document = json.dumps(dict(links=document))
+            response = MockRequestsResponse(
+                200, { "Content-Type" : type }, document
+            )
+            return Mock._extract_registration_information(response)
+
+        # OPDS 2 feed with TOS in http: and data: links.
+        tos_link = dict(rel='terms-of-service', href='http://tos/')
+        tos_data = data_link("<p>Some HTML</p>")
+        eq_(("http://tos/", "Decoded: <p>Some HTML</p>"),
+            extract([tos_link, tos_data]))
+
+        # At this point it's clear that the data: URL found in
+        # `tos_data` was run through `_decode_data()`. This gives us
+        # permission to test all the fiddly bits of `_decode_data` in
+        # isolation, below.
+        eq_(tos_data['href'], Mock.decoded)
+
+        # OPDS 2 feed with http: link only.
+        eq_(("http://tos/", None), extract([tos_link]))
+
+        # OPDS 2 feed with data: link only.
+        eq_((None, "Decoded: <p>Some HTML</p>"), extract([tos_data]))
+
+        # OPDS 2 feed with no links.
+        eq_((None, None), extract([]))
+
+        # OPDS 1 feed with link.
+        feed = '<feed><link rel="terms-of-service" href="http://tos/"/></feed>'
+        eq_(("http://tos/", None),
+            extract(feed, RemoteRegistry.OPDS_1_PREFIX + ";foo"))
+
+        # OPDS 1 feed with no link.
+        feed = '<feed></feed>'
+        eq_((None, None), extract(feed, RemoteRegistry.OPDS_1_PREFIX + ";foo"))
+
+        # Non-OPDS document.
+        eq_((None, None), extract("plain text here", "text/plain"))
+
+        # Unrecognized URI schemes are ignored.
+        ftp_link = dict(rel='terms-of-service', href='ftp://tos/')
+        eq_((None, None), extract([ftp_link]))
+
+    def test__decode_data_url(self):
+        # Test edge cases of decoding data: URLs.
+        m = RemoteRegistry._decode_data_url
+
+        def data_url(data, type="text/html"):
+            encoded = base64.b64encode(data)
+            return "data:%s;base64,%s" % (type, encoded)
+
+        # HTML is okay.
+        html = data_url("some <strong>HTML</strong>", "text/html;charset=utf-8")
+        eq_("some <strong>HTML</strong>", m(html))
+
+        # Plain text is okay.
+        text = data_url("some plain text", "text/plain")
+        eq_("some plain text", m(text))
+
+        # No other media type is allowed.
+        image = data_url("an image!", "image/png")
+        assert_raises_regexp(
+            ValueError, "Unsupported media type in data: URL: image/png",
+            m, image
+        )
+
+        # Incoming HTML is sanitized.
+        dirty_html = data_url("<script>alert!</script><p>Some HTML</p>")
+        eq_("<p>Some HTML</p>", m(dirty_html))
+
+        # Now test various malformed data: URLs.
+        no_header = "foobar"
+        assert_raises_regexp(
+            ValueError, "Not a data: URL: foobar",
+            m, no_header
+        )
+
+        no_comma = "data:blah"
+        assert_raises_regexp(
+            ValueError, "Invalid data: URL: data:blah",
+            m, no_comma
+        )
+
+        too_many_commas = "data:blah,blah,blah"
+        assert_raises_regexp(
+            ValueError, "Invalid data: URL: data:blah,blah,blah",
+            m, too_many_commas
+        )
+
+        # data: URLs don't have to be base64-encoded, but those are the
+        # only kind we support.
+        not_encoded = "data:blah,content"
+        assert_raises_regexp(
+            ValueError, "data: URL not base64-encoded: data:blah,content",
+            m, not_encoded
+        )
 
 
 class TestRegistration(DatabaseTest):
@@ -361,54 +596,6 @@ class TestRegistration(DatabaseTest):
         registration._extract_catalog_information = fail
         problem = cause_problem()
         eq_("could not extract catalog information", problem.detail)
-
-    def test__extract_catalog_information(self):
-        """Test our ability to extract a registration link and an
-        Adobe Vendor ID from an OPDS 1 or OPDS 2 catalog.
-        """
-        def extract(document, type=Registration.OPDS_2_TYPE):
-            response = MockRequestsResponse(
-                200, { "Content-Type" : type }, document
-            )
-            return Registration._extract_catalog_information(response)
-
-        def assert_no_link(*args, **kwargs):
-            """Verify that calling _extract_catalog_information on the
-            given feed fails because there is no link with rel="register"
-            """
-            result = extract(*args, **kwargs)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
-            eq_("The service at http://url/ did not provide a register link.",
-                result.detail)
-
-        # OPDS 2 feed with link and Adobe Vendor ID.
-        link = { 'rel': 'register', 'href': 'register url' }
-        metadata = { 'adobe_vendor_id': 'vendorid' }
-        feed = json.dumps(dict(links=[link], metadata=metadata))
-        eq_(("register url", "vendorid"), extract(feed))
-
-        # OPDS 2 feed with link and no Adobe Vendor ID
-        feed = json.dumps(dict(links=[link]))
-        eq_(("register url", None), extract(feed))
-
-        # OPDS 2 feed with no link.
-        feed = json.dumps(dict(metadata=metadata))
-        assert_no_link(feed)
-
-        # OPDS 1 feed with link.
-        feed = '<feed><link rel="register" href="register url"/></feed>'
-        eq_(("register url", None),
-            extract(feed, Registration.OPDS_1_PREFIX + ";foo"))
-
-        # OPDS 1 feed with no link.
-        feed = '<feed></feed>'
-        assert_no_link(feed, Registration.OPDS_1_PREFIX + ";foo")
-
-        # Non-OPDS document.
-        result = extract("plain text here", "text/plain")
-        eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
-        eq_("The service at http://url/ did not return OPDS.",
-            result.detail)
 
     def test__create_registration_payload(self):
         m = self.registration._create_registration_payload
