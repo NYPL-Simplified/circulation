@@ -49,11 +49,11 @@ from api.lanes import (
     SeriesLane,
 )
 from api.authenticator import (
-    BasicAuthenticationProvider,
     CirculationPatronProfileStorage,
     OAuthController,
     LibraryAuthenticator,
 )
+from api.simple_authentication import SimpleAuthenticationProvider
 from core.app_server import (
     cdn_url_for,
     load_lending_policy,
@@ -301,9 +301,10 @@ class ControllerTest(VendorIDTest):
                 protocol="api.simple_authentication",
                 goal=ExternalIntegration.PATRON_AUTH_GOAL
             )
-            p = BasicAuthenticationProvider
+            p = SimpleAuthenticationProvider
             integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
             integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+            integration.setting(p.TEST_NEIGHBORHOOD).value = "Unit Test West"
             library.integrations.append(integration)
 
         for k, v in [
@@ -694,6 +695,11 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             value = self.controller.authenticated_patron(self.valid_credentials)
             assert isinstance(value, Patron)
+
+            # The test neighborhood configured in the SimpleAuthenticationProvider
+            # has been associated with the authenticated Patron object for the
+            # duration of this request.
+            eq_("Unit Test West", value.neighborhood)
 
     def test_authentication_sends_proper_headers(self):
 

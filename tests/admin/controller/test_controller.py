@@ -1713,7 +1713,6 @@ class TestDashboardController(AdminControllerTest):
 
     def test_circulation_events(self):
         [lp] = self.english_1.license_pools
-        patron_id = "patronid"
         types = [
             CirculationEvent.DISTRIBUTOR_CHECKIN,
             CirculationEvent.DISTRIBUTOR_CHECKOUT,
@@ -1726,7 +1725,7 @@ class TestDashboardController(AdminControllerTest):
             get_one_or_create(
                 self._db, CirculationEvent,
                 license_pool=lp, type=type, start=time, end=time,
-                foreign_patron_id=patron_id)
+            )
             time += timedelta(minutes=1)
 
         with self.request_context_with_library_and_admin("/"):
@@ -1737,7 +1736,6 @@ class TestDashboardController(AdminControllerTest):
         eq_(types[::-1], [event['type'] for event in events])
         eq_([self.english_1.title]*len(types), [event['book']['title'] for event in events])
         eq_([url]*len(types), [event['book']['url'] for event in events])
-        eq_([patron_id]*len(types), [event['patron_id'] for event in events])
 
         # request fewer events
         with self.request_context_with_library_and_admin("/?num=2"):
