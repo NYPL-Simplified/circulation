@@ -84,3 +84,41 @@ class TestLocalAnalyticsProvider(DatabaseTest):
             "Either library or license_pool must be provided.",
             self.la.collect_event, None, None, "event", now
         )
+
+    def test_neighborhood_is_location(self):
+        # If a 'neighborhood' argument is provided, its value
+        # is used as CirculationEvent.location.
+
+        # The default LocalAnalytics object doesn't have a location
+        # gathering policy, and the default is to ignore location.
+        event, is_new = self.la.collect_event(
+            self._default_library, None, "event", datetime.datetime.utcnow(),
+            neighborhood="Gormenghast"
+        )
+        eq_(True, is_new)
+        eq_(None, event.location)
+
+        # Create another LocalAnalytics object that uses the patron
+        # neighborhood as the event location.
+
+        p = LocalAnalyticsProvider
+        self.integration.setting(p.LOCATION_SOURCE).value = (
+            p.LOCATION_SOURCE_NEIGHBORHOOD
+        )
+        la = p(self.integration, self._default_library)
+
+        event, is_new = la.collect_event(
+            self._default_library, None, "event", datetime.datetime.utcnow(),
+            neighborhood="Gormenghast"
+        )
+        eq_(True, is_new)
+        eq_("Gormenghast", event.location)
+
+        # If no neighborhood is available, the event ends up with no location
+        # anyway.
+        event2, is_new = la.collect_event(
+            self._default_library, None, "event", datetime.datetime.utcnow(),
+        )
+        assert event2 != event
+        eq_(True, is_new)
+        eq_(None, event2.location)
