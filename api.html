@@ -3265,12 +3265,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4ffc260&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4b924a0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x517b9b0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4904100&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3285,7 +3285,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x517b660&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4becb10&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8120,7 +8120,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 20, 19, 21, 22, 619960)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 21, 17, 28, 58, 650425)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12286,16 +12286,6 @@ configure the relationship between the two.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="api.registry.Registration.OPDS_1_PREFIX">
-<code class="descname">OPDS_1_PREFIX</code><em class="property"> = 'application/atom+xml;profile=opds-catalog'</em><a class="headerlink" href="#api.registry.Registration.OPDS_1_PREFIX" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.registry.Registration.OPDS_2_TYPE">
-<code class="descname">OPDS_2_TYPE</code><em class="property"> = 'application/opds+json'</em><a class="headerlink" href="#api.registry.Registration.OPDS_2_TYPE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
 <dt id="api.registry.Registration.PRODUCTION_STAGE">
 <code class="descname">PRODUCTION_STAGE</code><em class="property"> = 'production'</em><a class="headerlink" href="#api.registry.Registration.PRODUCTION_STAGE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -12379,6 +12369,51 @@ it may be a shared ODL collection (which has LICENSE_GOAL).</p>
 <dt id="api.registry.RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL">
 <code class="descname">DEFAULT_LIBRARY_REGISTRY_URL</code><em class="property"> = 'https://libraryregistry.librarysimplified.org/'</em><a class="headerlink" href="#api.registry.RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.registry.RemoteRegistry.OPDS_1_PREFIX">
+<code class="descname">OPDS_1_PREFIX</code><em class="property"> = 'application/atom+xml;profile=opds-catalog'</em><a class="headerlink" href="#api.registry.RemoteRegistry.OPDS_1_PREFIX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.registry.RemoteRegistry.OPDS_2_TYPE">
+<code class="descname">OPDS_2_TYPE</code><em class="property"> = 'application/opds+json'</em><a class="headerlink" href="#api.registry.RemoteRegistry.OPDS_2_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.registry.RemoteRegistry.fetch_catalog">
+<code class="descname">fetch_catalog</code><span class="sig-paren">(</span><em>catalog_url=None</em>, <em>do_get=&lt;bound method type.debuggable_get of &lt;class 'core.util.http.HTTP'&gt;&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/registry.html#RemoteRegistry.fetch_catalog"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.registry.RemoteRegistry.fetch_catalog" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch the root catalog for this RemoteRegistry.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A ProblemDetail if there’s a problem communicating
+with the service or parsing the catalog; otherwise a 2-tuple
+(registration URL, Adobe vendor ID).</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.registry.RemoteRegistry.fetch_registration_document">
+<code class="descname">fetch_registration_document</code><span class="sig-paren">(</span><em>do_get=&lt;bound method type.debuggable_get of &lt;class 'core.util.http.HTTP'&gt;&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/registry.html#RemoteRegistry.fetch_registration_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.registry.RemoteRegistry.fetch_registration_document" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch a discovery service’s registration document and extract
+useful information from it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A ProblemDetail if there’s a problem accessing the
+service; otherwise, a 2-tuple (terms_of_service_link,
+terms_of_service_html), containing information about the
+Terms of Service that govern a circulation manager’s
+registration with the discovery service.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="classmethod">
 <dt id="api.registry.RemoteRegistry.for_integration_id">

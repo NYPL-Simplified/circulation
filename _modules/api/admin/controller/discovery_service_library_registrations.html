@@ -37,6 +37,7 @@
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">api.registry</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">RemoteRegistry</span><span class="p">,</span>
@@ -72,11 +73,11 @@
         <span class="n">registration_class</span> <span class="o">=</span> <span class="n">registration_class</span> <span class="ow">or</span> <span class="n">Registration</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">(</span><span class="n">do_get</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_post</span><span class="p">(</span><span class="n">registration_class</span><span class="p">,</span> <span class="n">do_get</span><span class="p">,</span> <span class="n">do_post</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="DiscoveryServiceLibraryRegistrationsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.discovery_service_library_registrations.DiscoveryServiceLibraryRegistrationsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DiscoveryServiceLibraryRegistrationsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.discovery_service_library_registrations.DiscoveryServiceLibraryRegistrationsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">debuggable_get</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make a list of all discovery services, each with the</span>
 <span class="sd">        list of libraries registered with that service and the</span>
 <span class="sd">        status of the registration.&quot;&quot;&quot;</span>
@@ -85,6 +86,20 @@
         <span class="k">for</span> <span class="n">registry</span> <span class="ow">in</span> <span class="n">RemoteRegistry</span><span class="o">.</span><span class="n">for_protocol_and_goal</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_REGISTRATION</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">goal</span>
         <span class="p">):</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">registry</span><span class="o">.</span><span class="n">fetch_registration_document</span><span class="p">(</span><span class="n">do_get</span><span class="o">=</span><span class="n">do_get</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="c1"># Unlike most cases like this, a ProblemDetail doesn&#39;t</span>
+                <span class="c1"># mean the whole request is ruined -- just that one of</span>
+                <span class="c1"># the discovery services isn&#39;t working. Turn the</span>
+                <span class="c1"># ProblemDetail into a JSON object and return it for</span>
+                <span class="c1"># handling on the client side.</span>
+                <span class="n">access_problem</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">response</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">terms_of_service_link</span> <span class="o">=</span> <span class="n">terms_of_service_html</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">access_problem</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">terms_of_service_link</span><span class="p">,</span> <span class="n">terms_of_service_html</span> <span class="o">=</span> <span class="n">result</span>
             <span class="n">libraries</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">registration</span> <span class="ow">in</span> <span class="n">registry</span><span class="o">.</span><span class="n">registrations</span><span class="p">:</span>
                 <span class="n">library_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_library_info</span><span class="p">(</span><span class="n">registration</span><span class="p">)</span>
@@ -94,6 +109,9 @@
             <span class="n">services</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="nb">dict</span><span class="p">(</span>
                     <span class="nb">id</span><span class="o">=</span><span class="n">registry</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">access_problem</span><span class="o">=</span><span class="n">access_problem</span><span class="p">,</span>
+                    <span class="n">terms_of_service_link</span><span class="o">=</span><span class="n">terms_of_service_link</span><span class="p">,</span>
+                    <span class="n">terms_of_service_html</span><span class="o">=</span><span class="n">terms_of_service_html</span><span class="p">,</span>
                     <span class="n">libraries</span><span class="o">=</span><span class="n">libraries</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span>
