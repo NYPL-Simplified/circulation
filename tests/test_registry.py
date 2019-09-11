@@ -476,8 +476,6 @@ class TestRegistration(DatabaseTest):
 
         class MockRegistration(Registration):
 
-            do_get_called_with = []
-
             def _create_registration_payload(self, url_for, stage):
                 self.payload_ingredients = (url_for, stage)
                 return dict(payload="this is it")
