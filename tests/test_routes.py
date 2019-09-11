@@ -212,11 +212,16 @@ class RouteTest(ControllerTest):
         authenticated request to `url` and verify the results, as with
         assert_request_calls
         """
+        authentication_required = kwargs.pop("authentication_required", True)
+
         http_method = kwargs.pop('http_method', 'GET')
         response = self.request(url, http_method)
-        eq_(401, response.status_code)
-        eq_("authenticated_patron_from_request called without authorizing",
-            response.data)
+        if authentication_required:
+            eq_(401, response.status_code)
+            eq_("authenticated_patron_from_request called without authorizing",
+                response.data)
+        else:
+            eq_(200, response.status_code)
 
         # Set a variable so that authenticated_patron_from_request
         # will succeed, and try again.
@@ -599,9 +604,13 @@ class TestAnalyticsController(RouteTest):
 
     def test_track_analytics_event(self):
         url = '/analytics/<identifier_type>/an/identifier/<event_type>'
-        self.assert_request_calls(
+
+        # This controller can be called either authenticated or
+        # unauthenticated.
+        self.assert_authenticated_request_calls(
             url, self.controller.track_event,
-            "<identifier_type>", "an/identifier", "<event_type>"
+            "<identifier_type>", "an/identifier", "<event_type>",
+            authentication_required=False
         )
 
 
