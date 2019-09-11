@@ -62,6 +62,9 @@ def shutdown_session(exception):
             app.manager._db.commit()
 
 def requires_auth(f):
+    """Decorator function for a controller method that requires an
+    authenticated patron for the current request.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
         patron = app.manager.index_controller.authenticated_patron_from_request()
@@ -71,6 +74,21 @@ def requires_auth(f):
             return patron
         else:
             return f(*args, **kwargs)
+    return decorated
+
+def allows_auth(f):
+    """Decorator function for a controller method that supports both
+    authenticated and unauthenticated requests.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Try to authenticate a patron. This will set flask.request.patron
+        # if and only if there is an authenticated patron.
+        app.manager.index_controller.authenticated_patron_from_request()
+
+        # Call the decorated function regardless of whether
+        # authentication succeeds.
+        return f(*args, **kwargs)
     return decorated
 
 # The allows_patron_web decorator will add Cross-Origin Resource Sharing
@@ -424,6 +442,7 @@ def report(identifier_type, identifier):
 @has_library
 @allows_patron_web
 @returns_problem_detail
+@allows_auth
 def track_analytics_event(identifier_type, identifier, event_type):
     return app.manager.analytics_controller.track_event(identifier_type, identifier, event_type)
 

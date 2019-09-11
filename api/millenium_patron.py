@@ -215,7 +215,17 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             response = self.request(url)
             data = dict(self._extract_text_nodes(response.content))
             if data.get('RETCOD') == '0':
-                return PatronData(authorization_identifier=username, complete=False)
+                # The pintest endpoint doesn't give us any information
+                # about the patron, and it's quite possible that this
+                # request will end up needing to know the patron's
+                # neighborhood. Create a deferred function that will
+                # fetch the neighborhood when called, and pass that in
+                # as the neighborhood.
+                return PatronData(
+                    authorization_identifier=username,
+                    neighborhood=self.neighborhood_getter(username),
+                    complete=False
+                )
             return False
         elif self.auth_mode == self.FAMILY_NAME_AUTHENTICATION_MODE:
             # Patrons are authenticated by their family name.
@@ -231,6 +241,24 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 # call to /dump.
                 return patrondata
         return False
+
+    def neighborhood_getter(self, patron_identifier):
+        """Create a function that, when called, performs a patron lookup to
+        find this patron's neighborhood.
+
+        Neighborhood lookup is an expensive operation and we don't
+        want to do it on a request where it's not necessary -- but it
+        may not be clear that it _is_ necessary until much later in
+        the request. At that point we won't even know that the patron
+        was authenticated with the Millenium Patron API.
+
+        Using this function as the patron's "neighborhood" gives us
+        the capability to defer the API call until the last minute.
+        """
+        def lookup():
+            patrondata = self._remote_patron_lookup(patron_identifier)
+            return patrondata.neighborhood
+        return lookup
 
     @classmethod
     def family_name_match(self, actual_name, supposed_family_name):

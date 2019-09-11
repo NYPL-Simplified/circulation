@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
 from nose.tools import (
+    assert_raises,
     assert_raises_regexp,
     eq_,
     set_trace,
@@ -282,17 +283,25 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("SECOND-barcode", p.authorization_identifier)
 
     def test_authenticated_patron_success(self):
-        """This test can probably be removed -- it mostly tests functionality
-        from BasicAuthAuthenticator.
+        """Verify our ability to authenticate a patron -- including our
+        ability to defer the gathering of information from their 
         """
-        # Patron is valid, but not in our database yet
-        self.api.enqueue("pintest.good.html")
-        self.api.enqueue("dump.success.html")
-        alice = self.api.authenticate(
+        api = self.mock_api(
+            neighborhood_mode=MilleniumPatronAPI.HOME_BRANCH_NEIGHBORHOOD_MODE
+        )
+
+        # Authorization is valid, but patron is not in our database yet
+        api.enqueue("pintest.good.html")
+        api.enqueue("dump.success.html")
+        alice = api.authenticate(
             self._db, dict(username="alice", password="4444")
         )
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
+
+        # Patron neighborhood was extracted immediately from the data
+        # dump.
+        eq_("mm", alice.neighborhood)
 
         # Create another patron who has a different barcode and username,
         # to verify that our authentication mechanism chooses the right patron
@@ -303,14 +312,32 @@ class TestMilleniumPatronAPI(DatabaseTest):
         self._db.commit()
 
         # Patron is in the db, now authenticate with barcode
-        self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, dict(username="44444444444447", password="4444"))
+        api.enqueue("pintest.good.html")
+        alice = api.authenticated_patron(
+            self._db, dict(username="44444444444447", password="4444")
+        )
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
+        # We only performed the PIN test and did not obtain a data
+        # dump. PatronData.neighborhood is set to a function that will obtain
+        # a data dump and gather the patron's neighborhood when called.
+        assert callable(alice.neighborhood)
+        api.enqueue("dump.success.html")
+        eq_("mm", alice.neighborhood())
+
+        # attempting to call the method again will raise an exception
+        # because dump.success.html was only enqueued once, and there
+        # are no more API responses queued up.
+        assert_raises(
+            IndexError, lambda: alice.neighborhood()
+        )
+
         # Authenticate with username again
-        self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, dict(username="alice", password="4444"))
+        api.enqueue("pintest.good.html")
+        alice = api.authenticated_patron(
+            self._db, dict(username="alice", password="4444")
+        )
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
@@ -412,6 +439,25 @@ class TestMilleniumPatronAPI(DatabaseTest):
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_("10001", patrondata.neighborhood)
 
+    def test_neighborhood_getter(self):
+        # Test the neighborhood_getter method.
+
+        class Mock(MockAPI):
+            def _remote_patron_lookup(self, patron_identifier):
+                self.called_with = patron_identifier
+                return PatronData(neighborhood="Little Homeworld")
+        api = Mock()
+
+        # Passing a patron identifier into neighborhood_getter()
+        # returns a callable function.
+        getter = api.neighborhood_getter("1234510")
+        assert callable(getter)
+
+        # Calling the function passes the patron identifier into
+        # _remote_patron_lookup() and returns the .neighborhood of the
+        # PatronData it returns.
+        eq_("Little Homeworld", getter())
+        eq_("1234510", api.called_with)
 
     def test_authorization_identifier_blacklist(self):
         """A patron has two authorization identifiers. Ordinarily the second

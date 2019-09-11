@@ -1878,7 +1878,9 @@ class AnalyticsController(CirculationManagerController):
         # same book.
         if event_type in CirculationEvent.CLIENT_EVENTS:
             library = flask.request.library
-            patron = flask.request.patron
+            # Authentication on the AnalyticsController is optional,
+            # so flask.request.patron may or may not be set.
+            patron = getattr(flask.request, 'patron', None)
             neighborhood = None
             if patron:
                 neighborhood = getattr(patron, 'neighborhood', None)
