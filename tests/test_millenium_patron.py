@@ -443,6 +443,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # Test the neighborhood_getter method.
 
         class Mock(MockAPI):
+            def __init__(self):
+                pass
+
             def _remote_patron_lookup(self, patron_identifier):
                 self.called_with = patron_identifier
                 return PatronData(neighborhood="Little Homeworld")
