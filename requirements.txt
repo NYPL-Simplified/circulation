@@ -48,6 +48,7 @@ PyLD==0.7.3
 pycryptodome
 wcag-contrast-ratio
 uritemplate
+html-sanitizer
 
 # A NYPL-specific requirement
 newrelic
