@@ -120,6 +120,27 @@ class Patron(Base):
     _synchronize_annotations = Column(Boolean, default=None,
                                       name="synchronize_annotations")
 
+    # If the circulation manager is set up to associate a patron's
+    # neighborhood with circulation events, and it would be
+    # prohibitively expensive to fetch a patron's neighborhood from
+    # the ILS on every relevant request, the ILS may choose to cache
+    # the information here.
+    #
+    # Patrons with an old last_external_sync (i.e. who haven't used
+    # the circulation manager in a while) will have their
+    # cached_neighborhood scrubbed from the database -- this is the
+    # responsibility of PatronNeighborhoodScrubber.
+    #
+    # This field is called cached_neighborhood for two reasons. First,
+    # the name makes it clear that this is a performance cache, not a
+    # permanent data store. Second, the neighborhood of the
+    # authenticated request (however obtained) is stored in
+    # flask.patron.neighborhood. Calling the database field something
+    # different guarantees that a patron's neighborhood is never
+    # _unintentionally_ written to the database.  It has to be an
+    # explicit decision of the ILS integration code.
+    cached_neighborhood = Column(Unicode, default=None, index=True)
+
     loans = relationship('Loan', backref='patron', cascade='delete')
     holds = relationship('Hold', backref='patron', cascade='delete')
 
@@ -135,6 +156,11 @@ class Patron(Base):
     )
 
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
+
+    # A patron with borrowing privileges should have their local
+    # metadata synced with their ILS record at intervals no greater
+    # than this time.
+    MAX_SYNC_TIME = datetime.timedelta(hours=12)
 
     def __repr__(self):
         def date(d):

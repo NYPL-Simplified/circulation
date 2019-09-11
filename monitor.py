@@ -852,17 +852,12 @@ class CollectionReaper(ReaperMonitor):
 ReaperMonitor.REGISTRY.append(CollectionReaper)
 
 
-class CirculationEventScrubber(ReaperMonitor):
-    """Scrub location information from old CirculationEvents.
+class ScrubberMonitor(ReaperMonitor):
+    """Scrub information from the database.
 
     Unlike the other ReaperMonitors, this class doesn't delete rows
-    from the database -- it only clears out the 'location' column for
-    such rows.
+    from the database -- it only clears out specific data fields.
     """
-    MODEL_CLASS = CirculationEvent
-    TIMESTAMP_FIELD = 'start'
-    MAX_AGE = datetime.timedelta(days=365)
-
     def run_once(self, *args, **kwargs):
         rows_scrubbed = 0
         qu = self.query()
@@ -871,6 +866,17 @@ class CirculationEventScrubber(ReaperMonitor):
             self.scrub(i)
             rows_scrubbed += 1
         return TimestampData(achievements="Items scrubbed: %d" % rows_scrubbed)
+
+    def scrub(self, row):
+        raise NotImplementedError()
+
+
+class CirculationEventScrubber(ScrubberMonitor):
+    """Scrub location information from old CirculationEvents."""
+    MODEL_CLASS = CirculationEvent
+    TIMESTAMP_FIELD = 'start'
+    MAX_AGE = datetime.timedelta(days=365)
+
 
     @property
     def where_clause(self):
@@ -884,3 +890,30 @@ class CirculationEventScrubber(ReaperMonitor):
         """Clear out a CirculationManager's location."""
         row.location = None
 ReaperMonitor.REGISTRY.append(CirculationEventScrubber)
+
+
+class PatronNeighborhoodScrubber(ScrubberMonitor):
+    """Scrub cached neighborhood information from patrons who haven't been
+    seen in a while.
+    """
+    # Operate on records for patrons who would, if they showed up
+    # right now, need to have their local records synced with the ILS.
+    #
+    # Basically, patrons who haven't used the site in the last 12
+    # hours.
+    MODEL_CLASS = Patron
+    TIMESTAMP_FIELD = 'last_external_sync'
+    MAX_AGE = Patron.MAX_SYNC_TIME
+
+    @property
+    def where_clause(self):
+        """Only consider Patrons with a cached_neighborhood."""
+        return and_(
+            super(CirculationEventScrubber, self).where_clause,
+            Patron.cached_neighborhood != None
+        )
+
+    def scrub(self, row):
+        """Clear out a Patron's cached_neighborhood."""
+        row.cached_neighborhood = None
+ReaperMonitor.REGISTRY.append(PatronNeighborhoodScrubber)
