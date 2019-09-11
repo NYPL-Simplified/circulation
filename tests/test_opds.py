@@ -506,7 +506,8 @@ class TestLibraryAnnotator(VendorIDTest):
         the information necessary to get an Adobe ID and a link to the local
         DRM Device Management Protocol endpoint.
         """
-        self.initialize_adobe(self._default_library)
+        library = self._default_library
+        self.initialize_adobe(library)
         patron_identifier = "patron identifier"
         [element] = self.annotator.adobe_id_tags(patron_identifier)
         eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
@@ -520,17 +521,19 @@ class TestLibraryAnnotator(VendorIDTest):
         # token.text is a token which we can decode, since we know
         # the secret.
         token = token.text
-        authdata = AuthdataUtility.from_config(self._default_library)
+        authdata = AuthdataUtility.from_config(library)
         decoded = authdata.decode_short_client_token(token)
         expected_url = ConfigurationSetting.for_library(
-            Configuration.WEBSITE_URL, self._default_library).value
+            Configuration.WEBSITE_URL, library
+        ).value
         eq_((expected_url, patron_identifier), decoded)
 
         eq_("link", device_management_link.tag)
         eq_("http://librarysimplified.org/terms/drm/rel/devices",
             device_management_link.attrib['rel'])
         expect_url = self.annotator.url_for(
-            'adobe_drm_devices', library_short_name=self._default_library.short_name, _external=True
+            'adobe_drm_devices', library_short_name=library.short_name,
+            _external=True
         )
         eq_(expect_url, device_management_link.attrib['href'])
 
@@ -539,6 +542,18 @@ class TestLibraryAnnotator(VendorIDTest):
         [same_tag] = self.annotator.adobe_id_tags(patron_identifier)
         assert same_tag is not element
         eq_(etree.tostring(element), etree.tostring(same_tag))
+
+        # If the Adobe Vendor ID configuration is present but
+        # incomplete, adobe_id_tags does nothing.
+
+        # Delete one setting from the existing integration to check
+        # this.
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, ExternalIntegration.USERNAME, library,
+            self.registry
+        )
+        self._db.delete(setting)
+        eq_([], self.annotator.adobe_id_tags("new identifier"))
 
     def test_default_lane_url(self):
         default_lane_url = self.annotator.default_lane_url()
