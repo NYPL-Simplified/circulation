@@ -268,12 +268,13 @@ def genres():
 def bulk_circulation_events():
     """Returns a CSV representation of all circulation events with optional
     start and end times."""
-    data, date = app.manager.admin_dashboard_controller.bulk_circulation_events()
+    data, date, date_end = app.manager.admin_dashboard_controller.bulk_circulation_events()
     if isinstance(data, ProblemDetail):
         return data
 
     response = make_response(data)
-    response.headers['Content-Disposition'] = "attachment; filename=circulation_events_" + date + ".csv"
+    filename_date = date + "-to-" + date_end if date_end and date != date_end else date
+    response.headers['Content-Disposition'] = "attachment; filename=circulation_events_" + filename_date + ".csv"
     response.headers["Content-type"] = "text/csv"
     return response
 

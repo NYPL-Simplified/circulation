@@ -98,3 +98,62 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
         eq_(0, len(rows))
+
+        # Add example events that will be used to report by location
+        user_added_locations = "11377,10018,11378"
+        new_types = [
+            CirculationEvent.CM_FULFILL,
+            CirculationEvent.CM_CHECKOUT,
+            CirculationEvent.OPEN_BOOK,
+        ]
+        num = len(new_types)
+        time = datetime.now() - timedelta(minutes=num)
+        for type in new_types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time)
+            time += timedelta(minutes=1)
+
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), "locations", user_added_locations)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # No location was associated with each event so none will be returned
+        eq_(0, len(rows))
+
+        for type in new_types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time, location="10001")
+            time += timedelta(minutes=1)
+
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), "locations", user_added_locations)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # Some events have a location but not in the list of locations that was passed
+        eq_(0, len(rows))
+
+        for type in new_types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time, location="11377")
+            time += timedelta(minutes=1)
+
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), "locations", user_added_locations)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        eq_(num, len(rows))
+        eq_(new_types, [row[1] for row in rows])
+        eq_([identifier1.identifier]*num, [row[2] for row in rows])
+        eq_([identifier1.type]*num, [row[3] for row in rows])
+        eq_([edition1.title]*num, [row[4] for row in rows])
+        eq_([edition1.author]*num, [row[5] for row in rows])
+        eq_(["fiction"]*num, [row[6] for row in rows])
+        eq_([w1.audience]*num, [row[7] for row in rows])
+        eq_([edition1.publisher or '']*num, [row[8] for row in rows])
+        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
+        eq_([edition1.language]*num, [row[10] for row in rows])
+        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
+        eq_([ordered_genre_string]*num, [row[12] for row in rows])

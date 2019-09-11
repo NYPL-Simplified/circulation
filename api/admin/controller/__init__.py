@@ -1255,12 +1255,15 @@ class DashboardController(AdminCirculationManagerController):
     def bulk_circulation_events(self):
         default = str(datetime.today()).split(" ")[0]
         date = flask.request.args.get("date", default)
-        next_date = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)
+        date_end = flask.request.args.get("dateEnd", None)
+        next_date = date_end or (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1))
+        type = flask.request.args.get("type", None)
+        locations = flask.request.args.get("locations", None)
 
         exporter = LocalAnalyticsExporter()
-        data = exporter.export(self._db, date, next_date)
+        data = exporter.export(self._db, date, next_date, type, locations)
 
-        return data, date
+        return data, date, next_date
 
 class SettingsController(AdminCirculationManagerController):
 
