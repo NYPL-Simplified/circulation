@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import base64
 import feedparser
 from flask_babel import lazy_gettext as _
+from html_sanitizer import Sanitizer
 import json
 import logging
 from sqlalchemy.orm.exc import NoResultFound
@@ -38,6 +39,9 @@ class RemoteRegistry(object):
     it may be a shared ODL collection (which has LICENSE_GOAL).
     """
     DEFAULT_LIBRARY_REGISTRY_URL = "https://libraryregistry.librarysimplified.org/"
+
+    OPDS_1_PREFIX = "application/atom+xml;profile=opds-catalog"
+    OPDS_2_TYPE = "application/opds+json"
 
     def __init__(self, integration):
         """Constructor."""
@@ -93,6 +97,158 @@ class RemoteRegistry(object):
         """
         for x in self.integration.libraries:
             yield Registration(self, x)
+
+    def fetch_catalog(self, catalog_url=None, do_get=HTTP.debuggable_get):
+        """Fetch the root catalog for this RemoteRegistry.
+
+        :return: A ProblemDetail if there's a problem communicating
+            with the service or parsing the catalog; otherwise a 2-tuple
+            (registration URL, Adobe vendor ID).
+        """
+        catalog_url = catalog_url or self.integration.url
+        response = do_get(catalog_url)
+        if isinstance(response, ProblemDetail):
+            return response
+        return self._extract_catalog_information(response)
+
+    @classmethod
+    def _extract_catalog_information(cls, response):
+        """From an OPDS catalog, extract information that's essential to
+        kickstarting the OPDS Directory Registration Protocol.
+
+        :param response: A requests-style Response object.
+
+        :return A ProblemDetail if there's a problem accessing the
+            catalog; otherwise a 2-tuple (registration URL, Adobe vendor
+            ID).
+        """
+        result = cls._extract_links(response)
+        if isinstance(result, ProblemDetail):
+            return result
+        catalog, links = result
+        if catalog:
+            vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
+        else:
+            vendor_id = None
+        register_url = None
+        for link in links:
+            if link.get("rel") == "register":
+                register_url = link.get("href")
+                break
+        if not register_url:
+            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=response.url))
+        return register_url, vendor_id
+
+    def fetch_registration_document(self, do_get=HTTP.debuggable_get):
+        """Fetch a discovery service's registration document and extract
+        useful information from it.
+
+        :return: A ProblemDetail if there's a problem accessing the
+            service; otherwise, a 2-tuple (terms_of_service_link,
+            terms_of_service_html), containing information about the
+            Terms of Service that govern a circulation manager's
+            registration with the discovery service.
+        """
+        catalog = self.fetch_catalog(do_get=do_get)
+        if isinstance(catalog, ProblemDetail):
+            return catalog
+        registration_url, vendor_id = catalog
+
+        response = do_get(registration_url)
+        if isinstance(response, ProblemDetail):
+            return response
+        terms_of_service_link, terms_of_service_html = (
+            self._extract_registration_information(response)
+        )
+        return terms_of_service_link, terms_of_service_html
+
+    @classmethod
+    def _extract_registration_information(cls, response):
+        """From an OPDS registration document, extract information that's
+        useful to kickstarting the OPDS Directory Registration Protocol.
+
+        The registration document is completely optional, so an
+        invalid or unintelligible document is treated the same as a
+        missing document.
+
+        :return: A 2-tuple (terms_of_service_link,
+            terms_of_service_html), containing information about the
+            Terms of Service that govern a circulation manager's
+            registration with the discovery service. If the
+            registration document is missing or malformed, both values
+            will be None.
+        """
+        tos_link = None
+        tos_html = None
+        result = cls._extract_links(response)
+        if isinstance(result, ProblemDetail):
+            return None, None
+        catalog, links = result
+        for link in links:
+            if link.get("rel") != "terms-of-service":
+                continue
+            url = link.get('href')
+            is_http = any(
+                [url.startswith(protocol + "://")
+                 for protocol in "http", "https"]
+            )
+            if is_http and not tos_link:
+                tos_link = url
+            elif url.startswith("data:") and not tos_html:
+                try:
+                    tos_html = cls._decode_data_url(url)
+                except Exception, e:
+                    tos_html = None
+        return tos_link, tos_html
+
+    @classmethod
+    def _extract_links(cls, response):
+        """Parse an OPDS 1 or OPDS feed out of a Requests response object.
+
+        :return: A 2-tuple (parsed_catalog, links),
+           with `links` being a list of dictionaries, each containing
+           one OPDS link.
+        """
+        # The response must contain either an OPDS 2 catalog or an OPDS 1 feed.
+        type = response.headers.get("Content-Type")
+        if type and type.startswith(cls.OPDS_2_TYPE):
+            # This is an OPDS 2 catalog.
+            catalog = json.loads(response.content)
+            links = catalog.get("links", [])
+        elif type and type.startswith(cls.OPDS_1_PREFIX):
+            # This is an OPDS 1 feed.
+            feed = feedparser.parse(response.content)
+            links = feed.get("feed", {}).get("links", [])
+            catalog = None
+        else:
+            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not return OPDS.", url=response.url))
+        return catalog, links
+
+    @classmethod
+    def _decode_data_url(cls, url):
+        """Convert a data: URL to a string of sanitized HTML.
+
+        :raise ValueError: If the data: URL is invalid, in an
+            unexpected format, or does not have a supported media type.
+        :return: A string.
+        """
+        if not url.startswith("data:"):
+            raise ValueError("Not a data: URL: %s" % url)
+        parts = url.split(",")
+        if len(parts) != 2:
+            raise ValueError("Invalid data: URL: %s" % url)
+        header, encoded = parts
+        if not header.endswith(";base64"):
+            raise ValueError("data: URL not base64-encoded: %s" % url)
+        media_type = header[len("data:"):-len(";base64")]
+        if not any(
+                media_type.startswith(x) for x in ("text/html", "text/plain")
+        ):
+            raise ValueError(
+                "Unsupported media type in data: URL: %s" % media_type
+            )
+        html = base64.b64decode(encoded)
+        return Sanitizer().sanitize(html)
 
 
 class Registration(object):
@@ -230,12 +386,7 @@ class Registration(object):
         # Before we can start the registration protocol, we must fetch
         # the remote catalog's URL and extract the link to the
         # registration resource that kicks off the protocol.
-        catalog_url = catalog_url or self.integration.url
-        response = do_get(catalog_url)
-        if isinstance(response, ProblemDetail):
-            return response
-
-        result = self._extract_catalog_information(response)
+        result = self.registry.fetch_catalog(catalog_url, do_get)
         if isinstance(result, ProblemDetail):
             return result
         register_url, vendor_id = result
@@ -268,44 +419,6 @@ class Registration(object):
 
         # Process the result.
         return self._process_registration_result(catalog, cipher, stage)
-
-    OPDS_1_PREFIX = "application/atom+xml;profile=opds-catalog"
-    OPDS_2_TYPE = "application/opds+json"
-
-
-    @classmethod
-    def _extract_catalog_information(cls, response):
-        """From an OPDS catalog, extract information that's essential to
-        kickstarting the OPDS Directory Registration Protocol.
-
-        :param response: A requests-style Response object.
-
-        :return A ProblemDetail if there's a problem, otherwise a
-        2-tuple (registration URL, Adobe vendor ID).
-        """
-        # The catalog URL must be either an OPDS 2 catalog or an OPDS 1 feed.
-        type = response.headers.get("Content-Type")
-        if type and type.startswith(cls.OPDS_2_TYPE):
-            # This is an OPDS 2 catalog.
-            catalog = json.loads(response.content)
-            links = catalog.get("links", [])
-            vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
-        elif type and type.startswith(cls.OPDS_1_PREFIX):
-            # This is an OPDS 1 feed.
-            feed = feedparser.parse(response.content)
-            links = feed.get("feed", {}).get("links", [])
-            vendor_id = None
-        else:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not return OPDS.", url=response.url))
-
-        register_url = None
-        for link in links:
-            if link.get("rel") == "register":
-                register_url = link.get("href")
-                break
-        if not register_url:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=response.url))
-        return register_url, vendor_id
 
     def _create_registration_payload(self, url_for, stage):
         """Collect the key-value pairs to be sent when kicking off the
