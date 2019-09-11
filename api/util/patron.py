@@ -1,7 +1,6 @@
 import datetime
 from api.config import Configuration
 from api.circulation_exceptions import *
-from api.core.model.patron import Patron
 
 class PatronUtility(object):
     """Apply circulation-specific logic to Patron model objects."""
@@ -24,7 +23,7 @@ class PatronUtility(object):
         if cls.has_borrowing_privileges(patron):
             # A patron who has borrowing privileges gets synced every twelve
             # hours. Their account is unlikely to change rapidly.
-            check_every = Patron.MAX_SYNC_TIME
+            check_every = datetime.timedelta(hours=12)
         else:
             # A patron without borrowing privileges might get synced
             # every time they make a request. It's likely they are
