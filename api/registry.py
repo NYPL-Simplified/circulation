@@ -111,20 +111,6 @@ class RemoteRegistry(object):
             return response
         return self._extract_catalog_information(response)
 
-    def fetch_registration_document(self, do_get=HTTP.debuggable_get):
-        catalog = self.fetch_catalog(do_get=do_get)
-        if isinstance(catalog, ProblemDetail):
-            return catalog
-        registration_url, vendor_id = catalog
-
-        response = do_get(registration_url)
-        if isinstance(response, ProblemDetail):
-            return response
-        terms_of_service_link, terms_of_service_html = (
-            self._extract_registration_information(response)
-        )
-        return terms_of_service_link, terms_of_service_html
-
     @classmethod
     def _extract_catalog_information(cls, response):
         """From an OPDS catalog, extract information that's essential to
@@ -152,6 +138,20 @@ class RemoteRegistry(object):
         if not register_url:
             return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=response.url))
         return register_url, vendor_id
+
+    def fetch_registration_document(self, do_get=HTTP.debuggable_get):
+        catalog = self.fetch_catalog(do_get=do_get)
+        if isinstance(catalog, ProblemDetail):
+            return catalog
+        registration_url, vendor_id = catalog
+
+        response = do_get(registration_url)
+        if isinstance(response, ProblemDetail):
+            return response
+        terms_of_service_link, terms_of_service_html = (
+            self._extract_registration_information(response)
+        )
+        return terms_of_service_link, terms_of_service_html
 
     @classmethod
     def _extract_registration_information(cls, response):
