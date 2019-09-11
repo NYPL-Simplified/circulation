@@ -140,6 +140,15 @@ class RemoteRegistry(object):
         return register_url, vendor_id
 
     def fetch_registration_document(self, do_get=HTTP.debuggable_get):
+        """Fetch a discovery service's registration document and extract
+        useful information from it.
+
+        :return: A ProblemDetail if there's a problem accessing the
+            service; otherwise, a 2-tuple (terms_of_service_link,
+            terms_of_service_html), containing information about the
+            Terms of Service that govern a circulation manager's
+            registration with the discovery service.
+        """
         catalog = self.fetch_catalog(do_get=do_get)
         if isinstance(catalog, ProblemDetail):
             return catalog
@@ -161,6 +170,13 @@ class RemoteRegistry(object):
         The registration document is completely optional, so an
         invalid or unintelligible document is treated the same as a
         missing document.
+
+        :return: A 2-tuple (terms_of_service_link,
+            terms_of_service_html), containing information about the
+            Terms of Service that govern a circulation manager's
+            registration with the discovery service. If the
+            registration document is missing or malformed, both values
+            will be None.
         """
         tos_link = None
         tos_html = None
@@ -187,6 +203,12 @@ class RemoteRegistry(object):
 
     @classmethod
     def _extract_links(cls, response):
+        """Parse an OPDS 1 or OPDS feed out of a Requests response object.
+
+        :return: A 2-tuple (parsed_catalog, links),
+           with `links` being a list of dictionaries, each containing
+           one OPDS link.
+        """
         # The response must contain either an OPDS 2 catalog or an OPDS 1 feed.
         type = response.headers.get("Content-Type")
         if type and type.startswith(cls.OPDS_2_TYPE):
@@ -204,7 +226,12 @@ class RemoteRegistry(object):
 
     @classmethod
     def _decode_data_url(cls, url):
-        """Convert a data: URL to a string."""
+        """Convert a data: URL to a string of sanitized HTML.
+
+        :raise ValueError: If the data: URL is invalid, in an
+            unexpected format, or does not have a supported media type.
+        :return: A string.
+        """
         if not url.startswith("data:"):
             raise ValueError("Not a data: URL: %s" % url)
         parts = url.split(",")
