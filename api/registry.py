@@ -359,7 +359,7 @@ class Registration(object):
         # Before we can start the registration protocol, we must fetch
         # the remote catalog's URL and extract the link to the
         # registration resource that kicks off the protocol.
-        result = self.registry_fetch_catalog(catalog_url, do_get)
+        result = self.registry.fetch_catalog(catalog_url, do_get)
         if isinstance(result, ProblemDetail):
             return result
         register_url, vendor_id = result

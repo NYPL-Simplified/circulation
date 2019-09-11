@@ -125,6 +125,36 @@ class TestRemoteRegistry(DatabaseTest):
         eq_(registry, registration.registry)
         eq_(self._default_library, registration.library)
 
+    def test_fetch_catalog(self):
+        # Test our ability to retrieve essential information from a
+        # remote registry's root catalog.
+        class Mock(RemoteRegistry):
+            def _extract_catalog_information(self, response):
+                self.extracted_from = response
+                return "Essential information"
+
+        # The behavior of fetch_catalog() depends on what comes back
+        # when we ask the remote registry for its root catalog.
+        client = DummyHTTPClient()
+
+        # If the result is a problem detail document, that document is
+        # the return value of fetch_catalog().
+        problem = REMOTE_INTEGRATION_FAILED.detailed("oops")
+        client.responses.append(problem)
+        registry = Mock(self.integration)
+        result = registry.fetch_catalog(do_get=client.do_get)
+        eq_(self.integration.url, client.requests.pop())
+        eq_(problem, result)
+
+        # If the response looks good, it's passed into
+        # _extract_catalog_information(), and the result of _that_
+        # method is the return value of fetch_catalog.
+        client.queue_requests_response(200, content="A root catalog")
+        [queued] = client.responses
+        eq_("Essential information",
+            registry.fetch_catalog("custom catalog URL", do_get=client.do_get))
+        eq_("custom catalog URL", client.requests.pop())
+
     def test__extract_catalog_information(self):
         # Test our ability to extract a registration link and an
         # Adobe Vendor ID from an OPDS 1 or OPDS 2 catalog.
@@ -436,11 +466,17 @@ class TestRegistration(DatabaseTest):
         """Test the other methods orchestrated by the push() method.
         """
 
-        class Mock(Registration):
+        class MockRegistry(RemoteRegistry):
 
-            def _extract_catalog_information(self, response):
-                self.initial_catalog_response = response
+            def fetch_catalog(self, catalog_url, do_get):
+                # Pretend to fetch a root catalog and extract a
+                # registration URL from it.
+                self.fetch_catalog_called_with = (catalog_url, do_get)
                 return "register_url", "vendor_id"
+
+        class MockRegistration(Registration):
+
+            do_get_called_with = []
 
             def _create_registration_payload(self, url_for, stage):
                 self.payload_ingredients = (url_for, stage)
@@ -466,23 +502,21 @@ class TestRegistration(DatabaseTest):
                 )
                 return "all done!"
 
-            def mock_do_get(self, url):
-                self.do_get_called_with = url
-                return "A fake catalog"
-
         # If there is no preexisting key pair set up for the library,
         # registration fails. (This normally won't happen because the
         # key pair is set up when the LibraryAuthenticator is
-        # initialized.
+        # initialized.)
         library = self._default_library
-        registration = Mock(self.registry, library)
+        registry = MockRegistry(self.integration)
+        registration = MockRegistration(registry, library)
         stage = Registration.TESTING_STAGE
         url_for = object()
         catalog_url = "http://catalog/"
+        do_get = object()
         do_post = object()
         def push():
             return registration.push(
-                stage, url_for, catalog_url, registration.mock_do_get, do_post
+                stage, url_for, catalog_url, do_get, do_post
             )
 
         result = push()
@@ -496,19 +530,17 @@ class TestRegistration(DatabaseTest):
         )
         public_key, private_key = Configuration.key_pair(key_pair_setting)
         result = registration.push(
-            stage, url_for, catalog_url, registration.mock_do_get, do_post
+            stage, url_for, catalog_url, do_get, do_post
         )
         eq_("all done!", result)
 
         # But there were many steps towards this result.
 
-        # First, do_get was called on the catalog URL.
-        eq_(catalog_url, registration.do_get_called_with)
+        # First, MockRegistry.fetch_catalog() was called, in an attempt
+        # to find the registration URL inside the root catalog.
+        eq_((catalog_url, do_get), registry.fetch_catalog_called_with)
 
-        # Then, the catalog was passed into _extract_catalog_information.
-        eq_("A fake catalog", registration.initial_catalog_response)
-
-        # _extract_catalog_information returned a registration URL and
+        # fetch_catalog() returned a registration URL and
         # a vendor ID. The registration URL was used later on...
         #
         # The vendor ID was set as a ConfigurationSetting on
@@ -550,8 +582,7 @@ class TestRegistration(DatabaseTest):
 
         # If a nonexistent stage is provided a ProblemDetail is the result.
         result = registration.push(
-            "no such stage", url_for, catalog_url, registration.mock_do_get,
-            do_post
+            "no such stage", url_for, catalog_url, do_get, do_post
         )
         eq_(INVALID_INPUT.uri, result.uri)
         eq_("'no such stage' is not a valid registration stage",
@@ -590,12 +621,10 @@ class TestRegistration(DatabaseTest):
         eq_("could not create registration payload", problem.detail)
 
         def fail(*args, **kwargs):
-            return INVALID_REGISTRATION.detailed(
-                "could not extract catalog information"
-            )
-        registration._extract_catalog_information = fail
+            return INVALID_REGISTRATION.detailed("could not fetch catalog")
+        registry.fetch_catalog = fail
         problem = cause_problem()
-        eq_("could not extract catalog information", problem.detail)
+        eq_("could not fetch catalog", problem.detail)
 
     def test__create_registration_payload(self):
         m = self.registration._create_registration_payload
