@@ -527,9 +527,7 @@ class TestRegistration(DatabaseTest):
             Configuration.KEY_PAIR, library
         )
         public_key, private_key = Configuration.key_pair(key_pair_setting)
-        result = registration.push(
-            stage, url_for, catalog_url, do_get, do_post
-        )
+        result = push()
         eq_("all done!", result)
 
         # But there were many steps towards this result.
