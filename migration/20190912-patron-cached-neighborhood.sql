@@ -11,7 +11,7 @@ DO $$
   BEGIN
    CREATE index ix_patrons_cached_neighborhood on patrons (cached_neighborhood);
   EXCEPTION
-   WHEN duplicate_table THEN RAISE NOTICE 'unique index ix_patrons_cached_neighborhood already exists; leaving it alone.';
+   WHEN duplicate_table THEN RAISE NOTICE 'index ix_patrons_cached_neighborhood already exists; leaving it alone.';
   END;
 
  END;
