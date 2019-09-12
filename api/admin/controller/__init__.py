@@ -1258,12 +1258,10 @@ class DashboardController(AdminCirculationManagerController):
         date_end_request = flask.request.args.get("dateEnd", None)
         date_end = date_end_request or (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1))
         locations = flask.request.args.get("locations", None)
-        library_request = flask.request.args.get("library", None)
-
-        library = get_one(self._db, Library, short_name=library_request)
+        library = flask.request.library if flask.request.library else None
 
         exporter = LocalAnalyticsExporter()
-        data = exporter.export(self._db, date, date_end, locations, library.id)
+        data = exporter.export(self._db, date, date_end, locations, library)
 
         return data, date, date_end, library.short_name
 

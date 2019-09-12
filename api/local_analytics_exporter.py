@@ -28,10 +28,10 @@ from core.model import (
 class LocalAnalyticsExporter(object):
     """Export large numbers of analytics events in CSV format."""
 
-    def export(self, _db, start, end, locations=None, library_id=None):
+    def export(self, _db, start, end, locations=None, library=None):
 
         # Get the results from the database.
-        query = self.analytics_query(start, end, locations, library_id)
+        query = self.analytics_query(start, end, locations, library)
         results = _db.execute(query)
 
         # Write the CSV file to a BytesIO.
@@ -47,7 +47,7 @@ class LocalAnalyticsExporter(object):
 
         return output.getvalue()
 
-    def analytics_query(self, start, end,  locations=None, library_id=None):
+    def analytics_query(self, start, end,  locations=None, library=None):
         """Build a database query that fetches rows of analytics data.
 
         This method uses low-level SQLAlchemy code to do all
@@ -77,9 +77,9 @@ class LocalAnalyticsExporter(object):
                 CirculationEvent.location.in_(locations),
             ]
         
-        if library_id:
+        if library:
             clauses += [
-                CirculationEvent.library_id == library_id
+                CirculationEvent.library == library
             ]
 
         # Build the primary query. This is a query against the

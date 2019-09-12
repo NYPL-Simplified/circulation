@@ -25,6 +25,7 @@ from templates import (
 from api.routes import (
     has_library,
     library_route,
+    allows_library
 )
 
 import urllib
@@ -262,8 +263,9 @@ def genres():
     """Returns a JSON representation of complete genre tree."""
     return app.manager.admin_feed_controller.genres()
 
-@app.route('/admin/bulk_circulation_events')
+@library_route('/admin/bulk_circulation_events')
 @returns_problem_detail
+@allows_library
 @requires_admin
 def bulk_circulation_events():
     """Returns a CSV representation of all circulation events with optional

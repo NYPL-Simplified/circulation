@@ -102,11 +102,12 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         # Gather events by library - these events have an associated library id
         # but it was not passed in the exporter
         library = self._library()
+        library2 = self._library()
         time = datetime.now() - timedelta(minutes=num)
         for type in types:
             get_one_or_create(
                 self._db, CirculationEvent,
-                license_pool=lp1, type=type, start=time, end=time, library_id=library.id)
+                license_pool=lp1, type=type, start=time, end=time, library=library)
             time += timedelta(minutes=1)
 
         today = date.today() - timedelta(days=1)
@@ -120,7 +121,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
 
         # Pass in the library ID.
         today = date.today() - timedelta(days=1)
-        output = exporter.export(self._db, today, time, library_id=library.id)
+        output = exporter.export(self._db, today, time, library=library)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
 
@@ -138,6 +139,16 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         eq_([edition1.language]*num, [row[10] for row in rows])
         eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
         eq_([ordered_genre_string]*num, [row[12] for row in rows])
+
+        # We are looking for events from a different library but there
+        # should be no events associated with this library.
+        time = datetime.now() - timedelta(minutes=num)
+        today = date.today() - timedelta(days=1)
+        output = exporter.export(self._db, today, time, library=library2)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        eq_(0, len(rows))
 
 
         # Add example events that will be used to report by location

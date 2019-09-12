@@ -130,6 +130,24 @@ def has_library(f):
             return f(*args, **kwargs)
     return decorated
 
+def allows_library(f):
+    """Decorator similar to @has_library but if there is no library short name,
+    then don't set the request library.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'library_short_name' in kwargs:
+            library_short_name = kwargs.pop("library_short_name")
+            library = app.manager.index_controller.library_for_request(library_short_name)
+            if isinstance(library, ProblemDetail):
+                return library.response
+        else:
+            library = None
+
+        set_trace()
+        return f(*args, **kwargs)
+    return decorated
+
 def library_route(path, *args, **kwargs):
     """Decorator to creates routes that have a library short name in either
     a subdomain or a url path prefix. If not used with @has_library, the view function
