@@ -262,6 +262,10 @@ class PatronData(object):
         self.set_value(patron, 'block_reason', self.block_reason)
         self.set_value(patron, 'cached_neighborhood', self.cached_neighborhood)
 
+        # Patron neighborhood (not a database field) is set as a
+        # convenience.
+        patron.neighborhood = self.neighborhood or self.cached_neighborhood
+
         # Now handle authorization identifier.
         if self.complete:
             # We have a complete picture of data from the ILS,
@@ -377,12 +381,6 @@ class PatronData(object):
         if patron:
             self.apply(patron)
         __transaction.commit()
-
-        # Set patron.neighborhood so it can be accessed during request
-        # processing. If there's a cached neighborhood in the database
-        # record, and nothing else is available, use the cached value
-        # for the duration of this request.
-        patron.neighborhood = self.neighborhood or patron.cached_neighborhood
 
         return patron, is_new
 
@@ -1915,13 +1913,6 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         are updated.
         """
         patrondata.apply(patron)
-
-        # The Patron model does not store .neighborhood (though it
-        # does store .cached_neighborhood), so this won't write to the
-        # database, but this will make any neighborhood information
-        # available for the duration of the active request -- through
-        # flask.request.patron.neighborhood.
-        patron.neighborhood = patrondata.neighborhood
 
         if self.external_type_regular_expression:
             self.update_patron_external_type(patron)
