@@ -1,4 +1,4 @@
-DO $$ 
+DO $$
  BEGIN
   -- Add the 'cached_neighborhood' column
   BEGIN
