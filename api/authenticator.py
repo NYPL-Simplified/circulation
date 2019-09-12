@@ -194,6 +194,9 @@ class PatronData(object):
         that would have performance problems fetching patron
         neighborhood on demand.
 
+        If cached_neighborhood is set but neighborhood is not,
+        cached_neighborhood will be used as neighborhood.
+
         :param complete: Does this PatronData represent the most
         complete data we are likely to get for this patron from this
         data source, or is it an abbreviated version of more complete

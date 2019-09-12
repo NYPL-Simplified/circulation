@@ -238,6 +238,7 @@ class TestPatronData(AuthenticatorTest):
 
     def test_apply(self):
         patron = self._patron()
+        self.data.cached_neighborhood = "Little Homeworld"
 
         self.data.apply(patron)
         eq_(self.data.permanent_id, patron.external_identifier)
@@ -246,6 +247,7 @@ class TestPatronData(AuthenticatorTest):
         eq_(self.data.authorization_expires, patron.authorization_expires)
         eq_(self.data.fines, patron.fines)
         eq_(None, patron.block_reason)
+        eq_("Little Homeworld", patron.cached_neighborhood)
 
         # This data is stored in PatronData but not applied to Patron.
         eq_("4", self.data.personal_name)
@@ -253,6 +255,9 @@ class TestPatronData(AuthenticatorTest):
         eq_("5", self.data.email_address)
         eq_(False, hasattr(patron, 'email_address'))
 
+        # This data is stored on the Patron object as a convenience,
+        # but it's not stored in the database.
+        eq_("Little Homeworld", patron.neighborhood)
 
     def test_apply_block_reason(self):
         """If the PatronData has a reason why a patron is blocked,
@@ -1523,7 +1528,8 @@ class TestAuthenticationProvider(AuthenticatorTest):
         complete_data = PatronData(
             permanent_id=patron.external_identifier,
             authorization_identifier=barcode,
-            username=username, complete=True
+            username=username, cached_neighborhood="Little Homeworld",
+            complete=True
         )
 
         provider = self.mock_basic(
@@ -1540,6 +1546,11 @@ class TestAuthenticationProvider(AuthenticatorTest):
         # We updated their metadata.
         eq_("user", patron.username)
         eq_(barcode, patron.authorization_identifier)
+        eq_("Little Homeworld", patron.cached_neighborhood)
+
+        # .cached_neighborhood (stored in the database) was reused as
+        # .neighborhood (destroyed at the end of the request)
+        eq_("Little Homeworld", patron.neighborhood)
 
         # We did a patron lookup, which means we updated
         # .last_external_sync.
@@ -1585,7 +1596,9 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(None, patron.last_external_sync)
         eq_(None, patron.username)
 
-        patrondata = PatronData(username="user")
+        patrondata = PatronData(
+            username="user", neighborhood="Little Homeworld"
+        )
         provider = self.mock_basic(remote_patron_lookup_patrondata=patrondata)
         provider.external_type_regular_expression = re.compile("^(.)")
         provider.update_patron_metadata(patron)
@@ -1598,6 +1611,12 @@ class TestAuthenticationProvider(AuthenticatorTest):
 
         # external_type was updated based on the regular expression
         eq_("2", patron.external_type)
+
+        # .neighborhood was not stored in .cached_neighborhood.  In
+        # this case, it must be cheap to get .neighborhood every time,
+        # and it's better not to store information we can get cheaply.
+        eq_("Little Homeworld", patron.neighborhood)
+        eq_(None, patron.cached_neighborhood)
 
     def test_update_patron_metadata_noop_if_no_remote_metadata(self):
 
