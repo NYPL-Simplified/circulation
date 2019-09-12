@@ -73,6 +73,21 @@ def requires_auth(f):
             return f(*args, **kwargs)
     return decorated
 
+def allows_auth(f):
+    """Decorator function for a controller method that supports both
+    authenticated and unauthenticated requests.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Try to authenticate a patron. This will set flask.request.patron
+        # if and only if there is an authenticated patron.
+        app.manager.index_controller.authenticated_patron_from_request()
+
+        # Call the decorated function regardless of whether
+        # authentication succeeds.
+        return f(*args, **kwargs)
+    return decorated
+
 # The allows_patron_web decorator will add Cross-Origin Resource Sharing
 # (CORS) headers to routes that will be used by the patron web interface.
 # This is necessary for a JS app on a different domain to make requests.
@@ -422,6 +437,7 @@ def report(identifier_type, identifier):
 
 @library_route('/analytics/<identifier_type>/<path:identifier>/<event_type>')
 @has_library
+@allows_auth
 @allows_patron_web
 @returns_problem_detail
 def track_analytics_event(identifier_type, identifier, event_type):
