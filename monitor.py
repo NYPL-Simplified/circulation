@@ -857,8 +857,26 @@ class ScrubberMonitor(ReaperMonitor):
 
     Unlike the other ReaperMonitors, this class doesn't delete rows
     from the database -- it only clears out specific data fields.
+
+    In addition to the constants required for ReaperMonitor, a
+    subclass of ScrubberMonitor MUST define a value for the following
+    constant:
+
+    * SCRUB_FIELD - The field whose value will be set to None when a row
+    is scrubbed.
     """
+    def __init__(self, *args, **kwargs):
+        """Set the name of the Monitor based on which field is being
+        scrubbed.
+        """
+        super(ScrubberMonitor, self).__init__(*args, **kwargs)
+        self.SERVICE_NAME = "Scrubber for %s.%s" % (
+            self.MODEL_CLASS.__name__,
+            self.SCRUB_FIELD
+        )
+
     def run_once(self, *args, **kwargs):
+        """Find all rows that need to be scrubbed, and scrub them."""
         rows_scrubbed = 0
         qu = self.query()
         self.log.info("Scrubbing %d row(s)", qu.count())
@@ -867,53 +885,44 @@ class ScrubberMonitor(ReaperMonitor):
             rows_scrubbed += 1
         return TimestampData(achievements="Items scrubbed: %d" % rows_scrubbed)
 
+    @property
+    def where_clause(self):
+        """Find rows that are older than MAX_AGE _and_ which have a non-null
+        SCRUB_FIELD. If the field is already null, there's no need to
+        scrub it.
+        """
+        return and_(
+            super(ScrubberMonitor, self).where_clause,
+            self.scrub_field != None
+        )
+
+    @property
+    def scrub_field(self):
+        """Find the SQLAlchemy representation of the model field to be
+        scrubbed.
+        """
+        return getattr(self.MODEL_CLASS, self.SCRUB_FIELD)
+
     def scrub(self, row):
-        raise NotImplementedError()
+        """Set the value of SCRUB_FIELD in this row to None."""
+        setattr(row, self.SCRUB_FIELD, None)
 
 
-class CirculationEventScrubber(ScrubberMonitor):
+class CirculationEventLocationScrubber(ScrubberMonitor):
     """Scrub location information from old CirculationEvents."""
     MODEL_CLASS = CirculationEvent
     TIMESTAMP_FIELD = 'start'
-    MAX_AGE = datetime.timedelta(days=365)
-
-
-    @property
-    def where_clause(self):
-        """To be scrubbed, rows must be old _and_ have a location."""
-        return and_(
-            super(CirculationEventScrubber, self).where_clause,
-            CirculationEvent.location != None
-        )
-
-    def scrub(self, row):
-        """Clear out a CirculationManager's location."""
-        row.location = None
-ReaperMonitor.REGISTRY.append(CirculationEventScrubber)
+    MAX_AGE = 365
+    SCRUB_FIELD = 'location'
+ReaperMonitor.REGISTRY.append(CirculationEventLocationScrubber)
 
 
 class PatronNeighborhoodScrubber(ScrubberMonitor):
     """Scrub cached neighborhood information from patrons who haven't been
     seen in a while.
     """
-    # Operate on records for patrons who would, if they showed up
-    # right now, need to have their local records synced with the ILS.
-    #
-    # Basically, patrons who haven't used the site in the last 12
-    # hours.
     MODEL_CLASS = Patron
     TIMESTAMP_FIELD = 'last_external_sync'
     MAX_AGE = Patron.MAX_SYNC_TIME
-
-    @property
-    def where_clause(self):
-        """Only consider Patrons with a cached_neighborhood."""
-        return and_(
-            super(CirculationEventScrubber, self).where_clause,
-            Patron.cached_neighborhood != None
-        )
-
-    def scrub(self, row):
-        """Clear out a Patron's cached_neighborhood."""
-        row.cached_neighborhood = None
+    SCRUB_FIELD = 'cached_neighborhood'
 ReaperMonitor.REGISTRY.append(PatronNeighborhoodScrubber)
