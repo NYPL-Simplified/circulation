@@ -41,10 +41,16 @@ class TestSimpleAuth(DatabaseTest):
         eq_("barcode", user.authorization_identifier)
         eq_("barcode_id", user.permanent_id)
         eq_("barcode_username", user.username)
+        eq_(None, user.neighborhood)
+
+        # For the next test, set the test neighborhood.
+        integration.setting(p.TEST_NEIGHBORHOOD).value = "neighborhood"
+        provider = p(self._default_library, integration)
 
         # User can also authenticate by their 'username'
         user2 = provider.remote_authenticate("barcode_username", "pass")
         eq_("barcode", user2.authorization_identifier)
+        eq_("neighborhood", user2.neighborhood)
 
     def test_no_password_authentication(self):
         """The SimpleAuthenticationProvider can be made even
@@ -110,19 +116,27 @@ class TestSimpleAuth(DatabaseTest):
 
     def test_generate_patrondata(self):
 
+        m = SimpleAuthenticationProvider.generate_patrondata
+
         #Pass in numeric barcode as identifier
-        result = SimpleAuthenticationProvider.generate_patrondata("1234")
+        result = m("1234")
         eq_(result.permanent_id, "1234_id")
         eq_(result.authorization_identifier, '1234')
         eq_(result.personal_name, "PersonalName1234")
         eq_(result.username, '1234_username')
+        eq_(result.neighborhood, None)
 
         #Pass in username as identifier
-        result = SimpleAuthenticationProvider.generate_patrondata("1234_username")
+        result = m("1234_username")
         eq_(result.permanent_id, "1234_id")
         eq_(result.authorization_identifier, '1234')
         eq_(result.personal_name, "PersonalName1234")
         eq_(result.username, '1234_username')
+        eq_(result.neighborhood, None)
+
+        # Pass in a neighborhood.
+        result = m("1234", "Echo Park")
+        eq_(result.neighborhood, "Echo Park")
 
     def test__remote_patron_lookup(self):
         p = SimpleAuthenticationProvider

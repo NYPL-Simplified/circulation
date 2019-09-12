@@ -43,6 +43,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
     tlc_no_such_patron = "64YYYY          00020171031    092000000000000000000000000000AOhq|AA2642|AE|BLN|AF#Unknown borrower barcode - please refer to the circulation desk.|AY1AZD46E"
 
+    end_session_response = "36Y201610210000142637AO3|AA25891000331441|AF|AG"
+
     def test_initialize_from_integration(self):
         p = SIP2AuthenticationProvider
         integration = self._external_integration(self._str)
@@ -77,6 +79,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # Some examples taken from a Sierra SIP API.
         client.queue_response(self.sierra_valid_login)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("12345", patrondata.authorization_identifier)
         eq_("foo@example.com", patrondata.email_address)
@@ -87,6 +90,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
         client.queue_response(self.sierra_invalid_login)
+        client.queue_response(self.end_session_response)
         eq_(None, auth.remote_authenticate("user", "pass"))
 
         # Since Sierra provides both the patron's fine amount and the
@@ -94,11 +98,13 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # at the SIP message that this patron is blocked for excessive
         # fines.
         client.queue_response(self.sierra_excessive_fines)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(PatronData.EXCESSIVE_FINES, patrondata.block_reason)
 
         # A patron with an expired card.
         client.queue_response(self.evergreen_expired_card)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("12345", patrondata.authorization_identifier)
         # SIP extension field XI becomes sipserver_internal_id which
@@ -111,6 +117,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # A patron with excessive fines
         client.queue_response(self.evergreen_excessive_fines)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("12345", patrondata.authorization_identifier)
         eq_("863718", patrondata.permanent_id)
@@ -131,15 +138,18 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # "Hold privileges denied" is not a block because you can
         # still borrow books.
         client.queue_response(self.evergreen_hold_privileges_denied)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
         client.queue_response(self.evergreen_card_reported_lost)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(PatronData.CARD_REPORTED_LOST, patrondata.block_reason)
 
         # Some examples taken from a Polaris instance.
         client.queue_response(self.polaris_valid_pin)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("25891000331441", patrondata.authorization_identifier)
         eq_("foo@bar.com", patrondata.email_address)
@@ -149,15 +159,18 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             patrondata.authorization_expires)
 
         client.queue_response(self.polaris_wrong_pin)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(None, patrondata)
 
         client.queue_response(self.polaris_expired_card)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(datetime(2016, 10, 25, 23, 59, 59),
             patrondata.authorization_expires)
 
         client.queue_response(self.polaris_excess_fines)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(11.50, patrondata.fines)
 
@@ -165,12 +178,14 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # just not recognized. One on an ILS that sets
         # valid_patron_password='N' when that happens.
         client.queue_response(self.polaris_no_such_patron)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(None, patrondata)
 
         # And once on an ILS that leaves valid_patron_password blank
         # when that happens.
         client.queue_response(self.tlc_no_such_patron)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(None, patrondata)
 
@@ -186,6 +201,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # This Evergreen instance doesn't use passwords.
         client.queue_response(self.evergreen_active_user)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user", None)
         eq_("12345", patrondata.authorization_identifier)
         eq_("863715", patrondata.permanent_id)
@@ -196,6 +212,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # If a password is specified, it is not sent over the wire.
         client.queue_response(self.evergreen_active_user)
+        client.queue_response(self.end_session_response)
         patrondata = auth.remote_authenticate("user2", "some password")
         eq_("12345", patrondata.authorization_identifier)
         request = client.requests[-1]
@@ -262,6 +279,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
                 return self.patron_information_parser(TestSIP2AuthenticationProvider.polaris_wrong_pin)
 
         client = Mock()
+        client.queue_response(self.end_session_response)
         auth = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )

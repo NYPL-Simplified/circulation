@@ -46,7 +46,9 @@ class MockAPI(MilleniumPatronAPI):
 class TestMilleniumPatronAPI(DatabaseTest):
 
     def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True,
-                 block_types=None, password_keyboard=None, library_identifier_field=None):
+                 block_types=None, password_keyboard=None, library_identifier_field=None,
+                 neighborhood_mode=None
+    ):
         integration = self._external_integration(self._str)
         integration.url = url
         integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value = json.dumps(blacklist)
@@ -56,6 +58,8 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
         if auth_mode:
             integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value = auth_mode
+        if neighborhood_mode:
+            integration.setting(MilleniumPatronAPI.NEIGHBORHOOD_MODE).value = neighborhood_mode
         if password_keyboard:
             integration.setting(MilleniumPatronAPI.PASSWORD_KEYBOARD).value = password_keyboard
 
@@ -75,6 +79,12 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = self.mock_api("http://example.com/", ["a", "b"])
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Unrecognized Millenium Patron API neighborhood mode: nope.",
+            self.mock_api, neighborhood_mode="nope"
+        )
 
     def test__remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
@@ -382,6 +392,27 @@ class TestMilleniumPatronAPI(DatabaseTest):
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_("10", patrondata.library_identifier)
 
+    def test_neighborhood(self):
+        # The value of PatronData.neighborhood depends on the 'neighborhood mode' setting.
+
+        # Default behavior is not to gather neighborhood information at all.
+        api = self.mock_api()
+        content = api.sample_data("dump.success.html")
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_(PatronData.NO_VALUE, patrondata.neighborhood)
+
+        # Patron neighborhood may be the identifier of their home library branch.
+        api = self.mock_api(neighborhood_mode=MilleniumPatronAPI.HOME_BRANCH_NEIGHBORHOOD_MODE)
+        content = api.sample_data("dump.success.html")
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_("mm", patrondata.neighborhood)
+
+        # Or it may be the ZIP code of their home address.
+        api = self.mock_api(neighborhood_mode=MilleniumPatronAPI.POSTAL_CODE_NEIGHBORHOOD_MODE)
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_("10001", patrondata.neighborhood)
+
+
     def test_authorization_identifier_blacklist(self):
         """A patron has two authorization identifiers. Ordinarily the second
         one (which would normally be preferred), but it contains a
@@ -517,3 +548,22 @@ class TestMilleniumPatronAPI(DatabaseTest):
         self.api = self.mock_api(auth_mode = "family_name")
         self.api.enqueue("dump.no such barcode.html")
         eq_(False, self.api.remote_authenticate("44444444444447", "somebody"))
+
+    def test_extract_postal_code(self):
+        # Test our heuristics for extracting postal codes from address fields.
+        m = MilleniumPatronAPI.extract_postal_code
+        eq_("93203", m("1 Main Street$Arvin CA 93203"))
+        eq_("93203", m("1 Main Street\nArvin CA 93203"))
+        eq_("93203", m("10145 Main Street$Arvin CA 93203"))
+        eq_("93203", m("10145 Main Street$Arvin CA$93203"))
+        eq_("93203", m("10145-6789 Main Street$Arvin CA 93203-1234"))
+        eq_("93203", m("10145-6789 Main Street$Arvin CA 93203-1234 (old address)"))
+        eq_("93203", m("10145-6789 Main Street$Arvin CA 93203 (old address)"))
+        eq_("93203", m("10145-6789 Main Street Apartment #12345$Arvin CA 93203 (old address)"))
+
+        eq_(None, m("10145 Main Street Apartment 123456$Arvin CA"))
+        eq_(None, m("10145 Main Street$Arvin CA"))
+        eq_(None, m("123 Main Street"))
+
+        # Some cases where we incorrectly detect a ZIP code where there is none.
+        eq_('12345', m("10145 Main Street, Apartment #12345$Arvin CA"))

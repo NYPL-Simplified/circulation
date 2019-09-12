@@ -49,11 +49,11 @@ from api.lanes import (
     SeriesLane,
 )
 from api.authenticator import (
-    BasicAuthenticationProvider,
     CirculationPatronProfileStorage,
     OAuthController,
     LibraryAuthenticator,
 )
+from api.simple_authentication import SimpleAuthenticationProvider
 from core.app_server import (
     cdn_url_for,
     load_lending_policy,
@@ -79,6 +79,7 @@ from core.entrypoint import (
     EverythingEntryPoint,
     AudiobooksEntryPoint,
 )
+from core.local_analytics_provider import LocalAnalyticsProvider
 from core.model import (
     Annotation,
     CachedMARCFile,
@@ -301,9 +302,10 @@ class ControllerTest(VendorIDTest):
                 protocol="api.simple_authentication",
                 goal=ExternalIntegration.PATRON_AUTH_GOAL
             )
-            p = BasicAuthenticationProvider
+            p = SimpleAuthenticationProvider
             integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
             integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+            integration.setting(p.TEST_NEIGHBORHOOD).value = "Unit Test West"
             library.integrations.append(integration)
 
         for k, v in [
@@ -694,6 +696,11 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             value = self.controller.authenticated_patron(self.valid_credentials)
             assert isinstance(value, Patron)
+
+            # The test neighborhood configured in the SimpleAuthenticationProvider
+            # has been associated with the authenticated Patron object for the
+            # duration of this request.
+            eq_("Unit Test West", value.neighborhood)
 
     def test_authentication_sends_proper_headers(self):
 
@@ -3783,6 +3790,9 @@ class TestAnalyticsController(CirculationControllerTest):
             goal=ExternalIntegration.ANALYTICS_GOAL,
             protocol="core.local_analytics_provider",
         )
+        integration.setting(
+            LocalAnalyticsProvider.LOCATION_SOURCE
+        ).value = LocalAnalyticsProvider.LOCATION_SOURCE_NEIGHBORHOOD
         self.manager.analytics = Analytics(self._db)
 
         with self.request_context_with_library("/"):
@@ -3790,8 +3800,37 @@ class TestAnalyticsController(CirculationControllerTest):
             eq_(400, response.status_code)
             eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
 
+        # If there is no active patron, or if the patron has no
+        # associated neighborhood, the CirculationEvent is created
+        # with no location.
+        patron = self._patron()
+        for request_patron in (None, patron):
+            with self.request_context_with_library("/"):
+                flask.request.patron = request_patron
+                response = self.manager.analytics_controller.track_event(
+                    self.identifier.type, self.identifier.identifier,
+                    "open_book"
+                )
+                eq_(200, response.status_code)
+
+                circulation_event = get_one(
+                    self._db, CirculationEvent,
+                    type="open_book",
+                    license_pool=self.lp
+                )
+                eq_(None, circulation_event.location)
+                self._db.delete(circulation_event)
+
+        # If the patron has an associated neighborhood, and the
+        # analytics controller is set up to use patron neighborhood as
+        # event location, then the CirculationEvent is created with
+        # that neighborhood as its location.
+        patron.neighborhood = "Mars Grid 4810579"
         with self.request_context_with_library("/"):
-            response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "open_book")
+            flask.request.patron = patron
+            response = self.manager.analytics_controller.track_event(
+                self.identifier.type, self.identifier.identifier, "open_book"
+            )
             eq_(200, response.status_code)
 
             circulation_event = get_one(
@@ -3799,8 +3838,8 @@ class TestAnalyticsController(CirculationControllerTest):
                 type="open_book",
                 license_pool=self.lp
             )
-            assert circulation_event != None
-
+            eq_(patron.neighborhood, circulation_event.location)
+            self._db.delete(circulation_event)
 
 class TestDeviceManagementProtocolController(ControllerTest):
 

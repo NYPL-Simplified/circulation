@@ -19,6 +19,7 @@ from PIL import Image
 import math
 import operator
 from flask_babel import lazy_gettext as _
+import csv
 
 from tests import sample_data
 from tests.test_controller import CirculationControllerTest
@@ -1712,7 +1713,6 @@ class TestDashboardController(AdminControllerTest):
 
     def test_circulation_events(self):
         [lp] = self.english_1.license_pools
-        patron_id = "patronid"
         types = [
             CirculationEvent.DISTRIBUTOR_CHECKIN,
             CirculationEvent.DISTRIBUTOR_CHECKOUT,
@@ -1725,7 +1725,7 @@ class TestDashboardController(AdminControllerTest):
             get_one_or_create(
                 self._db, CirculationEvent,
                 license_pool=lp, type=type, start=time, end=time,
-                foreign_patron_id=patron_id)
+            )
             time += timedelta(minutes=1)
 
         with self.request_context_with_library_and_admin("/"):
@@ -1736,7 +1736,6 @@ class TestDashboardController(AdminControllerTest):
         eq_(types[::-1], [event['type'] for event in events])
         eq_([self.english_1.title]*len(types), [event['book']['title'] for event in events])
         eq_([url]*len(types), [event['book']['url'] for event in events])
-        eq_([patron_id]*len(types), [event['patron_id'] for event in events])
 
         # request fewer events
         with self.request_context_with_library_and_admin("/?num=2"):
@@ -1751,46 +1750,24 @@ class TestDashboardController(AdminControllerTest):
         identifier = self.english_1.presentation_edition.primary_identifier
         genres = self._db.query(Genre).all()
         get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[0], affinity=0.2)
-        get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[1], affinity=0.3)
-        get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[2], affinity=0.5)
-        ordered_genre_string = ",".join([genres[2].name, genres[1].name, genres[0].name])
-        types = [
-            CirculationEvent.DISTRIBUTOR_CHECKIN,
-            CirculationEvent.DISTRIBUTOR_CHECKOUT,
-            CirculationEvent.DISTRIBUTOR_HOLD_PLACE,
-            CirculationEvent.DISTRIBUTOR_HOLD_RELEASE,
-            CirculationEvent.DISTRIBUTOR_TITLE_ADD
-        ]
-        num = len(types)
-        time = datetime.now() - timedelta(minutes=len(types))
-        for type in types:
-            get_one_or_create(
-                self._db, CirculationEvent,
-                license_pool=lp, type=type, start=time, end=time)
-            time += timedelta(minutes=1)
+
+        time = datetime.now() - timedelta(minutes=1)
+        get_one_or_create(
+            self._db, CirculationEvent,
+            license_pool=lp, type=CirculationEvent.DISTRIBUTOR_CHECKOUT, start=time, end=time)
+        time += timedelta(minutes=1)
 
         with self.app.test_request_context("/"):
             response, requested_date = self.manager.admin_dashboard_controller.bulk_circulation_events()
-        rows = response[1::] # skip header row
-        eq_(num, len(rows))
-        eq_(types, [row[1] for row in rows])
-        eq_([identifier.identifier]*num, [row[2] for row in rows])
-        eq_([identifier.type]*num, [row[3] for row in rows])
-        eq_([edition.title]*num, [row[4] for row in rows])
-        eq_([edition.author]*num, [row[5] for row in rows])
-        eq_(["fiction"]*num, [row[6] for row in rows])
-        eq_([self.english_1.audience]*num, [row[7] for row in rows])
-        eq_([edition.publisher]*num, [row[8] for row in rows])
-        eq_([edition.language]*num, [row[9] for row in rows])
-        eq_([self.english_1.target_age_string]*num, [row[10] for row in rows])
-        eq_([ordered_genre_string]*num, [row[11] for row in rows])
-
-        # use date
-        today = date.strftime(date.today() - timedelta(days=1), "%Y-%m-%d")
-        with self.app.test_request_context("/?date=%s" % today):
-            response, requested_date = self.manager.admin_dashboard_controller.bulk_circulation_events()
-        rows = response[1::] # skip header row
-        eq_(0, len(rows))
+        reader = csv.reader([row for row in response.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+        eq_(1, len(rows))
+        [row] = rows
+        eq_(CirculationEvent.DISTRIBUTOR_CHECKOUT, row[1])
+        eq_(identifier.identifier, row[2])
+        eq_(identifier.type, row[3])
+        eq_(edition.title, row[4])
+        eq_(genres[0].name, row[12])
 
     def test_stats_patrons(self):
         with self.request_context_with_admin("/"):
