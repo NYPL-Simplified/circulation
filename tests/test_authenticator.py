@@ -1570,6 +1570,11 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(barcode, patron.authorization_identifier)
         eq_(username, patron.username)
 
+        # Here, patron.neighborhood was copied over from
+        # patron.cached_neighborhood. It couldn't have been set by a
+        # metadata refresh, because there was no refresh.
+        eq_("Little Homeworld", patron.neighborhood)
+
         # If we somehow authenticate with an identifier other than
         # the ones in the Patron record, we trigger another metadata
         # refresh to see if anything has changed.

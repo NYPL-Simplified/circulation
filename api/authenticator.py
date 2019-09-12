@@ -1381,6 +1381,12 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             return patron
         if PatronUtility.needs_external_sync(patron):
             self.update_patron_metadata(patron)
+        if patron.cached_neighborhood and not patron.neighborhood:
+            # Patron.neighborhood (which is not a model field) was not
+            # set, probably because we avoided an expensive metadata
+            # update. But we have a cached_neighborhood (which _is_ a
+            # model field) to use in situations like this.
+            patron.neighborhood = patron.cached_neighborhood
         return patron
 
     def update_patron_metadata(self, patron):
