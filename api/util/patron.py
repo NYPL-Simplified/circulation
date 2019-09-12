@@ -2,7 +2,6 @@ import datetime
 from api.config import Configuration
 from api.circulation_exceptions import *
 
-
 class PatronUtility(object):
     """Apply circulation-specific logic to Patron model objects."""
 
