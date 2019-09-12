@@ -144,7 +144,6 @@ def allows_library(f):
         else:
             library = None
 
-        set_trace()
         return f(*args, **kwargs)
     return decorated
 
