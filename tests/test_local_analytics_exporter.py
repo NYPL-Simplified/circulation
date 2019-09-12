@@ -99,21 +99,32 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         rows = [row for row in reader][1::] # skip header row
         eq_(0, len(rows))
 
-        # Gather events by library
-        library = "NYPL"
+        # Gather events by library - these events have an associated library id
+        # but it was not passed in the exporter
+        library = self._library()
         time = datetime.now() - timedelta(minutes=num)
         for type in types:
             get_one_or_create(
                 self._db, CirculationEvent,
-                license_pool=lp1, type=type, start=time, end=time, library=library)
+                license_pool=lp1, type=type, start=time, end=time, library_id=library.id)
             time += timedelta(minutes=1)
 
         today = date.today() - timedelta(days=1)
-        output = exporter.export(self._db, today, time, library=library)
+        output = exporter.export(self._db, today, time)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
+
+        # There have been a total of 11 events so far
+        eq_(11, len(rows))
+
+        # Pass in the library ID.
+        today = date.today() - timedelta(days=1)
+        output = exporter.export(self._db, today, time, library_id=library.id)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # There are five events with a library ID.
         eq_(num, len(rows))
-        set_trace()
         eq_(types, [row[1] for row in rows])
         eq_([identifier1.identifier]*num, [row[2] for row in rows])
         eq_([identifier1.type]*num, [row[3] for row in rows])
