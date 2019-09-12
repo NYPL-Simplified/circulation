@@ -88,7 +88,10 @@
 <span class="kn">from</span> <span class="nn">adobe_vendor_id</span> <span class="k">import</span> <span class="n">AuthdataUtility</span>
 <span class="kn">from</span> <span class="nn">annotations</span> <span class="k">import</span> <span class="n">AnnotationWriter</span>
 <span class="kn">from</span> <span class="nn">circulation</span> <span class="k">import</span> <span class="n">BaseCirculationAPI</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
+    <span class="n">Configuration</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">novelist</span> <span class="k">import</span> <span class="n">NoveListAPI</span>
 <span class="kn">from</span> <span class="nn">core.analytics</span> <span class="k">import</span> <span class="n">Analytics</span>
 
@@ -1166,7 +1169,12 @@
         <span class="n">cached</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_adobe_id_tags</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cache_key</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">cached</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">authdata</span> <span class="o">=</span> <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+            <span class="n">authdata</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">authdata</span> <span class="o">=</span> <span class="n">AuthdataUtility</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Cannot load Short Client Token configuration; outgoing OPDS entries will not have DRM autodiscovery support&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="n">e</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">[]</span>
             <span class="k">if</span> <span class="n">authdata</span><span class="p">:</span>
                 <span class="n">vendor_id</span><span class="p">,</span> <span class="n">token</span> <span class="o">=</span> <span class="n">authdata</span><span class="o">.</span><span class="n">short_client_token_for_patron</span><span class="p">(</span><span class="n">patron_identifier</span><span class="p">)</span>
                 <span class="n">drm_licensor</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">makeelement</span><span class="p">(</span><span class="s2">&quot;{</span><span class="si">%s</span><span class="s2">}licensor&quot;</span> <span class="o">%</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">DRM_NS</span><span class="p">)</span>

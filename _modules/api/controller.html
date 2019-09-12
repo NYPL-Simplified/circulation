@@ -1913,7 +1913,9 @@
         <span class="c1"># same book.</span>
         <span class="k">if</span> <span class="n">event_type</span> <span class="ow">in</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">CLIENT_EVENTS</span><span class="p">:</span>
             <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
-            <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
+            <span class="c1"># Authentication on the AnalyticsController is optional,</span>
+            <span class="c1"># so flask.request.patron may or may not be set.</span>
+            <span class="n">patron</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">neighborhood</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="n">patron</span><span class="p">:</span>
                 <span class="n">neighborhood</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="s1">&#39;neighborhood&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
