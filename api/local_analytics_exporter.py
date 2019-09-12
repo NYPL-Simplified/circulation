@@ -28,10 +28,10 @@ from core.model import (
 class LocalAnalyticsExporter(object):
     """Export large numbers of analytics events in CSV format."""
 
-    def export(self, _db, start, end, type=None, locations=None):
+    def export(self, _db, start, end, locations=None):
 
         # Get the results from the database.
-        query = self.analytics_query(start, end, type, locations)
+        query = self.analytics_query(start, end, locations)
         results = _db.execute(query)
 
         # Write the CSV file to a BytesIO.
@@ -47,7 +47,7 @@ class LocalAnalyticsExporter(object):
 
         return output.getvalue()
 
-    def analytics_query(self, start, end, type=None, locations=None):
+    def analytics_query(self, start, end,  locations=None):
         """Build a database query that fetches rows of analytics data.
 
         This method uses low-level SQLAlchemy code to do all
@@ -59,8 +59,12 @@ class LocalAnalyticsExporter(object):
             directly to a CSV file.
         """
 
-        events_type_filter = True
-        if type == "locations":
+        clauses = [
+            CirculationEvent.start >= start,
+            CirculationEvent.start < end,
+        ]
+
+        if locations:
             event_types = [
                 CirculationEvent.CM_CHECKOUT,
                 CirculationEvent.CM_FULFILL,
@@ -68,10 +72,10 @@ class LocalAnalyticsExporter(object):
             ]
             locations = locations.strip().split(",")
 
-            events_type_filter = and_(
+            clauses += [
                 CirculationEvent.type.in_(event_types),
                 CirculationEvent.location.in_(locations),
-            )
+            ]
 
         # Build the primary query. This is a query against the
         # CirculationEvent table and a few other tables joined against
@@ -110,11 +114,7 @@ class LocalAnalyticsExporter(object):
                 Edition, Work.presentation_edition_id==Edition.id
             )
         ).where(
-            and_(
-                CirculationEvent.start >= start,
-                CirculationEvent.start < end,
-                events_type_filter
-            )
+            and_(*clauses)
         ).order_by(
             CirculationEvent.start.asc()
         ).alias("events_alias")

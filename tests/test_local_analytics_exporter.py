@@ -101,12 +101,18 @@ class TestLocalAnalyticsExporter(DatabaseTest):
 
         # Add example events that will be used to report by location
         user_added_locations = "11377,10018,11378"
+
+        # The CM_HOLD_PLACE event should not be returned since it's not in the
+        # list of events to gather when there is a list of locations.
         new_types = [
             CirculationEvent.CM_FULFILL,
             CirculationEvent.CM_CHECKOUT,
             CirculationEvent.OPEN_BOOK,
+            CirculationEvent.CM_HOLD_PLACE,
         ]
-        num = len(new_types)
+
+        # Only information from the first three events should be returned.
+        num = len(new_types) - 1
         time = datetime.now() - timedelta(minutes=num)
         for type in new_types:
             get_one_or_create(
@@ -114,7 +120,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
                 license_pool=lp1, type=type, start=time, end=time)
             time += timedelta(minutes=1)
 
-        output = exporter.export(self._db, today, time + timedelta(minutes=1), "locations", user_added_locations)
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
 
@@ -127,7 +133,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
                 license_pool=lp1, type=type, start=time, end=time, location="10001")
             time += timedelta(minutes=1)
 
-        output = exporter.export(self._db, today, time + timedelta(minutes=1), "locations", user_added_locations)
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
 
@@ -140,12 +146,17 @@ class TestLocalAnalyticsExporter(DatabaseTest):
                 license_pool=lp1, type=type, start=time, end=time, location="11377")
             time += timedelta(minutes=1)
 
-        output = exporter.export(self._db, today, time + timedelta(minutes=1), "locations", user_added_locations)
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
 
+        # These events have a location that is in the list of acceptable
+        # locations. The CM_HOLD_PLACE event is not in the list of event types
+        # to gather information from, so it should not be returned even though
+        # it has a location.
         eq_(num, len(rows))
-        eq_(new_types, [row[1] for row in rows])
+        # The last event in new_types should not be returned
+        eq_(new_types[:-1], [row[1] for row in rows])
         eq_([identifier1.identifier]*num, [row[2] for row in rows])
         eq_([identifier1.type]*num, [row[3] for row in rows])
         eq_([edition1.title]*num, [row[4] for row in rows])
