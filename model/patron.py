@@ -134,7 +134,7 @@ class Patron(Base):
     # This field is called cached_neighborhood for two reasons. First,
     # the name makes it clear that this is a performance cache, not a
     # permanent data store like authorization_identifier. Second, the
-    # neighborhood of the authenticated request (however obtained) is
+    # neighborhood of the authenticated patron (however obtained) is
     # stored in flask.request.patron.neighborhood. Giving the database
     # field a different name guarantees that a patron's neighborhood
     # is never _unintentionally_ written to the database.  It has to
