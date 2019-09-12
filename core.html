@@ -4904,7 +4904,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-2aa54d6e-2e9b-4ae7-909f-0f23be3e2935'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-528c4481-59fd-402c-8dcf-4d264b205714'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -6145,63 +6145,30 @@ are so configured.</td>
 </dd></dl>
 
 <dl class="class">
-<dt id="core.monitor.CirculationEventScrubber">
-<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">CirculationEventScrubber</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CirculationEventScrubber"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CirculationEventScrubber" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#core.monitor.ReaperMonitor" title="core.monitor.ReaperMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.ReaperMonitor</span></code></a></p>
+<dt id="core.monitor.CirculationEventLocationScrubber">
+<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">CirculationEventLocationScrubber</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CirculationEventLocationScrubber"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CirculationEventLocationScrubber" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.monitor.ScrubberMonitor" title="core.monitor.ScrubberMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.ScrubberMonitor</span></code></a></p>
 <p>Scrub location information from old CirculationEvents.</p>
-<p>Unlike the other ReaperMonitors, this class doesn’t delete rows
-from the database – it only clears out the ‘location’ column for
-such rows.</p>
 <dl class="attribute">
-<dt id="core.monitor.CirculationEventScrubber.MAX_AGE">
-<code class="descname">MAX_AGE</code><em class="property"> = datetime.timedelta(365)</em><a class="headerlink" href="#core.monitor.CirculationEventScrubber.MAX_AGE" title="Permalink to this definition">¶</a></dt>
+<dt id="core.monitor.CirculationEventLocationScrubber.MAX_AGE">
+<code class="descname">MAX_AGE</code><em class="property"> = 365</em><a class="headerlink" href="#core.monitor.CirculationEventLocationScrubber.MAX_AGE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.monitor.CirculationEventScrubber.MODEL_CLASS">
-<code class="descname">MODEL_CLASS</code><a class="headerlink" href="#core.monitor.CirculationEventScrubber.MODEL_CLASS" title="Permalink to this definition">¶</a></dt>
+<dt id="core.monitor.CirculationEventLocationScrubber.MODEL_CLASS">
+<code class="descname">MODEL_CLASS</code><a class="headerlink" href="#core.monitor.CirculationEventLocationScrubber.MODEL_CLASS" title="Permalink to this definition">¶</a></dt>
 <dd><p>alias of <a class="reference internal" href="core.model.html#core.model.circulationevent.CirculationEvent" title="core.model.circulationevent.CirculationEvent"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.circulationevent.CirculationEvent</span></code></a></p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="core.monitor.CirculationEventScrubber.TIMESTAMP_FIELD">
-<code class="descname">TIMESTAMP_FIELD</code><em class="property"> = 'start'</em><a class="headerlink" href="#core.monitor.CirculationEventScrubber.TIMESTAMP_FIELD" title="Permalink to this definition">¶</a></dt>
+<dt id="core.monitor.CirculationEventLocationScrubber.SCRUB_FIELD">
+<code class="descname">SCRUB_FIELD</code><em class="property"> = 'location'</em><a class="headerlink" href="#core.monitor.CirculationEventLocationScrubber.SCRUB_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="core.monitor.CirculationEventScrubber.run_once">
-<code class="descname">run_once</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CirculationEventScrubber.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CirculationEventScrubber.run_once" title="Permalink to this definition">¶</a></dt>
-<dd><p>Do the actual work of the Monitor.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the
-work done by the Monitor up to this point.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A TimestampData representing how you want the
-Monitor’s entry in the <cite>timestamps</cite> table to look like
-from this point on.  NOTE: Modifying the incoming
-<cite>progress</cite> and returning it is generally a bad idea,
-because the incoming <cite>progress</cite> is full of old
-data. Instead, return a new TimestampData containing data
-for only the fields you want to set.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="core.monitor.CirculationEventScrubber.scrub">
-<code class="descname">scrub</code><span class="sig-paren">(</span><em>row</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#CirculationEventScrubber.scrub"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.CirculationEventScrubber.scrub" title="Permalink to this definition">¶</a></dt>
-<dd><p>Clear out a CirculationManager’s location.</p>
-</dd></dl>
-
 <dl class="attribute">
-<dt id="core.monitor.CirculationEventScrubber.where_clause">
-<code class="descname">where_clause</code><a class="headerlink" href="#core.monitor.CirculationEventScrubber.where_clause" title="Permalink to this definition">¶</a></dt>
-<dd><p>To be scrubbed, rows must be old _and_ have a location.</p>
-</dd></dl>
+<dt id="core.monitor.CirculationEventLocationScrubber.TIMESTAMP_FIELD">
+<code class="descname">TIMESTAMP_FIELD</code><em class="property"> = 'start'</em><a class="headerlink" href="#core.monitor.CirculationEventLocationScrubber.TIMESTAMP_FIELD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -6589,6 +6556,35 @@ with the ‘generate-opds’ operation.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.monitor.PatronNeighborhoodScrubber">
+<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">PatronNeighborhoodScrubber</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#PatronNeighborhoodScrubber"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.PatronNeighborhoodScrubber" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.monitor.ScrubberMonitor" title="core.monitor.ScrubberMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.ScrubberMonitor</span></code></a></p>
+<p>Scrub cached neighborhood information from patrons who haven’t been
+seen in a while.</p>
+<dl class="attribute">
+<dt id="core.monitor.PatronNeighborhoodScrubber.MAX_AGE">
+<code class="descname">MAX_AGE</code><em class="property"> = datetime.timedelta(0, 43200)</em><a class="headerlink" href="#core.monitor.PatronNeighborhoodScrubber.MAX_AGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.monitor.PatronNeighborhoodScrubber.MODEL_CLASS">
+<code class="descname">MODEL_CLASS</code><a class="headerlink" href="#core.monitor.PatronNeighborhoodScrubber.MODEL_CLASS" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="core.model.html#core.model.patron.Patron" title="core.model.patron.Patron"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.patron.Patron</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.monitor.PatronNeighborhoodScrubber.SCRUB_FIELD">
+<code class="descname">SCRUB_FIELD</code><em class="property"> = 'cached_neighborhood'</em><a class="headerlink" href="#core.monitor.PatronNeighborhoodScrubber.SCRUB_FIELD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.monitor.PatronNeighborhoodScrubber.TIMESTAMP_FIELD">
+<code class="descname">TIMESTAMP_FIELD</code><em class="property"> = 'last_external_sync'</em><a class="headerlink" href="#core.monitor.PatronNeighborhoodScrubber.TIMESTAMP_FIELD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
 <dt id="core.monitor.PatronRecordReaper">
 <em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">PatronRecordReaper</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#PatronRecordReaper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.PatronRecordReaper" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#core.monitor.ReaperMonitor" title="core.monitor.ReaperMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.ReaperMonitor</span></code></a></p>
@@ -6678,7 +6674,7 @@ the time that must pass before an item can be safely deleted.</p>
 
 <dl class="attribute">
 <dt id="core.monitor.ReaperMonitor.REGISTRY">
-<code class="descname">REGISTRY</code><em class="property"> = [&lt;class 'core.monitor.CachedFeedReaper'&gt;, &lt;class 'core.monitor.CredentialReaper'&gt;, &lt;class 'core.monitor.PatronRecordReaper'&gt;, &lt;class 'core.monitor.CollectionReaper'&gt;, &lt;class 'core.monitor.CirculationEventScrubber'&gt;, &lt;class 'api.monitor.LoanReaper'&gt;, &lt;class 'api.monitor.HoldReaper'&gt;, &lt;class 'api.monitor.IdlingAnnotationReaper'&gt;]</em><a class="headerlink" href="#core.monitor.ReaperMonitor.REGISTRY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">REGISTRY</code><em class="property"> = [&lt;class 'core.monitor.CachedFeedReaper'&gt;, &lt;class 'core.monitor.CredentialReaper'&gt;, &lt;class 'core.monitor.PatronRecordReaper'&gt;, &lt;class 'core.monitor.CollectionReaper'&gt;, &lt;class 'core.monitor.CirculationEventLocationScrubber'&gt;, &lt;class 'core.monitor.PatronNeighborhoodScrubber'&gt;, &lt;class 'api.monitor.LoanReaper'&gt;, &lt;class 'api.monitor.HoldReaper'&gt;, &lt;class 'api.monitor.IdlingAnnotationReaper'&gt;]</em><a class="headerlink" href="#core.monitor.ReaperMonitor.REGISTRY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -6735,6 +6731,49 @@ for only the fields you want to set.</td>
 <dt id="core.monitor.ReaperMonitor.where_clause">
 <code class="descname">where_clause</code><a class="headerlink" href="#core.monitor.ReaperMonitor.where_clause" title="Permalink to this definition">¶</a></dt>
 <dd><p>A SQLAlchemy clause that identifies the database rows to be reaped.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.monitor.ScrubberMonitor">
+<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">ScrubberMonitor</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#ScrubberMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.ScrubberMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.monitor.ReaperMonitor" title="core.monitor.ReaperMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.ReaperMonitor</span></code></a></p>
+<p>Scrub information from the database.</p>
+<p>Unlike the other ReaperMonitors, this class doesn’t delete rows
+from the database – it only clears out specific data fields.</p>
+<p>In addition to the constants required for ReaperMonitor, a
+subclass of ScrubberMonitor MUST define a value for the following
+constant:</p>
+<ul class="simple">
+<li>SCRUB_FIELD - The field whose value will be set to None when a row
+is scrubbed.</li>
+</ul>
+<dl class="method">
+<dt id="core.monitor.ScrubberMonitor.run_once">
+<code class="descname">run_once</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#ScrubberMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.ScrubberMonitor.run_once" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find all rows that need to be scrubbed, and scrub them.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.monitor.ScrubberMonitor.scrub">
+<code class="descname">scrub</code><span class="sig-paren">(</span><em>row</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#ScrubberMonitor.scrub"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.ScrubberMonitor.scrub" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the value of SCRUB_FIELD in this row to None.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.monitor.ScrubberMonitor.scrub_field">
+<code class="descname">scrub_field</code><a class="headerlink" href="#core.monitor.ScrubberMonitor.scrub_field" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the SQLAlchemy representation of the model field to be
+scrubbed.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.monitor.ScrubberMonitor.where_clause">
+<code class="descname">where_clause</code><a class="headerlink" href="#core.monitor.ScrubberMonitor.where_clause" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find rows that are older than MAX_AGE _and_ which have a non-null
+SCRUB_FIELD. If the field is already null, there’s no need to
+scrub it.</p>
 </dd></dl>
 
 </dd></dl>

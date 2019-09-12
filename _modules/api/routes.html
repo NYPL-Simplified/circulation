@@ -108,6 +108,21 @@
             <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">decorated</span></div>
 
+<div class="viewcode-block" id="allows_auth"><a class="viewcode-back" href="../../api.html#api.routes.allows_auth">[docs]</a><span class="k">def</span> <span class="nf">allows_auth</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decorator function for a controller method that supports both</span>
+<span class="sd">    authenticated and unauthenticated requests.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">decorated</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Try to authenticate a patron. This will set flask.request.patron</span>
+        <span class="c1"># if and only if there is an authenticated patron.</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">index_controller</span><span class="o">.</span><span class="n">authenticated_patron_from_request</span><span class="p">()</span>
+
+        <span class="c1"># Call the decorated function regardless of whether</span>
+        <span class="c1"># authentication succeeds.</span>
+        <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">decorated</span></div>
+
 <span class="c1"># The allows_patron_web decorator will add Cross-Origin Resource Sharing</span>
 <span class="c1"># (CORS) headers to routes that will be used by the patron web interface.</span>
 <span class="c1"># This is necessary for a JS app on a different domain to make requests.</span>
@@ -457,6 +472,7 @@
 
 <div class="viewcode-block" id="track_analytics_event"><a class="viewcode-back" href="../../api.html#api.routes.track_analytics_event">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/analytics/&lt;identifier_type&gt;/&lt;path:identifier&gt;/&lt;event_type&gt;&#39;</span><span class="p">)</span>
 <span class="nd">@has_library</span>
+<span class="nd">@allows_auth</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
 <span class="k">def</span> <span class="nf">track_analytics_event</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">event_type</span><span class="p">):</span>

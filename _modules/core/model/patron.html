@@ -155,6 +155,27 @@
     <span class="n">_synchronize_annotations</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                                       <span class="n">name</span><span class="o">=</span><span class="s2">&quot;synchronize_annotations&quot;</span><span class="p">)</span>
 
+    <span class="c1"># If the circulation manager is set up to associate a patron&#39;s</span>
+    <span class="c1"># neighborhood with circulation events, and it would be</span>
+    <span class="c1"># prohibitively expensive to fetch a patron&#39;s neighborhood from</span>
+    <span class="c1"># the ILS on every relevant request, the ILS may choose to cache</span>
+    <span class="c1"># the information here.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Periodically, patrons with an old last_external_sync (i.e. who</span>
+    <span class="c1"># haven&#39;t used the circulation manager in a while) will have their</span>
+    <span class="c1"># cached_neighborhood scrubbed from the database. This is the</span>
+    <span class="c1"># responsibility of PatronNeighborhoodScrubber.</span>
+    <span class="c1">#</span>
+    <span class="c1"># This field is called cached_neighborhood for two reasons. First,</span>
+    <span class="c1"># the name makes it clear that this is a performance cache, not a</span>
+    <span class="c1"># permanent data store like authorization_identifier. Second, the</span>
+    <span class="c1"># neighborhood of the authenticated patron (however obtained) is</span>
+    <span class="c1"># stored in flask.request.patron.neighborhood. Giving the database</span>
+    <span class="c1"># field a different name guarantees that a patron&#39;s neighborhood</span>
+    <span class="c1"># is never _unintentionally_ written to the database.  It has to</span>
+    <span class="c1"># be an explicit decision of the ILS integration code.</span>
+    <span class="n">cached_neighborhood</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
     <span class="n">loans</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Loan&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s1">&#39;delete&#39;</span><span class="p">)</span>
     <span class="n">holds</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;Hold&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;patron&#39;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s1">&#39;delete&#39;</span><span class="p">)</span>
 
@@ -170,6 +191,11 @@
     <span class="p">)</span>
 
     <span class="n">AUDIENCE_RESTRICTION_POLICY</span> <span class="o">=</span> <span class="s1">&#39;audiences&#39;</span>
+
+    <span class="c1"># A patron with borrowing privileges should have their local</span>
+    <span class="c1"># metadata synced with their ILS record at intervals no greater</span>
+    <span class="c1"># than this time.</span>
+    <span class="n">MAX_SYNC_TIME</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">date</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
