@@ -180,6 +180,23 @@
             <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">decorated</span></div>
 
+<div class="viewcode-block" id="allows_library"><a class="viewcode-back" href="../../api.html#api.routes.allows_library">[docs]</a><span class="k">def</span> <span class="nf">allows_library</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decorator similar to @has_library but if there is no library short name,</span>
+<span class="sd">    then don&#39;t set the request library.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">decorated</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s1">&#39;library_short_name&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">library_short_name</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;library_short_name&quot;</span><span class="p">)</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">index_controller</span><span class="o">.</span><span class="n">library_for_request</span><span class="p">(</span><span class="n">library_short_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">library</span><span class="o">.</span><span class="n">response</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">decorated</span></div>
+
 <div class="viewcode-block" id="library_route"><a class="viewcode-back" href="../../api.html#api.routes.library_route">[docs]</a><span class="k">def</span> <span class="nf">library_route</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Decorator to creates routes that have a library short name in either</span>
 <span class="sd">    a subdomain or a url path prefix. If not used with @has_library, the view function</span>

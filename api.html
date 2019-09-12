@@ -3265,12 +3265,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4158dd0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4c8c1b0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3e6acc0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4f8feb0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3285,7 +3285,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4170510&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4ff9940&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7787,7 +7787,7 @@ returned.</p>
 <p>Export large numbers of analytics events in CSV format.</p>
 <dl class="method">
 <dt id="api.local_analytics_exporter.LocalAnalyticsExporter.analytics_query">
-<code class="descname">analytics_query</code><span class="sig-paren">(</span><em>start</em>, <em>end</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#LocalAnalyticsExporter.analytics_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.LocalAnalyticsExporter.analytics_query" title="Permalink to this definition">¶</a></dt>
+<code class="descname">analytics_query</code><span class="sig-paren">(</span><em>start</em>, <em>end</em>, <em>locations=None</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#LocalAnalyticsExporter.analytics_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.LocalAnalyticsExporter.analytics_query" title="Permalink to this definition">¶</a></dt>
 <dd><p>Build a database query that fetches rows of analytics data.</p>
 <p>This method uses low-level SQLAlchemy code to do all
 calculations and data conversations in the database. It’s
@@ -7806,7 +7806,7 @@ directly to a CSV file.</td>
 
 <dl class="method">
 <dt id="api.local_analytics_exporter.LocalAnalyticsExporter.export">
-<code class="descname">export</code><span class="sig-paren">(</span><em>_db</em>, <em>start</em>, <em>end</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#LocalAnalyticsExporter.export"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.LocalAnalyticsExporter.export" title="Permalink to this definition">¶</a></dt>
+<code class="descname">export</code><span class="sig-paren">(</span><em>_db</em>, <em>start</em>, <em>end</em>, <em>locations=None</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/local_analytics_exporter.html#LocalAnalyticsExporter.export"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.local_analytics_exporter.LocalAnalyticsExporter.export" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8120,7 +8120,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 22, 19, 41, 20, 184882)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 9, 22, 21, 52, 43, 73175)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -12508,6 +12508,13 @@ this RemoteRegistry.</p>
 <code class="descclassname">api.routes.</code><code class="descname">allows_auth</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_auth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_auth" title="Permalink to this definition">¶</a></dt>
 <dd><p>Decorator function for a controller method that supports both
 authenticated and unauthenticated requests.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="api.routes.allows_library">
+<code class="descclassname">api.routes.</code><code class="descname">allows_library</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/routes.html#allows_library"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.routes.allows_library" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decorator similar to &#64;has_library but if there is no library short name,
+then don’t set the request library.</p>
 </dd></dl>
 
 <dl class="function">
