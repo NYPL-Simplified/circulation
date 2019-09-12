@@ -863,7 +863,7 @@ class ScrubberMonitor(ReaperMonitor):
     constant:
 
     * SCRUB_FIELD - The field whose value will be set to None when a row
-    is scrubbed.
+      is scrubbed.
     """
     def __init__(self, *args, **kwargs):
         """Set the name of the Monitor based on which field is being
