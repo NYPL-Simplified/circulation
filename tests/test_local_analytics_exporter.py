@@ -99,6 +99,35 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         rows = [row for row in reader][1::] # skip header row
         eq_(0, len(rows))
 
+        # Gather events by library
+        library = "NYPL"
+        time = datetime.now() - timedelta(minutes=num)
+        for type in types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time, library=library)
+            time += timedelta(minutes=1)
+
+        today = date.today() - timedelta(days=1)
+        output = exporter.export(self._db, today, time, library=library)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+        eq_(num, len(rows))
+        set_trace()
+        eq_(types, [row[1] for row in rows])
+        eq_([identifier1.identifier]*num, [row[2] for row in rows])
+        eq_([identifier1.type]*num, [row[3] for row in rows])
+        eq_([edition1.title]*num, [row[4] for row in rows])
+        eq_([edition1.author]*num, [row[5] for row in rows])
+        eq_(["fiction"]*num, [row[6] for row in rows])
+        eq_([w1.audience]*num, [row[7] for row in rows])
+        eq_([edition1.publisher or '']*num, [row[8] for row in rows])
+        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
+        eq_([edition1.language]*num, [row[10] for row in rows])
+        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
+        eq_([ordered_genre_string]*num, [row[12] for row in rows])
+
+
         # Add example events that will be used to report by location
         user_added_locations = "11377,10018,11378"
 
