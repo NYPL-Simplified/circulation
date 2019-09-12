@@ -887,31 +887,18 @@
 <span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CollectionReaper</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="ScrubberMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.ScrubberMonitor">[docs]</a><span class="k">class</span> <span class="nc">ScrubberMonitor</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Scrub information from the database.</span>
+<div class="viewcode-block" id="CirculationEventScrubber"><a class="viewcode-back" href="../../core.html#core.monitor.CirculationEventScrubber">[docs]</a><span class="k">class</span> <span class="nc">CirculationEventScrubber</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Scrub location information from old CirculationEvents.</span>
 
 <span class="sd">    Unlike the other ReaperMonitors, this class doesn&#39;t delete rows</span>
-<span class="sd">    from the database -- it only clears out specific data fields.</span>
-
-<span class="sd">    In addition to the constants required for ReaperMonitor, a</span>
-<span class="sd">    subclass of ScrubberMonitor MUST define a value for the following</span>
-<span class="sd">    constant:</span>
-
-<span class="sd">    * SCRUB_FIELD - The field whose value will be set to None when a row</span>
-<span class="sd">      is scrubbed.</span>
+<span class="sd">    from the database -- it only clears out the &#39;location&#39; column for</span>
+<span class="sd">    such rows.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the name of the Monitor based on which field is being</span>
-<span class="sd">        scrubbed.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">ScrubberMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Scrubber for </span><span class="si">%s</span><span class="s2">.</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">SCRUB_FIELD</span>
-        <span class="p">)</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">CirculationEvent</span>
+    <span class="n">TIMESTAMP_FIELD</span> <span class="o">=</span> <span class="s1">&#39;start&#39;</span>
+    <span class="n">MAX_AGE</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">365</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ScrubberMonitor.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.ScrubberMonitor.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Find all rows that need to be scrubbed, and scrub them.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="CirculationEventScrubber.run_once"><a class="viewcode-back" href="../../core.html#core.monitor.CirculationEventScrubber.run_once">[docs]</a>    <span class="k">def</span> <span class="nf">run_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">rows_scrubbed</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Scrubbing </span><span class="si">%d</span><span class="s2"> row(s)&quot;</span><span class="p">,</span> <span class="n">qu</span><span class="o">.</span><span class="n">count</span><span class="p">())</span>
@@ -922,45 +909,16 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">where_clause</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Find rows that are older than MAX_AGE _and_ which have a non-null</span>
-<span class="sd">        SCRUB_FIELD. If the field is already null, there&#39;s no need to</span>
-<span class="sd">        scrub it.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;To be scrubbed, rows must be old _and_ have a location.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">and_</span><span class="p">(</span>
-            <span class="nb">super</span><span class="p">(</span><span class="n">ScrubberMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">where_clause</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">scrub_field</span> <span class="o">!=</span> <span class="kc">None</span>
+            <span class="nb">super</span><span class="p">(</span><span class="n">CirculationEventScrubber</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">where_clause</span><span class="p">,</span>
+            <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">location</span> <span class="o">!=</span> <span class="kc">None</span>
         <span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">scrub_field</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Find the SQLAlchemy representation of the model field to be</span>
-<span class="sd">        scrubbed.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MODEL_CLASS</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCRUB_FIELD</span><span class="p">)</span>
-
-<div class="viewcode-block" id="ScrubberMonitor.scrub"><a class="viewcode-back" href="../../core.html#core.monitor.ScrubberMonitor.scrub">[docs]</a>    <span class="k">def</span> <span class="nf">scrub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the value of SCRUB_FIELD in this row to None.&quot;&quot;&quot;</span>
-        <span class="nb">setattr</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCRUB_FIELD</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div></div>
-
-
-<div class="viewcode-block" id="CirculationEventLocationScrubber"><a class="viewcode-back" href="../../core.html#core.monitor.CirculationEventLocationScrubber">[docs]</a><span class="k">class</span> <span class="nc">CirculationEventLocationScrubber</span><span class="p">(</span><span class="n">ScrubberMonitor</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Scrub location information from old CirculationEvents.&quot;&quot;&quot;</span>
-    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">CirculationEvent</span>
-    <span class="n">TIMESTAMP_FIELD</span> <span class="o">=</span> <span class="s1">&#39;start&#39;</span>
-    <span class="n">MAX_AGE</span> <span class="o">=</span> <span class="mi">365</span>
-    <span class="n">SCRUB_FIELD</span> <span class="o">=</span> <span class="s1">&#39;location&#39;</span></div>
-<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CirculationEventLocationScrubber</span><span class="p">)</span>
-
-
-<div class="viewcode-block" id="PatronNeighborhoodScrubber"><a class="viewcode-back" href="../../core.html#core.monitor.PatronNeighborhoodScrubber">[docs]</a><span class="k">class</span> <span class="nc">PatronNeighborhoodScrubber</span><span class="p">(</span><span class="n">ScrubberMonitor</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Scrub cached neighborhood information from patrons who haven&#39;t been</span>
-<span class="sd">    seen in a while.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Patron</span>
-    <span class="n">TIMESTAMP_FIELD</span> <span class="o">=</span> <span class="s1">&#39;last_external_sync&#39;</span>
-    <span class="n">MAX_AGE</span> <span class="o">=</span> <span class="n">Patron</span><span class="o">.</span><span class="n">MAX_SYNC_TIME</span>
-    <span class="n">SCRUB_FIELD</span> <span class="o">=</span> <span class="s1">&#39;cached_neighborhood&#39;</span></div>
-<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PatronNeighborhoodScrubber</span><span class="p">)</span>
+<div class="viewcode-block" id="CirculationEventScrubber.scrub"><a class="viewcode-back" href="../../core.html#core.monitor.CirculationEventScrubber.scrub">[docs]</a>    <span class="k">def</span> <span class="nf">scrub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Clear out a CirculationManager&#39;s location.&quot;&quot;&quot;</span>
+        <span class="n">row</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="kc">None</span></div></div>
+<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CirculationEventScrubber</span><span class="p">)</span>
 </pre></div>
 
           </div>
