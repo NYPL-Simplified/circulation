@@ -1265,7 +1265,7 @@ class DashboardController(AdminCirculationManagerController):
         exporter = LocalAnalyticsExporter()
         data = exporter.export(self._db, date, date_end, locations, library.id)
 
-        return data, date, date_end, library
+        return data, date, date_end, library.short_name
 
 class SettingsController(AdminCirculationManagerController):
 

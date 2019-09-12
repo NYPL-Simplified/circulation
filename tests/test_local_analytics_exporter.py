@@ -114,7 +114,8 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
 
-        # There have been a total of 11 events so far
+        # There have been a total of 11 events so far. No library ID was passed
+        # so all events are returned.
         eq_(11, len(rows))
 
         # Pass in the library ID.
