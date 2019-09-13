@@ -878,12 +878,15 @@ class ScrubberMonitor(ReaperMonitor):
     def run_once(self, *args, **kwargs):
         """Find all rows that need to be scrubbed, and scrub them."""
         rows_scrubbed = 0
-        qu = self.query()
-        self.log.info("Scrubbing %d row(s)", qu.count())
-        for i in qu:
-            self.scrub(i)
-            rows_scrubbed += 1
-        return TimestampData(achievements="Items scrubbed: %d" % rows_scrubbed)
+        cls = self.MODEL_CLASS
+        update = cls.__table__.update().where(
+            self.where_clause
+        ).values(
+            {self.SCRUB_FIELD : None}
+        ).returning(cls.id)
+        scrubbed = self._db.execute(update).fetchall()
+        self._db.commit()
+        return TimestampData(achievements="Items scrubbed: %d" % len(scrubbed))
 
     @property
     def where_clause(self):
