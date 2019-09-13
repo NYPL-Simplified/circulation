@@ -414,6 +414,10 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             block_reason=block_reason,
             library_identifier=library_identifier,
             neighborhood=neighborhood,
+            # We must cache neighborhood information in the patron's
+            # database record because syncing with the ILS is so
+            # expensive.
+            cached_neighborhood=neighborhood,
             complete=True
         )
         return data
