@@ -1018,10 +1018,6 @@ class TestFacetFilters(EndToEndSearchTest):
         expect(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL,
                [self.becoming, self.moby])
 
-        # Eliminate low-quality open-access works.
-        expect(Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL,
-               [self.becoming, self.moby, self.duck])
-
 
 class TestSearchOrder(EndToEndSearchTest):
 
@@ -2189,23 +2185,6 @@ class TestQuery(DatabaseTest):
 
             # Return the rest to be verified in a test-specific way.
             return built
-
-        # When using the 'main' collection...
-        built = from_facets(Facets.COLLECTION_MAIN, None, None)
-
-        # An additional nested filter is applied.
-        [exclude_lq_open_access] = built.nested_filter_calls
-        eq_('nested', exclude_lq_open_access['name_or_query'])
-        eq_('licensepools', exclude_lq_open_access['path'])
-
-        # It excludes open-access books known to be of low quality.
-        nested_filter = exclude_lq_open_access['query']
-        not_open_access = {'term': {'licensepools.open_access': False}}
-        decent_quality = Filter._match_range('licensepools.quality', 'gte', 0.3)
-        eq_(
-            nested_filter.to_dict(),
-            {'bool': {'filter': [{'bool': {'should': [not_open_access, decent_quality]}}]}}
-        )
 
         # When using the 'featured' collection...
         built = from_facets(Facets.COLLECTION_FEATURED, None, None)

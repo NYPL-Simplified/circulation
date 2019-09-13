@@ -937,7 +937,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
         assert licensed_high not in open_access
         assert licensed_low not in open_access
 
-        # If we restrict to the featured collection we lose both
+        # If we restrict to the featured collection we lose the two
         # low-quality books.
         featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
         eq_(2, featured_collection.count())
