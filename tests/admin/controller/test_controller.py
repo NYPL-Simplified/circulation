@@ -1758,7 +1758,7 @@ class TestDashboardController(AdminControllerTest):
         time += timedelta(minutes=1)
 
         with self.app.test_request_context("/"):
-            response, requested_date = self.manager.admin_dashboard_controller.bulk_circulation_events()
+            response, requested_date, date_end, library_short_name = self.manager.admin_dashboard_controller.bulk_circulation_events()
         reader = csv.reader([row for row in response.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
         eq_(1, len(rows))

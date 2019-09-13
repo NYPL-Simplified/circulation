@@ -98,3 +98,125 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
         eq_(0, len(rows))
+
+        # Gather events by library - these events have an associated library id
+        # but it was not passed in the exporter
+        library = self._library()
+        library2 = self._library()
+        time = datetime.now() - timedelta(minutes=num)
+        for type in types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time, library=library)
+            time += timedelta(minutes=1)
+
+        today = date.today() - timedelta(days=1)
+        output = exporter.export(self._db, today, time)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # There have been a total of 11 events so far. No library ID was passed
+        # so all events are returned.
+        eq_(11, len(rows))
+
+        # Pass in the library ID.
+        today = date.today() - timedelta(days=1)
+        output = exporter.export(self._db, today, time, library=library)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # There are five events with a library ID.
+        eq_(num, len(rows))
+        eq_(types, [row[1] for row in rows])
+        eq_([identifier1.identifier]*num, [row[2] for row in rows])
+        eq_([identifier1.type]*num, [row[3] for row in rows])
+        eq_([edition1.title]*num, [row[4] for row in rows])
+        eq_([edition1.author]*num, [row[5] for row in rows])
+        eq_(["fiction"]*num, [row[6] for row in rows])
+        eq_([w1.audience]*num, [row[7] for row in rows])
+        eq_([edition1.publisher or '']*num, [row[8] for row in rows])
+        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
+        eq_([edition1.language]*num, [row[10] for row in rows])
+        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
+        eq_([ordered_genre_string]*num, [row[12] for row in rows])
+
+        # We are looking for events from a different library but there
+        # should be no events associated with this library.
+        time = datetime.now() - timedelta(minutes=num)
+        today = date.today() - timedelta(days=1)
+        output = exporter.export(self._db, today, time, library=library2)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        eq_(0, len(rows))
+
+
+        # Add example events that will be used to report by location
+        user_added_locations = "11377,10018,11378"
+
+        # The CM_HOLD_PLACE event should not be returned since it's not in the
+        # list of events to gather when there is a list of locations.
+        new_types = [
+            CirculationEvent.CM_FULFILL,
+            CirculationEvent.CM_CHECKOUT,
+            CirculationEvent.OPEN_BOOK,
+            CirculationEvent.CM_HOLD_PLACE,
+        ]
+
+        # Only information from the first three events should be returned.
+        num = len(new_types) - 1
+        time = datetime.now() - timedelta(minutes=num)
+        for type in new_types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time)
+            time += timedelta(minutes=1)
+
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # No location was associated with each event so none will be returned
+        eq_(0, len(rows))
+
+        for type in new_types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time, location="10001")
+            time += timedelta(minutes=1)
+
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # Some events have a location but not in the list of locations that was passed
+        eq_(0, len(rows))
+
+        for type in new_types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp1, type=type, start=time, end=time, location="11377")
+            time += timedelta(minutes=1)
+
+        output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
+        reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
+        rows = [row for row in reader][1::] # skip header row
+
+        # These events have a location that is in the list of acceptable
+        # locations. The CM_HOLD_PLACE event is not in the list of event types
+        # to gather information from, so it should not be returned even though
+        # it has a location.
+        eq_(num, len(rows))
+        # The last event in new_types should not be returned
+        eq_(new_types[:-1], [row[1] for row in rows])
+        eq_([identifier1.identifier]*num, [row[2] for row in rows])
+        eq_([identifier1.type]*num, [row[3] for row in rows])
+        eq_([edition1.title]*num, [row[4] for row in rows])
+        eq_([edition1.author]*num, [row[5] for row in rows])
+        eq_(["fiction"]*num, [row[6] for row in rows])
+        eq_([w1.audience]*num, [row[7] for row in rows])
+        eq_([edition1.publisher or '']*num, [row[8] for row in rows])
+        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
+        eq_([edition1.language]*num, [row[10] for row in rows])
+        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
+        eq_([ordered_genre_string]*num, [row[12] for row in rows])
