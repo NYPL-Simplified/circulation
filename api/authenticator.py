@@ -121,6 +121,7 @@ class PatronData(object):
                  block_reason=None,
                  library_identifier=None,
                  neighborhood=None,
+                 cached_neighborhood=None,
                  complete=True,
     ):
         """Store basic information about a patron.
@@ -187,6 +188,15 @@ class PatronData(object):
         be associated with circulation events -- but a circulation
         event is not associated with the patron who triggered it.
 
+        :param cached_neighborhood: This is the same as neighborhood,
+        but it _will_ be cached in the patron's database record, for
+        up to twelve hours. This should only be used by ILS systems
+        that would have performance problems fetching patron
+        neighborhood on demand.
+
+        If cached_neighborhood is set but neighborhood is not,
+        cached_neighborhood will be used as neighborhood.
+
         :param complete: Does this PatronData represent the most
         complete data we are likely to get for this patron from this
         data source, or is it an abbreviated version of more complete
@@ -211,10 +221,11 @@ class PatronData(object):
         # to have it available for notifications.
         self.email_address = email_address
 
-        # We do not store the patron's neighborhood in the database
-        # record, but we may need it to store in the database records
-        # for circulation events triggered by this patron.
-        self.neighborhood = neighborhood
+        # If cached_neighborhood (cached in the database) is provided
+        # but neighborhood (destroyed at end of request) is not, use
+        # cached_neighborhood as neighborhood.
+        self.neighborhood = neighborhood or cached_neighborhood
+        self.cached_neighborhood = cached_neighborhood
 
     def __repr__(self):
         return "<PatronData permanent_id=%r authorization_identifier=%r username=%r>" % (
@@ -249,6 +260,11 @@ class PatronData(object):
                        self.authorization_expires)
         self.set_value(patron, 'fines', self.fines)
         self.set_value(patron, 'block_reason', self.block_reason)
+        self.set_value(patron, 'cached_neighborhood', self.cached_neighborhood)
+
+        # Patron neighborhood (not a database field) is set as a
+        # convenience.
+        patron.neighborhood = self.neighborhood or self.cached_neighborhood
 
         # Now handle authorization identifier.
         if self.complete:
@@ -365,11 +381,6 @@ class PatronData(object):
         if patron:
             self.apply(patron)
         __transaction.commit()
-
-        # Set patron.neighborhood so it can be accessed during request processing.
-        # This is not part of the database code above because this information is
-        # not stored in the database.
-        patron.neighborhood = self.neighborhood
 
         return patron, is_new
 
@@ -1368,6 +1379,12 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             return patron
         if PatronUtility.needs_external_sync(patron):
             self.update_patron_metadata(patron)
+        if patron.cached_neighborhood and not patron.neighborhood:
+            # Patron.neighborhood (which is not a model field) was not
+            # set, probably because we avoided an expensive metadata
+            # update. But we have a cached_neighborhood (which _is_ a
+            # model field) to use in situations like this.
+            patron.neighborhood = patron.cached_neighborhood
         return patron
 
     def update_patron_metadata(self, patron):
@@ -1896,12 +1913,6 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         are updated.
         """
         patrondata.apply(patron)
-
-        # The Patron model does not store .neighborhood, so this won't
-        # write to the database, but this will make any neighborhood
-        # information available through the course of the active
-        # request -- through flask.request.patron.neighborhood.
-        patron.neighborhood = patrondata.neighborhood
 
         if self.external_type_regular_expression:
             self.update_patron_external_type(patron)
