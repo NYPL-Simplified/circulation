@@ -302,14 +302,15 @@ class TestFacets(DatabaseTest):
         )
         all_groups = list(facets.facet_groups)
 
-        # By default, there are a 9 facet transitions: three groups of three.
-        eq_(9, len(all_groups))
+        # By default, there are 8 facet transitions: two groups of three
+        # and one group of two.
+        eq_(8, len(all_groups))
 
-        # available=all, collection=main, and order=title are the selected
+        # available=all, collection=full, and order=title are the selected
         # facets.
         selected = sorted([x[:2] for x in all_groups if x[-1] == True])
         eq_(
-            [('available', 'all'), ('collection', 'main'), ('order', 'title')],
+            [('available', 'all'), ('collection', 'full'), ('order', 'title')],
             selected
         )
 
@@ -317,12 +318,12 @@ class TestFacets(DatabaseTest):
                 Facets.ORDER_FACET_GROUP_NAME : [
                     Facets.ORDER_WORK_ID, Facets.ORDER_TITLE
                 ],
-                Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
+                Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FEATURED],
                 Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL],
         }
         test_default_facets = {
             Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
-            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
+            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FEATURED,
             Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
         }
         library = self._default_library

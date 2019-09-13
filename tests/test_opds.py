@@ -2244,7 +2244,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         # The make_link function that was passed in calls
         # TestAnnotator.feed_url() when passed an EntryPoint. The
         # Facets object's other facet groups are propagated in this URL.
-        first_page_url = "http://wl/?available=all&collection=main&entrypoint=Book&order=author"
+        first_page_url = "http://wl/?available=all&collection=full&entrypoint=Book&order=author"
         eq_(first_page_url, make_link(EbooksEntryPoint))
 
         # Pagination information is not propagated through entry point links
