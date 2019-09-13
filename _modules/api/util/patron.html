@@ -36,6 +36,7 @@
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">from</span> <span class="nn">api.config</span> <span class="k">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">api.circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.model.patron</span> <span class="k">import</span> <span class="n">Patron</span>
 
 <div class="viewcode-block" id="PatronUtility"><a class="viewcode-back" href="../../../api.util.html#api.util.patron.PatronUtility">[docs]</a><span class="k">class</span> <span class="nc">PatronUtility</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Apply circulation-specific logic to Patron model objects.&quot;&quot;&quot;</span>
@@ -58,7 +59,7 @@
         <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">has_borrowing_privileges</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
             <span class="c1"># A patron who has borrowing privileges gets synced every twelve</span>
             <span class="c1"># hours. Their account is unlikely to change rapidly.</span>
-            <span class="n">check_every</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+            <span class="n">check_every</span> <span class="o">=</span> <span class="n">Patron</span><span class="o">.</span><span class="n">MAX_SYNC_TIME</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># A patron without borrowing privileges might get synced</span>
             <span class="c1"># every time they make a request. It&#39;s likely they are</span>

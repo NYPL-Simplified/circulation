@@ -449,6 +449,10 @@
             <span class="n">block_reason</span><span class="o">=</span><span class="n">block_reason</span><span class="p">,</span>
             <span class="n">library_identifier</span><span class="o">=</span><span class="n">library_identifier</span><span class="p">,</span>
             <span class="n">neighborhood</span><span class="o">=</span><span class="n">neighborhood</span><span class="p">,</span>
+            <span class="c1"># We must cache neighborhood information in the patron&#39;s</span>
+            <span class="c1"># database record because syncing with the ILS is so</span>
+            <span class="c1"># expensive.</span>
+            <span class="n">cached_neighborhood</span><span class="o">=</span><span class="n">neighborhood</span><span class="p">,</span>
             <span class="n">complete</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span></div>

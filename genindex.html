@@ -1770,6 +1770,8 @@
         <li><a href="core.model.html#core.model.work.Work.cached_feeds">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.model.html#core.model.patron.Patron.cached_neighborhood">cached_neighborhood (core.model.patron.Patron attribute)</a>
+</li>
       <li><a href="api.html#api.novelist.NoveListAPI.cached_representation">cached_representation() (api.novelist.NoveListAPI method)</a>
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed">CachedFeed (class in core.model.cachedfeed)</a>
@@ -2200,7 +2202,7 @@
 </li>
       <li><a href="core.model.html#core.model.circulationevent.CirculationEvent">CirculationEvent (class in core.model.circulationevent)</a>
 </li>
-      <li><a href="core.html#core.monitor.CirculationEventScrubber">CirculationEventScrubber (class in core.monitor)</a>
+      <li><a href="core.html#core.monitor.CirculationEventLocationScrubber">CirculationEventLocationScrubber (class in core.monitor)</a>
 </li>
       <li><a href="api.html#api.circulation_exceptions.CirculationException">CirculationException</a>
 </li>
@@ -7715,9 +7717,11 @@
 </li>
         <li><a href="core.html#core.monitor.CachedFeedReaper.MAX_AGE">(core.monitor.CachedFeedReaper attribute)</a>
 </li>
-        <li><a href="core.html#core.monitor.CirculationEventScrubber.MAX_AGE">(core.monitor.CirculationEventScrubber attribute)</a>
+        <li><a href="core.html#core.monitor.CirculationEventLocationScrubber.MAX_AGE">(core.monitor.CirculationEventLocationScrubber attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.CredentialReaper.MAX_AGE">(core.monitor.CredentialReaper attribute)</a>
+</li>
+        <li><a href="core.html#core.monitor.PatronNeighborhoodScrubber.MAX_AGE">(core.monitor.PatronNeighborhoodScrubber attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.PatronRecordReaper.MAX_AGE">(core.monitor.PatronRecordReaper attribute)</a>
 </li>
@@ -7753,6 +7757,8 @@
       <li><a href="api.html#api.novelist.NoveListAPI.MAX_REPRESENTATION_AGE">MAX_REPRESENTATION_AGE (api.novelist.NoveListAPI attribute)</a>
 </li>
       <li><a href="core.html#core.lane.Pagination.MAX_SIZE">MAX_SIZE (core.lane.Pagination attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.patron.Patron.MAX_SYNC_TIME">MAX_SYNC_TIME (core.model.patron.Patron attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.edition.Edition.MAX_THUMBNAIL_HEIGHT">MAX_THUMBNAIL_HEIGHT (core.model.edition.Edition attribute)</a>
 </li>
@@ -8075,7 +8081,7 @@
 </li>
         <li><a href="core.html#core.monitor.CachedFeedReaper.MODEL_CLASS">(core.monitor.CachedFeedReaper attribute)</a>
 </li>
-        <li><a href="core.html#core.monitor.CirculationEventScrubber.MODEL_CLASS">(core.monitor.CirculationEventScrubber attribute)</a>
+        <li><a href="core.html#core.monitor.CirculationEventLocationScrubber.MODEL_CLASS">(core.monitor.CirculationEventLocationScrubber attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.CollectionReaper.MODEL_CLASS">(core.monitor.CollectionReaper attribute)</a>
 </li>
@@ -8086,6 +8092,8 @@
         <li><a href="core.html#core.monitor.EditionSweepMonitor.MODEL_CLASS">(core.monitor.EditionSweepMonitor attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.IdentifierSweepMonitor.MODEL_CLASS">(core.monitor.IdentifierSweepMonitor attribute)</a>
+</li>
+        <li><a href="core.html#core.monitor.PatronNeighborhoodScrubber.MODEL_CLASS">(core.monitor.PatronNeighborhoodScrubber attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.PatronRecordReaper.MODEL_CLASS">(core.monitor.PatronRecordReaper attribute)</a>
 </li>
@@ -9386,6 +9394,8 @@
 </li>
       <li><a href="api.html#api.circulation_exceptions.PatronLoanLimitReached">PatronLoanLimitReached</a>
 </li>
+      <li><a href="core.html#core.monitor.PatronNeighborhoodScrubber">PatronNeighborhoodScrubber (class in core.monitor)</a>
+</li>
       <li><a href="api.html#api.circulation_exceptions.PatronNotFoundOnRemote">PatronNotFoundOnRemote</a>
 </li>
       <li><a href="core.model.html#core.model.patron.PatronProfileStorage">PatronProfileStorage (class in core.model.patron)</a>
@@ -9658,10 +9668,10 @@
 </li>
       <li><a href="api.sip.html#api.sip.client.named.print_line">print_line (api.sip.client.named attribute)</a>
 </li>
-      <li><a href="core.html#core.selftest.HasSelfTests.prior_test_results">prior_test_results() (core.selftest.HasSelfTests class method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#core.selftest.HasSelfTests.prior_test_results">prior_test_results() (core.selftest.HasSelfTests class method)</a>
+</li>
       <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
@@ -11171,11 +11181,11 @@
 </li>
         <li><a href="core.html#core.coverage.CollectionCoverageProvider.run_once">(core.coverage.CollectionCoverageProvider method)</a>
 </li>
-        <li><a href="core.html#core.monitor.CirculationEventScrubber.run_once">(core.monitor.CirculationEventScrubber method)</a>
-</li>
         <li><a href="core.html#core.monitor.Monitor.run_once">(core.monitor.Monitor method)</a>
 </li>
         <li><a href="core.html#core.monitor.ReaperMonitor.run_once">(core.monitor.ReaperMonitor method)</a>
+</li>
+        <li><a href="core.html#core.monitor.ScrubberMonitor.run_once">(core.monitor.ScrubberMonitor method)</a>
 </li>
         <li><a href="core.html#core.monitor.SweepMonitor.run_once">(core.monitor.SweepMonitor method)</a>
 </li>
@@ -11296,7 +11306,13 @@
 </li>
       <li><a href="scripts.html#module-scripts">scripts (module)</a>
 </li>
-      <li><a href="core.html#core.monitor.CirculationEventScrubber.scrub">scrub() (core.monitor.CirculationEventScrubber method)</a>
+      <li><a href="core.html#core.monitor.CirculationEventLocationScrubber.SCRUB_FIELD">SCRUB_FIELD (core.monitor.CirculationEventLocationScrubber attribute)</a>
+
+      <ul>
+        <li><a href="core.html#core.monitor.PatronNeighborhoodScrubber.SCRUB_FIELD">(core.monitor.PatronNeighborhoodScrubber attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="core.html#core.monitor.ScrubberMonitor.scrub_field">scrub_field (core.monitor.ScrubberMonitor attribute)</a>
 </li>
       <li><a href="core.classifier.html#core.classifier.bisac.BISACClassifier.scrub_identifier">scrub_identifier() (core.classifier.bisac.BISACClassifier class method)</a>
 
@@ -11329,6 +11345,8 @@
 </li>
       </ul></li>
       <li><a href="api.html#api.novelist.NoveListAPI.scrubbed_url">scrubbed_url() (api.novelist.NoveListAPI class method)</a>
+</li>
+      <li><a href="core.html#core.monitor.ScrubberMonitor">ScrubberMonitor (class in core.monitor)</a>
 </li>
       <li><a href="api.html#api.controller.OPDSFeedController.search">search() (api.controller.OPDSFeedController method)</a>
 
@@ -11880,12 +11898,12 @@
 </li>
       <li><a href="api.html#api.routes.shared_collection_register">shared_collection_register() (in module api.routes)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_revoke_hold">shared_collection_revoke_hold() (in module api.routes)</a>
 </li>
       <li><a href="api.html#api.routes.shared_collection_revoke_loan">shared_collection_revoke_loan() (in module api.routes)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.integrationclient.IntegrationClient.shared_secret">shared_secret (core.model.integrationclient.IntegrationClient attribute)</a>
 </li>
       <li><a href="api.html#api.opds.SharedCollectionAnnotator">SharedCollectionAnnotator (class in api.opds)</a>
@@ -12769,9 +12787,11 @@
       <ul>
         <li><a href="core.html#core.monitor.CachedFeedReaper.TIMESTAMP_FIELD">(core.monitor.CachedFeedReaper attribute)</a>
 </li>
-        <li><a href="core.html#core.monitor.CirculationEventScrubber.TIMESTAMP_FIELD">(core.monitor.CirculationEventScrubber attribute)</a>
+        <li><a href="core.html#core.monitor.CirculationEventLocationScrubber.TIMESTAMP_FIELD">(core.monitor.CirculationEventLocationScrubber attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.CredentialReaper.TIMESTAMP_FIELD">(core.monitor.CredentialReaper attribute)</a>
+</li>
+        <li><a href="core.html#core.monitor.PatronNeighborhoodScrubber.TIMESTAMP_FIELD">(core.monitor.PatronNeighborhoodScrubber attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.PatronRecordReaper.TIMESTAMP_FIELD">(core.monitor.PatronRecordReaper attribute)</a>
 </li>
@@ -13611,11 +13631,11 @@
 </li>
         <li><a href="api.html#api.monitor.LoanlikeReaperMonitor.where_clause">(api.monitor.LoanlikeReaperMonitor attribute)</a>
 </li>
-        <li><a href="core.html#core.monitor.CirculationEventScrubber.where_clause">(core.monitor.CirculationEventScrubber attribute)</a>
-</li>
         <li><a href="core.html#core.monitor.CollectionReaper.where_clause">(core.monitor.CollectionReaper attribute)</a>
 </li>
         <li><a href="core.html#core.monitor.ReaperMonitor.where_clause">(core.monitor.ReaperMonitor attribute)</a>
+</li>
+        <li><a href="core.html#core.monitor.ScrubberMonitor.where_clause">(core.monitor.ScrubberMonitor attribute)</a>
 </li>
       </ul></li>
       <li><a href="core.html#core.scripts.WhereAreMyBooksScript">WhereAreMyBooksScript (class in core.scripts)</a>
