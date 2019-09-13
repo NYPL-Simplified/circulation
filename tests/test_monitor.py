@@ -37,7 +37,7 @@ from ..model import (
 
 from ..monitor import (
     CachedFeedReaper,
-    CirculationEventScrubber,
+    CirculationEventLocationScrubber,
     CollectionMonitor,
     CollectionReaper,
     CoverageProvidersFailed,
@@ -50,6 +50,7 @@ from ..monitor import (
     Monitor,
     NotPresentationReadyWorkSweepMonitor,
     OPDSEntryCacheMonitor,
+    PatronNeighborhoodScrubber,
     PatronRecordReaper,
     PermanentWorkIDRefreshMonitor,
     PresentationReadyWorkSweepMonitor,
@@ -959,6 +960,7 @@ class TestReaperMonitor(DatabaseTest):
         eternal = self._credential()
 
         m = CredentialReaper(self._db)
+        eq_("Reaper for Credential.expires", m.SERVICE_NAME)
         result = m.run_once()
         eq_("Items deleted: 1", result.achievements)
 
@@ -1025,17 +1027,25 @@ class TestCollectionReaper(DatabaseTest):
         eq_("Items deleted: 1", result.achievements)
 
 
-class TestCirculationEventScrubber(DatabaseTest):
+class TestScrubberMonitor(DatabaseTest):
 
     def test_run_once(self):
+        # ScrubberMonitor is basically an abstract class, with
+        # subclasses doing nothing but define missing constants. This
+        # is an end-to-end test using a specific subclass,
+        # CirculationEventLocationScrubber.
+
+        m = CirculationEventLocationScrubber(self._db)
+        eq_("Scrubber for CirculationEvent.location", m.SERVICE_NAME)
+
         # CirculationEvents are only scrubbed if they have a location
         # *and* are older than MAX_AGE.
         now = datetime.datetime.utcnow()
         not_long_ago = (
-            now - CirculationEventScrubber.MAX_AGE + datetime.timedelta(days=1)
+            m.cutoff + datetime.timedelta(days=1)
         )
         long_ago = (
-            now - CirculationEventScrubber.MAX_AGE - datetime.timedelta(days=1)
+            m.cutoff - datetime.timedelta(days=1)
         )
 
         new, ignore = create(
@@ -1053,7 +1063,6 @@ class TestCirculationEventScrubber(DatabaseTest):
 
         # Only the old unscrubbed CirculationEvent is eligible
         # to be scrubbed.
-        m = CirculationEventScrubber(self._db)
         eq_([old], m.query().all())
 
         # Other reapers say items were 'deleted'; we say they were
@@ -1065,3 +1074,16 @@ class TestCirculationEventScrubber(DatabaseTest):
         eq_(None, old.location)
         for untouched in (new, recent):
             eq_("loc", untouched.location)
+
+    def test_specific_scrubbers(self):
+        # Check that all specific ScrubberMonitors are set up
+        # correctly.
+        circ = CirculationEventLocationScrubber(self._db)
+        eq_(CirculationEvent.start, circ.timestamp_field)
+        eq_(CirculationEvent.location, circ.scrub_field)
+        eq_(365, circ.MAX_AGE)
+
+        patron = PatronNeighborhoodScrubber(self._db)
+        eq_(Patron.last_external_sync, patron.timestamp_field)
+        eq_(Patron.cached_neighborhood, patron.scrub_field)
+        eq_(Patron.MAX_SYNC_TIME, patron.MAX_AGE)
