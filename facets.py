@@ -11,11 +11,9 @@ class FacetConstants(object):
     # Subset the collection, roughly, by quality.
     COLLECTION_FACET_GROUP_NAME = 'collection'
     COLLECTION_FULL = "full"
-    COLLECTION_MAIN = "main"
     COLLECTION_FEATURED = "featured"
     COLLECTION_FACETS = [
         COLLECTION_FULL,
-        COLLECTION_MAIN,
         COLLECTION_FEATURED,
     ]
 
@@ -91,7 +89,6 @@ class FacetConstants(object):
         AVAILABLE_OPEN_ACCESS : _("Yours to keep"),
 
         COLLECTION_FULL : _("Everything"),
-        COLLECTION_MAIN : _("Main Collection"),
         COLLECTION_FEATURED : _("Popular Books"),
     }
 
@@ -105,7 +102,7 @@ class FacetConstants(object):
             AVAILABLE_ALL, AVAILABLE_NOW, AVAILABLE_OPEN_ACCESS
         ],
         COLLECTION_FACET_GROUP_NAME : [
-            COLLECTION_FULL, COLLECTION_MAIN, COLLECTION_FEATURED
+            COLLECTION_FULL, COLLECTION_FEATURED
         ]
     }
 
@@ -114,7 +111,7 @@ class FacetConstants(object):
     DEFAULT_FACET = {
         ORDER_FACET_GROUP_NAME : ORDER_AUTHOR,
         AVAILABILITY_FACET_GROUP_NAME : AVAILABLE_ALL,
-        COLLECTION_FACET_GROUP_NAME : COLLECTION_MAIN,
+        COLLECTION_FACET_GROUP_NAME : COLLECTION_FULL,
     }
 
     SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME = {
