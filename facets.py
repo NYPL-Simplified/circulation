@@ -125,7 +125,7 @@ class FacetConstants(object):
     }
 
 
-class FacetConfig(object):
+class FacetConfig(FacetConstants):
     """A class that implements the facet-related methods of
     Library, and allows modifications to the enabled
     and default facets. For use when a controller needs to
