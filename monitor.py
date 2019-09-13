@@ -906,10 +906,6 @@ class ScrubberMonitor(ReaperMonitor):
         """
         return getattr(self.MODEL_CLASS, self.SCRUB_FIELD)
 
-    def scrub(self, row):
-        """Set the value of SCRUB_FIELD in this row to None."""
-        setattr(row, self.SCRUB_FIELD, None)
-
 
 class CirculationEventLocationScrubber(ScrubberMonitor):
     """Scrub location information from old CirculationEvents."""
