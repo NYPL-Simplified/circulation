@@ -8,7 +8,7 @@
 update configurationsettings set value = replace(value, '"main",', '') where key='facets_enabled_collection';
 
 -- Remove ', "main"' for cases where "main" is the last item in the JSON list.
-update configurationsettings set value = replace(value, ', "main"', '') where key='facets_enabled_collection';
+update configurationsettings set value = replace(value, ', "main"]', ']') where key='facets_enabled_collection';
 
 -- If 'main' was the default collection, change it.
 update configurationsettings set value='full' where key='facets_default_collection' and value='main';
