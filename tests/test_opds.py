@@ -1970,9 +1970,10 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(ep.URI, feed.feed.attrib[feed.CURRENT_ENTRYPOINT_ATTRIBUTE])
 
     def test_facet_links_unrecognized_facets(self):
-        """AcquisitionFeed.facet_links excludes links for any facet groups or
-        facets not known to the current version of the system.
-        """
+        # AcquisitionFeed.facet_links does not produce links for any
+        # facet groups or facets not known to the current version of
+        # the system, because it doesn't know what the links should look
+        # like.
         class MockAnnotator(object):
             def facet_url(self, new_facets):
                 return "url: " + new_facets
@@ -1997,7 +1998,7 @@ class TestAcquisitionFeed(DatabaseTest):
                 yield (
                     Facets.COLLECTION_FACET_GROUP_NAME,
                     "no such facet",
-                    "try a collection that exists instead",
+                    "this facet does not exist",
                     True,
                 )
 
@@ -2005,7 +2006,7 @@ class TestAcquisitionFeed(DatabaseTest):
                 yield (
                     "no such group",
                     Facets.COLLECTION_FULL,
-                    "try a group that exists instead",
+                    "this facet exists but it's in a nonexistent group",
                     True,
                 )
 
