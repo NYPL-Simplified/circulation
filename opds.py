@@ -1028,13 +1028,20 @@ class AcquisitionFeed(OPDSFeed):
         circumstances apply. You need to decide whether to call
         add_entrypoint_links in addition to calling this method.
         """
-        for group, value, new_facets, selected, in facets.facet_groups:
+        for group, value, new_facets, selected in facets.facet_groups:
             url = annotator.facet_url(new_facets)
             if not url:
                 continue
-            group_title = str(Facets.GROUP_DISPLAY_TITLES[group])
-            facet_title = str(Facets.FACET_DISPLAY_TITLES[value])
-            yield cls.facet_link(url, facet_title, group_title, selected)
+            group_title = Facets.GROUP_DISPLAY_TITLES.get(group)
+            facet_title = Facets.FACET_DISPLAY_TITLES.get(value)
+            if not (group_title and facet_title):
+                # This facet group or facet, is not recognized by the
+                # system. It may be left over from an earlier version,
+                # or just weird junk data.
+                continue
+            yield cls.facet_link(
+                url, unicode(facet_title), unicode(group_title), selected
+            )
 
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):

@@ -298,18 +298,19 @@ class TestFacets(DatabaseTest):
 
         facets = Facets(
             self._default_library,
-            Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE
+            Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE
         )
         all_groups = list(facets.facet_groups)
 
-        # By default, there are a 9 facet transitions: three groups of three.
-        eq_(9, len(all_groups))
+        # By default, there are 8 facet transitions: two groups of three
+        # and one group of two.
+        eq_(8, len(all_groups))
 
-        # available=all, collection=main, and order=title are the selected
+        # available=all, collection=full, and order=title are the selected
         # facets.
         selected = sorted([x[:2] for x in all_groups if x[-1] == True])
         eq_(
-            [('available', 'all'), ('collection', 'main'), ('order', 'title')],
+            [('available', 'all'), ('collection', 'full'), ('order', 'title')],
             selected
         )
 
@@ -317,12 +318,12 @@ class TestFacets(DatabaseTest):
                 Facets.ORDER_FACET_GROUP_NAME : [
                     Facets.ORDER_WORK_ID, Facets.ORDER_TITLE
                 ],
-                Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
+                Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FEATURED],
                 Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL],
         }
         test_default_facets = {
             Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
-            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
+            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FEATURED,
             Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
         }
         library = self._default_library
@@ -395,7 +396,7 @@ class TestFacets(DatabaseTest):
             Facets.ORDER_FACET_GROUP_NAME : [
                 Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
             ],
-            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
             Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
         }
         library = self._default_library
@@ -405,7 +406,7 @@ class TestFacets(DatabaseTest):
         # no matter the Configuration.
         facets = Facets(
             self._default_library,
-            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
+            Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS,
             Facets.ORDER_TITLE, enabled_facets=enabled_facets
         )
         all_groups = list(facets.facet_groups)
@@ -417,13 +418,13 @@ class TestFacets(DatabaseTest):
             Facets.ORDER_FACET_GROUP_NAME : [
                 Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
             ],
-            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
             Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
         }
 
         facets = Facets(
             None,
-            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
+            Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS,
             Facets.ORDER_TITLE, enabled_facets=enabled_facets
         )
         all_groups = list(facets.facet_groups)
@@ -436,12 +437,12 @@ class TestFacets(DatabaseTest):
         """
         facets = Facets(
             self._default_library,
-            Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE,
+            Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE,
             entrypoint=AudiobooksEntryPoint
         )
         eq_([
             ('available', Facets.AVAILABLE_ALL),
-            ('collection', Facets.COLLECTION_MAIN),
+            ('collection', Facets.COLLECTION_FULL),
             ('entrypoint', AudiobooksEntryPoint.INTERNAL_NAME),
             ('order', Facets.ORDER_TITLE)],
             sorted(facets.items())
@@ -587,7 +588,7 @@ class TestFacets(DatabaseTest):
             # single setting for each facet group.
             mock_enabled = dict(order=[Facets.ORDER_TITLE],
                                 available=[Facets.AVAILABLE_OPEN_ACCESS],
-                                collection=[Facets.COLLECTION_MAIN])
+                                collection=[Facets.COLLECTION_FULL])
 
             @classmethod
             def available_facets(cls, config, facet_group_name):
@@ -625,7 +626,7 @@ class TestFacets(DatabaseTest):
         # The current values came from the defaults provided by default_facet().
         eq_(Facets.ORDER_TITLE, result.order)
         eq_(Facets.AVAILABLE_OPEN_ACCESS, result.availability)
-        eq_(Facets.COLLECTION_MAIN, result.collection)
+        eq_(Facets.COLLECTION_FULL, result.collection)
 
     def test_modify_search_filter(self):
         
@@ -930,19 +931,14 @@ class TestDatabaseBackedFacets(DatabaseTest):
         eq_(3, available_now.count())
         assert licensed_high not in available_now
 
-        # If we restrict to open-access books we lose two books.
+        # If we restrict to open-access books we lose the two licensed
+        # books.
         open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
         eq_(2, open_access.count())
         assert licensed_high not in open_access
         assert licensed_low not in open_access
 
-        # If we restrict to the main collection we lose the low-quality
-        # open-access book.
-        main_collection = facetify(collection=Facets.COLLECTION_MAIN)
-        eq_(3, main_collection.count())
-        assert open_access_low not in main_collection
-
-        # If we restrict to the featured collection we lose both
+        # If we restrict to the featured collection we lose the two
         # low-quality books.
         featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
         eq_(2, featured_collection.count())

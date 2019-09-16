@@ -691,14 +691,6 @@ class DatabaseBackedFacets(Facets):
         if self.collection == self.COLLECTION_FULL:
             # Include everything.
             pass
-        elif self.collection == self.COLLECTION_MAIN:
-            # Exclude open-access books with a quality of less than
-            # 0.3.
-            or_clause = or_(
-                LicensePool.open_access==False,
-                Work.quality >= 0.3
-            )
-            qu = qu.filter(or_clause)
         elif self.collection == self.COLLECTION_FEATURED:
             # Exclude books with a quality of less than the library's
             # minimum featured quality.

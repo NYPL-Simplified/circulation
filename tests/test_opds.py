@@ -1969,6 +1969,80 @@ class TestAcquisitionFeed(DatabaseTest):
         feed.show_current_entrypoint(ep)
         eq_(ep.URI, feed.feed.attrib[feed.CURRENT_ENTRYPOINT_ATTRIBUTE])
 
+    def test_facet_links_unrecognized_facets(self):
+        # AcquisitionFeed.facet_links does not produce links for any
+        # facet groups or facets not known to the current version of
+        # the system, because it doesn't know what the links should look
+        # like.
+        class MockAnnotator(object):
+            def facet_url(self, new_facets):
+                return "url: " + new_facets
+
+        class MockFacets(object):
+            @property
+            def facet_groups(self):
+                """Yield a facet group+facet 4-tuple that passes the test we're
+                running (which will be turned into a link), and then a
+                bunch that don't (which will be ignored).
+                """
+
+                # Real facet group, real facet
+                yield (
+                    Facets.COLLECTION_FACET_GROUP_NAME,
+                    Facets.COLLECTION_FULL,
+                    "try the featured collection instead",
+                    True,
+                )
+
+                # Real facet group, nonexistent facet
+                yield (
+                    Facets.COLLECTION_FACET_GROUP_NAME,
+                    "no such facet",
+                    "this facet does not exist",
+                    True,
+                )
+
+                # Nonexistent facet group, real facet
+                yield (
+                    "no such group",
+                    Facets.COLLECTION_FULL,
+                    "this facet exists but it's in a nonexistent group",
+                    True,
+                )
+
+                # Nonexistent facet group, nonexistent facet
+                yield (
+                    "no such group",
+                    "no such facet",
+                    "i just don't know",
+                    True,
+                )
+
+        class MockFeed(AcquisitionFeed):
+            links = []
+            @classmethod
+            def facet_link(cls, url, facet_title, group_title, selected):
+                # Return the passed-in objects as is.
+                return (url, facet_title, group_title, selected)
+
+        annotator = MockAnnotator()
+        facets = MockFacets()
+
+        # The only 4-tuple yielded by facet_groups was passed on to us.
+        # The link was run through MockAnnotator.facet_url(),
+        # and the human-readable titles were found using lookups.
+        #
+        # The other three 4-tuples were ignored since we don't know
+        # how to generate human-readable titles for them.
+        [[url, facet, group, selected]] = MockFeed.facet_links(
+            annotator, facets
+        )
+        eq_('url: try the featured collection instead', url)
+        eq_(Facets.FACET_DISPLAY_TITLES[Facets.COLLECTION_FULL], facet)
+        eq_(Facets.GROUP_DISPLAY_TITLES[Facets.COLLECTION_FACET_GROUP_NAME],
+            group)
+        eq_(True, selected)
+
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
@@ -2244,7 +2318,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         # The make_link function that was passed in calls
         # TestAnnotator.feed_url() when passed an EntryPoint. The
         # Facets object's other facet groups are propagated in this URL.
-        first_page_url = "http://wl/?available=all&collection=main&entrypoint=Book&order=author"
+        first_page_url = "http://wl/?available=all&collection=full&entrypoint=Book&order=author"
         eq_(first_page_url, make_link(EbooksEntryPoint))
 
         # Pagination information is not propagated through entry point links

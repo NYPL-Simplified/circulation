@@ -2379,15 +2379,7 @@ class Filter(SearchBase):
             # Only open-access books should be displayed.
             nested_filters['licensepools'].append(open_access)
 
-        if self.subcollection==FacetConstants.COLLECTION_MAIN:
-            # Exclude open-access books with a quality of less than
-            # 0.3.
-            not_open_access = Term(**{'licensepools.open_access' : False})
-            decent_quality = self._match_range('licensepools.quality', 'gte', 0.3)
-            nested_filters['licensepools'].append(
-                Bool(should=[not_open_access, decent_quality])
-            )
-        elif self.subcollection==FacetConstants.COLLECTION_FEATURED:
+        if self.subcollection==FacetConstants.COLLECTION_FEATURED:
             # Exclude books with a quality of less than the library's
             # minimum featured quality.
             range_query = self._match_range(
