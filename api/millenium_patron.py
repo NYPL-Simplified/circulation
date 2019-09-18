@@ -35,6 +35,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     RECORD_NUMBER_FIELD = 'RECORD #[p81]'
     PATRON_TYPE_FIELD = 'P TYPE[p47]'
     EXPIRATION_FIELD = 'EXP DATE[p43]'
+    HOME_BRANCH_FIELD = 'HOME LIBR[p53]'
+    ADDRESS_FIELD = 'ADDRESS[pa]'
     BARCODE_FIELD = 'P BARCODE[pb]'
     USERNAME_FIELD = 'ALT ID[pu]'
     FINES_FIELD = 'MONEY OWED[p96]'
@@ -61,6 +63,14 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     AUTHENTICATION_MODE = 'auth_mode'
     PIN_AUTHENTICATION_MODE = 'pin'
     FAMILY_NAME_AUTHENTICATION_MODE = 'family_name'
+
+    NEIGHBORHOOD_MODE = 'neighborhood_mode'
+    NO_NEIGHBORHOOD_MODE = 'disabled'
+    HOME_BRANCH_NEIGHBORHOOD_MODE = 'home_branch'
+    POSTAL_CODE_NEIGHBORHOOD_MODE = 'postal_code'
+    NEIGHBORHOOD_MODES = set(
+        [NO_NEIGHBORHOOD_MODE, HOME_BRANCH_NEIGHBORHOOD_MODE, POSTAL_CODE_NEIGHBORHOOD_MODE]
+    )
 
     # The field to use when seeing which values of MBLOCK[p56] mean a patron
     # is blocked. By default, any value other than '-' indicates a block.
@@ -97,7 +107,19 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
               { "key": FAMILY_NAME_AUTHENTICATION_MODE, "label": _("Family Name") },
           ],
           "default": PIN_AUTHENTICATION_MODE
-        }
+        },
+        {
+            "key": NEIGHBORHOOD_MODE,
+            "label": _("Patron neighborhood field"),
+            "description": _("It's sometimes possible to guess a patron's neighborhood from their ILS record. You can use this when analyzing circulation activity by neighborhood. If you don't need to do this, it's better for patron privacy to disable this feature."),
+            "type": "select",
+            "options": [
+                { "key": NO_NEIGHBORHOOD_MODE, "label": _("Disable this feature") },
+                { "key": HOME_BRANCH_NEIGHBORHOOD_MODE, "label": _("Patron's home library branch is their neighborhood.") },
+                { "key": POSTAL_CODE_NEIGHBORHOOD_MODE, "label": _("Patron's postal code is their neighborhood.") },
+            ],
+            "default": NO_NEIGHBORHOOD_MODE,
+        },
     ] + BasicAuthenticationProvider.SETTINGS
 
     # Replace library settings to allow text in identifier field.
@@ -152,6 +174,16 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         self.auth_mode = auth_mode
 
         self.block_types = integration.setting(self.BLOCK_TYPES).value or None
+
+        neighborhood_mode = integration.setting(
+            self.NEIGHBORHOOD_MODE
+        ).value or self.NO_NEIGHBORHOOD_MODE
+        if neighborhood_mode not in self.NEIGHBORHOOD_MODES:
+            raise CannotLoadConfiguration(
+                "Unrecognized Millenium Patron API neighborhood mode: %s." % neighborhood_mode
+            )
+        self.neighborhood_mode = neighborhood_mode
+
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
@@ -286,6 +318,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         username = authorization_expires = personal_name = PatronData.NO_VALUE
         email_address = fines = external_type = PatronData.NO_VALUE
         block_reason = PatronData.NO_VALUE
+        neighborhood = PatronData.NO_VALUE
 
         potential_identifiers = []
         for k, v in self._extract_text_nodes(content):
@@ -333,6 +366,12 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                     )
             elif k == self.PATRON_TYPE_FIELD:
                 external_type = v
+            elif (k == self.HOME_BRANCH_FIELD
+                  and self.neighborhood_mode == self.HOME_BRANCH_NEIGHBORHOOD_MODE):
+                neighborhood = v.strip()
+            elif (k == self.ADDRESS_FIELD
+                  and self.neighborhood_mode == self.POSTAL_CODE_NEIGHBORHOOD_MODE):
+                neighborhood = self.extract_postal_code(v)
             elif k == self.ERROR_MESSAGE_FIELD:
                 # An error has occured. Most likely the patron lookup
                 # failed.
@@ -374,6 +413,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             fines=fines,
             block_reason=block_reason,
             library_identifier=library_identifier,
+            neighborhood=neighborhood,
+            # We must cache neighborhood information in the patron's
+            # database record because syncing with the ILS is so
+            # expensive.
+            cached_neighborhood=neighborhood,
             complete=True
         )
         return data
@@ -391,6 +435,26 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 self.log.warn("Unexpected line in patron dump: %s", line)
                 continue
             yield kv.split('=', 1)
+
+    # A number of regular expressions for finding postal codes in
+    # freeform addresses, with more reliable techniques at the front.
+    POSTAL_CODE_RES = [
+        re.compile(x) for x in [
+            "[^0-9]([0-9]{5})-[0-9]{4}$", # ZIP+4 at end
+            "[^0-9]([0-9]{5})$", # ZIP at end
+            ".*[^0-9]([0-9]{5})-[0-9]{4}[^0-9]", # ZIP+4 as close to end as possible without being at the end
+            ".*[^0-9]([0-9]{5})[^0-9]", # ZIP as close to end as possible without being at the end
+        ]
+    ]
+
+    @classmethod
+    def extract_postal_code(cls, address):
+        """Try to extract a postal code from an address."""
+        for r in cls.POSTAL_CODE_RES:
+            match = r.search(address)
+            if match:
+                return match.groups()[0]
+        return None
 
 
 class MockMilleniumPatronAPI(MilleniumPatronAPI):

@@ -4,6 +4,7 @@ from nose.tools import (
     assert_raises
 )
 import flask
+import json
 from werkzeug import MultiDict
 from api.admin.exceptions import *
 from api.registry import (
@@ -17,6 +18,10 @@ from core.model import (
     ExternalIntegration,
     Library,
 )
+from core.testing import (
+    DummyHTTPClient,
+    MockRequestsResponse,
+)
 from core.util.http import HTTP
 from test_controller import SettingsControllerTest
 
@@ -24,53 +29,169 @@ class TestLibraryRegistration(SettingsControllerTest):
     """Test the process of registering a library with a RemoteRegistry."""
 
     def test_discovery_service_library_registrations_get(self):
+        # Here's a discovery service.
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.OPDS_REGISTRATION,
             goal=ExternalIntegration.DISCOVERY_GOAL,
         )
+
+        # We'll be making a mock request to this URL later.
+        discovery_service.setting(ExternalIntegration.URL).value = (
+            "http://service-url/"
+        )
+
+        # We successfully registered this library with the service.
         succeeded, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",
         )
-        ConfigurationSetting.for_library_and_externalintegration(
-            self._db, "library-registration-status", succeeded, discovery_service,
-            ).value = "success"
-        ConfigurationSetting.for_library_and_externalintegration(
-            self._db, "library-registration-stage", succeeded, discovery_service,
-            ).value = "production"
+        config = ConfigurationSetting.for_library_and_externalintegration
+        config(
+            self._db, "library-registration-status", succeeded,
+            discovery_service
+        ).value = "success"
+
+        # We tried to register this library with the service but were
+        # unsuccessful.
+        config(
+            self._db, "library-registration-stage", succeeded,
+            discovery_service
+        ).value = "production"
         failed, ignore = create(
             self._db, Library, name="Library 2", short_name="L2",
         )
-        ConfigurationSetting.for_library_and_externalintegration(
+        config(
             self._db, "library-registration-status", failed, discovery_service,
-            ).value = "failure"
-        ConfigurationSetting.for_library_and_externalintegration(
+        ).value = "failure"
+        config(
             self._db, "library-registration-stage", failed, discovery_service,
-            ).value = "testing"
+        ).value = "testing"
+
+        # We've never tried to register this library with the service.
         unregistered, ignore = create(
             self._db, Library, name="Library 3", short_name="L3",
         )
         discovery_service.libraries = [succeeded, failed]
 
-        controller = self.manager.admin_discovery_service_library_registrations_controller
-        with self.request_context_with_admin("/", method="GET"):
-            response = controller.process_discovery_service_library_registrations()
+        # When a client sends a GET request to the controller, the
+        # controller is going to call
+        # RemoteRegistry.fetch_registration_document() to try and find
+        # the discovery services' terms of service. That's going to
+        # make one or two HTTP requests.
 
-            serviceInfo = response.get("library_registrations")
-            eq_(1, len(serviceInfo))
-            eq_(discovery_service.id, serviceInfo[0].get("id"))
+        # First, let's try the scenario where the discovery serivce is
+        # working and has a terms-of-service.
+        client = DummyHTTPClient()
 
-            libraryInfo = serviceInfo[0].get("libraries")
-            expected = [
-                dict(short_name=succeeded.short_name, status="success", stage="production"),
-                dict(short_name=failed.short_name, status="failure", stage="testing"),
+        # In this case we'll make two requests. The first request will
+        # ask for the root catalog, where we'll look for a
+        # registration link.
+        root_catalog = dict(
+            links=[dict(href="http://register-here/", rel="register")]
+        )
+        client.queue_requests_response(
+            200, RemoteRegistry.OPDS_2_TYPE,
+            content=json.dumps(root_catalog)
+        )
+
+        # The second request will fetch that registration link -- then
+        # we'll look for TOS data inside.
+        registration_document = dict(
+            links=[
+                dict(
+                    rel="terms-of-service", type="text/html",
+                    href="http://tos/"
+                ),
+                dict(
+                    rel="terms-of-service", type="text/html",
+                    href="data:text/html;charset=utf-8;base64,PHA+SG93IGFib3V0IHRoYXQgVE9TPC9wPg=="
+                )
             ]
-            eq_(expected, libraryInfo)
+        )
+        client.queue_requests_response(
+            200, RemoteRegistry.OPDS_2_TYPE,
+            content=json.dumps(registration_document)
+        )
 
+        controller = self.manager.admin_discovery_service_library_registrations_controller
+        m = controller.process_discovery_service_library_registrations
+        with self.request_context_with_admin("/", method="GET"):
+            response = m(do_get=client.do_get)
+            # The document we get back from the controller is a
+            # dictionary with useful information on all known
+            # discovery integrations -- just one, in this case.
+            [service] = response["library_registrations"]
+            eq_(discovery_service.id, service["id"])
+
+            # The two mock HTTP requests we predicted actually
+            # happened.  The target of the first request is the URL to
+            # the discovery service's main catalog. The second request
+            # is to the "register" link found in that catalog.
+            eq_(["http://service-url/", "http://register-here/"],
+                client.requests)
+
+            # The TOS link and TOS HTML snippet were recovered from
+            # the registration document served in response to the
+            # second HTTP request, and included in the dictionary.
+            eq_("http://tos/", service['terms_of_service_link'])
+            eq_("<p>How about that TOS</p>", service['terms_of_service_html'])
+            eq_(None, service['access_problem'])
+
+            # The dictionary includes a 'libraries' object, a list of
+            # dictionaries with information about the relationships
+            # between this discovery integration and every library
+            # that's tried to register with it.
+            info1, info2 = service["libraries"]
+
+            # Here's the library that successfully registered.
+            eq_(
+                info1,
+                dict(short_name=succeeded.short_name, status="success",
+                     stage="production")
+            )
+
+            # And here's the library that tried to register but
+            # failed.
+            eq_(
+                info2,
+                dict(short_name=failed.short_name, status="failure",
+                     stage="testing")
+            )
+
+            # Note that `unregistered`, the library that never tried
+            # to register with this discover service, is not included.
+
+            # Now let's try the controller method again, except this
+            # time the discovery service's web server is down. The
+            # first request will return a ProblemDetail document, and
+            # there will be no second request.
+            client.requests = []
+            client.queue_requests_response(
+                502, content=REMOTE_INTEGRATION_FAILED,
+            )
+            response = m(do_get=client.do_get)
+
+            # Everything looks good, except that there's no TOS data
+            # available.
+            [service] = response["library_registrations"]
+            eq_(discovery_service.id, service["id"])
+            eq_(2, len(service['libraries']))
+            eq_(None, service['terms_of_service_link'])
+            eq_(None, service['terms_of_service_html'])
+
+            # The problem detail document that prevented the TOS data
+            # from showing up has been converted to a dictionary and
+            # included in the dictionary of information for this
+            # discovery service.
+            eq_(REMOTE_INTEGRATION_FAILED.uri,
+                service['access_problem']['type'])
+
+            # When the user lacks the SYSTEM_ADMIN role, the
+            # controller won't even start processing their GET
+            # request.
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
-                         controller.process_discovery_service_library_registrations)
+            assert_raises(AdminNotAuthorized, m)
 
     def test_discovery_service_library_registrations_post(self):
         """Test what might happen when you POST to

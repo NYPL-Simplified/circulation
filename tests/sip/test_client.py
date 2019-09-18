@@ -12,6 +12,10 @@ from api.sip.client import (
     MockSIPClient,
     SIPClient,
 )
+from api.sip.dialect import (
+    GenericILS,
+    AutoGraphicsVerso
+)
 
 class MockSocket(object):
     def __init__(self, *args, **kwargs):
@@ -399,3 +403,23 @@ class TestPatronResponse(object):
                 'too many items billed',
         ]:
             eq_(parsed[no], False)
+
+class TestClientDialects(object):
+
+    def setup(self):
+        self.sip = MockSIPClient()
+
+    def test_generic_dialect(self):
+        # Generic ILS should send end_session message
+        self.sip.dialect = GenericILS
+        self.sip.queue_response("36Y201610210000142637AO3|AA25891000331441|AF|AG")
+        self.sip.end_session('username', 'password')
+        eq_(self.sip.read_count, 1)
+        eq_(self.sip.write_count, 1)
+
+    def test_ag_dialect(self):
+        # AG VERSO ILS shouldn't end_session message
+        self.sip.dialect = AutoGraphicsVerso
+        self.sip.end_session('username', 'password')
+        eq_(self.sip.read_count, 0)
+        eq_(self.sip.write_count, 0)
