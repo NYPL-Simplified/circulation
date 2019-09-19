@@ -726,14 +726,6 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FULL</span><span class="p">:</span>
             <span class="c1"># Include everything.</span>
             <span class="k">pass</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_MAIN</span><span class="p">:</span>
-            <span class="c1"># Exclude open-access books with a quality of less than</span>
-            <span class="c1"># 0.3.</span>
-            <span class="n">or_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">==</span><span class="kc">False</span><span class="p">,</span>
-                <span class="n">Work</span><span class="o">.</span><span class="n">quality</span> <span class="o">&gt;=</span> <span class="mf">0.3</span>
-            <span class="p">)</span>
-            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">or_clause</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FEATURED</span><span class="p">:</span>
             <span class="c1"># Exclude books with a quality of less than the library&#39;s</span>
             <span class="c1"># minimum featured quality.</span>

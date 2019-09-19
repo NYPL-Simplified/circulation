@@ -46,11 +46,9 @@
     <span class="c1"># Subset the collection, roughly, by quality.</span>
     <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="o">=</span> <span class="s1">&#39;collection&#39;</span>
     <span class="n">COLLECTION_FULL</span> <span class="o">=</span> <span class="s2">&quot;full&quot;</span>
-    <span class="n">COLLECTION_MAIN</span> <span class="o">=</span> <span class="s2">&quot;main&quot;</span>
     <span class="n">COLLECTION_FEATURED</span> <span class="o">=</span> <span class="s2">&quot;featured&quot;</span>
     <span class="n">COLLECTION_FACETS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">COLLECTION_FULL</span><span class="p">,</span>
-        <span class="n">COLLECTION_MAIN</span><span class="p">,</span>
         <span class="n">COLLECTION_FEATURED</span><span class="p">,</span>
     <span class="p">]</span>
 
@@ -126,7 +124,6 @@
         <span class="n">AVAILABLE_OPEN_ACCESS</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Yours to keep&quot;</span><span class="p">),</span>
 
         <span class="n">COLLECTION_FULL</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Everything&quot;</span><span class="p">),</span>
-        <span class="n">COLLECTION_MAIN</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Main Collection&quot;</span><span class="p">),</span>
         <span class="n">COLLECTION_FEATURED</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Popular Books&quot;</span><span class="p">),</span>
     <span class="p">}</span>
 
@@ -140,7 +137,7 @@
             <span class="n">AVAILABLE_ALL</span><span class="p">,</span> <span class="n">AVAILABLE_NOW</span><span class="p">,</span> <span class="n">AVAILABLE_OPEN_ACCESS</span>
         <span class="p">],</span>
         <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="p">[</span>
-            <span class="n">COLLECTION_FULL</span><span class="p">,</span> <span class="n">COLLECTION_MAIN</span><span class="p">,</span> <span class="n">COLLECTION_FEATURED</span>
+            <span class="n">COLLECTION_FULL</span><span class="p">,</span> <span class="n">COLLECTION_FEATURED</span>
         <span class="p">]</span>
     <span class="p">}</span>
 
@@ -149,7 +146,7 @@
     <span class="n">DEFAULT_FACET</span> <span class="o">=</span> <span class="p">{</span>
         <span class="n">ORDER_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">ORDER_AUTHOR</span><span class="p">,</span>
         <span class="n">AVAILABILITY_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">AVAILABLE_ALL</span><span class="p">,</span>
-        <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">COLLECTION_MAIN</span><span class="p">,</span>
+        <span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">COLLECTION_FULL</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME</span> <span class="o">=</span> <span class="p">{</span>
@@ -163,7 +160,7 @@
     <span class="p">}</span></div>
 
 
-<div class="viewcode-block" id="FacetConfig"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig">[docs]</a><span class="k">class</span> <span class="nc">FacetConfig</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="FacetConfig"><a class="viewcode-back" href="../../core.html#core.facets.FacetConfig">[docs]</a><span class="k">class</span> <span class="nc">FacetConfig</span><span class="p">(</span><span class="n">FacetConstants</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A class that implements the facet-related methods of</span>
 <span class="sd">    Library, and allows modifications to the enabled</span>
 <span class="sd">    and default facets. For use when a controller needs to</span>

@@ -2414,15 +2414,7 @@
             <span class="c1"># Only open-access books should be displayed.</span>
             <span class="n">nested_filters</span><span class="p">[</span><span class="s1">&#39;licensepools&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">open_access</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcollection</span><span class="o">==</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">COLLECTION_MAIN</span><span class="p">:</span>
-            <span class="c1"># Exclude open-access books with a quality of less than</span>
-            <span class="c1"># 0.3.</span>
-            <span class="n">not_open_access</span> <span class="o">=</span> <span class="n">Term</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="s1">&#39;licensepools.open_access&#39;</span> <span class="p">:</span> <span class="kc">False</span><span class="p">})</span>
-            <span class="n">decent_quality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_match_range</span><span class="p">(</span><span class="s1">&#39;licensepools.quality&#39;</span><span class="p">,</span> <span class="s1">&#39;gte&#39;</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">)</span>
-            <span class="n">nested_filters</span><span class="p">[</span><span class="s1">&#39;licensepools&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="n">Bool</span><span class="p">(</span><span class="n">should</span><span class="o">=</span><span class="p">[</span><span class="n">not_open_access</span><span class="p">,</span> <span class="n">decent_quality</span><span class="p">])</span>
-            <span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcollection</span><span class="o">==</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">COLLECTION_FEATURED</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subcollection</span><span class="o">==</span><span class="n">FacetConstants</span><span class="o">.</span><span class="n">COLLECTION_FEATURED</span><span class="p">:</span>
             <span class="c1"># Exclude books with a quality of less than the library&#39;s</span>
             <span class="c1"># minimum featured quality.</span>
             <span class="n">range_query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_match_range</span><span class="p">(</span>

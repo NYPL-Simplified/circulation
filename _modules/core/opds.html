@@ -1063,13 +1063,20 @@
 <span class="sd">        circumstances apply. You need to decide whether to call</span>
 <span class="sd">        add_entrypoint_links in addition to calling this method.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">new_facets</span><span class="p">,</span> <span class="n">selected</span><span class="p">,</span> <span class="ow">in</span> <span class="n">facets</span><span class="o">.</span><span class="n">facet_groups</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">new_facets</span><span class="p">,</span> <span class="n">selected</span> <span class="ow">in</span> <span class="n">facets</span><span class="o">.</span><span class="n">facet_groups</span><span class="p">:</span>
             <span class="n">url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">facet_url</span><span class="p">(</span><span class="n">new_facets</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="n">group_title</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Facets</span><span class="o">.</span><span class="n">GROUP_DISPLAY_TITLES</span><span class="p">[</span><span class="n">group</span><span class="p">])</span>
-            <span class="n">facet_title</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Facets</span><span class="o">.</span><span class="n">FACET_DISPLAY_TITLES</span><span class="p">[</span><span class="n">value</span><span class="p">])</span>
-            <span class="k">yield</span> <span class="bp">cls</span><span class="o">.</span><span class="n">facet_link</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">facet_title</span><span class="p">,</span> <span class="n">group_title</span><span class="p">,</span> <span class="n">selected</span><span class="p">)</span></div>
+            <span class="n">group_title</span> <span class="o">=</span> <span class="n">Facets</span><span class="o">.</span><span class="n">GROUP_DISPLAY_TITLES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+            <span class="n">facet_title</span> <span class="o">=</span> <span class="n">Facets</span><span class="o">.</span><span class="n">FACET_DISPLAY_TITLES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">group_title</span> <span class="ow">and</span> <span class="n">facet_title</span><span class="p">):</span>
+                <span class="c1"># This facet group or facet, is not recognized by the</span>
+                <span class="c1"># system. It may be left over from an earlier version,</span>
+                <span class="c1"># or just weird junk data.</span>
+                <span class="k">continue</span>
+            <span class="k">yield</span> <span class="bp">cls</span><span class="o">.</span><span class="n">facet_link</span><span class="p">(</span>
+                <span class="n">url</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">facet_title</span><span class="p">),</span> <span class="n">unicode</span><span class="p">(</span><span class="n">group_title</span><span class="p">),</span> <span class="n">selected</span>
+            <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">precomposed_entries</span><span class="o">=</span><span class="p">[]):</span>
