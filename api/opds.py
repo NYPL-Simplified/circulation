@@ -53,7 +53,10 @@ from core.app_server import cdn_url_for
 from adobe_vendor_id import AuthdataUtility
 from annotations import AnnotationWriter
 from circulation import BaseCirculationAPI
-from config import Configuration
+from config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
 from novelist import NoveListAPI
 from core.analytics import Analytics
 
@@ -401,7 +404,6 @@ class CirculationManagerAnnotator(Annotator):
                 kw['type'] = rep.media_type
             href = rep.public_url
         kw['href'] = cdnify(href)
-
         link_tag = AcquisitionFeed.link(**kw)
         link_tag.attrib.update(self.rights_attributes(lpdm))
         always_available = OPDSFeed.makeelement(
@@ -1064,6 +1066,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             library_short_name=self.library.short_name,
             _external=True
         )
+
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
             types=format_types
@@ -1131,7 +1134,12 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         cached = self._adobe_id_tags.get(cache_key)
         if cached is None:
             cached = []
-            authdata = AuthdataUtility.from_config(self.library)
+            authdata = None
+            try:
+                authdata = AuthdataUtility.from_config(self.library)
+            except CannotLoadConfiguration as e:
+                logging.error("Cannot load Short Client Token configuration; outgoing OPDS entries will not have DRM autodiscovery support", exc_info=e)
+                return []
             if authdata:
                 vendor_id, token = authdata.short_client_token_for_patron(patron_identifier)
                 drm_licensor = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)

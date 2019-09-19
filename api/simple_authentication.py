@@ -28,6 +28,8 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
 
     ADDITIONAL_TEST_IDENTIFIERS = 'additional_test_identifiers'
 
+    TEST_NEIGHBORHOOD = 'neighborhood'
+
     basic_settings = list(BasicAuthenticationProvider.SETTINGS)
     for setting in basic_settings:
         if setting['key'] == BasicAuthenticationProvider.TEST_PASSWORD:
@@ -38,6 +40,10 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
           "label": _("Additional test identifiers"),
           "type": "list",
           "description": _("Identifiers for additional patrons to use in testing. The identifiers will all use the same test password as the first identifier."),
+        },
+        { "key": TEST_NEIGHBORHOOD,
+          "label": _("Test neighborhood"),
+          "description": _("For analytics purposes, all patrons will be 'from' this neighborhood."),
         }
     ]
 
@@ -59,6 +65,8 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
             for identifier in additional_identifiers:
                 self.test_identifiers += [identifier, identifier + "_username"]
 
+        self.test_neighborhood = integration.setting(self.TEST_NEIGHBORHOOD).value or None
+
     def remote_authenticate(self, username, password):
         "Fake 'remote' authentication."
         if not username or (self.collects_password and not password):
@@ -67,10 +75,10 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         if not self.valid_patron(username, password):
             return None
 
-        return self.generate_patrondata(username)
+        return self.generate_patrondata(username, self.test_neighborhood)
 
     @classmethod
-    def generate_patrondata(cls, authorization_identifier):
+    def generate_patrondata(cls, authorization_identifier, neighborhood=None):
 
         if authorization_identifier.endswith("_username"):
             username = authorization_identifier
@@ -88,6 +96,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
             personal_name=personal_name,
             authorization_expires = None,
             fines = None,
+            neighborhood=neighborhood,
         )
         return patrondata
 

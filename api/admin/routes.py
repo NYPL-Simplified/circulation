@@ -25,10 +25,9 @@ from templates import (
 from api.routes import (
     has_library,
     library_route,
+    allows_library
 )
 
-import csv, codecs, cStringIO
-from StringIO import StringIO
 import urllib
 from datetime import timedelta
 
@@ -264,51 +263,24 @@ def genres():
     """Returns a JSON representation of complete genre tree."""
     return app.manager.admin_feed_controller.genres()
 
-@app.route('/admin/bulk_circulation_events')
+@library_route('/admin/bulk_circulation_events')
 @returns_problem_detail
+@allows_library
 @requires_admin
 def bulk_circulation_events():
     """Returns a CSV representation of all circulation events with optional
     start and end times."""
-    data, date = app.manager.admin_dashboard_controller.bulk_circulation_events()
+    data, date, date_end, library = app.manager.admin_dashboard_controller.bulk_circulation_events()
     if isinstance(data, ProblemDetail):
         return data
 
-    class UnicodeWriter:
-        """
-        A CSV writer for Unicode data.
-        """
+    response = make_response(data)
 
-        def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
-            # Redirect output to a queue
-            self.queue = StringIO()
-            self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-            self.stream = f
-            self.encoder = codecs.getincrementalencoder(encoding)()
-
-        def writerow(self, row):
-            self.writer.writerow(
-                [s.encode("utf-8") if hasattr(s, "encode") else "" for s in row]
-            )
-            # Fetch UTF-8 output from the queue ...
-            data = self.queue.getvalue()
-            data = data.decode("utf-8")
-            # ... and reencode it into the target encoding
-            data = self.encoder.encode(data)
-            # write to the target stream
-            self.stream.write(data)
-            # empty queue
-            self.queue.truncate(0)
-
-        def writerows(self, rows):
-            for row in rows:
-                self.writerow(row)
-
-    output = StringIO()
-    writer = UnicodeWriter(output)
-    writer.writerows(data)
-    response = make_response(output.getvalue())
-    response.headers['Content-Disposition'] = "attachment; filename=circulation_events_" + date + ".csv"
+    # If gathering events per library, include the library name in the file
+    # for convenience. The start and end dates will always be included.
+    filename = library + "-" if library else ""
+    filename += date + "-to-" + date_end if date_end and date != date_end else date
+    response.headers['Content-Disposition'] = "attachment; filename=circulation_events_" + filename + ".csv"
     response.headers["Content-type"] = "text/csv"
     return response
 

@@ -32,6 +32,7 @@ import re
 import socket
 import ssl
 import tempfile
+from api.sip.dialect import GenericILS
 from nose.tools import set_trace
 
 # SIP2 defines a large number of fields which are used in request and
@@ -239,7 +240,7 @@ class SIPClient(Constants):
 
     def __init__(self, target_server, target_port, login_user_id=None,
                  login_password=None, location_code=None, institution_id='', separator=None,
-                 use_ssl=False, ssl_cert=None, ssl_key=None
+                 use_ssl=False, ssl_cert=None, ssl_key=None, dialect=GenericILS
     ):
         """Initialize a client for (but do not connect to) a SIP2 server.
 
@@ -283,6 +284,7 @@ class SIPClient(Constants):
             # We're implicitly logged in.
             self.must_log_in = False
         self.login_password = login_password
+        self.dialect = dialect
 
     def login(self):
         """Log in to the SIP server if required."""
@@ -305,10 +307,13 @@ class SIPClient(Constants):
 
     def end_session(self, *args, **kwargs):
         """Send end session message."""
-        return self.make_request(
-            self.end_session_message, self.end_session_response_parser,
-            *args, **kwargs
-        )
+        if self.dialect.sendEndSession:
+            return self.make_request(
+                self.end_session_message, self.end_session_response_parser,
+                *args, **kwargs
+            )
+        else:
+            return None
 
     def connect(self):
         """Create a socket connection to a SIP server."""
@@ -840,6 +845,8 @@ class MockSIPClient(SIPClient):
             login_password=login_password, separator=separator, institution_id=institution_id
         )
 
+        self.read_count = 0
+        self.write_count = 0
         self.requests = []
         self.responses = []
         self.status = []
@@ -855,16 +862,15 @@ class MockSIPClient(SIPClient):
         return None
 
     def do_send(self, data):
+        self.write_count += 1
         self.requests.append(data)
 
     def read_message(self, max_size=1024*1024):
         """Read a response message off the queue."""
+        self.read_count += 1
         response = self.responses[0]
         self.responses = self.responses[1:]
         return response
-
-    def end_session(self, *args, **kwargs):
-        pass
 
     def disconnect(self):
         pass

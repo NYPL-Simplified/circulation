@@ -67,6 +67,11 @@ class GoogleAnalyticsProvider(object):
 
 
     def collect_event(self, library, license_pool, event_type, time, **kwargs):
+
+        # Explicitly destroy any neighborhood information -- we don't
+        # want to send this to third-party sources.
+        kwargs.pop("neighborhood", None)
+
         client_id = uuid.uuid4()
         fields = {
             'v': 1,

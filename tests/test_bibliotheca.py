@@ -1192,9 +1192,21 @@ class TestItemListParser(BibliothecaAPITest):
         eq_("alternate", alternate.rel)
         assert alternate.href.startswith("http://ebook.3m.com/library")
 
+        # We have a full-size image...
         eq_(Hyperlink.IMAGE, image.rel)
+        eq_(Representation.JPEG_MEDIA_TYPE, image.media_type)
         assert image.href.startswith("http://ebook.3m.com/delivery")
+        assert 'documentID=ddf4gr9' in image.href
+        assert '&size=NORMAL' not in image.href
 
+        # ... and a thumbnail, which we obtained by adding an argument
+        # to the main image URL.
+        thumbnail = image.thumbnail
+        eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
+        eq_(Representation.JPEG_MEDIA_TYPE, thumbnail.media_type)
+        eq_(thumbnail.href, image.href + "&size=NORMAL")
+
+        # We have a description.
         eq_(Hyperlink.DESCRIPTION, description.rel)
         assert description.content.startswith("<b>Winner")
 

@@ -92,6 +92,7 @@ from scripts import (
     InstanceInitializationScript,
     LanguageListScript,
     NovelistSnapshotScript,
+    LocalAnalyticsExportScript,
 )
 
 class TestAdobeAccountIDResetScript(DatabaseTest):
@@ -1320,3 +1321,22 @@ class TestNovelistSnapshotScript(DatabaseTest):
         eq_(params[0], l1)
 
         NoveListAPI.from_config = oldNovelistConfig
+
+class TestLocalAnalyticsExportScript(DatabaseTest):
+
+    def test_do_run(self):
+
+        class MockLocalAnalyticsExporter(object):
+            def export(self, _db, start, end):
+                self.called_with = [start, end]
+                return "test"
+
+        output = StringIO()
+        cmd_args = ['--start=20190820', '--end=20190827']
+        exporter = MockLocalAnalyticsExporter()
+        script = LocalAnalyticsExportScript()
+        script.do_run(
+            output=output, cmd_args=cmd_args,
+            exporter=exporter)
+        eq_("test", output.getvalue())
+        eq_(['20190820', '20190827'], exporter.called_with)
