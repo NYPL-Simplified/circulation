@@ -33,7 +33,17 @@ class JSONFormatter(logging.Formatter):
 
         if record.args:
             record_args = tuple([no_bytestring(arg) for arg in record.args])
-            message = message % record_args
+            try:
+                message = message % record_args
+            except Exception, e:
+                # There was a problem formatting the log message,
+                # which points to a bug. A problem with the logging
+                # code shouldn't break the code that actually does the
+                # work, but we can't just let this slide -- we need to
+                # report the problem so it can be fixed.
+                message = "Log message could not be formatted. Exception: %r. Original message: message=%r args=%r" % (
+                    e, message, record_args
+                )
         data = dict(
             host=self.hostname,
             app=self.app_name,

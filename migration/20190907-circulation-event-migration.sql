@@ -1,3 +1,6 @@
+-- Delete all duplicate circulation events before creating unique indexes.
+delete from circulationevents where id in (select ce1.id from circulationevents ce1 join circulationevents as ce2 on ce1.license_pool_id = ce2.license_pool_id and ce1.type = ce2.type and ce1.start = ce2.start and ce1.id < ce2.id);
+
 DO $$ 
  BEGIN
   -- Add the 'location' column
