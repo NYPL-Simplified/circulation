@@ -710,39 +710,68 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         )
 
     def default_notification_email_address(self, patron, pin):
-        site_default = super(OverdriveAPI, self).default_notification_email_address(
-            patron, pin
-        )
+        """Find the email address this patron wants to use for hold
+        notifications.
+
+        :return: The email address Overdrive has on record for
+           this patron's hold notifications, or None if there is
+           no such address.
+        """
+        # We do _not_ want to call the superclass here. That will find
+        # a per-library default that trashes all of its input, which
+        # we don't want to use.
+        #
+        # Instead, we will ask _Overdrive_ if this patron has a
+        # preferred email address for notifications.
+        address = None
         response = self.patron_request(
             patron, pin, self.PATRON_INFORMATION_ENDPOINT
         )
-        if response.status_code != 200:
+        if response.status_code == 200:
+            data = response.json()
+            address = data.get('lastHoldEmail')
+        else:
             self.log.error(
                 "Unable to get patron information for %s: %s",
                 patron.authorization_identifier,
                 response.content
             )
-            # Use the site-wide default rather than allow a hold to fail.
-            return site_default
-        data = response.json()
-        return data.get('lastHoldEmail') or site_default
+        return address
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
-        :return: A HoldInfo object
+        :return: A HoldData object, if a hold was successfully placed,
+            or the book was already on hold.
+        :raise: A CirculationException explaining why no hold
+            could be placed.
         """
         if not notification_email_address:
             notification_email_address = self.default_notification_email_address(
                 patron, pin
             )
-
         overdrive_id = licensepool.identifier.identifier
-        headers, document = self.fill_out_form(
-            reserveId=overdrive_id, emailAddress=notification_email_address)
+        form_fields = dict(reserveId=overdrive_id)
+        if notification_email_address:
+            form_fields['emailAddress'] = notification_email_address
+        else:
+            form_fields['ignoreHoldEmail'] = True
+
+        headers, document = self.fill_out_form(**form_fields)
         response = self.patron_request(
             patron, pin, self.HOLDS_ENDPOINT, headers,
-            document)
+            document
+        )
+        return self.process_place_hold_response(response)
+
+    def process_place_hold_response(self, response):
+        """Process the response to a HOLDS_ENDPOINT request.
+
+        :return: A HoldData object, if a hold was successfully placed,
+            or the book was already on hold.
+        :raise: A CirculationException explaining why no hold
+            could be placed.
+        """
         if response.status_code == 400:
             error = response.json()
             if not error or not 'errorCode' in error:
@@ -752,7 +781,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 # There's nothing we can do but refresh the queue info.
                 hold = self.get_hold(patron, pin, overdrive_id)
                 position, start_date = self.extract_data_from_hold_response(
-                    hold)
+                    hold
+                )
                 return HoldInfo(
                     licensepool.collection,
                     licensepool.data_source.name,
@@ -774,7 +804,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             # The book was placed on hold.
             data = response.json()
             position, start_date = self.extract_data_from_hold_response(
-                data)
+                data
+            )
             return HoldInfo(
                 licensepool.collection,
                 licensepool.data_source.name,

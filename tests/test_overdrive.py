@@ -230,6 +230,88 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_("notifications@example.com",
             self.api.default_notification_email_address(patron, 'pin'))
 
+    def test_place_hold(self):
+        # Verify that an appropriate request is made to HOLDS_ENDPOINT
+        # to create a hold.
+        #
+        # The request will include different form fields 
+        class Mock(MockOverdriveAPI):
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.DEFAULT_NOTIFICATION_EMAIL_ADDRESS = None
+
+            def default_notification_email_address(self, patron, pin):
+                self.default_notification_email_address_called_with = (
+                    patron, pin
+                )
+                return self.DEFAULT_NOTIFICATION_EMAIL_ADDRESS
+
+            def fill_out_form(self, **form_fields):
+                # Record the form fields and return some dummy values.
+                self.fill_out_form_called_with = form_fields
+                return "headers", "filled-out form"
+
+            def patron_request(self, *args, **kwargs):
+                # Pretend to make a request to an API endpoint.
+                self.patron_request_called_with = (args, kwargs)
+                return "A mock response"
+
+            def process_place_hold_response(self, response):
+                self.process_place_hold_response_called_with = response
+                return "OK, I processed it."
+
+        # First, test the case where no notification email address is
+        # provided and there is no default.
+        patron = object()
+        pin = object()
+        pool = self._licensepool(edition=None, collection=self.collection)
+        api = Mock(self._db, self.collection)
+        response = api.place_hold(patron, pin, pool, None)
+
+        # Now we can trace the path of the input through the method calls.
+
+        # The patron and PIN were passed into
+        # default_notification_email_address.
+        eq_((patron, pin), api.default_notification_email_address_called_with)
+
+        # The return value was None, and so 'ignoreHoldEmail' was
+        # added to the form to be filled out, rather than
+        # 'emailAddress' being added.
+        fields = api.fill_out_form_called_with
+        identifier = str(pool.identifier.identifier)
+        eq_(dict(ignoreHoldEmail=True, reserveId=identifier), fields)
+        
+        # patron_request was called with the filled-out form and other
+        # information necessary to authenticate the request.
+        args, kwargs = api.patron_request_called_with
+        eq_((patron, pin, api.HOLDS_ENDPOINT, 'headers', 'filled-out form'),
+            args)
+        eq_({}, kwargs)
+
+        # Finally, process_place_hold_response was called on 
+        # the return value of patron_request
+        eq_("A mock response", api.process_place_hold_response_called_with)
+        eq_("OK, I processed it.", response)
+
+        # Now we need to test two more cases.
+        #
+        # First, a default hold notification address is available.
+        email = "holds@libra.ry"
+        api.DEFAULT_HOLD_NOTIFICATION_ADDRESS = email
+        response = api.place_hold(patron, pin, pool, None)
+
+        # Same result.
+        eq_("OK, I processed it.", response)
+
+        # Different variables were passed in to fill_out_form.
+        eq_(dict(emailAddress=email, reserveId=identifier), fields)
+
+        # Finally, test that when a specific address is passed in, it
+        # takes precedence over the site default.
+        response = api.place_hold(patron, pin, pool, "another@addre.ss")
+        eq_("OK, I processed it.", response)
+        eq_(dict(emailAddress="another@addre.ss", reserveId=identifier), fields)
+
     def test_checkin(self):
 
         class Mock(MockOverdriveAPI):
