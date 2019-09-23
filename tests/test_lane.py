@@ -3297,6 +3297,17 @@ class TestLane(DatabaseTest):
         eq_(facets, lane.called_with)
         Lane._groups_for_lanes = old_value
 
+    def test_works_from_database_with_superceded_pool(self):
+        work = self._work(with_license_pool=True)
+        work.license_pools[0].superceded = True
+        ignore, pool = self._edition(with_license_pool=True)
+        pool.work = work
+
+        lane = self._lane()
+        [w] = lane.works_from_database(self._db).all()
+        # Only one pool is loaded, and it's the non-superceded one.
+        eq_([pool], w.license_pools)
+
 
 class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
     # A comprehensive end-to-end test of WorkList.groups()
