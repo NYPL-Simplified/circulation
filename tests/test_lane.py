@@ -2221,6 +2221,8 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             Work.license_pools
         ).join(
             Work.presentation_edition
+        ).filter(
+            LicensePool.superceded==False
         )
         eq_(str(expect), str(base_query))
         eq_("_modify_loading", m)
@@ -2705,6 +2707,17 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             l.remove_entry(work)
             eq_([], _run(both_lists_qu, both_lists_clauses))
             l.add_entry(work)
+
+    def test_works_from_database_with_superceded_pool(self):
+        work = self._work(with_license_pool=True)
+        work.license_pools[0].superceded = True
+        ignore, pool = self._edition(with_license_pool=True)
+        pool.work = work
+
+        lane = self._lane()
+        [w] = lane.works_from_database(self._db).all()
+        # Only one pool is loaded, and it's the non-superceded one.
+        eq_([pool], w.license_pools)
 
 
 
@@ -3296,17 +3309,6 @@ class TestLane(DatabaseTest):
         lane.groups(self._db, facets=facets)
         eq_(facets, lane.called_with)
         Lane._groups_for_lanes = old_value
-
-    def test_works_from_database_with_superceded_pool(self):
-        work = self._work(with_license_pool=True)
-        work.license_pools[0].superceded = True
-        ignore, pool = self._edition(with_license_pool=True)
-        pool.work = work
-
-        lane = self._lane()
-        [w] = lane.works_from_database(self._db).all()
-        # Only one pool is loaded, and it's the non-superceded one.
-        eq_([pool], w.license_pools)
 
 
 class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
