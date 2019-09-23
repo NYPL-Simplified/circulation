@@ -1831,6 +1831,8 @@
             <span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span>
         <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">superceded</span><span class="o">==</span><span class="kc">False</span>
         <span class="p">)</span>
 
         <span class="c1"># Apply optimizations.</span>
