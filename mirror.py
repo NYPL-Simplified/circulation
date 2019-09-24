@@ -18,24 +18,24 @@ class MirrorUploader(object):
     IMPLEMENTATION_REGISTRY = {}
 
     @classmethod
-    def sitewide(cls, _db):
-        """Create a MirrorUploader from a sitewide configuration.
+    def mirror(cls, _db, storage_name=None):
+        """Create a MirrorUploader from a configuration.
 
         :return: A MirrorUploader.
 
         :raise: CannotLoadConfiguration if no integration with
-            goal==STORAGE_GOAL is configured, or if multiple integrations
-            are so configured.
+            goal==STORAGE_GOAL is configured.
         """
-        integration = cls.sitewide_integration(_db)
+        integration = cls.integration(_db, storage_name)
         return cls.implementation(integration)
 
     @classmethod
-    def sitewide_integration(cls, _db):
-        """Find the ExternalIntegration for the site-wide mirror."""
+    def integration(cls, _db, storage_name):
+        """Find the ExternalIntegration for the mirror."""
         from model import ExternalIntegration
         qu = _db.query(ExternalIntegration).filter(
-            ExternalIntegration.goal==cls.STORAGE_GOAL
+            ExternalIntegration.goal==cls.STORAGE_GOAL,
+            ExternalIntegration.name==storage_name
         )
         integrations = qu.all()
         if not integrations:
@@ -44,38 +44,26 @@ class MirrorUploader(object):
             )
             return None
 
-        if len(integrations) > 1:
-            # If there are multiple integrations configured, none of
-            # them can be the 'site-wide' configuration.
-            raise CannotLoadConfiguration(
-                'Multiple storage integrations are configured'
-            )
-
         [integration] = integrations
         return integration
 
     @classmethod
-    def for_collection(cls, collection, use_sitewide=False):
+    def for_collection(cls, collection):
         """Create a MirrorUploader for the given Collection.
 
         :param collection: Use the mirror configuration for this Collection.
-
-        :param use_sitewide: If there's no mirror for this specific Collection,
-            should we return a sitewide mirror instead?
 
         :return: A MirrorUploader, or None if the Collection has no
             mirror integration.
         """
         integration = collection.mirror_integration
         if not integration:
-            if use_sitewide:
-                try:
-                    from model import Session
-                    _db = Session.object_session(collection)
-                    return cls.sitewide(_db)
-                except CannotLoadConfiguration, e:
-                    return None
-            else:
+            try:
+                from model import Session
+                _db = Session.object_session(collection)
+                #todo get name of storage
+                return cls.mirror(_db)
+            except CannotLoadConfiguration, e:
                 return None
         return cls.implementation(integration)
 
