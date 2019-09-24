@@ -207,34 +207,38 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         self.api.queue_response(200, content=patron_with_email)
         patron = self._patron()
-        # If the patron has used a particular email address to put
-        # books on hold, use that email address, not the site default.
+
+        # The site default for notification emails will never be used.
         ConfigurationSetting.for_library(
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             self._default_library).value = "notifications@example.com"
+
+        # If the patron has used a particular email address to put
+        # books on hold, use that email address, not the site default.
         eq_("foo@bar.com",
             self.api.default_notification_email_address(patron, 'pin'))
 
         # If the patron has never before put an Overdrive book on
         # hold, their JSON object has no `lastHoldEmail` key. In this
-        # case we use the site default.
+        # case we return None -- again, ignoring the site default.
         patron_with_no_email = dict(patron_with_email)
         del patron_with_no_email['lastHoldEmail']
         self.api.queue_response(200, content=patron_with_no_email)
-        eq_("notifications@example.com",
+        eq_(None,
             self.api.default_notification_email_address(patron, 'pin'))
 
-        # If there's an error getting the information, use the
-        # site default.
+        # If there's an error getting the information from Overdrive,
+        # we return None.
         self.api.queue_response(404)
-        eq_("notifications@example.com",
+        eq_(None,
             self.api.default_notification_email_address(patron, 'pin'))
 
     def test_place_hold(self):
         # Verify that an appropriate request is made to HOLDS_ENDPOINT
         # to create a hold.
         #
-        # The request will include different form fields 
+        # The request will include different form fields depending on
+        # whether default_notification_email_address returns something.
         class Mock(MockOverdriveAPI):
             def __init__(self, *args, **kwargs):
                 super(Mock, self).__init__(*args, **kwargs)
@@ -297,19 +301,21 @@ class TestOverdriveAPI(OverdriveAPITest):
         #
         # First, a default hold notification address is available.
         email = "holds@libra.ry"
-        api.DEFAULT_HOLD_NOTIFICATION_ADDRESS = email
+        api.DEFAULT_NOTIFICATION_EMAIL_ADDRESS = email
         response = api.place_hold(patron, pin, pool, None)
 
         # Same result.
         eq_("OK, I processed it.", response)
 
         # Different variables were passed in to fill_out_form.
+        fields = api.fill_out_form_called_with
         eq_(dict(emailAddress=email, reserveId=identifier), fields)
 
         # Finally, test that when a specific address is passed in, it
         # takes precedence over the site default.
         response = api.place_hold(patron, pin, pool, "another@addre.ss")
         eq_("OK, I processed it.", response)
+        fields = api.fill_out_form_called_with
         eq_(dict(emailAddress="another@addre.ss", reserveId=identifier), fields)
 
     def test_checkin(self):
