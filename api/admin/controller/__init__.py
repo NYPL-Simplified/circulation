@@ -1253,18 +1253,34 @@ class DashboardController(AdminCirculationManagerController):
         return dict({ "circulation_events": events })
 
     def bulk_circulation_events(self):
-        default = str(datetime.today()).split(" ")[0]
-        date = flask.request.args.get("date", default)
-        date_end_request = flask.request.args.get("dateEnd", None)
-        date_end = date_end_request or (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1))
+        default = datetime.today()
+        def get_date(field):
+            value = flask.request.args.get(field, default)
+            try:
+                return datetime.strptime(value, "%Y-%m-%d")
+            except ValueError, e:
+                return default
+
+        # The start date represents the _beginning_ of whatever day it
+        # is.
+        date_start = get_date("date")
+
+        # The end date represents the _end_ of whatever day it is.
+        # That's why we add one day to the time.
+        date_end = get_date("dateEnd") + timedelta(days=1)
         locations = flask.request.args.get("locations", None)
         library = getattr(flask.request, 'library', None)
         library_short_name = library.short_name if library else None
 
         exporter = LocalAnalyticsExporter()
-        data = exporter.export(self._db, date, date_end, locations, library)
+        data = exporter.export(
+            self._db, date_start, date_end, locations, library
+        )
 
-        return data, date, date_end, library_short_name
+        out_format = "%Y-%m-%d"
+
+        return (data, date_start.strftime(out_format),
+                date_end.strftime(out_format), library_short_name)
 
 class SettingsController(AdminCirculationManagerController):
 
