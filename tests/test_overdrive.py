@@ -300,7 +300,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # Finally, process_place_hold_response was called on
         # the return value of patron_request
         eq_(
-            ("A mock response", patron, pin, pool.identifier.identifier),
+            ("A mock response", patron, pin, pool),
              api.process_place_hold_response_called_with
         )
         eq_("OK, I processed it.", response)

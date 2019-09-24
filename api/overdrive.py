@@ -763,7 +763,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             document
         )
         return self.process_place_hold_response(
-            response, patron, pin, overdrive_id
+            response, patron, pin, licensepool
         )
 
     def process_place_hold_response(self, response, patron, pin, licensepool):
