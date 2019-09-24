@@ -307,8 +307,9 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Now we need to test two more cases.
         #
-        # First, a default hold notification address is available.
-        email = "holds@libra.ry"
+        # First, the patron has a holds notification address
+        # registered with Overdrive.
+        email = "holds@patr.on"
         api.DEFAULT_NOTIFICATION_EMAIL_ADDRESS = email
         response = api.place_hold(patron, pin, pool, None)
 
@@ -320,7 +321,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(dict(emailAddress=email, reserveId=identifier), fields)
 
         # Finally, test that when a specific address is passed in, it
-        # takes precedence over the site default.
+        # takes precedence over the patron's holds notification address.
+
         response = api.place_hold(patron, pin, pool, "another@addre.ss")
         eq_("OK, I processed it.", response)
         fields = api.fill_out_form_called_with
