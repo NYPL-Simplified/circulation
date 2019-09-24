@@ -762,9 +762,11 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             patron, pin, self.HOLDS_ENDPOINT, headers,
             document
         )
-        return self.process_place_hold_response(response)
+        return self.process_place_hold_response(
+            response, patron, pin, overdrive_id
+        )
 
-    def process_place_hold_response(self, response):
+    def process_place_hold_response(self, response, patron, pin, licensepool):
         """Process the response to a HOLDS_ENDPOINT request.
 
         :return: A HoldData object, if a hold was successfully placed,
@@ -772,39 +774,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         :raise: A CirculationException explaining why no hold
             could be placed.
         """
-        if response.status_code == 400:
-            error = response.json()
-            if not error or not 'errorCode' in error:
-                raise CannotHold()
-            code = error['errorCode']
-            if code == 'AlreadyOnWaitList':
-                # There's nothing we can do but refresh the queue info.
-                hold = self.get_hold(patron, pin, overdrive_id)
-                position, start_date = self.extract_data_from_hold_response(
-                    hold
-                )
-                return HoldInfo(
-                    licensepool.collection,
-                    licensepool.data_source.name,
-                    licensepool.identifier.type,
-                    licensepool.identifier.identifier,
-                    start_date=start_date,
-                    end_date=None,
-                    hold_position=position
-                )
-            elif code == 'NotWithinRenewalWindow':
-                # The patron has this book checked out and cannot yet
-                # renew their loan.
-                raise CannotRenew()
-            elif code == 'PatronExceededHoldLimit':
-                raise PatronHoldLimitReached()
-            else:
-                raise CannotHold(code)
-        else:
-            # The book was placed on hold.
-            data = response.json()
+        def make_holdinfo(hold_response):
+            # Create a HoldInfo object by combining data passed into
+            # the enclosing method with the data from a hold response
+            # (either creating a new hold or fetching an existing
+            # one).
             position, start_date = self.extract_data_from_hold_response(
-                data
+                hold_response
             )
             return HoldInfo(
                 licensepool.collection,
@@ -815,6 +791,40 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 end_date=None,
                 hold_position=position
             )
+
+        family = response.status_code // 100
+
+        if family == 4:
+            error = response.json()
+            if not error or not 'errorCode' in error:
+                raise CannotHold()
+            code = error['errorCode']
+            if code == 'AlreadyOnWaitList':
+                # The book is already on hold, so this isn't an exceptional
+                # condition. Refresh the queue info and act as though the
+                # request was successful.
+                hold = self.get_hold(
+                    patron, pin, licensepool.identifier.identifier
+                )
+                return make_holdinfo(hold)
+            elif code == 'NotWithinRenewalWindow':
+                # The patron has this book checked out and cannot yet
+                # renew their loan.
+                raise CannotRenew()
+            elif code == 'PatronExceededHoldLimit':
+                raise PatronHoldLimitReached()
+            else:
+                raise CannotHold(code)
+        elif family == 2:
+            # The book was successfuly placed on hold. Return an
+            # appropriate HoldInfo.
+            data = response.json()
+            return make_holdinfo(data)
+        else:
+            # Some other problem happened -- we don't know what.  It's
+            # not a 5xx error because the HTTP client would have been
+            # turned that into a RemoteIntegrationException.
+            raise CannotHold()
 
     def release_hold(self, patron, pin, licensepool):
         """Release a patron's hold on a book.
