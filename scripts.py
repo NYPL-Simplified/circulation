@@ -1261,6 +1261,11 @@ class DirectoryImportScript(TimestampScript):
             required=True
         )
         parser.add_argument(
+            '--storage-name',
+            help=u'Storage service to use.',
+            required=True
+        )
+        parser.add_argument(
             '--data-source-name',
             help=u'All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.',
             required=True
@@ -1309,23 +1314,24 @@ class DirectoryImportScript(TimestampScript):
         ebook_directory = parsed.ebook_directory
         rights_uri = parsed.rights_uri
         dry_run = parsed.dry_run
+        storage_name = parsed.storage_name
         return self.run_with_arguments(
             collection_name, data_source_name,
             metadata_file, metadata_format, cover_directory,
-            ebook_directory, rights_uri, dry_run
+            ebook_directory, rights_uri, dry_run, storage_name
         )
 
     def run_with_arguments(
             self, collection_name, data_source_name, metadata_file,
             metadata_format, cover_directory, ebook_directory, rights_uri,
-            dry_run
+            dry_run, storage_name
     ):
         if dry_run:
             self.log.warn(
                 "This is a dry run. No files will be uploaded and nothing will change in the database."
             )
         collection, mirror = self.load_collection(
-            collection_name, data_source_name
+            collection_name, data_source_name, storage_name
         )
         self.timestamp_collection = collection
 
@@ -1343,7 +1349,7 @@ class DirectoryImportScript(TimestampScript):
             if not dry_run:
                 self._db.commit()
 
-    def load_collection(self, collection_name, data_source_name):
+    def load_collection(self, collection_name, data_source_name, storage_name):
         """Create or locate a Collection with the given name.
 
         If the Collection needs to be created, it will be associated
@@ -1354,6 +1360,7 @@ class DirectoryImportScript(TimestampScript):
         :param data_source_name: Associate this data source with
             the Collection if it does not already have a data source.
             A DataSource object will be created if necessary.
+        :param storage_name: Name of the Storage service.
 
         :return: A 2-tuple (Collection, MirrorUploader)
         """
@@ -1381,20 +1388,19 @@ class DirectoryImportScript(TimestampScript):
             )
 
             try:
-                mirror_integration = MirrorUploader.sitewide_integration(
-                    self._db
+                mirror_integration = MirrorUploader.integration(
+                    self._db, storage_name
                 )
             except CannotLoadConfiguration, e:
-                # There is no sitewide mirror configuration, or else
-                # there is more than one. Either way, we can't
-                # associate a mirror integration with the new collection.
+                # We can't associate any mirror integration with the new collection.
                 mirror_integration = None
 
             if mirror_integration:
                 collection.mirror_integration = mirror_integration
                 self.log.info(
-                    "Associated Collection %s with the sitewide storage integration.",
-                    collection.name
+                    "Associated Collection %s with the storage integration %s.",
+                    collection.name,
+                    storage_name
                 )
         mirror = MirrorUploader.for_collection(collection)
 

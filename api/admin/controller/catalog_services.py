@@ -20,6 +20,10 @@ class CatalogServicesController(SettingsController):
         super(CatalogServicesController, self).__init__(manager)
         service_apis = [MARCExporter]
         self.protocols = self._get_integration_protocols(service_apis, protocol_name_attr="NAME")
+        mirror_integration_setting = self._mirror_integration_setting()
+        if mirror_integration_setting:
+            mirror_integration_setting["description"] = MARCExporter.SETTING_DESCRIPTION
+            self.protocols[0]['settings'].append(mirror_integration_setting)
 
     def process_catalog_services(self):
         self.require_system_admin()
