@@ -521,15 +521,7 @@ class MARCExporter(object):
         },
     ]
 
-    SETTINGS = [
-        { "key": STORAGE_PROTOCOL,
-          "label": _("Storage service protocol"),
-          "description": _("Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'."),
-          "type": "select",
-          "options": [{ "key": ExternalIntegration.S3, "label": ExternalIntegration.S3 }],
-          "default": ExternalIntegration.S3,
-        },
-    ]
+    SETTING_DESCRIPTION = "Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'."
 
     @classmethod
     def from_config(cls, library):
@@ -597,7 +589,7 @@ class MARCExporter(object):
 
     def records(self, lane, annotator, start_time=None, force_refresh=False,
                 mirror=None, search_engine=None, query_batch_size=500,
-                upload_batch_size=7500
+                upload_batch_size=7500, storage_name=None
     ):
         """
         Create and export a MARC file for the books in a lane.
@@ -618,9 +610,10 @@ class MARCExporter(object):
         # and Representation, but don't actually mirror it.
         if not mirror:
             storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
-            mirror = MirrorUploader.sitewide(self._db)
+            # todo mirror
+            mirror = MirrorUploader.mirror(self._db, storage_name)
             if mirror.NAME != storage_protocol:
-                raise Exception("Sitewide mirror integration does not match configured storage protocol")
+                raise Exception("Mirror integration does not match configured storage protocol")
 
         if not mirror:
             raise Exception("No mirror integration is configured")
