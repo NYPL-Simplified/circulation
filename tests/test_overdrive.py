@@ -22,6 +22,7 @@ from api.overdrive import (
 from api.authenticator import BasicAuthenticationProvider
 from api.circulation import (
     CirculationAPI,
+    HoldInfo,
 )
 from api.circulation_exceptions import *
 from api.config import Configuration
@@ -207,28 +208,225 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         self.api.queue_response(200, content=patron_with_email)
         patron = self._patron()
-        # If the patron has used a particular email address to put
-        # books on hold, use that email address, not the site default.
+
+        # The site default for notification emails will never be used.
         ConfigurationSetting.for_library(
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             self._default_library).value = "notifications@example.com"
+
+        # If the patron has used a particular email address to put
+        # books on hold, use that email address, not the site default.
         eq_("foo@bar.com",
             self.api.default_notification_email_address(patron, 'pin'))
 
         # If the patron has never before put an Overdrive book on
         # hold, their JSON object has no `lastHoldEmail` key. In this
-        # case we use the site default.
+        # case we return None -- again, ignoring the site default.
         patron_with_no_email = dict(patron_with_email)
         del patron_with_no_email['lastHoldEmail']
         self.api.queue_response(200, content=patron_with_no_email)
-        eq_("notifications@example.com",
+        eq_(None,
             self.api.default_notification_email_address(patron, 'pin'))
 
-        # If there's an error getting the information, use the
-        # site default.
+        # If there's an error getting the information from Overdrive,
+        # we return None.
         self.api.queue_response(404)
-        eq_("notifications@example.com",
+        eq_(None,
             self.api.default_notification_email_address(patron, 'pin'))
+
+    def test_place_hold(self):
+        # Verify that an appropriate request is made to HOLDS_ENDPOINT
+        # to create a hold.
+        #
+        # The request will include different form fields depending on
+        # whether default_notification_email_address returns something.
+        class Mock(MockOverdriveAPI):
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.DEFAULT_NOTIFICATION_EMAIL_ADDRESS = None
+
+            def default_notification_email_address(self, patron, pin):
+                self.default_notification_email_address_called_with = (
+                    patron, pin
+                )
+                return self.DEFAULT_NOTIFICATION_EMAIL_ADDRESS
+
+            def fill_out_form(self, **form_fields):
+                # Record the form fields and return some dummy values.
+                self.fill_out_form_called_with = form_fields
+                return "headers", "filled-out form"
+
+            def patron_request(self, *args, **kwargs):
+                # Pretend to make a request to an API endpoint.
+                self.patron_request_called_with = (args, kwargs)
+                return "A mock response"
+
+            def process_place_hold_response(
+                self, response, patron, pin, licensepool
+            ):
+                self.process_place_hold_response_called_with = (
+                    response, patron, pin, licensepool
+                )
+                return "OK, I processed it."
+
+        # First, test the case where no notification email address is
+        # provided and there is no default.
+        patron = object()
+        pin = object()
+        pool = self._licensepool(edition=None, collection=self.collection)
+        api = Mock(self._db, self.collection)
+        response = api.place_hold(patron, pin, pool, None)
+
+        # Now we can trace the path of the input through the method calls.
+
+        # The patron and PIN were passed into
+        # default_notification_email_address.
+        eq_((patron, pin), api.default_notification_email_address_called_with)
+
+        # The return value was None, and so 'ignoreHoldEmail' was
+        # added to the form to be filled out, rather than
+        # 'emailAddress' being added.
+        fields = api.fill_out_form_called_with
+        identifier = str(pool.identifier.identifier)
+        eq_(dict(ignoreHoldEmail=True, reserveId=identifier), fields)
+
+        # patron_request was called with the filled-out form and other
+        # information necessary to authenticate the request.
+        args, kwargs = api.patron_request_called_with
+        eq_((patron, pin, api.HOLDS_ENDPOINT, 'headers', 'filled-out form'),
+            args)
+        eq_({}, kwargs)
+
+        # Finally, process_place_hold_response was called on
+        # the return value of patron_request
+        eq_(
+            ("A mock response", patron, pin, pool),
+             api.process_place_hold_response_called_with
+        )
+        eq_("OK, I processed it.", response)
+
+        # Now we need to test two more cases.
+        #
+        # First, the patron has a holds notification address
+        # registered with Overdrive.
+        email = "holds@patr.on"
+        api.DEFAULT_NOTIFICATION_EMAIL_ADDRESS = email
+        response = api.place_hold(patron, pin, pool, None)
+
+        # Same result.
+        eq_("OK, I processed it.", response)
+
+        # Different variables were passed in to fill_out_form.
+        fields = api.fill_out_form_called_with
+        eq_(dict(emailAddress=email, reserveId=identifier), fields)
+
+        # Finally, test that when a specific address is passed in, it
+        # takes precedence over the patron's holds notification address.
+
+        response = api.place_hold(patron, pin, pool, "another@addre.ss")
+        eq_("OK, I processed it.", response)
+        fields = api.fill_out_form_called_with
+        eq_(dict(emailAddress="another@addre.ss", reserveId=identifier), fields)
+
+    def test_process_place_hold_response(self):
+        # Verify that we can handle various error and non-error responses
+        # to a HOLDS_ENDPOINT request.
+
+        ignore, successful_hold = self.sample_json("successful_hold.json")
+        class Mock(MockOverdriveAPI):
+            def get_hold(self, patron, pin, overdrive_id):
+                # Return a sample hold representation rather than
+                # making another API request.
+                self.get_hold_called_with = (patron, pin, overdrive_id)
+                return successful_hold
+
+        api = Mock(self._db, self.collection)
+
+        def process_error_response(message):
+            # Attempt to process a response that resulted in an error.
+            if isinstance(message, basestring):
+                data = dict(errorCode=message)
+            else:
+                data = message
+            response = MockRequestsResponse(400, content=data)
+            return api.process_place_hold_response(response, None, None, None)
+
+        # Some error messages result in specific CirculationExceptions.
+        assert_raises(
+            CannotRenew, process_error_response, "NotWithinRenewalWindow"
+        )
+        assert_raises(
+            PatronHoldLimitReached, process_error_response,
+            "PatronExceededHoldLimit"
+        )
+
+        # An unrecognized error message results in a generic
+        # CannotHold.
+        assert_raises(CannotHold, process_error_response, "SomeOtherError")
+
+        # Same if the error message is missing or the response can't be
+        # processed.
+        assert_raises(CannotHold, process_error_response, dict())
+        assert_raises(CannotHold, process_error_response, None)
+
+        # Same if the error code isn't in the 4xx or 2xx range
+        # (which shouldn't happen in real life).
+        response = MockRequestsResponse(999)
+        assert_raises(
+            CannotHold, api.process_place_hold_response,
+            response, None, None, None
+        )
+
+        # At this point patron and book details become important --
+        # we're going to return a HoldInfo object and potentially make
+        # another API request.
+        patron = self._patron()
+        pin = object()
+        licensepool = self._licensepool(edition=None)
+
+        # The remaining tests will end up running the same code on the
+        # same data, so they will return the same HoldInfo. Define a
+        # helper method to make this easier.
+        def assert_correct_holdinfo(x):
+            assert isinstance(x, HoldInfo)
+            eq_(licensepool.collection, x.collection(self._db))
+            eq_(licensepool.data_source.name, x.data_source_name)
+            eq_(identifier.identifier, x.identifier)
+            eq_(identifier.type, x.identifier_type)
+            eq_(datetime(2015, 3, 26, 11, 30, 29), x.start_date)
+            eq_(None, x.end_date)
+            eq_(1, x.hold_position)
+
+        # Test the case where the 'error' is that the book is already
+        # on hold.
+        already_on_hold = dict(errorCode="AlreadyOnWaitList")
+        response = MockRequestsResponse(400, content=already_on_hold)
+        result = api.process_place_hold_response(
+            response, patron, pin, licensepool
+        )
+
+        # get_hold() was called with the arguments we expect.
+        identifier = licensepool.identifier
+        eq_((patron, pin, identifier.identifier),
+            api.get_hold_called_with)
+
+        # The result was converted into a HoldInfo object. The
+        # effective result is exactly as if we had successfully put
+        # the book on hold.
+        assert_correct_holdinfo(result)
+
+        # Finally, let's test the case where there was no hold and now
+        # there is.
+        api.get_hold_called_with = None
+        response = MockRequestsResponse(200, content=successful_hold)
+        result = api.process_place_hold_response(
+            response, patron, pin, licensepool
+        )
+        assert_correct_holdinfo(result)
+
+        # Here, get_hold was _not_ called, because the hold didn't
+        # already exist.
+        eq_(None, api.get_hold_called_with)
 
     def test_checkin(self):
 
@@ -1136,7 +1334,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
     def test_run(self):
         # An end-to-end test verifying that this Monitor manages its
         # state across multiple runs.
-        # 
+        #
         # This tests a lot of code that's technically not in Monitor,
         # but when the Monitor API changes, it may require changes to
         # this particular monitor, and it's good to have a test that
@@ -1203,7 +1401,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
 
         class MockMonitor(OverdriveCirculationMonitor):
 
-            recently_changed_ids_called_with = None 
+            recently_changed_ids_called_with = None
             should_stop_calls = []
             def recently_changed_ids(self, start, cutoff):
                 self.recently_changed_ids_called_with = (start, cutoff)
@@ -1342,15 +1540,15 @@ class TestNewTitlesOverdriveCollectionMonitor(OverdriveAPITest):
         )
         eq_(0, monitor.consecutive_unchanged_books)
         m = monitor.should_stop
-        
+
         # This book hasn't been changed, but we're under the limit, so we should
         # keep going.
         eq_(False, m(object(), object(), False))
         eq_(1, monitor.consecutive_unchanged_books)
-        
+
         eq_(False, m(object(), object(), False))
         eq_(2, monitor.consecutive_unchanged_books)
-        
+
         # This book has changed, so our counter gets reset.
         eq_(False, m(object(), object(), True))
         eq_(0, monitor.consecutive_unchanged_books)
