@@ -3265,12 +3265,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x409a440&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x44b6290&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x409a170&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x43e2940&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3285,7 +3285,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4099e20&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x45143b0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8120,7 +8120,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 10, 3, 16, 23, 19, 550860)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 10, 5, 13, 20, 48, 377847)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10850,13 +10850,15 @@ attached to this licensepool.</li>
 <dl class="method">
 <dt id="api.overdrive.OverdriveAPI.default_notification_email_address">
 <code class="descname">default_notification_email_address</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.default_notification_email_address"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.default_notification_email_address" title="Permalink to this definition">¶</a></dt>
-<dd><p>What email address should be used to notify this library’s
-patrons of changes?</p>
+<dd><p>Find the email address this patron wants to use for hold
+notifications.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>library_or_patron</strong> – A Library or a Patron.</td>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">The email address Overdrive has on record for
+this patron’s hold notifications, or None if there is
+no such address.</td>
 </tr>
 </tbody>
 </table>
@@ -11051,7 +11053,11 @@ for use in tests.</li>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A HoldInfo object</td>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A HoldData object, if a hold was successfully placed,
+or the book was already on hold.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">A CirculationException explaining why no hold
+could be placed.</td>
 </tr>
 </tbody>
 </table>
@@ -11068,6 +11074,24 @@ into a LoanInfo object.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A LoanInfo object if the book can be fulfilled
 by the default Library Simplified client, and None otherwise.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.overdrive.OverdriveAPI.process_place_hold_response">
+<code class="descname">process_place_hold_response</code><span class="sig-paren">(</span><em>response</em>, <em>patron</em>, <em>pin</em>, <em>licensepool</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.process_place_hold_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.process_place_hold_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process the response to a HOLDS_ENDPOINT request.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A HoldData object, if a hold was successfully placed,
+or the book was already on hold.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">A CirculationException explaining why no hold
+could be placed.</td>
 </tr>
 </tbody>
 </table>

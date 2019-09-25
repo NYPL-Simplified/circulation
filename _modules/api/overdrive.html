@@ -745,71 +745,78 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="OverdriveAPI.default_notification_email_address"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.default_notification_email_address">[docs]</a>    <span class="k">def</span> <span class="nf">default_notification_email_address</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
-        <span class="n">site_default</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">default_notification_email_address</span><span class="p">(</span>
-            <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span>
-        <span class="p">)</span>
+        <span class="sd">&quot;&quot;&quot;Find the email address this patron wants to use for hold</span>
+<span class="sd">        notifications.</span>
+
+<span class="sd">        :return: The email address Overdrive has on record for</span>
+<span class="sd">           this patron&#39;s hold notifications, or None if there is</span>
+<span class="sd">           no such address.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># We do _not_ want to call the superclass here. That will find</span>
+        <span class="c1"># a per-library default that trashes all of its input, which</span>
+        <span class="c1"># we don&#39;t want to use.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Instead, we will ask _Overdrive_ if this patron has a</span>
+        <span class="c1"># preferred email address for notifications.</span>
+        <span class="n">address</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
             <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PATRON_INFORMATION_ENDPOINT</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="n">address</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lastHoldEmail&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Unable to get patron information for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                 <span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
                 <span class="n">response</span><span class="o">.</span><span class="n">content</span>
             <span class="p">)</span>
-            <span class="c1"># Use the site-wide default rather than allow a hold to fail.</span>
-            <span class="k">return</span> <span class="n">site_default</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lastHoldEmail&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">site_default</span></div>
+        <span class="k">return</span> <span class="n">address</span></div>
 
 <div class="viewcode-block" id="OverdriveAPI.place_hold"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.place_hold">[docs]</a>    <span class="k">def</span> <span class="nf">place_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">notification_email_address</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Place a book on hold.</span>
 
-<span class="sd">        :return: A HoldInfo object</span>
+<span class="sd">        :return: A HoldData object, if a hold was successfully placed,</span>
+<span class="sd">            or the book was already on hold.</span>
+<span class="sd">        :raise: A CirculationException explaining why no hold</span>
+<span class="sd">            could be placed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">notification_email_address</span><span class="p">:</span>
             <span class="n">notification_email_address</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_notification_email_address</span><span class="p">(</span>
                 <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span>
             <span class="p">)</span>
-
         <span class="n">overdrive_id</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
-        <span class="n">headers</span><span class="p">,</span> <span class="n">document</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fill_out_form</span><span class="p">(</span>
-            <span class="n">reserveId</span><span class="o">=</span><span class="n">overdrive_id</span><span class="p">,</span> <span class="n">emailAddress</span><span class="o">=</span><span class="n">notification_email_address</span><span class="p">)</span>
+        <span class="n">form_fields</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">reserveId</span><span class="o">=</span><span class="n">overdrive_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">notification_email_address</span><span class="p">:</span>
+            <span class="n">form_fields</span><span class="p">[</span><span class="s1">&#39;emailAddress&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">notification_email_address</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">form_fields</span><span class="p">[</span><span class="s1">&#39;ignoreHoldEmail&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">headers</span><span class="p">,</span> <span class="n">document</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fill_out_form</span><span class="p">(</span><span class="o">**</span><span class="n">form_fields</span><span class="p">)</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_request</span><span class="p">(</span>
             <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOLDS_ENDPOINT</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span>
-            <span class="n">document</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
-            <span class="n">error</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">error</span> <span class="ow">or</span> <span class="ow">not</span> <span class="s1">&#39;errorCode&#39;</span> <span class="ow">in</span> <span class="n">error</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">()</span>
-            <span class="n">code</span> <span class="o">=</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;errorCode&#39;</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;AlreadyOnWaitList&#39;</span><span class="p">:</span>
-                <span class="c1"># There&#39;s nothing we can do but refresh the queue info.</span>
-                <span class="n">hold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hold</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">)</span>
-                <span class="n">position</span><span class="p">,</span> <span class="n">start_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_data_from_hold_response</span><span class="p">(</span>
-                    <span class="n">hold</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">HoldInfo</span><span class="p">(</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
-                    <span class="n">start_date</span><span class="o">=</span><span class="n">start_date</span><span class="p">,</span>
-                    <span class="n">end_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">hold_position</span><span class="o">=</span><span class="n">position</span>
-                <span class="p">)</span>
-            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;NotWithinRenewalWindow&#39;</span><span class="p">:</span>
-                <span class="c1"># The patron has this book checked out and cannot yet</span>
-                <span class="c1"># renew their loan.</span>
-                <span class="k">raise</span> <span class="n">CannotRenew</span><span class="p">()</span>
-            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;PatronExceededHoldLimit&#39;</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">PatronHoldLimitReached</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># The book was placed on hold.</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="n">document</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_place_hold_response</span><span class="p">(</span>
+            <span class="n">response</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OverdriveAPI.process_place_hold_response"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.process_place_hold_response">[docs]</a>    <span class="k">def</span> <span class="nf">process_place_hold_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Process the response to a HOLDS_ENDPOINT request.</span>
+
+<span class="sd">        :return: A HoldData object, if a hold was successfully placed,</span>
+<span class="sd">            or the book was already on hold.</span>
+<span class="sd">        :raise: A CirculationException explaining why no hold</span>
+<span class="sd">            could be placed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">make_holdinfo</span><span class="p">(</span><span class="n">hold_response</span><span class="p">):</span>
+            <span class="c1"># Create a HoldInfo object by combining data passed into</span>
+            <span class="c1"># the enclosing method with the data from a hold response</span>
+            <span class="c1"># (either creating a new hold or fetching an existing</span>
+            <span class="c1"># one).</span>
             <span class="n">position</span><span class="p">,</span> <span class="n">start_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_data_from_hold_response</span><span class="p">(</span>
-                <span class="n">data</span><span class="p">)</span>
+                <span class="n">hold_response</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="n">HoldInfo</span><span class="p">(</span>
                 <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
                 <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
@@ -818,7 +825,41 @@
                 <span class="n">start_date</span><span class="o">=</span><span class="n">start_date</span><span class="p">,</span>
                 <span class="n">end_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">hold_position</span><span class="o">=</span><span class="n">position</span>
-            <span class="p">)</span></div>
+            <span class="p">)</span>
+
+        <span class="n">family</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">//</span> <span class="mi">100</span>
+
+        <span class="k">if</span> <span class="n">family</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">error</span> <span class="ow">or</span> <span class="ow">not</span> <span class="s1">&#39;errorCode&#39;</span> <span class="ow">in</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">()</span>
+            <span class="n">code</span> <span class="o">=</span> <span class="n">error</span><span class="p">[</span><span class="s1">&#39;errorCode&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;AlreadyOnWaitList&#39;</span><span class="p">:</span>
+                <span class="c1"># The book is already on hold, so this isn&#39;t an exceptional</span>
+                <span class="c1"># condition. Refresh the queue info and act as though the</span>
+                <span class="c1"># request was successful.</span>
+                <span class="n">hold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hold</span><span class="p">(</span>
+                    <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">make_holdinfo</span><span class="p">(</span><span class="n">hold</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;NotWithinRenewalWindow&#39;</span><span class="p">:</span>
+                <span class="c1"># The patron has this book checked out and cannot yet</span>
+                <span class="c1"># renew their loan.</span>
+                <span class="k">raise</span> <span class="n">CannotRenew</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;PatronExceededHoldLimit&#39;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PatronHoldLimitReached</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">family</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># The book was successfuly placed on hold. Return an</span>
+            <span class="c1"># appropriate HoldInfo.</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">make_holdinfo</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Some other problem happened -- we don&#39;t know what.  It&#39;s</span>
+            <span class="c1"># not a 5xx error because the HTTP client would have been</span>
+            <span class="c1"># turned that into a RemoteIntegrationException.</span>
+            <span class="k">raise</span> <span class="n">CannotHold</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="OverdriveAPI.release_hold"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.release_hold">[docs]</a>    <span class="k">def</span> <span class="nf">release_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Release a patron&#39;s hold on a book.</span>
