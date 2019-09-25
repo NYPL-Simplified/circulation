@@ -541,6 +541,7 @@ class MARCExporter(object):
         self.library = library
         self.integration = integration
 
+
     @classmethod
     def create_record(cls, work, annotator, force_create=False, integration=None):
         """Build a complete MARC record for a given work."""
@@ -589,7 +590,7 @@ class MARCExporter(object):
 
     def records(self, lane, annotator, start_time=None, force_refresh=False,
                 mirror=None, search_engine=None, query_batch_size=500,
-                upload_batch_size=7500, storage_name=None
+                upload_batch_size=7500, integration=None
     ):
         """
         Create and export a MARC file for the books in a lane.
@@ -611,7 +612,7 @@ class MARCExporter(object):
         if not mirror:
             storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
             # todo mirror
-            mirror = MirrorUploader.mirror(self._db, storage_name)
+            mirror = MirrorUploader.mirror(self._db, integration)
             if mirror.NAME != storage_protocol:
                 raise Exception("Mirror integration does not match configured storage protocol")
 

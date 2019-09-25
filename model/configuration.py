@@ -1,5 +1,5 @@
 # encoding: utf-8
-# ExternalIntegration, ConfigurationSetting
+# ExternalIntegration, ExternalIntegrationLink, ConfigurationSetting
 from nose.tools import set_trace
 
 from . import (
@@ -32,6 +32,21 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.functions import func
+
+class ExternalIntegrationLink(Base, HasFullTableCache):
+
+    __tablename__ = 'externalintegrationslinks'
+    id = Column(Integer, primary_key=True)
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True
+    )
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True
+    )
+    other_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True
+    )
+    purpose = Column(Unicode)
 
 class ExternalIntegration(Base, HasFullTableCache):
 

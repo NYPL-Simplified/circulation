@@ -1,43 +1,12 @@
 from nose.tools import set_trace
 import datetime
 from config import CannotLoadConfiguration
-from model import (
-    Base,
-    get_one,
-    get_one_or_create,
-)
-from model.hasfulltablecache import HasFullTableCache
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Integer,
-    Unicode,
-    UniqueConstraint,
-)
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm.session import Session
-from sqlalchemy.sql import select
-from sqlalchemy.sql.functions import func
 
-class MirrorUploader(Base, HasFullTableCache):
 
+class MirrorUploader():
     """Handles the job of uploading a representation's content to
     a mirror that we control.
     """
-
-    __tablename__ = 'mirrors'
-    id = Column(Integer, primary_key=True)
-    external_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True
-    )
-    library_id = Column(
-        Integer, ForeignKey('libraries.id'), index=True
-    )
-    mirror_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True
-    )
-    purpose = Column(Unicode)
 
     STORAGE_GOAL = u'storage'
 
@@ -49,7 +18,7 @@ class MirrorUploader(Base, HasFullTableCache):
     IMPLEMENTATION_REGISTRY = {}
 
     @classmethod
-    def mirror(cls, _db, storage_name=None):
+    def mirror(cls, _db, storage_name=None, integration=None):
         """Create a MirrorUploader from a configuration.
 
         :return: A MirrorUploader.
@@ -57,7 +26,8 @@ class MirrorUploader(Base, HasFullTableCache):
         :raise: CannotLoadConfiguration if no integration with
             goal==STORAGE_GOAL is configured.
         """
-        integration = cls.integration(_db, storage_name)
+        if not integration:
+            integration = cls.integration(_db, storage_name)
         return cls.implementation(integration)
 
     @classmethod
