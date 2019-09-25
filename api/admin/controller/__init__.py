@@ -98,7 +98,7 @@ from core.classifier import (
     NO_NUMBER,
     NO_VALUE
 )
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 
@@ -1252,35 +1252,43 @@ class DashboardController(AdminCirculationManagerController):
 
         return dict({ "circulation_events": events })
 
-    def bulk_circulation_events(self):
-        default = datetime.today()
+    def bulk_circulation_events(self, analytics_exporter=None):
+        date_format = "%Y-%m-%d"
         def get_date(field):
-            value = flask.request.args.get(field, default)
+            # Return a date or datetime object representing the
+            # _beginning_ of the asked-for day.
+            today = date.today()
+            value = flask.request.args.get(field, None)
+            if not value:
+                return today
             try:
-                return datetime.strptime(value, "%Y-%m-%d")
+                return datetime.strptime(value, date_format)
             except ValueError, e:
-                return default
+                # This won't happen in real life since the format is
+                # controlled by the calendar widget. There's no need
+                # to send an error message -- just use the default
+                # date.
+                return today
 
-        # The start date represents the _beginning_ of whatever day it
-        # is.
+        # For the start date we should use the _beginning_ of the day,
+        # which is what get_date returns.
         date_start = get_date("date")
 
-        # The end date represents the _end_ of whatever day it is.
-        # That's why we add one day to the time.
-        date_end = get_date("dateEnd") + timedelta(days=1)
+        # When running the search, the cutoff is the first moment of
+        # the day _after_ the end date. When generating the filename,
+        # though, we should use the date provided by the user.
+        date_end_label = get_date("dateEnd")
+        date_end = date_end_label + timedelta(days=1)
         locations = flask.request.args.get("locations", None)
         library = getattr(flask.request, 'library', None)
         library_short_name = library.short_name if library else None
 
-        exporter = LocalAnalyticsExporter()
-        data = exporter.export(
+        analytics_exporter = analytics_exporter or LocalAnalyticsExporter()
+        data = analytics_exporter.export(
             self._db, date_start, date_end, locations, library
         )
-
-        out_format = "%Y-%m-%d"
-
-        return (data, date_start.strftime(out_format),
-                date_end.strftime(out_format), library_short_name)
+        return (data, date_start.strftime(date_format),
+                date_end_label.strftime(date_format), library_short_name)
 
 class SettingsController(AdminCirculationManagerController):
 
