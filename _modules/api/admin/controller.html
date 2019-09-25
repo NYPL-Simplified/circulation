@@ -133,7 +133,7 @@
     <span class="n">NO_NUMBER</span><span class="p">,</span>
     <span class="n">NO_VALUE</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">func</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">desc</span><span class="p">,</span> <span class="n">nullslast</span><span class="p">,</span> <span class="n">or_</span><span class="p">,</span> <span class="n">and_</span><span class="p">,</span> <span class="n">distinct</span><span class="p">,</span> <span class="n">select</span><span class="p">,</span> <span class="n">join</span>
 
@@ -1287,19 +1287,43 @@
 
         <span class="k">return</span> <span class="nb">dict</span><span class="p">({</span> <span class="s2">&quot;circulation_events&quot;</span><span class="p">:</span> <span class="n">events</span> <span class="p">})</span></div>
 
-<div class="viewcode-block" id="DashboardController.bulk_circulation_events"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.DashboardController.bulk_circulation_events">[docs]</a>    <span class="k">def</span> <span class="nf">bulk_circulation_events</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">default</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">())</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">date</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
-        <span class="n">date_end_request</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dateEnd&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">date_end</span> <span class="o">=</span> <span class="n">date_end_request</span> <span class="ow">or</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<div class="viewcode-block" id="DashboardController.bulk_circulation_events"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.DashboardController.bulk_circulation_events">[docs]</a>    <span class="k">def</span> <span class="nf">bulk_circulation_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">analytics_exporter</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">date_format</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span>
+        <span class="k">def</span> <span class="nf">get_date</span><span class="p">(</span><span class="n">field</span><span class="p">):</span>
+            <span class="c1"># Return a date or datetime object representing the</span>
+            <span class="c1"># _beginning_ of the asked-for day.</span>
+            <span class="n">today</span> <span class="o">=</span> <span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">today</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">date_format</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># This won&#39;t happen in real life since the format is</span>
+                <span class="c1"># controlled by the calendar widget. There&#39;s no need</span>
+                <span class="c1"># to send an error message -- just use the default</span>
+                <span class="c1"># date.</span>
+                <span class="k">return</span> <span class="n">today</span>
+
+        <span class="c1"># For the start date we should use the _beginning_ of the day,</span>
+        <span class="c1"># which is what get_date returns.</span>
+        <span class="n">date_start</span> <span class="o">=</span> <span class="n">get_date</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
+
+        <span class="c1"># When running the search, the cutoff is the first moment of</span>
+        <span class="c1"># the day _after_ the end date. When generating the filename,</span>
+        <span class="c1"># though, we should use the date provided by the user.</span>
+        <span class="n">date_end_label</span> <span class="o">=</span> <span class="n">get_date</span><span class="p">(</span><span class="s2">&quot;dateEnd&quot;</span><span class="p">)</span>
+        <span class="n">date_end</span> <span class="o">=</span> <span class="n">date_end_label</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">locations</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;locations&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">library</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;library&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">library_short_name</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">short_name</span> <span class="k">if</span> <span class="n">library</span> <span class="k">else</span> <span class="kc">None</span>
 
-        <span class="n">exporter</span> <span class="o">=</span> <span class="n">LocalAnalyticsExporter</span><span class="p">()</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">exporter</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">date_end</span><span class="p">,</span> <span class="n">locations</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">date_end</span><span class="p">,</span> <span class="n">library_short_name</span></div></div>
+        <span class="n">analytics_exporter</span> <span class="o">=</span> <span class="n">analytics_exporter</span> <span class="ow">or</span> <span class="n">LocalAnalyticsExporter</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">analytics_exporter</span><span class="o">.</span><span class="n">export</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">date_start</span><span class="p">,</span> <span class="n">date_end</span><span class="p">,</span> <span class="n">locations</span><span class="p">,</span> <span class="n">library</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">date_start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">date_format</span><span class="p">),</span>
+                <span class="n">date_end_label</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">date_format</span><span class="p">),</span> <span class="n">library_short_name</span><span class="p">)</span></div></div>
 
 <div class="viewcode-block" id="SettingsController"><a class="viewcode-back" href="../../../api.admin.controller.html#api.admin.controller.SettingsController">[docs]</a><span class="k">class</span> <span class="nc">SettingsController</span><span class="p">(</span><span class="n">AdminCirculationManagerController</span><span class="p">):</span>
 
