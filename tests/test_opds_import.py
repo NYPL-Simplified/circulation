@@ -470,7 +470,7 @@ class TestOPDSImporter(OPDSImporterTest):
             ['Courtship -- Fiction', 'New York (N.Y.) -- Fiction', 'Fantasy fiction', 'Magic -- Fiction', 'PZ', 'Children', '7'],
             [x.identifier for x in subjects]
         )
-        eq_([1, 1, 1, 1, 1, 100, 100], [x.weight for x in subjects])
+        eq_([1, 1, 1, 1, 1, 1, 1], [x.weight for x in subjects])
 
         r1, r2, r3 = periodical['measurements']
 
