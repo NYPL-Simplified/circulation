@@ -43,7 +43,6 @@ class MirrorUploader():
             raise CannotLoadConfiguration(
                 "No storage integration is configured."
             )
-            return None
 
         [integration] = integrations
         return integration

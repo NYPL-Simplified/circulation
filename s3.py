@@ -92,29 +92,9 @@ class S3Uploader(MirrorUploader):
         URL_TEMPLATE_DEFAULT: S3_BASE + u'%(bucket)s/%(key)s',
     }
 
-    PURPOSE = 'Purpose'
-    COVERS = 'Covers'
-    BOOKS = 'Books'
-    MARC = 'MARC'
-
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Access Key"), "required": True },
         { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key"), "required": True },
-        { "key": PURPOSE, "label": _("Purpose"), "required": True,
-            "type": "select",
-            "options" : [
-                { "key" : COVERS,
-                    "label": _("For cover images"),
-                },
-                { "key" : BOOKS,
-                    "label": _("For books"),
-                },
-                { "key" : MARC,
-                    "label": _("For MARC files"),
-                },
-            ],
-            "default": COVERS,
-        },
         { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"),
           "description" : _("All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
         },
