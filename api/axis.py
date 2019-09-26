@@ -969,7 +969,7 @@ class BibliographicParser(Axis360Parser):
                 subjects.append(
                     SubjectData(
                         type=Subject.BISAC, identifier=None,
-                        name=subject_identifier, weight=1
+                        name=subject_identifier, weight=100
                     )
                 )
 
@@ -989,7 +989,7 @@ class BibliographicParser(Axis360Parser):
                 SubjectData(
                     type=Subject.AXIS_360_AUDIENCE,
                     identifier=audience,
-                    weight=1,
+                    weight=100,
                 )
             )
 
