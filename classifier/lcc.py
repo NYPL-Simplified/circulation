@@ -111,7 +111,9 @@ class LCCClassifier(Classifier):
     def audience(cls, identifier, name):
         if identifier.startswith("PZ"):
             return cls.AUDIENCE_CHILDREN
-        # Everything else is implicitly for adults.
-        return cls.AUDIENCE_ADULT
+
+        # Everything else is _supposedly_ for adults, but we don't
+        # trust that assumption.
+        return None
 
 Classifier.classifiers[Classifier.LCC] = LCCClassifier
