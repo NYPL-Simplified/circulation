@@ -88,6 +88,7 @@ from model import (
     WorkGenre,
     site_configuration_has_changed,
 )
+from model.configuration import ExternalIntegrationLink
 from monitor import (
     CollectionMonitor,
     ReaperMonitor,
@@ -1890,7 +1891,9 @@ class MirrorResourcesScript(CollectionInputScript):
             to use for that Collection.
         """
         for collection in collections:
-            uploader = MirrorUploader.for_collection(collection)
+            uploader = MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.COVERS
+            )
             if uploader:
                 policy = self.replacement_policy(uploader)
                 yield collection, policy

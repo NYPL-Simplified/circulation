@@ -611,7 +611,7 @@ class MARCExporter(object):
         # and Representation, but don't actually mirror it.
         if not mirror:
             storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
-            mirror = MirrorUploader.mirror(self._db, integration)
+            mirror = MirrorUploader.implementation(integration)
             if mirror.NAME != storage_protocol:
                 raise Exception("Mirror integration does not match configured storage protocol")
 

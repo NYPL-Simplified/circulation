@@ -36,6 +36,11 @@ from sqlalchemy.sql.functions import func
 class ExternalIntegrationLink(Base, HasFullTableCache):
 
     __tablename__ = 'externalintegrationslinks'
+
+    COVERS = "covers"
+    MARC = "MARC"
+    BOOKS = "books"
+
     id = Column(Integer, primary_key=True)
     external_integration_id = Column(
         Integer, ForeignKey('externalintegrations.id'), index=True

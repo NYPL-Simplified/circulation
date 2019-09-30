@@ -56,6 +56,7 @@ from model import (
     Subject,
     get_one,
 )
+from model.configuration import ExternalIntegrationLink
 from model.constants import MediaTypes
 from coverage import CoverageFailure
 from util.http import (
@@ -460,7 +461,9 @@ class OPDSImporter(object):
             # If this Collection is configured to mirror the assets it
             # discovers, this will create a MirrorUploader for that
             # Collection. Otherwise, this will return None.
-            mirror = MirrorUploader.for_collection(collection)
+            mirror = MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.COVERS
+            )
         self.mirror = mirror
         self.content_modifier = content_modifier
 

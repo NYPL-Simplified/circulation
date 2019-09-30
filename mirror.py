@@ -2,7 +2,6 @@ from nose.tools import set_trace
 import datetime
 from config import CannotLoadConfiguration
 
-
 class MirrorUploader():
     """Handles the job of uploading a representation's content to
     a mirror that we control.
@@ -27,11 +26,11 @@ class MirrorUploader():
             goal==STORAGE_GOAL is configured.
         """
         if not integration:
-            integration = cls.integration(_db, storage_name)
+            integration = cls.integration_by_name(_db, storage_name)
         return cls.implementation(integration)
 
     @classmethod
-    def integration(cls, _db, storage_name):
+    def integration_by_name(cls, _db, storage_name=None):
         """Find the ExternalIntegration for the mirror."""
         from model import ExternalIntegration
         qu = _db.query(ExternalIntegration).filter(
@@ -41,14 +40,14 @@ class MirrorUploader():
         integrations = qu.all()
         if not integrations:
             raise CannotLoadConfiguration(
-                "No storage integration is configured."
+                "No storage integration with name %s is configured." % storage_name
             )
 
         [integration] = integrations
         return integration
 
     @classmethod
-    def for_collection(cls, collection):
+    def for_collection(cls, collection, purpose):
         """Create a MirrorUploader for the given Collection.
 
         :param collection: Use the mirror configuration for this Collection.
@@ -61,8 +60,7 @@ class MirrorUploader():
             try:
                 from model import Session
                 _db = Session.object_session(collection)
-                #todo get name of storage
-                return cls.mirror(_db)
+                integration = cls._integration_from_collection(_db, collection, purpose)
             except CannotLoadConfiguration, e:
                 return None
         return cls.implementation(integration)
@@ -72,10 +70,32 @@ class MirrorUploader():
         """Instantiate the appropriate implementation of MirrorUploader
         for the given ExternalIntegration.
         """
+        if not integration:
+            return None
         implementation_class = cls.IMPLEMENTATION_REGISTRY.get(
             integration.protocol, cls
         )
         return implementation_class(integration)
+    
+    @classmethod
+    def _integration_from_collection(cls, _db, collection, purpose):
+        """Find the ExternalIntegrationLink for the collection."""
+        from model import ExternalIntegration
+        from model.configuration import ExternalIntegrationLink
+        qu = _db.query(ExternalIntegrationLink).join(
+            ExternalIntegration,
+            ExternalIntegrationLink.external_integration_id==collection.external_integration_id
+        ).filter(
+            ExternalIntegrationLink.purpose==purpose
+        )
+        integrations = qu.all()
+        if not integrations:
+            raise CannotLoadConfiguration(
+                "No storage integration for purpose %s is configured." % purpose
+            )
+
+        [integration] = integrations
+        return integration
 
     def __init__(self, integration):
         """Instantiate a MirrorUploader from an ExternalIntegration.
