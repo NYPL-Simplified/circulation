@@ -205,8 +205,7 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         for type in new_types:
             get_one_or_create(
                 self._db, CirculationEvent,
-                license_pool=lp1, type=type, start=time, end=time, location="10001"
-            )
+                license_pool=lp1, type=type, start=time, end=time, location="10001")
             time += timedelta(minutes=1)
 
         output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
@@ -231,7 +230,6 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         # to gather information from, so it should not be returned even though
         # it has a location.
         eq_(num, len(rows))
-
         # The last event in new_types should not be returned
         eq_(new_types[:-1], [row[1] for row in rows])
 
