@@ -250,42 +250,56 @@ class CollectionSettingsController(SettingsController):
                     return error
                 collection.external_account_id = value
             elif 'mirror_integration_id' in key:
-                collection_service = get_one(
-                    self._db, ExternalIntegration,
-                    id=collection.external_integration_id
+                external_integration_link = self._set_external_integration_link(
+                    self._db, key, value, collection,
                 )
-                storage_service = get_one(
-                    self._db, ExternalIntegration,
-                    id=value,
-                    goal=ExternalIntegration.STORAGE_GOAL)
-                if storage_service:
-                    external_integration_link, ignore = self._set_external_integration_link(
-                        self._db, key,
-                        external_integration=collection_service,
-                        other_external_integration=storage_service
-                    )
-                    if not external_integration_link:
-                        return MISSING_INTEGRATION
+
+                if isinstance(external_integration_link, ProblemDetail):
+                    return external_integration_link
             else:
                 result = self._set_integration_setting(collection.external_integration, setting)
                 if isinstance(result, ProblemDetail):
                     return result
     
     def _set_external_integration_link(
-            self, _db, key, external_integration, other_external_integration
+            self, _db, key, value, collection,
     ):
         """Find or create a ExternalIntegrationLink associated with a Library
-        and an ExternalIntegration.
+        and set a storage ExternalIntegration.
         """
 
+        collection_service = get_one(
+            _db, ExternalIntegration,
+            id=collection.external_integration_id
+        )
+
+        storage_service = None
+        other_integration_id = None
+
         purpose = key.split('_')[0]
-        return get_one_or_create(
+        external_integration_link, ignore = get_one_or_create(
             _db, ExternalIntegrationLink,
             library_id=None,
-            external_integration_id=external_integration.id,
-            other_integration_id=other_external_integration.id,
+            external_integration_id=collection_service.id,
             purpose=purpose
         )
+        if not external_integration_link:
+            return MISSING_INTEGRATION
+
+        if value == self.NO_MIRROR_INTEGRATION:
+            _db.delete(external_integration_link)
+        else:
+            storage_service = get_one(
+                _db, ExternalIntegration,
+                id=value,
+                goal=ExternalIntegration.STORAGE_GOAL
+            )
+            if storage_service:
+                other_integration_id = storage_service.id
+
+        external_integration_link.other_integration_id = other_integration_id
+
+        return external_integration_link
 
     def process_libraries(self, protocol, collection):
         """Go through the libraries that the user is trying to associate with this collection;

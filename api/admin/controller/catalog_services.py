@@ -103,7 +103,8 @@ class CatalogServicesController(SettingsController):
                 external_integration_id=service.id,
                 purpose="MARC"
             )
-            self._db.delete(current_integration_link)
+            if current_integration_link:
+                self._db.delete(current_integration_link)
         else:
             storage_integration = get_one(self._db, ExternalIntegration, id=mirror_integration_id)
             if not storage_integration:

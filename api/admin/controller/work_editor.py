@@ -53,6 +53,7 @@ from core.model import (
     Subject,
     Work
 )
+from core.model.configuration import ExternalIntegrationLink
 import base64
 from datetime import date, datetime, timedelta
 import json
@@ -848,7 +849,7 @@ class WorkController(AdminCirculationManagerController):
             return collection
 
         # Look for an appropriate mirror to store this cover image.
-        mirror = mirror or MirrorUploader.for_collection(collection)
+        mirror = mirror or MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS)
         if not mirror:
             return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))
 

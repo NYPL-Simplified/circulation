@@ -1370,7 +1370,7 @@ class SettingsController(AdminCirculationManagerController):
 
                 # If the setting is a mirror, need to get the value from
                 # ExternalIntegrationLink and not ConfigurationSetting
-                if key == 'mirror_integration_id':
+                if key.endswith('mirror_integration_id'):
                     storage_integration = get_one(
                         self._db, ExternalIntegrationLink, external_integration_id=service.id
                     )

@@ -781,9 +781,18 @@ class CacheMARCFiles(LaneSweeperScript):
             self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
             return
 
-        integration = get_one(
-            self._db, ExternalIntegrationLink, library=library, purpose="MARC"
+        integrationLink = get_one(
+            self._db, ExternalIntegrationLink,
+            external_integration_id=exporter.integration.id,
+            purpose=ExternalIntegrationLink.MARC
         )
+        integration = get_one(self._db, ExternalIntegration,
+            id=integrationLink.other_integration_id
+        )
+
+        if not integration:
+            self.log.info("No storage External Integration was found.")
+            return
 
         # First update the file with ALL the records.
         records = exporter.records(
@@ -1394,7 +1403,7 @@ class DirectoryImportScript(TimestampScript):
             )
 
             try:
-                mirror_integration = MirrorUploader.integration(
+                mirror_integration = MirrorUploader.integration_by_name(
                     self._db, storage_name
                 )
             except CannotLoadConfiguration, e:
@@ -1408,7 +1417,9 @@ class DirectoryImportScript(TimestampScript):
                     collection.name,
                     storage_name
                 )
-        mirror = MirrorUploader.for_collection(collection)
+        mirror = MirrorUploader.for_collection(
+            collection, ExternalIntegrationLink.COVERS
+        )
 
         return collection, mirror
 
