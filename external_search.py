@@ -551,17 +551,18 @@ class ExternalSearchIndex(HasSelfTests):
                     )
 
         for i, results in enumerate(resultset):
-            # Tell each Pagination object about the results found for
-            # the corresponding query.
-            pagination = filters[i][1]
+            # Use the Pagination object to slice up the results if
+            # necessary.
             results = resultset[i]
-            pagination.page_loaded(results)
-
-            # Then use the Pagination object to slice up the results
-            # if necessary.
+            pagination = filters[i][1]
             start = pagination.offset
             stop = start + pagination.size
-            yield results[start:stop]
+            page = results[start:stop]
+
+            # Tell the Pagination object about the page that was just
+            # 'loaded' so that Pagination.next_page will work.
+            pagination.page_loaded(page)
+            yield page
 
     def count_works(self, filter):
         """Instead of retrieving works that match `filter`, count the total."""
