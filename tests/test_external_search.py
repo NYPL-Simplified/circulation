@@ -949,6 +949,35 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         biography_wl.initialize(self._default_library, genres=[biography])
         eq_([[self.lincoln, self.obama]], pages(biography_wl))
 
+        # Finally, verify that we can run multiple queries
+        # simultaneously.
+
+        # Different query strings.
+        self._expect_results_multi(
+            [[self.moby_dick], [self.moby_duck]],
+            [("moby dick", None, first_item),
+             ("moby duck", None, first_item)]
+        )
+
+        # Same query string, different pagination settings.
+        self._expect_results_multi(
+            [[self.moby_dick], [self.moby_duck]],
+            [("moby dick", None, first_item),
+             ("moby dick", None, second_item)]
+        )
+
+        # Same query string, same pagination settings, different
+        # filters. This is different from calling _expect_results() on
+        # a Filter with match_nothing=True. There, the query isn't
+        # even run.  Here the query must be run, even though one
+        # branch will return no results.
+        match_nothing = Filter(match_nothing=True)
+        self._expect_results_multi(
+            [[self.moby_duck], []],
+            [("moby dick", Filter(fiction=False), first_item),
+             (None, match_nothing, first_item)]
+        )
+
 
 class TestFacetFilters(EndToEndSearchTest):
 

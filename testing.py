@@ -772,7 +772,7 @@ class DatabaseTest(object):
             )
             _db = Session.object_session(self)
             DatabaseTest.print_database_class(_db)
-            
+
             TODO: remove before prod
         """
         if not 'TESTING' in os.environ:
@@ -1137,12 +1137,34 @@ class EndToEndSearchTest(ExternalSearchTest):
         """
         if isinstance(expect, Work):
             expect = [expect]
-
         should_be_ordered = kwargs.pop('ordered', True)
-
         hits = self.search.query_works(
             query_string, filter, pagination, debug=True, **kwargs
         )
+
+        query_args = (query_string, filter, pagination)
+        self._compare_hits(
+            expect, hits, query_args, should_be_ordered, **kwargs
+        )
+
+    def _expect_results_multi(self, expect, queries, **kwargs):
+        should_be_ordered = kwargs.pop('ordered', True)
+        resultset = list(
+            self.search.query_works_multi(
+                queries, debug=True, **kwargs
+            )
+        )
+        for i, expect_one_query in enumerate(expect):
+            hits = resultset[i]
+            query_args = queries[i]
+            self._compare_hits(
+                expect_one_query, hits, query_args,
+                should_be_ordered, **kwargs
+            )
+
+    def _compare_hits(self, expect, hits, query_args,
+                      should_be_ordered=True, **kwargs):
+        query_string, filter, pagination = query_args
         results = [x.work_id for x in hits]
         actual = self._db.query(Work).filter(Work.id.in_(results)).all()
         if should_be_ordered:

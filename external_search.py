@@ -22,6 +22,7 @@ from elasticsearch_dsl.query import (
     FunctionScore,
     Match,
     MatchAll,
+    MatchNone,
     MatchPhrase,
     MultiMatch,
     Nested,
@@ -492,7 +493,6 @@ class ExternalSearchIndex(HasSelfTests):
         """
         multi = MultiSearch(using=self.__client)
         for (query_string, filter, pagination) in queries:
-            # TODO: We can't handle filter.match_nothing at this point.
             search = self.create_search_doc(
                 query_string, filter=filter, pagination=pagination, debug=debug
             )
@@ -2343,6 +2343,11 @@ class Filter(SearchBase):
 
         f = None
         nested_filters = defaultdict(list)
+        if self.match_nothing:
+            # This Filter should match nothing. There's no need to
+            # get fancy.
+            return MatchNone(), nested_filters
+
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
             collection_match = Terms(
