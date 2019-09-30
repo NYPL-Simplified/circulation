@@ -1796,6 +1796,8 @@ class DatabaseBackedWorkList(WorkList):
             Work.license_pools
         ).join(
             Work.presentation_edition
+        ).filter(
+            LicensePool.superceded==False
         )
 
         # Apply optimizations.
