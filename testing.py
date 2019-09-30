@@ -61,6 +61,7 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
+from model.configuration import ExternalIntegrationLink
 
 from classifier import Classifier
 from coverage import (
@@ -661,6 +662,24 @@ class DatabaseTest(object):
             integration.set_setting(key, value)
 
         return integration
+    
+    def _external_integration_link(self, integration=None, library=None,
+                                    other_integration=None, purpose="covers"):
+
+        integration = integration or self._external_integration("some protocol")
+        other_integration = other_integration or self._external_integration("some other protocol")
+
+        library_id = library.id if library else None
+
+        external_integration_link, ignore = get_one_or_create(
+            self._db, ExternalIntegrationLink,
+            library_id=library_id,
+            external_integration_id=integration.id,
+            other_integration_id=other_integration.id,
+            purpose=purpose
+        )
+
+        return external_integration_link
 
     def _delegated_patron_identifier(
             self, library_uri=None, patron_identifier=None,

@@ -7,6 +7,7 @@ from . import DatabaseTest
 from ..config import CannotLoadConfiguration
 from ..mirror import MirrorUploader
 from ..model import ExternalIntegration
+from ..model.configuration import ExternalIntegrationLink
 
 class DummySuccessUploader(MirrorUploader):
 
@@ -33,51 +34,52 @@ class TestInitialization(DatabaseTest):
     @property
     def _integration(self):
         """Helper method to make a storage ExternalIntegration."""
+        storage_name = "some storage"
         integration = self._external_integration("my protocol")
         integration.goal = ExternalIntegration.STORAGE_GOAL
+        integration.name = storage_name
         return integration
 
-    def test_sitewide(self):
-        # If there's no integration with goal=STORAGE,
-        # MirrorUploader.sitewide raises an exception.
+    def test_mirror(self):
+        storage_name = "some storage"
+        # If there's no integration with goal=STORAGE or name=storage_name,
+        # MirrorUploader.mirror raises an exception.
         assert_raises_regexp(
             CannotLoadConfiguration,
-            'No storage integration is configured',
-            MirrorUploader.sitewide, self._db
+            "No storage integration with name 'some storage' is configured",
+            MirrorUploader.mirror, self._db, storage_name
         )
 
-        # If there's only one, sitewide() uses it to initialize a
+        # If there's only one, mirror() uses it to initialize a
         # MirrorUploader.
         integration = self._integration
-        uploader = MirrorUploader.sitewide(self._db)
+        uploader = MirrorUploader.mirror(self._db, integration=integration)
         assert isinstance(uploader, MirrorUploader)
 
-        # If there are multiple integrations with goal=STORAGE, no
-        # sitewide configuration can be determined.
-        duplicate = self._integration
+    def test_integration_by_name(self):
+        integration = self._integration
+
+        # No name was passed so nothing is found
         assert_raises_regexp(
             CannotLoadConfiguration,
-            'Multiple storage integrations are configured',
-            MirrorUploader.sitewide, self._db
+            "No storage integration with name 'None' is configured",
+            MirrorUploader.integration_by_name, self._db
         )
+
+        # Correct name was passed
+        integration = MirrorUploader.integration_by_name(self._db, integration.name)
+        assert isinstance(integration, ExternalIntegration)
 
     def test_for_collection(self):
         # This collection has no mirror_integration, so
         # there is no MirrorUploader for it.
         collection = self._collection()
-        eq_(None, MirrorUploader.for_collection(collection))
-
-        # We can tell the method that we're okay with a sitewide
-        # integration instead of an integration specifically for this
-        # collection.
-        sitewide_integration = self._integration
-        uploader = MirrorUploader.for_collection(collection)
-        assert isinstance(uploader, MirrorUploader)
+        eq_(None, MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS))
 
         # This collection has a properly configured mirror_integration,
         # so it can have an MirrorUploader.
         collection.mirror_integration = self._integration
-        uploader = MirrorUploader.for_collection(collection)
+        uploader = MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS)
         assert isinstance(uploader, MirrorUploader)
 
         # This collection has a mirror_integration but it has the
@@ -87,8 +89,31 @@ class TestInitialization(DatabaseTest):
         assert_raises_regexp(
             CannotLoadConfiguration,
             "from an integration with goal=licenses",
-            MirrorUploader.for_collection, collection
+            MirrorUploader.for_collection, collection, ExternalIntegrationLink.COVERS
         )
+    
+    def test__integration_from_collection(self):
+        wrong_purpose = "isbn"
+        collection = self._collection()
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "No storage integration for purpose isbn is configured",
+            MirrorUploader._integration_from_collection, self._db, collection, wrong_purpose
+        )
+
+        external_integration = self._external_integration("some protocol")
+        collection.external_integration_id = external_integration.id
+        purpose = "covers"
+        external_integration_link = self._external_integration_link(
+            integration=external_integration, purpose=purpose
+        )
+
+        integration = MirrorUploader._integration_from_collection(
+            self._db, collection=collection, purpose=purpose
+        )
+
+        assert isinstance(integration, ExternalIntegration)
 
     def test_constructor(self):
         # You can't create a MirrorUploader with an integration
@@ -102,14 +127,13 @@ class TestInitialization(DatabaseTest):
         )
 
     def test_implementation_registry(self):
-        """The implementation class used for a given ExternalIntegration
-        is controlled by the integration's protocol and the contents
-        of the MirrorUploader's implementation registry.
-        """
+        # The implementation class used for a given ExternalIntegration
+        # is controlled by the integration's protocol and the contents
+        # of the MirrorUploader's implementation registry.
         MirrorUploader.IMPLEMENTATION_REGISTRY["my protocol"] = DummyFailureUploader
 
         integration = self._integration
-        uploader = MirrorUploader.sitewide(self._db)
+        uploader = MirrorUploader.mirror(self._db, integration=integration)
         assert isinstance(uploader, DummyFailureUploader)
         del MirrorUploader.IMPLEMENTATION_REGISTRY["my protocol"]
 

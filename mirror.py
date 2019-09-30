@@ -40,7 +40,7 @@ class MirrorUploader():
         integrations = qu.all()
         if not integrations:
             raise CannotLoadConfiguration(
-                "No storage integration with name %s is configured." % storage_name
+                "No storage integration with name '%s' is configured." % storage_name
             )
 
         [integration] = integrations
@@ -82,10 +82,11 @@ class MirrorUploader():
         """Find the ExternalIntegrationLink for the collection."""
         from model import ExternalIntegration
         from model.configuration import ExternalIntegrationLink
-        qu = _db.query(ExternalIntegrationLink).join(
-            ExternalIntegration,
-            ExternalIntegrationLink.external_integration_id==collection.external_integration_id
+        qu = _db.query(ExternalIntegration).join(
+            ExternalIntegrationLink,
+            ExternalIntegrationLink.other_integration_id==ExternalIntegration.id
         ).filter(
+            ExternalIntegrationLink.external_integration_id==collection.external_integration_id,
             ExternalIntegrationLink.purpose==purpose
         )
         integrations = qu.all()
