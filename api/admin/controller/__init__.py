@@ -60,6 +60,7 @@ from core.model import (
     Work,
     WorkGenre,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.lane import (Lane, WorkList)
 from core.log import (LogConfiguration, SysLogger, Loggly, CloudwatchLogs)
 from core.util.problem_detail import ProblemDetail
@@ -1366,12 +1367,24 @@ class SettingsController(AdminCirculationManagerController):
             settings = dict()
             for setting in protocol.get("settings", []):
                 key = setting.get("key")
-                if setting.get("type") == "list":
-                    value = ConfigurationSetting.for_externalintegration(
-                        key, service).json_value
+
+                # If the setting is a mirror, need to get the value from
+                # ExternalIntegrationLink and not ConfigurationSetting
+                if key == 'mirror_integration_id':
+                    storage_integration = get_one(
+                        self._db, ExternalIntegrationLink, external_integration_id=service.id
+                    )
+                    if storage_integration:
+                        value = str(storage_integration.other_integration_id)
+                    else:
+                        value = self.NO_MIRROR_INTEGRATION
                 else:
-                    value = ConfigurationSetting.for_externalintegration(
-                        key, service).value
+                    if setting.get("type") == "list":
+                        value = ConfigurationSetting.for_externalintegration(
+                            key, service).json_value
+                    else:
+                        value = ConfigurationSetting.for_externalintegration(
+                            key, service).value
                 settings[key] = value
 
             service_info = dict(
@@ -1438,9 +1451,10 @@ class SettingsController(AdminCirculationManagerController):
     def _set_integration_settings_and_libraries(self, integration, protocol):
         settings = protocol.get("settings")
         for setting in settings:
-            result = self._set_integration_setting(integration, setting)
-            if isinstance(result, ProblemDetail):
-                return result
+            if setting.get('key') != 'mirror_integration_id':
+                result = self._set_integration_setting(integration, setting)
+                if isinstance(result, ProblemDetail):
+                    return result
 
         if not protocol.get("sitewide") or protocol.get("library_settings"):
             integration.libraries = []
@@ -1538,7 +1552,7 @@ class SettingsController(AdminCirculationManagerController):
 
         return self_test_results
 
-    def _mirror_integration_setting(self):
+    def _mirror_integration_setting(self, type=""):
         """Create a setting interface for selecting a storage integration to
         be used when mirroring items from a collection.
         """
@@ -1549,9 +1563,10 @@ class SettingsController(AdminCirculationManagerController):
         ).all()
         if not integrations:
             return
+        key = "%s_mirror_integration_id" % type.lower() if type else "mirror_integration_id"
         mirror_integration_setting = {
-            "key": "mirror_integration_id",
-            "label": _("Mirror"),
+            "key": key,
+            "label": _("%s Mirror" % type),
             "description": _("Any cover images or free books encountered while importing content from this collection can be mirrored to a server you control."),
             "type": "select",
             "options" : [
@@ -1563,7 +1578,7 @@ class SettingsController(AdminCirculationManagerController):
         }
         for integration in integrations:
             mirror_integration_setting['options'].append(
-                dict(key=integration.id, label=integration.name)
+                dict(key=str(integration.id), label=integration.name)
             )
         return mirror_integration_setting
 

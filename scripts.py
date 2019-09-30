@@ -62,6 +62,7 @@ from core.model import (
     Timestamp,
     Work,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.scripts import (
     Script as CoreScript,
     DatabaseMigrationInitializationScript,
@@ -780,9 +781,13 @@ class CacheMARCFiles(LaneSweeperScript):
             self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
             return
 
+        integration = get_one(
+            self._db, ExternalIntegrationLink, library=library, purpose="MARC"
+        )
+
         # First update the file with ALL the records.
         records = exporter.records(
-            lane, annotator=annotator,
+            lane, annotator=annotator, integration=integration
         )
 
         # Then create a new file with changes since the last update.
@@ -793,6 +798,7 @@ class CacheMARCFiles(LaneSweeperScript):
 
             records = exporter.records(
                 lane, annotator=annotator, start_time=start_time,
+                integration=integration
             )
 
 

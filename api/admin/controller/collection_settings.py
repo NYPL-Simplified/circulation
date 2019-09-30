@@ -14,6 +14,7 @@ from core.model import (
     Library,
 )
 from core.util.problem_detail import ProblemDetail
+from core.model.configuration import ExternalIntegrationLink
 
 class CollectionSettingsController(SettingsController):
     def __init__(self, manager):
@@ -24,10 +25,11 @@ class CollectionSettingsController(SettingsController):
         protocols = super(CollectionSettingsController, self)._get_collection_protocols(self.PROVIDER_APIS)
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.
-        mirror_integration_setting = self._mirror_integration_setting()
-        if mirror_integration_setting:
+        mirror_type = ['Covers', 'Books']
+        mirror_integration_settings = [self._mirror_integration_setting(type) for type in mirror_type]
+        if mirror_integration_settings:
             for protocol in protocols:
-                protocol['settings'].append(mirror_integration_setting)
+                protocol['settings'] += mirror_integration_settings
         return protocols
 
     def process_collections(self):
@@ -95,8 +97,17 @@ class CollectionSettingsController(SettingsController):
         for protocol_setting in protocol_settings:
             key = protocol_setting.get("key")
             if not collection_settings or key not in collection_settings:
-                if key == 'mirror_integration_id':
-                    value = collection_object.mirror_integration_id or self.NO_MIRROR_INTEGRATION
+                if 'mirror_integration_id' in key:
+                    storage_integration = get_one(
+                        self._db, ExternalIntegrationLink,
+                        external_integration_id=collection_object.external_integration_id,
+                        # either 'books' or 'covers'
+                        purpose=key.split('_')[0]
+                    )
+                    if storage_integration:
+                        value = str(storage_integration.other_integration_id)
+                    else:
+                        value = self.NO_MIRROR_INTEGRATION
                 elif protocol_setting.get("type") == "list":
                     value = collection_object.external_integration.setting(key).json_value
                 else:
@@ -225,23 +236,6 @@ class CollectionSettingsController(SettingsController):
                 _("The collection configuration is missing a required setting: %(setting)s",
                   setting=setting.get("label")))
 
-    def get_mirror_integration_id(self, value):
-        """If the user is trying to set up a mirror integration, check that the
-        attempted configuration for the mirror integration is valid; if so,
-        find the mirror integration's id."""
-
-        if value == self.NO_MIRROR_INTEGRATION:
-            integration_id = None
-        else:
-            integration = get_one(
-                self._db, ExternalIntegration, id=value
-            )
-            if not integration:
-                return MISSING_SERVICE
-            if integration.goal != ExternalIntegration.STORAGE_GOAL:
-                return INTEGRATION_GOAL_CONFLICT
-            return integration.id
-
     def process_settings(self, settings, collection):
         """Go through the settings that the user has just submitted for this collection,
         and check that each setting is valid and that no required settings are missing.  If
@@ -255,15 +249,43 @@ class CollectionSettingsController(SettingsController):
                 if error:
                     return error
                 collection.external_account_id = value
-            elif key == 'mirror_integration_id':
-                integration_id = self.get_mirror_integration_id(value)
-                if isinstance(integration_id, ProblemDetail):
-                    return integration_id
-                collection.mirror_integration_id = integration_id
+            elif 'mirror_integration_id' in key:
+                collection_service = get_one(
+                    self._db, ExternalIntegration,
+                    id=collection.external_integration_id
+                )
+                storage_service = get_one(
+                    self._db, ExternalIntegration,
+                    id=value,
+                    goal=ExternalIntegration.STORAGE_GOAL)
+                if storage_service:
+                    external_integration_link, ignore = self._set_external_integration_link(
+                        self._db, key,
+                        external_integration=collection_service,
+                        other_external_integration=storage_service
+                    )
+                    if not external_integration_link:
+                        return MISSING_INTEGRATION
             else:
                 result = self._set_integration_setting(collection.external_integration, setting)
                 if isinstance(result, ProblemDetail):
                     return result
+    
+    def _set_external_integration_link(
+            self, _db, key, external_integration, other_external_integration
+    ):
+        """Find or create a ExternalIntegrationLink associated with a Library
+        and an ExternalIntegration.
+        """
+
+        purpose = key.split('_')[0]
+        return get_one_or_create(
+            _db, ExternalIntegrationLink,
+            library_id=None,
+            external_integration_id=external_integration.id,
+            other_integration_id=other_external_integration.id,
+            purpose=purpose
+        )
 
     def process_libraries(self, protocol, collection):
         """Go through the libraries that the user is trying to associate with this collection;

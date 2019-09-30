@@ -164,9 +164,9 @@ class StorageServicesController(SettingsController):
         protocol = flask.request.form.get("protocol")
         name = flask.request.form.get("name")
         is_new = False
-        # protocol_error = self.validate_protocol(protocol)
-        # if protocol_error:
-        #     return protocol_error
+        protocol_error = self.validate_protocol(protocol)
+        if protocol_error:
+            return protocol_error
 
         id = flask.request.form.get("id")
         if id:
@@ -185,6 +185,11 @@ class StorageServicesController(SettingsController):
                 self._db.rollback()
                 return storage_service
 
+        protocol_error = self.set_protocols(storage_service, protocol, self.protocols)
+
+        if protocol_error:
+            self._db.rollback()
+            return protocol_error
         storage_service.name = name
 
         if is_new:
