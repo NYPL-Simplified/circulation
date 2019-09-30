@@ -37,6 +37,7 @@ from circulation_exceptions import *
 
 from core.model import (
     get_one_or_create,
+    Classification,
     Collection,
     Contributor,
     Credential,
