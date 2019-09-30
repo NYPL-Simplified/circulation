@@ -448,75 +448,50 @@ class ExternalSearchIndex(HasSelfTests):
                     debug=False):
         """Run a search query.
 
-        :param query_string: The string to search for.
+        This works by calling query_works_multi().
 
-        :param filter: A Filter object, or a list of Filter objects,
-            used to filter out works that would otherwise match the
-            query string.
-        :param pagination: A Pagination object, or a list of
-            Pagination objects, used to get a subset of the search
-            results. If this is a list, each Pagination object will
-            be used with the Filter object in the corresponding position 
-            of the `filter` list.
+        :param query_string: The string to search for.
+        :param filter: A Filter object, used to filter out works that
+            would otherwise match the query string.
+        :param pagination: A Pagination object, used to get a subset
+            of the search results.
         :param debug: If this is True, debugging information will
             be gathered and logged. The search query will ask
             ElasticSearch for all available fields, not just the
             fields known to be used by the feed generation code.  This
             all comes at a slight performance cost.
-        :return: A list of Hit objects (or a list of lists of Hit
-            objects, if `filter` was a list) containing information
-            about the search results. This will include the values of
-            any script fields calculated by ElasticSearch during the
+        :return: A list of Hit objects containing information about
+            the search results. This will include the values of any
+            script fields calculated by ElasticSearch during the
             search process.
         """
         if not self.works_alias:
             return []
 
         if isinstance(filter, Filter) and filter.match_nothing is True:
-            # There's one search, which we already know should match
-            # nothing.  We don't even need to perform the search.
+            # We already know this search should match nothing.  We
+            # don't even need to perform the search.
             return []
 
-        if isinstance(filter, list):
-            filters = filter
-            return_list = True
-        else:
-            filters = [filter]
-            return_list = False
-        
-        if not pagination:
-            pagination = [Pagination.default() for x in filters]
-        if isinstance(pagination, list):
-            paginations = pagination
-        else:
-            paginations = [pagination]
-
-        num_filters = len(filters)
-        num_paginations = len(paginations)
-        if num_filters != num_paginations:
-            raise ValueError(
-                "Length of filter list (%d) does not match length of pagination list (%d)!" % (num_filters, num_paginations)
-            )
-
-        pairs = [(filters[i], paginations[i]) for i in range(num_filters)]
-        results = [
-            x for x in self.query_works_multi(query_string, pairs, debug)
+        pagination = pagination or Pagination.default()
+        query_data = (query_string, filter, pagination)
+        [result] = [
+            x for x in self.query_works_multi([query_data], debug)
         ]
-        if return_list:
-            return results
-        [result] = results
         return result
 
-    def query_works_multi(self, query_string, filters, debug=False):
-        """
-        :param filters: A list of (Filter, Pagination) 2-tuples.
+    def query_works_multi(self, queries, debug=False):
+        """Run several queries simultaneously and return the results
+        as a big list.
+
+        :param queries: A list of (query string, Filter, Pagination) 3-tuples.
 
         :yield: A sequence of lists, one per item in `filters`,
-            each containing the search results from that (Filter, Pagination)
-            2-tuple.
+            each containing the search results from that
+            (query string, Filter, Pagination) 3-tuple.
         """
-        multi = MultiSearch(using=self.__client)        
-        for filter, pagination in filters:
+        multi = MultiSearch(using=self.__client)
+        for (query_string, filter, pagination) in queries:
             # TODO: We can't handle filter.match_nothing at this point.
             search = self.create_search_doc(
                 query_string, filter=filter, pagination=pagination, debug=debug
@@ -554,7 +529,7 @@ class ExternalSearchIndex(HasSelfTests):
             # Use the Pagination object to slice up the results if
             # necessary.
             results = resultset[i]
-            pagination = filters[i][1]
+            query_string, filter, pagination = queries[i]
             start = pagination.offset
             stop = start + pagination.size
             page = results[start:stop]
