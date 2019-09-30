@@ -485,7 +485,7 @@ class ExternalSearchIndex(HasSelfTests):
             return_list = False
         
         if not pagination:
-            pagination = [Pagination.default() for x in filter]
+            pagination = [Pagination.default() for x in filters]
         if isinstance(pagination, list):
             paginations = pagination
         else:
@@ -499,7 +499,9 @@ class ExternalSearchIndex(HasSelfTests):
             )
 
         pairs = [(filters[i], paginations[i]) for i in range(num_filters)]
-        results = self.query_works_multi(query_string, pairs, debug)
+        results = [
+            x for x in self.query_works_multi(query_string, pairs, debug)
+        ]
         if return_list:
             return results
         [result] = results
@@ -508,6 +510,10 @@ class ExternalSearchIndex(HasSelfTests):
     def query_works_multi(self, query_string, filters, debug=False):
         """
         :param filters: A list of (Filter, Pagination) 2-tuples.
+
+        :yield: A sequence of lists, one per item in `filters`,
+            each containing the search results from that (Filter, Pagination)
+            2-tuple.
         """
         multi = MultiSearch(using=self.__client)        
         for filter, pagination in filters:
@@ -527,6 +533,7 @@ class ExternalSearchIndex(HasSelfTests):
 
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
+        a = time.time()
         resultset = [x for x in multi.execute()]
 
         if debug:
@@ -543,11 +550,18 @@ class ExternalSearchIndex(HasSelfTests):
                         result.meta['score'] or 0, result.meta['shard']
                     )
 
-        # Tell the Pagination object about this page -- this may help
-        # it set up to generate a link to the next page.
-        pagination.page_loaded(results)
+        for i, results in enumerate(resultset):
+            # Tell each Pagination object about the results found for
+            # the corresponding query.
+            pagination = filters[i][1]
+            results = resultset[i]
+            pagination.page_loaded(results)
 
-        return results
+            # Then use the Pagination object to slice up the results
+            # if necessary.
+            start = pagination.offset
+            stop = start + pagination.size
+            yield results[start:stop]
 
     def count_works(self, filter):
         """Instead of retrieving works that match `filter`, count the total."""
