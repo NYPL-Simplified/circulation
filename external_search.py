@@ -11,6 +11,7 @@ from elasticsearch.exceptions import (
 )
 from elasticsearch_dsl import (
     Index,
+    MultiSearch,
     Search,
     SF,
 )
@@ -448,49 +449,71 @@ class ExternalSearchIndex(HasSelfTests):
         """Run a search query.
 
         :param query_string: The string to search for.
-        :param filter: A Filter object, used to filter out works that
-            would otherwise match the query string.
-        :param pagination: A Pagination object, used to get a subset
-            of the search results.
+
+        :param filter: A Filter object, or a list of Filter objects,
+            used to filter out works that would otherwise match the
+            query string.
+
+        :param pagination: A Pagination object, or a list of
+            Pagination objects, used to get a subset of the search
+            results. If this is a list, each Pagination object will
+            be used with the Filter object in the corresponding position 
+            of the `filter` list.
         :param debug: If this is True, debugging information will
             be gathered and logged. The search query will ask
             ElasticSearch for all available fields, not just the
             fields known to be used by the feed generation code.  This
             all comes at a slight performance cost.
-        :return: A list of Hit objects containing information about
-            the search results, including the values of any script fields
-            calculated by ElasticSearch during the search process.
+        :return: A list of Hit objects (or a list of lists of Hit
+            objects, if `filter` was a list) containing information
+            about the search results. This will include the values of
+            any script fields calculated by ElasticSearch during the
+            search process.
         """
         if not self.works_alias:
             return []
 
+        if not isinstance(filter, list):
+            filter = [filter]
         if not pagination:
-            pagination = Pagination.default()
+            pagination = [Pagination.default() for x in filter]
+        if not isinstance(pagination, list):
+            pagination = [pagination]
 
-        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug)
-        if filter is not None and filter.match_nothing is True:
-            # We already know that the search should match nothing.
-            # We don't even need to perform the search.
-            return []
+        multi = MultiSearch(using=self.__client)        
+        predefined_results = dict()
+        for i, fil in enumerate(filter):
+            if fil is not None and fil.match_nothing is True:
+                # We already know that the search should match nothing.
+                # We don't even need to perform the search.
+                predefined_results[fil] = []
+                continue
+            pag = pagination[i]
+            search = self.create_search_doc(
+                query_string, filter=fil, pagination=pag, debug=debug
+            )
+            function_scores = filter.scoring_functions if filter else None
+            if function_scores:
+                function_score = FunctionScore(
+                    query=dict(match_all=dict()),
+                    functions=function_scores,
+                    score_mode="sum"
+                )
+                search = search.query(function_score)
+            multi = multi.add(search)
+
         start = pagination.offset
         stop = start + pagination.size
 
-        function_scores = filter.scoring_functions if filter else None
-        if function_scores:
-            function_score = FunctionScore(
-                query=dict(match_all=dict()),
-                functions=function_scores,
-                score_mode="sum"
-            )
-            search = search.query(function_score)
         a = time.time()
 
-        results = search[start:stop]
-        # Convert the Search object into a list of hits.
-        #
+
+
+
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
-        results = [x for x in results]
+        responses = [x for x in multi.execute()]
+        results = responses[0][start:stop]
 
         if debug:
             b = time.time()
@@ -3150,6 +3173,6 @@ class SearchIndexCoverageProvider(WorkPresentationProvider):
 
         records = list(successes)
         for (work, error) in failures:
-            records.append(CoverageFailure(work, error))
+            records.append(CoverageFailure(work, repr(error)))
 
         return records
