@@ -50,49 +50,78 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         ]
         num = len(types)
         time = datetime.now() - timedelta(minutes=len(types))
+        location = "11377"
+
+        # Create a bunch of circulation events of different types,
+        # all with the same .location.
         for type in types:
             get_one_or_create(
                 self._db, CirculationEvent,
-                license_pool=lp1, type=type, start=time, end=time)
+                license_pool=lp1, type=type, start=time, end=time,
+                location=location
+            )
             time += timedelta(minutes=1)
+
+        # Create a circulation event for a different book,
+        # with no .location.
         get_one_or_create(
             self._db, CirculationEvent,
-            license_pool=lp2, type=types[3], start=time, end=time)
+            license_pool=lp2, type=types[3], start=time, end=time
+        )
 
+        # Run a query that excludes the last event created.
         today = date.today() - timedelta(days=1)
         output = exporter.export(self._db, today, time)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
         eq_(num, len(rows))
-        eq_(types, [row[1] for row in rows])
-        eq_([identifier1.identifier]*num, [row[2] for row in rows])
-        eq_([identifier1.type]*num, [row[3] for row in rows])
-        eq_([edition1.title]*num, [row[4] for row in rows])
-        eq_([edition1.author]*num, [row[5] for row in rows])
-        eq_(["fiction"]*num, [row[6] for row in rows])
-        eq_([w1.audience]*num, [row[7] for row in rows])
-        eq_([edition1.publisher or '']*num, [row[8] for row in rows])
-        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
-        eq_([edition1.language]*num, [row[10] for row in rows])
-        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
-        eq_([ordered_genre_string]*num, [row[12] for row in rows])
 
+        # We've got one circulation event for each type.
+        eq_(types, [row[1] for row in rows])
+
+        # After the start date and event type, every row has the same
+        # data. For the rest of this test we'll be using this block of
+        # data to verify that circulation events for w1 look like we'd
+        # expect.
+        constant = [
+            identifier1.identifier, identifier1.type,
+            edition1.title, edition1.author, "fiction", w1.audience,
+            edition1.publisher or '', edition1.imprint or '',
+            edition1.language, w1.target_age_string or '',
+            ordered_genre_string, location
+        ]
+        for row in rows:
+            eq_(14, len(row))
+            eq_(constant, row[2:])
+
+        # Now run a query that includes the last event created.
         output = exporter.export(self._db, today, time + timedelta(minutes=1))
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
         rows = [row for row in reader][1::] # skip header row
         eq_(num + 1, len(rows))
         eq_(types + [types[3]], [row[1] for row in rows])
-        eq_([identifier1.identifier]*num + [identifier2.identifier], [row[2] for row in rows])
-        eq_([identifier1.type]*num + [identifier2.type], [row[3] for row in rows])
-        eq_([edition1.title]*num + [edition2.title], [row[4] for row in rows])
-        eq_([edition1.author]*num + [edition2.author], [row[5] for row in rows])
-        eq_(["fiction"]*(num+1), [row[6] for row in rows])
-        eq_([w1.audience]*num + [w2.audience], [row[7] for row in rows])
-        eq_([edition1.publisher or '']*num + [edition2.publisher or ''], [row[8] for row in rows])
-        eq_([edition1.imprint or '']*num + [edition2.imprint or ''], [row[9] for row in rows])
-        eq_([edition1.language]*num + [edition2.language], [row[10] for row in rows])
-        eq_([w1.target_age_string or ""]*num + [w2.target_age_string or ''], [row[11] for row in rows])
-        eq_([ordered_genre_string]*num + [genres[1].name], [row[12] for row in rows])
+
+        # All but the last row is the same as in the previous report.
+        all_but_last_row = rows[:-1]
+        eq_(types, [row[1] for row in all_but_last_row])
+        for row in all_but_last_row:
+            eq_(14, len(row))
+            eq_(constant, row[2:])
+
+        # Now let's look at the last row. It's got metadata from a
+        # different book, and notably, there is no location.
+        no_location = ''
+        eq_(
+            [
+                types[3], identifier2.identifier, identifier2.type,
+                edition2.title, edition2.author, "fiction",
+                w2.audience, edition2.publisher or '',
+                edition2.imprint or '', edition2.language,
+                w2.target_age_string or '', genres[1].name,
+                no_location
+            ],
+            rows[-1][1:]
+        )
 
         output = exporter.export(self._db, today, today)
         reader = csv.reader([row for row in output.split("\r\n") if row], dialect=csv.excel)
@@ -107,7 +136,9 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         for type in types:
             get_one_or_create(
                 self._db, CirculationEvent,
-                license_pool=lp1, type=type, start=time, end=time, library=library)
+                license_pool=lp1, type=type, start=time, end=time,
+                library=library, location=location
+            )
             time += timedelta(minutes=1)
 
         today = date.today() - timedelta(days=1)
@@ -128,17 +159,9 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         # There are five events with a library ID.
         eq_(num, len(rows))
         eq_(types, [row[1] for row in rows])
-        eq_([identifier1.identifier]*num, [row[2] for row in rows])
-        eq_([identifier1.type]*num, [row[3] for row in rows])
-        eq_([edition1.title]*num, [row[4] for row in rows])
-        eq_([edition1.author]*num, [row[5] for row in rows])
-        eq_(["fiction"]*num, [row[6] for row in rows])
-        eq_([w1.audience]*num, [row[7] for row in rows])
-        eq_([edition1.publisher or '']*num, [row[8] for row in rows])
-        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
-        eq_([edition1.language]*num, [row[10] for row in rows])
-        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
-        eq_([ordered_genre_string]*num, [row[12] for row in rows])
+        for row in rows:
+            eq_(14, len(row))
+            eq_(constant, row[2:])
 
         # We are looking for events from a different library but there
         # should be no events associated with this library.
@@ -182,7 +205,8 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         for type in new_types:
             get_one_or_create(
                 self._db, CirculationEvent,
-                license_pool=lp1, type=type, start=time, end=time, location="10001")
+                license_pool=lp1, type=type, start=time, end=time, location="10001"
+            )
             time += timedelta(minutes=1)
 
         output = exporter.export(self._db, today, time + timedelta(minutes=1), user_added_locations)
@@ -207,16 +231,12 @@ class TestLocalAnalyticsExporter(DatabaseTest):
         # to gather information from, so it should not be returned even though
         # it has a location.
         eq_(num, len(rows))
+
         # The last event in new_types should not be returned
         eq_(new_types[:-1], [row[1] for row in rows])
-        eq_([identifier1.identifier]*num, [row[2] for row in rows])
-        eq_([identifier1.type]*num, [row[3] for row in rows])
-        eq_([edition1.title]*num, [row[4] for row in rows])
-        eq_([edition1.author]*num, [row[5] for row in rows])
-        eq_(["fiction"]*num, [row[6] for row in rows])
-        eq_([w1.audience]*num, [row[7] for row in rows])
-        eq_([edition1.publisher or '']*num, [row[8] for row in rows])
-        eq_([edition1.imprint or '']*num, [row[9] for row in rows])
-        eq_([edition1.language]*num, [row[10] for row in rows])
-        eq_([w1.target_age_string or ""]*num, [row[11] for row in rows])
-        eq_([ordered_genre_string]*num, [row[12] for row in rows])
+
+        # After the start time and event type, the rest of the row is
+        # the same content we've come to expect.
+        for row in rows:
+            eq_(14, len(row))
+            eq_(constant, row[2:])
