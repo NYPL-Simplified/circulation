@@ -30,6 +30,7 @@ from core.util.http import (
 
 from core.model import (
     CirculationEvent,
+    Classification,
     Collection,
     ConfigurationSetting,
     DataSource,
