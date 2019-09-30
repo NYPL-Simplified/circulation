@@ -200,6 +200,10 @@ class ONIXExtractor(object):
 
             subject_tags = parser._xpath(record, 'descriptivedetail/subject')
             subjects = []
+
+            # TODO: How much do we trust this subject data? We could
+            # bump up the weight quite a bit if it comes right from
+            # the publisher.
             for tag in subject_tags:
                 type = parser.text_of_subtag(tag, 'b067')
                 if type in cls.SUBJECT_TYPES:

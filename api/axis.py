@@ -38,6 +38,7 @@ from core.metadata_layer import (
 
 from core.model import (
     CirculationEvent,
+    Classification,
     Collection,
     Contributor,
     DataSource,
@@ -969,7 +970,8 @@ class BibliographicParser(Axis360Parser):
                 subjects.append(
                     SubjectData(
                         type=Subject.BISAC, identifier=None,
-                        name=subject_identifier, weight=100
+                        name=subject_identifier,
+                        weight=Classification.TRUSTED_DISTRIBUTOR_WEIGHT
                     )
                 )
 
@@ -989,7 +991,7 @@ class BibliographicParser(Axis360Parser):
                 SubjectData(
                     type=Subject.AXIS_360_AUDIENCE,
                     identifier=audience,
-                    weight=100,
+                    weight=Classification.TRUSTED_DISTRIBUTOR_WEIGHT,
                 )
             )
 

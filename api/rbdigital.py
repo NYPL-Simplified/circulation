@@ -1862,34 +1862,40 @@ class RBDigitalRepresentationExtractor(object):
                         contributor = ContributorData(sort_name=sort_name, display_name=display_name, roles=roles)
                         contributors.append(contributor)
 
+            trusted_weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
             subjects = []
             if 'genres' in book:
                 # example: "FICTION / Humorous / General"
                 genres = book['genres']
                 subject = SubjectData(
                     type=Subject.BISAC, identifier=None, name=genres,
-                    weight=100
+                    weight=trusted_weight,
                 )
                 subjects.append(subject)
 
+            # TODO: It's not clear why we trust these classifications
+            # so highly -- these are the highest weights we give any
+            # classifications in the system.
             if 'primaryGenre' in book:
                 # example: "humorous-fiction,mystery,womens-fiction"
                 genres = book['primaryGenre']
                 for genre in genres.split(","):
                     subject = SubjectData(
                         type=Subject.RBDIGITAL, identifier=genre.strip(),
-                        weight=200
+                        weight=trusted_weight * 2,
                     )
                     subjects.append(subject)
 
             # audience options are: adult, beginning-reader, childrens, young-adult
             # NOTE: In RBDigital metadata, audience can be set to "Adult" while publisher is "HarperTeen".
+            # TODO: Again, maybe this could be scaled down -- do we trust this
+            # 5 times more than normal?
             audience = book.get('audience', None)
             if audience:
                 subject = SubjectData(
                     type=Subject.RBDIGITAL_AUDIENCE,
                     identifier=audience.strip().lower(),
-                    weight=500
+                    weight=trusted_weight * 5
                 )
                 subjects.append(subject)
 

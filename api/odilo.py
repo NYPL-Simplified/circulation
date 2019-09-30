@@ -229,15 +229,17 @@ class OdiloRepresentationExtractor(object):
         language = book.get('language', 'spa')
 
         subjects = []
+        trusted_weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
         for subject in book.get('subjects', []):
-            subjects.append(SubjectData(type=Subject.TAG, identifier=subject, weight=100))
+            subjects.append(SubjectData(type=Subject.TAG, identifier=subject, weight=trusted_weight))
 
         for subjectBisacCode in book.get('subjectsBisacCodes', []):
-            subjects.append(SubjectData(type=Subject.BISAC, identifier=subjectBisacCode, weight=100))
+            subjects.append(SubjectData(type=Subject.BISAC, identifier=subjectBisacCode, weight=trusted_weight))
 
         grade_level = book.get('gradeLevel')
         if grade_level:
-            subject = SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level, weight=10)
+            # TODO: It's not clear why we trust this data less.
+            subject = SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level, weight=trusted_weight / 10)
             subjects.append(subject)
 
         medium = None
