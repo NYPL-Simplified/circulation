@@ -3202,6 +3202,8 @@ class SearchIndexCoverageProvider(WorkPresentationProvider):
 
         records = list(successes)
         for (work, error) in failures:
-            records.append(CoverageFailure(work, repr(error)))
+            if not isinstance(error, basestring):
+                error = repr(error)
+            records.append(CoverageFailure(work, error))
 
         return records
