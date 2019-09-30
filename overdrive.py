@@ -23,6 +23,7 @@ from config import (
 from model import (
     get_one,
     get_one_or_create,
+    Classification,
     Collection,
     ConfigurationSetting,
     Contributor,
@@ -781,7 +782,7 @@ class OverdriveRepresentationExtractor(object):
 
         # If we trust classification data, we'll give it this weight.
         # Otherwise we'll probably give it a fraction of this weight.
-        trusted_weight = Classifier.TRUSTED_DISTRIBUTOR_WEIGHT
+        trusted_weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
 
         if include_bibliographic:
             title = book.get('title', None)

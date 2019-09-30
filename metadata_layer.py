@@ -27,11 +27,11 @@ from util import LanguageCodes
 from util.http import RemoteIntegrationException
 from util.personal_names import name_tidy
 from util.median import median
-from classifier import Classifier
 from model import (
     get_one,
     get_one_or_create,
     CirculationEvent,
+    Classification,
     Collection,
     Contributor,
     CoverageRecord,
@@ -2115,10 +2115,10 @@ class CSVMetadataImporter(object):
     # When classifications are imported from a CSV file, we treat 
     # them as though they came from a trusted distributor.
     DEFAULT_SUBJECT_FIELD_NAMES = {
-        'tags': (Subject.TAG, Classifier.TRUSTED_DISTRIBUTOR_WEIGHT),
-        'age' : (Subject.AGE_RANGE, Classifier.TRUSTED_DISTRIBUTOR_WEIGHT),
+        'tags': (Subject.TAG, Classification.TRUSTED_DISTRIBUTOR_WEIGHT),
+        'age' : (Subject.AGE_RANGE, Classification.TRUSTED_DISTRIBUTOR_WEIGHT),
         'audience' : (Subject.FREEFORM_AUDIENCE,
-                      Classifier.TRUSTED_DISTRIBUTOR_WEIGHT),
+                      Classification.TRUSTED_DISTRIBUTOR_WEIGHT),
     }
 
     def __init__(
