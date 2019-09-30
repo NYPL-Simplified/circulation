@@ -23,6 +23,7 @@ import re
 
 from pymarc import MARCReader
 
+from classifier import Classifier
 from util import LanguageCodes
 from util.http import RemoteIntegrationException
 from util.personal_names import name_tidy

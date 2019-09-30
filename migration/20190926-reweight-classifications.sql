@@ -6,8 +6,11 @@
 -- we see from other commercial distributors.
 update classifications set weight=100 where id in (select c.id from classifications c join datasources ds on ds.id=c.data_source_id where ds.name='Axis 360' and weight=1);
 
--- Weight any Bibliotheca BISAC classifiers similarly.
-update classifications set weight=100 where s.id in (select c.id from classifications c join subjects s on s.id=c.subject_id join datasources ds on ds.id=c.data_source_id where ds.name='Bibliotheca' and s.type='BISAC' and c.weight=15);
+-- Weight any Bibliotheca BISAC classifications similarly.
+update classifications set weight=100 where id in (select c.id from classifications c join subjects s on s.id=c.subject_id join datasources ds on ds.id=c.data_source_id where ds.name='Bibliotheca' and s.type='BISAC' and c.weight=15);
+
+-- Same for ENKI tags.
+update classifications set weight=100 where id in (select c.id from classifications c join subjects s on s.id=c.subject_id join datasources ds on ds.id=c.data_source_id where ds.name='Enki' and s.type='tag' and c.weight=1);
 
 -- Give a weight of 1 to any schema:audience and schema:targetAge
 -- classifications that came from the metadata wrangler.
