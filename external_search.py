@@ -453,7 +453,6 @@ class ExternalSearchIndex(HasSelfTests):
         :param filter: A Filter object, or a list of Filter objects,
             used to filter out works that would otherwise match the
             query string.
-
         :param pagination: A Pagination object, or a list of
             Pagination objects, used to get a subset of the search
             results. If this is a list, each Pagination object will
@@ -473,24 +472,48 @@ class ExternalSearchIndex(HasSelfTests):
         if not self.works_alias:
             return []
 
-        if not isinstance(filter, list):
-            filter = [filter]
+        if isinstance(filter, Filter) and filter.match_nothing is True:
+            # There's one search, which we already know should match
+            # nothing.  We don't even need to perform the search.
+            return []
+
+        if isinstance(filter, list):
+            filters = filter
+            return_list = True
+        else:
+            filters = [filter]
+            return_list = False
+        
         if not pagination:
             pagination = [Pagination.default() for x in filter]
-        if not isinstance(pagination, list):
-            pagination = [pagination]
+        if isinstance(pagination, list):
+            paginations = pagination
+        else:
+            paginations = [pagination]
 
+        num_filters = len(filters)
+        num_paginations = len(paginations)
+        if num_filters != num_paginations:
+            raise ValueError(
+                "Length of filter list (%d) does not match length of pagination list (%d)!" % (num_filters, num_paginations)
+            )
+
+        pairs = [(filters[i], paginations[i]) for i in range(num_filters)]
+        results = self.query_works_multi(query_string, pairs, debug)
+        if return_list:
+            return results
+        [result] = results
+        return result
+
+    def query_works_multi(self, query_string, filters, debug=False):
+        """
+        :param filters: A list of (Filter, Pagination) 2-tuples.
+        """
         multi = MultiSearch(using=self.__client)        
-        predefined_results = dict()
-        for i, fil in enumerate(filter):
-            if fil is not None and fil.match_nothing is True:
-                # We already know that the search should match nothing.
-                # We don't even need to perform the search.
-                predefined_results[fil] = []
-                continue
-            pag = pagination[i]
+        for filter, pagination in filters:
+            # TODO: We can't handle filter.match_nothing at this point.
             search = self.create_search_doc(
-                query_string, filter=fil, pagination=pag, debug=debug
+                query_string, filter=filter, pagination=pagination, debug=debug
             )
             function_scores = filter.scoring_functions if filter else None
             if function_scores:
@@ -502,18 +525,9 @@ class ExternalSearchIndex(HasSelfTests):
                 search = search.query(function_score)
             multi = multi.add(search)
 
-        start = pagination.offset
-        stop = start + pagination.size
-
-        a = time.time()
-
-
-
-
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
-        responses = [x for x in multi.execute()]
-        results = responses[0][start:stop]
+        resultset = [x for x in multi.execute()]
 
         if debug:
             b = time.time()
@@ -521,12 +535,13 @@ class ExternalSearchIndex(HasSelfTests):
                 "Elasticsearch query %r completed in %.3fsec",
                 query_string, b-a
             )
-            for i, result in enumerate(results):
-                self.log.debug(
-                    '%02d "%s" (%s) work=%s score=%.3f shard=%s',
-                    i, result.sort_title, result.sort_author, result.meta['id'],
-                    result.meta['score'] or 0, result.meta['shard']
-                )
+            for results in resultset:
+                for i, result in enumerate(results):
+                    self.log.debug(
+                        '%02d "%s" (%s) work=%s score=%.3f shard=%s',
+                        i, result.sort_title, result.sort_author, result.meta['id'],
+                        result.meta['score'] or 0, result.meta['shard']
+                    )
 
         # Tell the Pagination object about this page -- this may help
         # it set up to generate a link to the next page.
