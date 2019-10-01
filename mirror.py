@@ -18,7 +18,10 @@ class MirrorUploader():
 
     @classmethod
     def mirror(cls, _db, storage_name=None, integration=None):
-        """Create a MirrorUploader from a configuration.
+        """Create a MirrorUploader from an integration or storage name.
+
+        :param storage_name: The name of the S3 storage integration.
+        :param integration: The S3 external integration.
 
         :return: A MirrorUploader.
 
@@ -31,7 +34,7 @@ class MirrorUploader():
 
     @classmethod
     def integration_by_name(cls, _db, storage_name=None):
-        """Find the ExternalIntegration for the mirror."""
+        """Find the ExternalIntegration for the mirror by storage name."""
         from model import ExternalIntegration
         qu = _db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==cls.STORAGE_GOAL,
@@ -51,6 +54,7 @@ class MirrorUploader():
         """Create a MirrorUploader for the given Collection.
 
         :param collection: Use the mirror configuration for this Collection.
+        :param purpose: Use the purpose of the mirror configuration.
 
         :return: A MirrorUploader, or None if the Collection has no
             mirror integration.
@@ -79,7 +83,11 @@ class MirrorUploader():
     
     @classmethod
     def _integration_from_collection(cls, _db, collection, purpose):
-        """Find the ExternalIntegrationLink for the collection."""
+        """Find the ExternalIntegration for the collection.
+         
+        :param collection: Use the mirror configuration for this Collection.
+        :param purpose: Use the purpose of the mirror configuration.
+        """
         from model import ExternalIntegration
         from model.configuration import ExternalIntegrationLink
         qu = _db.query(ExternalIntegration).join(
