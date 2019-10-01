@@ -1752,14 +1752,21 @@ class TestDashboardController(AdminControllerTest):
         get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[0], affinity=0.2)
 
         time = datetime.now() - timedelta(minutes=1)
-        get_one_or_create(
+        event, ignore = get_one_or_create(
             self._db, CirculationEvent,
-            license_pool=lp, type=CirculationEvent.DISTRIBUTOR_CHECKOUT, start=time, end=time)
+            license_pool=lp, type=CirculationEvent.DISTRIBUTOR_CHECKOUT,
+            start=time, end=time
+        )
         time += timedelta(minutes=1)
 
+        # Try an end-to-end test, getting all circulation events for
+        # the current day.
         with self.app.test_request_context("/"):
             response, requested_date, date_end, library_short_name = self.manager.admin_dashboard_controller.bulk_circulation_events()
-        reader = csv.reader([row for row in response.split("\r\n") if row], dialect=csv.excel)
+        reader = csv.reader(
+            [row for row in response.split("\r\n") if row],
+            dialect=csv.excel
+        )
         rows = [row for row in reader][1::] # skip header row
         eq_(1, len(rows))
         [row] = rows
@@ -1768,6 +1775,46 @@ class TestDashboardController(AdminControllerTest):
         eq_(identifier.type, row[3])
         eq_(edition.title, row[4])
         eq_(genres[0].name, row[12])
+
+        # Now verify that this works by passing incoming query
+        # parameters into a LocalAnalyticsExporter object.
+        class MockLocalAnalyticsExporter(object):
+            def export(self, _db, date_start, date_end, locations, library):
+                self.called_with = (
+                    _db, date_start, date_end, locations, library
+                )
+                return "A CSV file"
+
+        exporter = MockLocalAnalyticsExporter()
+        with self.request_context_with_library("/?date=2018-01-01&dateEnd=2018-01-04&locations=loc1,loc2"):
+            response, requested_date, date_end, library_short_name = self.manager.admin_dashboard_controller.bulk_circulation_events(analytics_exporter=exporter)
+
+            # export() was called with the arguments we expect.
+            #
+            args = list(exporter.called_with)
+            eq_(self._db, args.pop(0))
+            eq_(datetime(2018, 1, 1), args.pop(0))
+            # This is the start of the day _after_ the dateEnd we
+            # specified -- we want all events that happened _before_
+            # 2018-01-05.
+            eq_(datetime(2018, 1, 5), args.pop(0))
+            eq_("loc1,loc2", args.pop(0))
+            eq_(self._default_library, args.pop(0))
+            eq_([], args)
+
+            # The data returned is whatever export() returned.
+            eq_("A CSV file", response)
+
+            # The other data is necessary to build a filename for the
+            # "CSV file".
+            eq_("2018-01-01", requested_date)
+
+            # Note that the date_end is the date we requested --
+            # 2018-01-04 -- not the cutoff time passed in to export(),
+            # which is the start of the subsequent day.
+            eq_("2018-01-04", date_end)
+            eq_(self._default_library.short_name, library_short_name)
+
 
     def test_stats_patrons(self):
         with self.request_context_with_admin("/"):

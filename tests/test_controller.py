@@ -2273,7 +2273,7 @@ class TestWorkController(CirculationControllerTest):
         links = feed['feed']['links']
         facet_links = [link for link in links
                        if link['rel'] == 'http://opds-spec.org/facet']
-        eq_(9, len(facet_links))
+        eq_(8, len(facet_links))
 
         # The feed was cached.
         cached = self._db.query(CachedFeed).one()
@@ -2797,7 +2797,7 @@ class TestWorkController(CirculationControllerTest):
         links = feed['feed']['links']
         facet_links = [link for link in links
                        if link['rel'] == 'http://opds-spec.org/facet']
-        eq_(10, len(facet_links))
+        eq_(9, len(facet_links))
 
         # The facet link we care most about is the default sort order,
         # put into place by SeriesFacets.
