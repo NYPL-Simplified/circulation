@@ -480,7 +480,8 @@ class ExternalSearchIndex(HasSelfTests):
         """Run several queries simultaneously and return the results
         as a big list.
 
-        :param queries: A list of (query string, Filter, Pagination) 3-tuples.
+        :param queries: A list of (query string, Filter, Pagination) 3-tuples,
+            each representing an Elasticsearch query to be run.
 
         :yield: A sequence of lists, one per item in `queries`,
             each containing the search results from that
@@ -495,7 +496,11 @@ class ExternalSearchIndex(HasSelfTests):
             for q in queries:
                 yield []
 
+        # Create a MultiSearch. 
         multi = MultiSearch(using=self.__client)
+
+        # Give it a Search object for every query definition passed in
+        # as part of `queries`.
         for (query_string, filter, pagination) in queries:
             search = self.create_search_doc(
                 query_string, filter=filter, pagination=pagination, debug=debug
@@ -510,9 +515,9 @@ class ExternalSearchIndex(HasSelfTests):
                 search = search.query(function_score)
             multi = multi.add(search)
 
+        a = time.time()
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
-        a = time.time()
         resultset = [x for x in multi.execute()]
 
         if debug:
@@ -529,6 +534,8 @@ class ExternalSearchIndex(HasSelfTests):
                         result.meta['score'] or 0, result.meta['shard']
                     )
 
+        # Process each item in the resultset according to the
+        # Pagination object that was used to create it.
         for i, results in enumerate(resultset):
             # Use the Pagination object to slice up the results if
             # necessary.
