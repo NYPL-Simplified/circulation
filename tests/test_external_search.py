@@ -28,6 +28,7 @@ from elasticsearch_dsl.query import (
     Query as elasticsearch_dsl_query,
     MatchAll,
     Match,
+    MatchNone,
     MatchPhrase,
     MultiMatch,
     Nested,
@@ -2293,6 +2294,19 @@ class TestQuery(DatabaseTest):
         # Finally, undo the mock of the Filter class methods
         Filter.universal_base_filter = original_base
         Filter.universal_nested_filters = original_nested
+
+    def test_build_match_nothing(self):
+        # No matter what the Filter looks like, if its .match_nothing
+        # is set, it gets built into a simple filter that matches
+        # nothing, with no nested subfilters.
+        filter = Filter(
+            fiction=True,
+            collections=[self._default_collection],
+            match_nothing = True
+        )
+        main, nested = filter.build()
+        eq_(MatchNone(), main)
+        eq_({}, nested)
 
     def test_elasticsearch_query(self):
         # The elasticsearch_query property calls a number of other methods
