@@ -23,15 +23,16 @@ import re
 
 from pymarc import MARCReader
 
+from classifier import Classifier
 from util import LanguageCodes
 from util.http import RemoteIntegrationException
 from util.personal_names import name_tidy
 from util.median import median
-from classifier import Classifier
 from model import (
     get_one,
     get_one_or_create,
     CirculationEvent,
+    Classification,
     Collection,
     Contributor,
     CoverageRecord,
@@ -2112,10 +2113,13 @@ class CSVMetadataImporter(object):
         Identifier.ISBN : ("isbn", 0.75),
     }
 
+    # When classifications are imported from a CSV file, we treat 
+    # them as though they came from a trusted distributor.
     DEFAULT_SUBJECT_FIELD_NAMES = {
-        'tags': (Subject.TAG, 100),
-        'age' : (Subject.AGE_RANGE, 100),
-        'audience' : (Subject.FREEFORM_AUDIENCE, 100),
+        'tags': (Subject.TAG, Classification.TRUSTED_DISTRIBUTOR_WEIGHT),
+        'age' : (Subject.AGE_RANGE, Classification.TRUSTED_DISTRIBUTOR_WEIGHT),
+        'audience' : (Subject.FREEFORM_AUDIENCE,
+                      Classification.TRUSTED_DISTRIBUTOR_WEIGHT),
     }
 
     def __init__(

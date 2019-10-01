@@ -344,6 +344,12 @@ class Classification(Base):
     # How much weight the data source gives to this classification.
     weight = Column(Integer)
 
+    # If we hear about a classification from a distributor (and we
+    # trust the distributor to have accurate classifications), we
+    # should give it this weight. This lets us keep the weights
+    # consistent across distributors.
+    TRUSTED_DISTRIBUTOR_WEIGHT = 100.0
+
     @property
     def scaled_weight(self):
         weight = self.weight
