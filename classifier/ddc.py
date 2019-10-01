@@ -161,7 +161,10 @@ class DeweyDecimalClassifier(Classifier):
         if isinstance(identifier, basestring) and identifier=='FIC':
             # FIC is used for all types of fiction.
             return None
-        return cls.AUDIENCE_ADULT
+
+        # Everything else is _supposedly_ for adults, but we don't
+        # trust that assumption.
+        return None
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):

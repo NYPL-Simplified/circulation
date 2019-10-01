@@ -1427,16 +1427,12 @@ class OPDSImporter(object):
         term = attr.get('term')
         name = attr.get('label')
         default_weight = 1
-        if subject_type in (
-                Subject.FREEFORM_AUDIENCE, Subject.AGE_RANGE
-        ):
-            default_weight = 100
 
         weight = attr.get('{http://schema.org/}ratingValue', default_weight)
         try:
             weight = int(weight)
         except ValueError, e:
-            weight = 1
+            weight = default_weight
 
         return SubjectData(
             type=subject_type,

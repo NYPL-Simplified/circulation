@@ -13,6 +13,7 @@ from sqlalchemy.orm.exc import (
 )
 from sqlalchemy.orm.session import Session
 
+from classifier import Classifier
 from config import (
     temp_config,
     CannotLoadConfiguration,
@@ -22,6 +23,7 @@ from config import (
 from model import (
     get_one,
     get_one_or_create,
+    Classification,
     Collection,
     ConfigurationSetting,
     Contributor,
@@ -778,6 +780,10 @@ class OverdriveRepresentationExtractor(object):
             Identifier.OVERDRIVE_ID, overdrive_id
         )
 
+        # If we trust classification data, we'll give it this weight.
+        # Otherwise we'll probably give it a fraction of this weight.
+        trusted_weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
+
         if include_bibliographic:
             title = book.get('title', None)
             sort_title = book.get('sortTitle')
@@ -814,13 +820,17 @@ class OverdriveRepresentationExtractor(object):
             for sub in book.get('subjects', []):
                 subject = SubjectData(
                     type=Subject.OVERDRIVE, identifier=sub['value'],
-                    weight=100
+                    weight=trusted_weight,
                 )
                 subjects.append(subject)
 
             for sub in book.get('keywords', []):
                 subject = SubjectData(
                     type=Subject.TAG, identifier=sub['value'],
+                    # We don't use TRUSTED_DISTRIBUTOR_WEIGHT because
+                    # we don't know where the tags come from --
+                    # probably Overdrive users -- and they're
+                    # frequently wrong.
                     weight=1
                 )
                 subjects.append(subject)
@@ -830,12 +840,12 @@ class OverdriveRepresentationExtractor(object):
                 # n.b. Grade levels are measurements of reading level, not
                 # age appropriateness. We can use them as a measure of age
                 # appropriateness in a pinch, but we weight them less
-                # heavily than other information from Overdrive.
+                # heavily than TRUSTED_DISTRIBUTOR_WEIGHT.
                 for i in book['grade_levels']:
                     subject = SubjectData(
                         type=Subject.GRADE_LEVEL,
                         identifier=i['value'],
-                        weight=10
+                        weight=trusted_weight / 10
                     )
                     subjects.append(subject)
 
@@ -868,7 +878,7 @@ class OverdriveRepresentationExtractor(object):
                 identifier = str(book[name])
                 subjects.append(
                     SubjectData(type=subject_type, identifier=identifier,
-                                weight=100
+                                weight=trusted_weight
                             )
                 )
 
@@ -876,7 +886,7 @@ class OverdriveRepresentationExtractor(object):
                 grade_level = grade_level_info.get('value')
                 subjects.append(
                     SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level,
-                                weight=100)
+                                weight=trusted_weight)
                 )
 
             identifiers = []

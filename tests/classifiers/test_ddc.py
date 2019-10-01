@@ -30,8 +30,13 @@ class TestDewey(object):
         eq_(young_adult, aud("Y300"))
         eq_(None, aud("FIC"))
         eq_(None, aud("Fic"))
-        eq_(adult, aud("B"))
-        eq_(adult, aud("400"))
+
+
+        # We could derive audience=Adult from the lack of a
+        # distinguishing "J" or "E" here, but we've seen this go
+        # wrong, and it's not terribly important overall, so we don't.
+        eq_(None, aud("B"))
+        eq_(None, aud("400"))
 
 
     def test_is_fiction(self):
