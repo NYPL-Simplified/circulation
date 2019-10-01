@@ -466,9 +466,6 @@ class ExternalSearchIndex(HasSelfTests):
             script fields calculated by ElasticSearch during the
             search process.
         """
-        if not self.works_alias:
-            return []
-
         if isinstance(filter, Filter) and filter.match_nothing is True:
             # We already know this search should match nothing.  We
             # don't even need to perform the search.
@@ -476,9 +473,7 @@ class ExternalSearchIndex(HasSelfTests):
 
         pagination = pagination or Pagination.default()
         query_data = (query_string, filter, pagination)
-        [result] = [
-            x for x in self.query_works_multi([query_data], debug)
-        ]
+        [result] = list(self.query_works_multi([query_data], debug))
         return result
 
     def query_works_multi(self, queries, debug=False):
@@ -487,10 +482,19 @@ class ExternalSearchIndex(HasSelfTests):
 
         :param queries: A list of (query string, Filter, Pagination) 3-tuples.
 
-        :yield: A sequence of lists, one per item in `filters`,
+        :yield: A sequence of lists, one per item in `queries`,
             each containing the search results from that
             (query string, Filter, Pagination) 3-tuple.
         """
+        # If the works alias is not set, all queries return empty.
+        #
+        # TODO: Maybe an unset works_alias should raise
+        # CannotLoadConfiguration in the constructor. Then we wouldn't
+        # have to worry about this.
+        if not self.works_alias:
+            for q in queries:
+                yield []
+
         multi = MultiSearch(using=self.__client)
         for (query_string, filter, pagination) in queries:
             search = self.create_search_doc(

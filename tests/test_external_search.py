@@ -267,6 +267,56 @@ class TestExternalSearch(ExternalSearchTest):
             'banana-v10'
         )
 
+    def test_query_works(self):
+        # Verify that query_works operates by calling query_works_multi.
+        # The actual functionality of query_works and query_works_multi
+        # have many end-to-end tests in TestExternalSearchWithWorks.
+        class Mock(ExternalSearchIndex):
+            def __init__(self):
+                self.query_works_multi_calls = []
+                self.queued_results = []
+
+            def query_works_multi(self, queries, debug=False):
+                self.query_works_multi_calls.append((queries, debug))
+                return self.queued_results.pop()
+
+        search = Mock()
+
+        # If the filter is designed to match nothing,
+        # query_works_multi isn't even called -- we just return an
+        # empty list.
+        query = object()
+        pagination = object()
+        filter = Filter(match_nothing=True)
+        eq_([], search.query_works(query, filter, pagination))
+        eq_([], search.query_works_multi_calls)
+
+        # Otherwise, query_works_multi is called with a list
+        # containing a single query, and the list of resultsets is
+        # turned into a single list of results.
+        search.queued_results.append([["r1", "r2"]])
+        filter = object()
+        results = search.query_works(query, filter, pagination)
+        eq_(["r1", "r2"], results)
+        call = search.query_works_multi_calls.pop()
+        eq_(([(query, filter, pagination)], False), call)
+        eq_([], search.query_works_multi_calls)
+
+        # If no Pagination object is provided, a default is used.
+        search.queued_results.append([["r3", "r4"]])
+        results = search.query_works(query, filter, None, True)
+        eq_(["r3", "r4"], results)
+        ([query_tuple], debug) = search.query_works_multi_calls.pop()
+        eq_(True, debug)
+        eq_(query, query_tuple[0])
+        eq_(filter, query_tuple[1])
+
+        pagination = query_tuple[2]
+        default = Pagination.default()
+        assert isinstance(pagination, Pagination)
+        eq_(pagination.offset, default.offset)
+        eq_(pagination.size, default.size)
+
     def test__run_self_tests(self):
         index = MockExternalSearchIndex()
 
