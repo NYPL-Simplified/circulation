@@ -38,7 +38,7 @@ class LocalAnalyticsExporter(object):
         header = [
             "time", "event", "identifier", "identifier_type", "title", "author",
             "fiction", "audience", "publisher", "imprint", "language",
-            "target_age", "genres"
+            "target_age", "genres", "location"
         ]
         output = BytesIO()
         writer = csv.writer(output, encoding="utf-8")
@@ -104,6 +104,7 @@ class LocalAnalyticsExporter(object):
                 Edition.publisher,
                 Edition.imprint,
                 Edition.language,
+                CirculationEvent.location,
             ],
         ).select_from(
             join(
@@ -205,6 +206,7 @@ class LocalAnalyticsExporter(object):
                 events.language,
                 target_age_string.label('target_age'),
                 genres.label('genres'),
+                events.location,
             ]
         ).select_from(
             events_alias
