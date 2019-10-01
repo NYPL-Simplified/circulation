@@ -12,6 +12,9 @@ update classifications set weight=100 where id in (select c.id from classificati
 -- Same for ENKI tags.
 update classifications set weight=100 where id in (select c.id from classifications c join subjects s on s.id=c.subject_id join datasources ds on ds.id=c.data_source_id where ds.name='Enki' and s.type='tag' and c.weight=1);
 
+-- Same for all classifications from RBdigital, regardless of type.
+update classifications set weight=100 where id in (select c.id from classifications c join subjects s on s.id=c.subject_id join datasources ds on ds.id=c.data_source_id where ds.name='RBdigital');
+
 -- Give a weight of 1 to any schema:audience and schema:targetAge
 -- classifications that came from the metadata wrangler.
 update classifications set weight=1 where id in (select c.id from classifications c join datasources ds on ds.id=c.data_source_id join subjects s on s.id=c.subject_id where ds.name='Library Simplified metadata wrangler' and s.type in ('schema:audience', 'schema:targetAge') and c.weight=100);
