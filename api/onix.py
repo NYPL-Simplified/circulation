@@ -10,6 +10,7 @@ from core.metadata_layer import (
 )
 from core.classifier import Classifier
 from core.model import (
+    Classification,
     Identifier,
     Contributor,
     Edition,
@@ -201,21 +202,29 @@ class ONIXExtractor(object):
             subject_tags = parser._xpath(record, 'descriptivedetail/subject')
             subjects = []
 
-            # TODO: How much do we trust this subject data? We could
-            # bump up the weight quite a bit if it comes right from
-            # the publisher.
+            weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
             for tag in subject_tags:
                 type = parser.text_of_subtag(tag, 'b067')
                 if type in cls.SUBJECT_TYPES:
-                    subjects.append(SubjectData(cls.SUBJECT_TYPES[type],
-                                                parser.text_of_subtag(tag, 'b069')))
+                    subjects.append(
+                        SubjectData(
+                            cls.SUBJECT_TYPES[type],
+                            parser.text_of_subtag(tag, 'b069'),
+                            weight=weight
+                        )
+                    )
 
             audience_tags = parser._xpath(record, 'descriptivedetail/audience/b204')
             audiences = []
             for tag in audience_tags:
                 if tag.text in cls.AUDIENCE_TYPES:
-                    subjects.append(SubjectData(Subject.FREEFORM_AUDIENCE,
-                                                cls.AUDIENCE_TYPES[tag.text]))
+                    subjects.append(
+                        SubjectData(
+                            Subject.FREEFORM_AUDIENCE,
+                            cls.AUDIENCE_TYPES[tag.text],
+                            weight=weight
+                        )
+                    )
 
             contributor_tags = parser._xpath(record, 'descriptivedetail/contributor')
             contributors = []

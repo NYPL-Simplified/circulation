@@ -239,8 +239,7 @@ class OdiloRepresentationExtractor(object):
 
         grade_level = book.get('gradeLevel')
         if grade_level:
-            # TODO: It's not clear why we trust this data less.
-            subject = SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level, weight=trusted_weight / 10)
+            subject = SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level, weight=trusted_weight)
             subjects.append(subject)
 
         medium = None
