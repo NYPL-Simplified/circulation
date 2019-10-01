@@ -25,13 +25,18 @@ class TestLCC(object):
         def aud(identifier):
             return LCC.audience(LCC.scrub_identifier(identifier), None)
 
-        eq_(adult, aud("PR"))
-        eq_(adult, aud("P"))
-        eq_(adult, aud("PA"))
-        eq_(adult, aud("J821.8 CARRIKK"))
         eq_(child, aud("PZ"))
         eq_(child, aud("PZ2384 M68 2003"))
         eq_(child, aud("pz2384 m68 2003"))
+
+        # We could derive audience=Adult from this, but we've seen
+        # this go wrong, and it's not terribly important overall, so
+        # we don't.
+        eq_(None, aud("PR"))
+        eq_(None, aud("P"))
+        eq_(None, aud("PA"))
+        eq_(None, aud("J821.8 CARRIKK"))
+
 
     def test_is_fiction(self):
         def fic(lcc):
