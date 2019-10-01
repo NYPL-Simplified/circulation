@@ -1126,7 +1126,7 @@ class EndToEndSearchTest(ExternalSearchTest):
         )
 
     def _expect_results(self, expect, query_string=None, filter=None, pagination=None, **kwargs):
-        """Helper function to call query() and verify that it
+        """Helper function to call query_works() and verify that it
         returns certain work IDs.
 
         :param ordered: If this is True (the default), then the
@@ -1148,6 +1148,19 @@ class EndToEndSearchTest(ExternalSearchTest):
         )
 
     def _expect_results_multi(self, expect, queries, **kwargs):
+        """Helper function to call query_works_multi() and verify that it
+        returns certain work IDs.
+
+        :param expect: A list of lists of Works that you expect
+            to get back from each query in `queries`.
+        :param queries: A list of (query string, Filter, Pagination)
+            3-tuples.
+        :param ordered: If this is True (the default), then the
+           assertion will only succeed if the search results come in
+           in the exact order specified in `works`. If this is False,
+           then those exact results must come up, but their order is
+           not what's being tested.
+        """
         should_be_ordered = kwargs.pop('ordered', True)
         resultset = list(
             self.search.query_works_multi(
