@@ -59,14 +59,13 @@ class MirrorUploader():
         :return: A MirrorUploader, or None if the Collection has no
             mirror integration.
         """
-        integration = collection.mirror_integration
-        if not integration:
-            try:
-                from model import Session
-                _db = Session.object_session(collection)
-                integration = cls._integration_from_collection(_db, collection, purpose)
-            except CannotLoadConfiguration, e:
-                return None
+        from model import ExternalIntegration
+        try:
+            from model import Session
+            _db = Session.object_session(collection)
+            integration = ExternalIntegration.for_collection_and_purpose(_db, collection, purpose)
+        except CannotLoadConfiguration, e:
+            return None
         return cls.implementation(integration)
 
     @classmethod
@@ -80,31 +79,6 @@ class MirrorUploader():
             integration.protocol, cls
         )
         return implementation_class(integration)
-    
-    @classmethod
-    def _integration_from_collection(cls, _db, collection, purpose):
-        """Find the ExternalIntegration for the collection.
-         
-        :param collection: Use the mirror configuration for this Collection.
-        :param purpose: Use the purpose of the mirror configuration.
-        """
-        from model import ExternalIntegration
-        from model.configuration import ExternalIntegrationLink
-        qu = _db.query(ExternalIntegration).join(
-            ExternalIntegrationLink,
-            ExternalIntegrationLink.other_integration_id==ExternalIntegration.id
-        ).filter(
-            ExternalIntegrationLink.external_integration_id==collection.external_integration_id,
-            ExternalIntegrationLink.purpose==purpose
-        )
-        integrations = qu.all()
-        if not integrations:
-            raise CannotLoadConfiguration(
-                "No storage integration for purpose %s is configured." % purpose
-            )
-
-        [integration] = integrations
-        return integration
 
     def __init__(self, integration):
         """Instantiate a MirrorUploader from an ExternalIntegration.

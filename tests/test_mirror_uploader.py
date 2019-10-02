@@ -91,29 +91,6 @@ class TestInitialization(DatabaseTest):
             "from an integration with goal=licenses",
             MirrorUploader.for_collection, collection, ExternalIntegrationLink.COVERS
         )
-    
-    def test__integration_from_collection(self):
-        wrong_purpose = "isbn"
-        collection = self._collection()
-
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "No storage integration for purpose isbn is configured",
-            MirrorUploader._integration_from_collection, self._db, collection, wrong_purpose
-        )
-
-        external_integration = self._external_integration("some protocol")
-        collection.external_integration_id = external_integration.id
-        purpose = "covers"
-        external_integration_link = self._external_integration_link(
-            integration=external_integration, purpose=purpose
-        )
-
-        integration = MirrorUploader._integration_from_collection(
-            self._db, collection=collection, purpose=purpose
-        )
-
-        assert isinstance(integration, ExternalIntegration)
 
     def test_constructor(self):
         # You can't create a MirrorUploader with an integration

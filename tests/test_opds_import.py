@@ -58,6 +58,7 @@ from ..model import (
     Work,
     WorkCoverageRecord,
 )
+from ..model.configuration import ExternalIntegrationLink
 from ..coverage import CoverageFailure
 
 from ..s3 import (
@@ -1596,26 +1597,59 @@ class TestMirroring(OPDSImporterTest):
     def test_importer_gets_appropriate_mirror_for_collection(self):
 
         # The default collection is not configured to mirror the
-        # resources it finds.
+        # resources it finds for either its books or covers.
         collection = self._default_collection
         importer = OPDSImporter(self._db, collection=collection)
-        eq_(None, importer.mirror)
+        eq_(None, importer.mirror[ExternalIntegrationLink.BOOKS])
+        eq_(None, importer.mirror[ExternalIntegrationLink.COVERS])
 
         # Let's configure a mirror integration for it.
+
+        # First set up a storage integration.
         integration = self._external_integration(
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
             username="username", password="password",
             settings = {S3Uploader.BOOK_COVERS_BUCKET_KEY : "some-covers"}
         )
-        collection.mirror_integration = integration
+        # Associate the collection's integration with the storage integration
+        # for the purpose of 'covers'.
+        integration_link = self._external_integration_link(
+            integration=collection._external_integration,
+            other_integration=integration,
+            purpose=ExternalIntegrationLink.COVERS
+        )
 
         # Now an OPDSImporter created for this collection has an
-        # appropriately configured MirrorUploader associated with it.
+        # appropriately configured MirrorUploader associated with it for the
+        # 'covers' purpose.
         importer = OPDSImporter(self._db, collection=collection)
         mirror = importer.mirror
-        assert isinstance(mirror, S3Uploader)
-        eq_("some-covers",
-            mirror.get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+
+        assert isinstance(mirror[ExternalIntegrationLink.COVERS], S3Uploader)
+        eq_("some-covers", mirror[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+        eq_(mirror[ExternalIntegrationLink.BOOKS], None)
+
+
+        # An OPDSImporter can have two types of mirrors.
+        integration = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="username", password="password",
+            settings = {S3Uploader.BOOK_BUCKET_KEY : "some-books"}
+        )
+        # Associate the collection's integration with the storage integration
+        # for the purpose of 'covers'.
+        integration_link = self._external_integration_link(
+            integration=collection._external_integration,
+            other_integration=integration,
+            purpose=ExternalIntegrationLink.BOOKS
+        )
+
+        importer = OPDSImporter(self._db, collection=collection)
+        mirror = importer.mirror
+
+        assert isinstance(mirror[ExternalIntegrationLink.BOOKS], S3Uploader)
+        eq_("some-books", mirror[ExternalIntegrationLink.BOOKS].get_bucket(S3Uploader.BOOK_BUCKET_KEY))
+        eq_("some-covers", mirror[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
 
     def test_resources_are_mirrored_on_import(self):
 
@@ -1652,7 +1686,7 @@ class TestMirroring(OPDSImporterTest):
 
         importer = OPDSImporter(
             self._db, collection=self._default_collection,
-            mirror=s3, http_get=http.do_get
+            books_mirror=s3, http_get=http.do_get
         )
 
         imported_editions, pools, works, failures = (
@@ -1798,11 +1832,10 @@ class TestMirroring(OPDSImporterTest):
 
 
     def test_content_resources_not_mirrored_on_import_if_no_collection(self):
-        """If you don't provide a Collection to the OPDSImporter, no
-        LicensePools are created for the book and content resources
-        (like EPUB editions of the book) are not mirrored. Only
-        metadata resources (like the book cover) are mirrored.
-        """
+        # If you don't provide a Collection to the OPDSImporter, no
+        # LicensePools are created for the book and content resources
+        # (like EPUB editions of the book) are not mirrored. Only
+        # metadata resources (like the book cover) are mirrored.
 
         svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
@@ -1823,7 +1856,7 @@ class TestMirroring(OPDSImporterTest):
 
         importer = OPDSImporter(
             self._db, collection=None,
-            mirror=s3, http_get=http.do_get
+            covers_mirror=s3, http_get=http.do_get
         )
 
         imported_editions, pools, works, failures = (

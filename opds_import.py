@@ -403,9 +403,10 @@ class OPDSImporter(object):
     SUCCESS_STATUS_CODES = None
 
     def __init__(self, _db, collection, data_source_name=None,
-                 identifier_mapping=None, mirror=None, http_get=None,
+                 identifier_mapping=None, http_get=None,
                  metadata_client=None, content_modifier=None,
-                 map_from_collection=None,
+                 map_from_collection=None, covers_mirror=None,
+                 books_mirror=None,
     ):
         """:param collection: LicensePools created by this OPDS import
         will be associated with the given Collection. If this is None,
@@ -419,8 +420,11 @@ class OPDSImporter(object):
         here. This is only for use when you are importing OPDS
         metadata without any particular Collection in mind.
 
-        :param mirror: Use this MirrorUploader object to mirror all
-        incoming open-access books and cover images.
+        :param covers_mirror: Use this MirrorUploader object to mirror all
+        incoming cover images.
+
+        :param books_mirror: Use this MirrorUploader object to mirror all
+        incoming open-access books.
 
         :param http_get: Use this method to make an HTTP GET request. This
         can be replaced with a stub method for testing purposes.
@@ -457,14 +461,20 @@ class OPDSImporter(object):
             self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
             self.metadata_client = None
 
-        if collection and not mirror:
-            # If this Collection is configured to mirror the assets it
-            # discovers, this will create a MirrorUploader for that
-            # Collection. Otherwise, this will return None.
-            mirror = MirrorUploader.for_collection(
-                collection, ExternalIntegrationLink.COVERS
-            )
-        self.mirror = mirror
+        if collection:
+            if not covers_mirror:
+                # If this Collection is configured to mirror the assets it
+                # discovers, this will create a MirrorUploader for that
+                # Collection for its purpose. Otherwise, this will return None.
+                covers_mirror = MirrorUploader.for_collection(
+                    collection, ExternalIntegrationLink.COVERS
+                )
+            if not books_mirror:
+                books_mirror = MirrorUploader.for_collection(
+                    collection, ExternalIntegrationLink.BOOKS
+                )
+
+        self.mirror = dict(covers=covers_mirror, books=books_mirror)
         self.content_modifier = content_modifier
 
         # In general, we are cautious when mirroring resources so that

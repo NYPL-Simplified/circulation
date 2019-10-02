@@ -521,7 +521,19 @@ class MARCExporter(object):
         },
     ]
 
-    SETTING_DESCRIPTION = "Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'."
+    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+    SETTING = {
+        "key": "mirror_integration_id",
+        "label": _("MARC Mirror"),
+        "description": _("Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'."),
+        "type": "select",
+        "options" : [
+            dict(
+                key=NO_MIRROR_INTEGRATION,
+                label=_("None - Do not mirror MARC files")
+            )
+        ]
+    }
 
     @classmethod
     def from_config(cls, library):
@@ -540,6 +552,18 @@ class MARCExporter(object):
         self._db = _db
         self.library = library
         self.integration = integration
+        
+    @classmethod
+    def get_storage_settings(cls, _db):
+        integrations = ExternalIntegration.get_integrations_of_goal(
+            _db, ExternalIntegration.STORAGE_GOAL
+        )
+        for integration in integrations:
+            cls.SETTING['options'].append(
+                dict(key=str(integration.id), label=integration.name)
+            )
+        
+        return cls.SETTING
 
 
     @classmethod
@@ -588,9 +612,9 @@ class MARCExporter(object):
 
         return record
 
-    def records(self, lane, annotator, start_time=None, force_refresh=False,
-                mirror=None, search_engine=None, query_batch_size=500,
-                upload_batch_size=7500, integration=None
+    def records(self, lane, annotator, integration, start_time=None,
+                force_refresh=False, mirror=None, search_engine=None,
+                query_batch_size=500, upload_batch_size=7500,
     ):
         """
         Create and export a MARC file for the books in a lane.

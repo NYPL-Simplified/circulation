@@ -37,6 +37,7 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
 
     __tablename__ = 'externalintegrationslinks'
 
+    # Possible purposes that a storage external integration can be used for.
     COVERS = "covers"
     MARC = "MARC"
     BOOKS = "books"
@@ -51,7 +52,7 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
     other_integration_id = Column(
         Integer, ForeignKey('externalintegrations.id'), index=True
     )
-    purpose = Column(Unicode)
+    purpose = Column(Unicode, index=True)
 
 class ExternalIntegration(Base, HasFullTableCache):
 
@@ -255,6 +256,45 @@ class ExternalIntegration(Base, HasFullTableCache):
         # This is okay because we need by_id() quite a
         # bit and by_cache_key() not as much.
         return self.id
+
+    @classmethod
+    def get_integrations_of_goal(cls, _db, goal):
+        """Return all external integrations by goal type.
+        """
+        integrations = _db.query(cls).filter(
+            cls.goal==goal
+        ).order_by(
+            cls.name
+        ).all()
+
+        return integrations
+
+    @classmethod
+    def for_collection_and_purpose(cls, _db, collection, purpose):
+        """Find the ExternalIntegration for the collection.
+         
+        :param collection: Use the mirror configuration for this Collection.
+        :param purpose: Use the purpose of the mirror configuration.
+        """
+        qu = _db.query(cls).join(
+            ExternalIntegrationLink,
+            ExternalIntegrationLink.other_integration_id==cls.id
+        ).filter(
+            ExternalIntegrationLink.external_integration_id==collection.external_integration_id,
+            ExternalIntegrationLink.purpose==purpose
+        )
+        integrations = qu.all()
+        if not integrations:
+            raise CannotLoadConfiguration(
+                "No storage integration for purpose %s is configured." % purpose
+            )
+        if len(integrations) > 1:
+            raise CannotLoadConfiguration(
+                "Multiple integrations found for collection '%s' and purpose '%s'" % (collection.name, purpose)
+            )
+
+        [integration] = integrations
+        return integration
 
     @classmethod
     def lookup(cls, _db, protocol, goal, library=None):

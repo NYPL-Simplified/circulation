@@ -697,7 +697,7 @@ class MetaToModelUtility(object):
 
     log = logging.getLogger("Abstract metadata layer - mirror code")
 
-    def mirror_link(self, model_object, data_source, link, link_obj, policy):
+    def mirror_link(self, model_object, data_source, link, link_obj, policy, mirror_type):
         """Retrieve a copy of the given link and make sure it gets
         mirrored. If it's a full-size image, create a thumbnail and
         mirror that too.
@@ -721,7 +721,7 @@ class MetaToModelUtility(object):
             )
             return
 
-        mirror = policy.mirror
+        mirror = policy.mirror[mirror_type]
         http_get = policy.http_get
 
         _db = Session.object_session(link_obj)
@@ -828,7 +828,7 @@ class MetaToModelUtility(object):
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
             url_title = title or identifier.identifier
             extension = representation.extension()
-            mirror_url = mirror.book_url(
+            mirror_url = mirror["books"].book_url(
                 identifier, data_source=data_source, title=url_title,
                 extension=extension
             )
@@ -836,7 +836,7 @@ class MetaToModelUtility(object):
             filename = representation.default_filename(
                 link_obj, representation.media_type
             )
-            mirror_url = mirror.cover_image_url(
+            mirror_url = mirror["covers"].cover_image_url(
                 data_source, identifier, filename
             )
 
@@ -1178,7 +1178,7 @@ class CirculationData(MetaToModelUtility):
                 if replace.mirror:
                     # We need to mirror this resource. If it's an image, a
                     # thumbnail may be provided as a side effect.
-                    self.mirror_link(pool, data_source, link, link_obj, replace)
+                    self.mirror_link(pool, data_source, link, link_obj, replace, "books")
 
         # Next, make sure the DeliveryMechanisms associated
         # with the book reflect the formats in self.formats.
@@ -1911,7 +1911,7 @@ class Metadata(MetaToModelUtility):
             if replace.mirror:
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
-                self.mirror_link(edition, data_source, link, link_obj, replace)
+                self.mirror_link(edition, data_source, link, link_obj, replace, "books")
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and

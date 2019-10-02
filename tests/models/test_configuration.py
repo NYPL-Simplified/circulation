@@ -328,6 +328,44 @@ class TestExternalIntegration(DatabaseTest):
             "Library .* defines multiple integrations with goal .*",
             get_one, self._db, self._default_library, goal
         )
+    
+    def test_for_collection_and_purpose(self):
+        wrong_purpose = "isbn"
+        collection = self._collection()
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "No storage integration for purpose isbn is configured",
+            ExternalIntegration.for_collection_and_purpose, self._db, collection, wrong_purpose
+        )
+
+        external_integration = self._external_integration("some protocol")
+        collection.external_integration_id = external_integration.id
+        purpose = "covers"
+        external_integration_link = self._external_integration_link(
+            integration=external_integration, purpose=purpose
+        )
+
+        integration = ExternalIntegration.for_collection_and_purpose(
+            self._db, collection=collection, purpose=purpose
+        )
+
+        assert isinstance(integration, ExternalIntegration)
+
+        another_external_integration_link = self._external_integration_link(
+            integration=external_integration, purpose=purpose
+        )
+
+        integration = ExternalIntegration.for_collection_and_purpose(
+            self._db, collection=collection, purpose=purpose
+        )
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Multiple integrations found for collection '%s' and purpose '%s'" %
+            (collection.name, purpose)
+        )
+
 
     def test_with_setting_value(self):
         def results():
