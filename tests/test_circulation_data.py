@@ -689,7 +689,8 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_fetch_failure(self):
-        mirror = MockS3Uploader()
+        mirror = dict(covers=MockS3Uploader())
+        mirror_type = "covers"
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)
@@ -714,7 +715,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
         h.queue_response(403)
 
-        circulation_data.mirror_link(pool, data_source, link, link_obj, policy)
+        circulation_data.mirror_link(pool, data_source, link, link_obj, policy, mirror_type)
 
         representation = link_obj.resource.representation
 
@@ -732,7 +733,8 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_mirror_failure(self):
-        mirror = MockS3Uploader(fail=True)
+        mirror = dict(covers=MockS3Uploader(fail=True))
+        mirror_type = "covers"
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)
@@ -758,7 +760,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
         h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
 
-        circulation_data.mirror_link(pool, data_source, link, link_obj, policy)
+        circulation_data.mirror_link(pool, data_source, link, link_obj, policy, mirror_type)
 
         representation = link_obj.resource.representation
 

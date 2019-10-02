@@ -1175,11 +1175,12 @@ class CirculationData(MetaToModelUtility):
         for link in self.links:
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
-                for mirror_type in replace.mirror.keys():
-                    if replace.mirror[mirror_type]:
-                        # We need to mirror this resource. If it's an image, a
-                        # thumbnail may be provided as a side effect.
-                        self.mirror_link(pool, data_source, link, link_obj, replace, mirror_type)
+                if replace.mirror:
+                    for mirror_type in replace.mirror.keys():
+                        if replace.mirror[mirror_type]:
+                            # We need to mirror this resource. If it's an image, a
+                            # thumbnail may be provided as a side effect.
+                            self.mirror_link(pool, data_source, link, link_obj, replace, mirror_type)
 
         # Next, make sure the DeliveryMechanisms associated
         # with the book reflect the formats in self.formats.

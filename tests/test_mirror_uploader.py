@@ -8,6 +8,7 @@ from ..config import CannotLoadConfiguration
 from ..mirror import MirrorUploader
 from ..model import ExternalIntegration
 from ..model.configuration import ExternalIntegrationLink
+from ..s3 import S3Uploader
 
 class DummySuccessUploader(MirrorUploader):
 
@@ -78,19 +79,19 @@ class TestInitialization(DatabaseTest):
 
         # This collection has a properly configured mirror_integration,
         # so it can have an MirrorUploader.
-        collection.mirror_integration = self._integration
+        integration = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="username", password="password",
+            settings = {S3Uploader.BOOK_COVERS_BUCKET_KEY : "some-covers"}
+        )
+        integration_link = self._external_integration_link(
+            integration=collection._external_integration,
+            other_integration=integration,
+            purpose=ExternalIntegrationLink.COVERS
+        )
+
         uploader = MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS)
         assert isinstance(uploader, MirrorUploader)
-
-        # This collection has a mirror_integration but it has the
-        # wrong goal, so attempting to make an MirrorUploader for it
-        # raises an exception.
-        collection.mirror_integration.goal = ExternalIntegration.LICENSE_GOAL
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "from an integration with goal=licenses",
-            MirrorUploader.for_collection, collection, ExternalIntegrationLink.COVERS
-        )
 
     def test_constructor(self):
         # You can't create a MirrorUploader with an integration

@@ -49,6 +49,7 @@ from ..model import (
     Work,
     WorkCoverageRecord,
 )
+from ..model.configuration import ExternalIntegrationLink
 from ..lane import (
     Lane,
     WorkList,
@@ -2598,7 +2599,12 @@ class TestMirrorResourcesScript(DatabaseTest):
         mirror = self._external_integration(
             "S3", ExternalIntegration.STORAGE_GOAL
         )
-        has_uploader.mirror_integration = mirror
+
+        integration_link = self._external_integration_link(
+            integration=has_uploader._external_integration,
+            other_integration=mirror,
+            purpose=ExternalIntegrationLink.COVERS
+        )
 
         # Calling collections_with_uploader will do nothing for collections
         # that don't have an uploader. It will make a MirrorUploader for
