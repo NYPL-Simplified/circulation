@@ -1484,7 +1484,7 @@ class WorkList(object):
             script fields), WorkSearchResult objects.
         """
 
-        [results] = self.works_for_resultsets(self, _db, [hits])
+        [results] = self.works_for_resultsets(_db, [hits])
         return results
 
     def works_for_resultsets(self, _db, resultsets):
@@ -1516,7 +1516,8 @@ class WorkList(object):
         # DatabaseBackedWorkList that fetches those specific Works
         # while applying the general availability filters.
         #
-        # TODO: There's a lot of room for improvement here.
+        # TODO: There's a lot of room for improvement here, but
+        # performance isn't a big concern -- it's just ugly.
         wl = SpecificWorkList(work_ids)
         wl.initialize(self.get_library(_db))
         qu = wl.works_from_database(_db)
@@ -1732,16 +1733,6 @@ class WorkList(object):
         # need to pick out unusable WorkLists, make a recursive call
         # to WorkList.works() for each one, and fold them into the
         # results we got from the big multi-query.
-
-        searchable = []
-        not_searchable = []
-        for lane in lanes:
-            if isinstance(lane, Lane):
-                l = searchable
-            else:
-                l = not_searchable
-            l.append(lane)
-
         queries = []
         for lane in lanes:
             overview_facets = lane.overview_facets(_db, facets)
