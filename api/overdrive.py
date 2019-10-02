@@ -836,7 +836,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         url = self.HOLD_ENDPOINT % dict(
             product_id=licensepool.identifier.identifier)
         response = self.patron_request(patron, pin, url, method='DELETE')
-        if response.status_code / 100 == 2 or response.status_code == 404:
+        if response.status_code // 100 == 2 or response.status_code == 404:
             return True
         if not response.content:
             raise CannotReleaseHold()

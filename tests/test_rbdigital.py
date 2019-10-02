@@ -57,6 +57,7 @@ from core.metadata_layer import (
 
 from core.model import (
     get_one_or_create,
+    Classification,
     ConfigurationSetting,
     Contributor,
     Credential,
@@ -1627,13 +1628,14 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
 
-        eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, 100),
+        weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
+        eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, weight),
 
-            (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, 500),
+            (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, weight),
 
-            (u'humorous-fiction', None, Subject.RBDIGITAL, 200),
-            (u'mystery', None, Subject.RBDIGITAL, 200),
-            (u'womens-fiction', None, Subject.RBDIGITAL, 200)
+            (u'humorous-fiction', None, Subject.RBDIGITAL, weight),
+            (u'mystery', None, Subject.RBDIGITAL, weight),
+            (u'womens-fiction', None, Subject.RBDIGITAL, weight)
          ],
             [(x.identifier, x.name, x.type, x.weight) for x in subjects]
         )
