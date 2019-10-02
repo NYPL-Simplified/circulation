@@ -621,6 +621,7 @@ class TestMetaToModelUtility(DatabaseTest):
         # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
         mirror = dict(covers=MockS3Uploader())
+        mirror_type = "covers"
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
 
@@ -646,7 +647,7 @@ class TestMetaToModelUtility(DatabaseTest):
     	)
         metadata.apply(edition, pool.collection, replace=policy)
         # make sure the refactor is done right, and metadata does not upload
-        eq_(0, len(mirror.uploaded))
+        eq_(0, len(mirror[mirror_type].uploaded))
 
 
         circulation_data = CirculationData(
@@ -657,10 +658,10 @@ class TestMetaToModelUtility(DatabaseTest):
         circulation_data.apply(self._db, pool.collection, replace=policy)
 
         # make sure the refactor is done right, and circulation does upload
-        eq_(1, len(mirror.uploaded))
+        eq_(1, len(mirror[mirror_type].uploaded))
 
         # Only the open-access link has been 'mirrored'.
-        [book] = mirror.uploaded
+        [book] = mirror[mirror_type].uploaded
 
         # It's remained an open-access link.
         eq_(
