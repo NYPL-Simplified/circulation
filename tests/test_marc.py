@@ -492,7 +492,7 @@ class TestMARCExporter(DatabaseTest):
 
         mirror = MockS3Uploader()
 
-        exporter.records(lane, annotator, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
+        exporter.records(lane, annotator, mirror_integration, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
 
         # The file was mirrored and a CachedMARCFile was created to track the mirrored file.
         eq_(1, len(mirror.uploaded))
@@ -530,7 +530,7 @@ class TestMARCExporter(DatabaseTest):
         worklist.initialize(self._default_library, display_name="All Books")
 
         mirror = MockS3Uploader()
-        exporter.records(worklist, annotator, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
+        exporter.records(worklist, annotator, mirror_integration, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
 
         eq_(1, len(mirror.uploaded))
         [cache] = self._db.query(CachedMARCFile).all()
@@ -563,7 +563,8 @@ class TestMARCExporter(DatabaseTest):
 
         mirror = MockS3Uploader()
         exporter.records(
-            lane, annotator, start_time, mirror=mirror, query_batch_size=2,
+            lane, annotator, mirror_integration, start_time=start_time,
+            mirror=mirror, query_batch_size=2,
             upload_batch_size=2, search_engine=search_engine
         )
         [cache] = self._db.query(CachedMARCFile).all()
@@ -586,8 +587,8 @@ class TestMARCExporter(DatabaseTest):
         empty_search_engine = MockExternalSearchIndex()
 
         mirror = MockS3Uploader()
-        exporter.records(lane, annotator, mirror=mirror,
-                         search_engine=empty_search_engine)
+        exporter.records(lane, annotator, mirror_integration,
+                         mirror=mirror, search_engine=empty_search_engine)
 
         eq_([], mirror.content[0])
         [cache] = self._db.query(CachedMARCFile).all()
