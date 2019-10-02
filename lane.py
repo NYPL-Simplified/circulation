@@ -1475,16 +1475,45 @@ class WorkList(object):
     def works_for_hits(self, _db, hits):
         """Convert a list of search results into Work objects.
 
+        This works by calling works_for_resultsets() on a list
+        containing a single list of search results.
+
         :param _db: A database connection
         :param hits: A list of Hit objects from ElasticSearch.
         :return: A list of Work or (if the search results include
             script fields), WorkSearchResult objects.
         """
 
-        work_ids = [x.work_id for x in hits]
+        [results] = self.works_for_resultsets(self, _db, [hits])
+        return results
 
-        # The simplest way to do this is to create a
-        # DatabaseBackedWorkList that fetches those specific works
+    def works_for_resultsets(self, _db, resultsets):
+        """Convert a list of lists of Hit objects into a list
+        of lists of Work objects.
+        """
+        from external_search import (
+            Filter,
+            WorkSearchResult,
+        )
+
+        test_case = None
+        work_ids = set()
+        for resultset in resultsets:
+            for result in resultset:
+                work_ids.add(result.work_id)
+                if not test_case:
+                    test_case = result
+
+        # Check the first search result see if any script fields were
+        # included.
+        has_script_fields = (
+            test_case is not None and any(
+                x in test_case for x in Filter.KNOWN_SCRIPT_FIELDS
+            )
+        )
+
+        # The simplest way to turn Hits into Works is to create a
+        # DatabaseBackedWorkList that fetches those specific Works
         # while applying the general availability filters.
         #
         # TODO: There's a lot of room for improvement here.
@@ -1492,44 +1521,32 @@ class WorkList(object):
         wl.initialize(self.get_library(_db))
         qu = wl.works_from_database(_db)
         a = time.time()
-        works = qu.all()
+        all_works = qu.all()
 
-        # Put the results in the same order as the work_ids were.
+        # Create a list of lists with the same membership as the original
+        # `resultsets`, but with Hit objects replaced with Work objects.
         work_by_id = dict()
-        for w in works:
+        for w in all_works:
             work_by_id[w.id] = w
 
-        from external_search import (
-            Filter,
-            WorkSearchResult,
-        )
-
-        # Check the first search result see if any script fields were
-        # included.
-        test_case = None
-        if hits:
-            test_case = hits[0]
-        has_script_fields = (
-            test_case is not None and any(
-                x in test_case for x in Filter.KNOWN_SCRIPT_FIELDS
-            )
-        )
-
-        results = []
-        for hit in hits:
-            if hit.work_id in work_by_id:
-                work = work_by_id[hit.work_id]
-                if has_script_fields:
-                    # Wrap the Work objects in WorkSearchResult so the
-                    # data from script fields isn't lost.
-                    work = WorkSearchResult(work, hit)
-                results.append(work)
+        work_lists = []
+        for resultset in resultsets:
+            works = []
+            work_lists.append(works)
+            for hit in resultset:
+                if hit.work_id in work_by_id:
+                    work = work_by_id[hit.work_id]
+                    if has_script_fields:
+                        # Wrap the Work objects in WorkSearchResult so the
+                        # data from script fields isn't lost.
+                        work = WorkSearchResult(work, hit)
+                    works.append(work)
 
         b = time.time()
         logging.info(
-            u"Obtained %sxWork in %.2fsec", len(results), b-a
+            u"Obtained %sxWork in %.2fsec", len(all_works), b-a
         )
-        return results
+        return work_lists
 
     @property
     def search_target(self):
@@ -1707,12 +1724,36 @@ class WorkList(object):
             return
 
         # Ask the search engine for works from every lane we're given.
+
+        # NOTE: At the moment, every WorkList in the system can be
+        # generated using an Elasticsearch query. That is, there are
+        # no subclasses of the DatabaseExclusiveWorkList class defined
+        # in circulation/api/lanes.py. If that ever changes, we'll
+        # need to pick out unusable WorkLists, make a recursive call
+        # to WorkList.works() for each one, and fold them into the
+        # results we got from the big multi-query.
+
+        searchable = []
+        not_searchable = []
         for lane in lanes:
-            adapted = lane.overview_facets(_db, facets)
-            for work in lane.works(
-                _db, adapted, pagination, search_engine=search_engine,
-                debug=debug
-            ):
+            if isinstance(lane, Lane):
+                l = searchable
+            else:
+                l = not_searchable
+            l.append(lane)
+
+        queries = []
+        for lane in lanes:
+            overview_facets = lane.overview_facets(_db, facets)
+            from external_search import Filter
+            filter = Filter.from_worklist(_db, lane, overview_facets)
+            queries.append((None, filter, pagination))
+        resultsets = list(search_engine.query_works_multi(queries))
+        works = self.works_for_resultsets(_db, resultsets)
+
+        for i, lane in enumerate(lanes):
+            results = works[i]
+            for work in results:
                 yield work, lane
 
 
