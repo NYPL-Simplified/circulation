@@ -828,7 +828,7 @@ class MetaToModelUtility(object):
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
             url_title = title or identifier.identifier
             extension = representation.extension()
-            mirror_url = mirror["books"].book_url(
+            mirror_url = mirror.book_url(
                 identifier, data_source=data_source, title=url_title,
                 extension=extension
             )
@@ -836,7 +836,7 @@ class MetaToModelUtility(object):
             filename = representation.default_filename(
                 link_obj, representation.media_type
             )
-            mirror_url = mirror["covers"].cover_image_url(
+            mirror_url = mirror.cover_image_url(
                 data_source, identifier, filename
             )
 
@@ -1175,10 +1175,11 @@ class CirculationData(MetaToModelUtility):
         for link in self.links:
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
-                if replace.mirror:
-                    # We need to mirror this resource. If it's an image, a
-                    # thumbnail may be provided as a side effect.
-                    self.mirror_link(pool, data_source, link, link_obj, replace, "books")
+                for mirror_type in replace.mirror.keys():
+                    if replace.mirror[mirror_type]:
+                        # We need to mirror this resource. If it's an image, a
+                        # thumbnail may be provided as a side effect.
+                        self.mirror_link(pool, data_source, link, link_obj, replace, mirror_type)
 
         # Next, make sure the DeliveryMechanisms associated
         # with the book reflect the formats in self.formats.
@@ -1909,9 +1910,11 @@ class Metadata(MetaToModelUtility):
                 continue
 
             if replace.mirror:
-                # We need to mirror this resource. If it's an image, a
-                # thumbnail may be provided as a side effect.
-                self.mirror_link(edition, data_source, link, link_obj, replace, "books")
+                for mirror_type in replace.mirror.keys():
+                    if replace.mirror[mirror_type]:
+                        # We need to mirror this resource. If it's an image, a
+                        # thumbnail may be provided as a side effect.
+                        self.mirror_link(edition, data_source, link, link_obj, replace, mirror_type)
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
