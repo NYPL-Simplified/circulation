@@ -413,6 +413,8 @@
         <span class="p">)</span>
         <span class="n">metadata</span><span class="o">.</span><span class="n">subtitle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scrub_subtitle</span><span class="p">(</span><span class="n">subtitle</span><span class="p">)</span>
 
+        <span class="c1"># TODO: How well do we trust this data? We could conceivably bump up</span>
+        <span class="c1"># the weight here.</span>
         <span class="k">if</span> <span class="n">appeals_info</span><span class="p">:</span>
             <span class="n">extracted_genres</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">for</span> <span class="n">appeal</span> <span class="ow">in</span> <span class="n">appeals_info</span><span class="p">:</span>

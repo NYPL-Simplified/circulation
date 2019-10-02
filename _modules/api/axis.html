@@ -73,6 +73,7 @@
 
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
+    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
@@ -1004,7 +1005,8 @@
                 <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">SubjectData</span><span class="p">(</span>
                         <span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">BISAC</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                        <span class="n">name</span><span class="o">=</span><span class="n">subject_identifier</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span>
+                        <span class="n">name</span><span class="o">=</span><span class="n">subject_identifier</span><span class="p">,</span>
+                        <span class="n">weight</span><span class="o">=</span><span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
 
@@ -1024,7 +1026,7 @@
                 <span class="n">SubjectData</span><span class="p">(</span>
                     <span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">AXIS_360_AUDIENCE</span><span class="p">,</span>
                     <span class="n">identifier</span><span class="o">=</span><span class="n">audience</span><span class="p">,</span>
-                    <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                    <span class="n">weight</span><span class="o">=</span><span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span>
 

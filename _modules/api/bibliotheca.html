@@ -72,6 +72,7 @@
 
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
+    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
@@ -734,7 +735,7 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;amp;amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;&amp;amp;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;&amp;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&amp;#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;&#39;&quot;</span><span class="p">)</span>
-            <span class="n">genres</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">BISAC</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">15</span><span class="p">))</span>
+            <span class="n">genres</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">BISAC</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">genres</span></div>
 
 

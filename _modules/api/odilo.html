@@ -72,6 +72,7 @@
 
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">Credential</span><span class="p">,</span>
@@ -264,15 +265,16 @@
         <span class="n">language</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;language&#39;</span><span class="p">,</span> <span class="s1">&#39;spa&#39;</span><span class="p">)</span>
 
         <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">trusted_weight</span> <span class="o">=</span> <span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span>
         <span class="k">for</span> <span class="n">subject</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;subjects&#39;</span><span class="p">,</span> <span class="p">[]):</span>
-            <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">subject</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">100</span><span class="p">))</span>
+            <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">subject</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">trusted_weight</span><span class="p">))</span>
 
         <span class="k">for</span> <span class="n">subjectBisacCode</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;subjectsBisacCodes&#39;</span><span class="p">,</span> <span class="p">[]):</span>
-            <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">BISAC</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">subjectBisacCode</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">100</span><span class="p">))</span>
+            <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">BISAC</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">subjectBisacCode</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">trusted_weight</span><span class="p">))</span>
 
         <span class="n">grade_level</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;gradeLevel&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">grade_level</span><span class="p">:</span>
-            <span class="n">subject</span> <span class="o">=</span> <span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">grade_level</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+            <span class="n">subject</span> <span class="o">=</span> <span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">grade_level</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">trusted_weight</span><span class="p">)</span>
             <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
 
         <span class="n">medium</span> <span class="o">=</span> <span class="kc">None</span>

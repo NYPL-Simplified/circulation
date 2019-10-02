@@ -146,8 +146,10 @@
     <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;PZ&quot;</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span>
-        <span class="c1"># Everything else is implicitly for adults.</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span></div></div>
+
+        <span class="c1"># Everything else is _supposedly_ for adults, but we don&#39;t</span>
+        <span class="c1"># trust that assumption.</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
 
 <span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">LCC</span><span class="p">]</span> <span class="o">=</span> <span class="n">LCCClassifier</span>
 </pre></div>

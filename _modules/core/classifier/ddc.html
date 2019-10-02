@@ -196,7 +196,10 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">basestring</span><span class="p">)</span> <span class="ow">and</span> <span class="n">identifier</span><span class="o">==</span><span class="s1">&#39;FIC&#39;</span><span class="p">:</span>
             <span class="c1"># FIC is used for all types of fiction.</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span></div>
+
+        <span class="c1"># Everything else is _supposedly_ for adults, but we don&#39;t</span>
+        <span class="c1"># trust that assumption.</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="DeweyDecimalClassifier.genre"><a class="viewcode-back" href="../../../core.classifier.html#core.classifier.ddc.DeweyDecimalClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>

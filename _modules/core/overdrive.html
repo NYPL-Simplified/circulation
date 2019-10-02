@@ -48,6 +48,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
 
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
 <span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">temp_config</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
@@ -57,6 +58,7 @@
 <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
+    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
@@ -813,6 +815,10 @@
             <span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span> <span class="n">overdrive_id</span>
         <span class="p">)</span>
 
+        <span class="c1"># If we trust classification data, we&#39;ll give it this weight.</span>
+        <span class="c1"># Otherwise we&#39;ll probably give it a fraction of this weight.</span>
+        <span class="n">trusted_weight</span> <span class="o">=</span> <span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span>
+
         <span class="k">if</span> <span class="n">include_bibliographic</span><span class="p">:</span>
             <span class="n">title</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">sort_title</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sortTitle&#39;</span><span class="p">)</span>
@@ -849,13 +855,17 @@
             <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;subjects&#39;</span><span class="p">,</span> <span class="p">[]):</span>
                 <span class="n">subject</span> <span class="o">=</span> <span class="n">SubjectData</span><span class="p">(</span>
                     <span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">sub</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">],</span>
-                    <span class="n">weight</span><span class="o">=</span><span class="mi">100</span>
+                    <span class="n">weight</span><span class="o">=</span><span class="n">trusted_weight</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
 
             <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;keywords&#39;</span><span class="p">,</span> <span class="p">[]):</span>
                 <span class="n">subject</span> <span class="o">=</span> <span class="n">SubjectData</span><span class="p">(</span>
                     <span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">sub</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">],</span>
+                    <span class="c1"># We don&#39;t use TRUSTED_DISTRIBUTOR_WEIGHT because</span>
+                    <span class="c1"># we don&#39;t know where the tags come from --</span>
+                    <span class="c1"># probably Overdrive users -- and they&#39;re</span>
+                    <span class="c1"># frequently wrong.</span>
                     <span class="n">weight</span><span class="o">=</span><span class="mi">1</span>
                 <span class="p">)</span>
                 <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
@@ -865,12 +875,12 @@
                 <span class="c1"># n.b. Grade levels are measurements of reading level, not</span>
                 <span class="c1"># age appropriateness. We can use them as a measure of age</span>
                 <span class="c1"># appropriateness in a pinch, but we weight them less</span>
-                <span class="c1"># heavily than other information from Overdrive.</span>
+                <span class="c1"># heavily than TRUSTED_DISTRIBUTOR_WEIGHT.</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;grade_levels&#39;</span><span class="p">]:</span>
                     <span class="n">subject</span> <span class="o">=</span> <span class="n">SubjectData</span><span class="p">(</span>
                         <span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span><span class="p">,</span>
                         <span class="n">identifier</span><span class="o">=</span><span class="n">i</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">],</span>
-                        <span class="n">weight</span><span class="o">=</span><span class="mi">10</span>
+                        <span class="n">weight</span><span class="o">=</span><span class="n">trusted_weight</span> <span class="o">/</span> <span class="mi">10</span>
                     <span class="p">)</span>
                     <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject</span><span class="p">)</span>
 
@@ -903,7 +913,7 @@
                 <span class="n">identifier</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">book</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
                 <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">subject_type</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
-                                <span class="n">weight</span><span class="o">=</span><span class="mi">100</span>
+                                <span class="n">weight</span><span class="o">=</span><span class="n">trusted_weight</span>
                             <span class="p">)</span>
                 <span class="p">)</span>
 
@@ -911,7 +921,7 @@
                 <span class="n">grade_level</span> <span class="o">=</span> <span class="n">grade_level_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">)</span>
                 <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">SubjectData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">GRADE_LEVEL</span><span class="p">,</span> <span class="n">identifier</span><span class="o">=</span><span class="n">grade_level</span><span class="p">,</span>
-                                <span class="n">weight</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+                                <span class="n">weight</span><span class="o">=</span><span class="n">trusted_weight</span><span class="p">)</span>
                 <span class="p">)</span>
 
             <span class="n">identifiers</span> <span class="o">=</span> <span class="p">[]</span>

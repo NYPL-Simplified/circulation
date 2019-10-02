@@ -379,6 +379,12 @@
     <span class="c1"># How much weight the data source gives to this classification.</span>
     <span class="n">weight</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
 
+    <span class="c1"># If we hear about a classification from a distributor (and we</span>
+    <span class="c1"># trust the distributor to have accurate classifications), we</span>
+    <span class="c1"># should give it this weight. This lets us keep the weights</span>
+    <span class="c1"># consistent across distributors.</span>
+    <span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span> <span class="o">=</span> <span class="mf">100.0</span>
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">scaled_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span>

@@ -65,6 +65,7 @@
 
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
+    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
@@ -662,7 +663,12 @@
             <span class="k">for</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[]):</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">topic</span> <span class="ow">or</span> <span class="n">topic</span> <span class="ow">in</span> <span class="n">seen_topics</span><span class="p">:</span>
                     <span class="k">continue</span>
-                <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">topic</span><span class="p">))</span>
+                <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">SubjectData</span><span class="p">(</span>
+                        <span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span>
+                        <span class="n">weight</span><span class="o">=</span><span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
                 <span class="n">seen_topics</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">topic</span><span class="p">)</span>
 
         <span class="n">language_code</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;language&quot;</span><span class="p">,</span> <span class="s2">&quot;English&quot;</span><span class="p">)</span>

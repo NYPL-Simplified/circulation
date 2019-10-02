@@ -58,15 +58,16 @@
 
 <span class="kn">from</span> <span class="nn">pymarc</span> <span class="k">import</span> <span class="n">MARCReader</span>
 
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
 <span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
 <span class="kn">from</span> <span class="nn">util.http</span> <span class="k">import</span> <span class="n">RemoteIntegrationException</span>
 <span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="k">import</span> <span class="n">name_tidy</span>
 <span class="kn">from</span> <span class="nn">util.median</span> <span class="k">import</span> <span class="n">median</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
 <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
+    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
@@ -2147,10 +2148,13 @@
         <span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span> <span class="p">:</span> <span class="p">(</span><span class="s2">&quot;isbn&quot;</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">),</span>
     <span class="p">}</span>
 
+    <span class="c1"># When classifications are imported from a CSV file, we treat </span>
+    <span class="c1"># them as though they came from a trusted distributor.</span>
     <span class="n">DEFAULT_SUBJECT_FIELD_NAMES</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s1">&#39;tags&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>
-        <span class="s1">&#39;age&#39;</span> <span class="p">:</span> <span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">AGE_RANGE</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>
-        <span class="s1">&#39;audience&#39;</span> <span class="p">:</span> <span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">FREEFORM_AUDIENCE</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>
+        <span class="s1">&#39;tags&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">TAG</span><span class="p">,</span> <span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span><span class="p">),</span>
+        <span class="s1">&#39;age&#39;</span> <span class="p">:</span> <span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">AGE_RANGE</span><span class="p">,</span> <span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span><span class="p">),</span>
+        <span class="s1">&#39;audience&#39;</span> <span class="p">:</span> <span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">FREEFORM_AUDIENCE</span><span class="p">,</span>
+                      <span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span><span class="p">),</span>
     <span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>

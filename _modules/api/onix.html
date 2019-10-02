@@ -45,6 +45,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">Edition</span><span class="p">,</span>
@@ -235,18 +236,30 @@
 
             <span class="n">subject_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/subject&#39;</span><span class="p">)</span>
             <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span>
             <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">subject_tags</span><span class="p">:</span>
                 <span class="nb">type</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b067&#39;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUBJECT_TYPES</span><span class="p">:</span>
-                    <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SUBJECT_TYPES</span><span class="p">[</span><span class="nb">type</span><span class="p">],</span>
-                                                <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b069&#39;</span><span class="p">)))</span>
+                    <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">SubjectData</span><span class="p">(</span>
+                            <span class="bp">cls</span><span class="o">.</span><span class="n">SUBJECT_TYPES</span><span class="p">[</span><span class="nb">type</span><span class="p">],</span>
+                            <span class="n">parser</span><span class="o">.</span><span class="n">text_of_subtag</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="s1">&#39;b069&#39;</span><span class="p">),</span>
+                            <span class="n">weight</span><span class="o">=</span><span class="n">weight</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
 
             <span class="n">audience_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/audience/b204&#39;</span><span class="p">)</span>
             <span class="n">audiences</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">audience_tags</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">tag</span><span class="o">.</span><span class="n">text</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_TYPES</span><span class="p">:</span>
-                    <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SubjectData</span><span class="p">(</span><span class="n">Subject</span><span class="o">.</span><span class="n">FREEFORM_AUDIENCE</span><span class="p">,</span>
-                                                <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_TYPES</span><span class="p">[</span><span class="n">tag</span><span class="o">.</span><span class="n">text</span><span class="p">]))</span>
+                    <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">SubjectData</span><span class="p">(</span>
+                            <span class="n">Subject</span><span class="o">.</span><span class="n">FREEFORM_AUDIENCE</span><span class="p">,</span>
+                            <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_TYPES</span><span class="p">[</span><span class="n">tag</span><span class="o">.</span><span class="n">text</span><span class="p">],</span>
+                            <span class="n">weight</span><span class="o">=</span><span class="n">weight</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
 
             <span class="n">contributor_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s1">&#39;descriptivedetail/contributor&#39;</span><span class="p">)</span>
             <span class="n">contributors</span> <span class="o">=</span> <span class="p">[]</span>
