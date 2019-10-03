@@ -539,7 +539,6 @@ class ExternalSearchIndex(HasSelfTests):
         for i, results in enumerate(resultset):
             # Use the Pagination object to slice up the results if
             # necessary.
-            results = resultset[i]
             query_string, filter, pagination = queries[i]
             start = pagination.offset
             stop = start + pagination.size
