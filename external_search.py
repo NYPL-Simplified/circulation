@@ -3128,6 +3128,14 @@ class MockExternalSearchIndex(ExternalSearchIndex):
             pagination.page_loaded(results)
         return results
 
+    def query_works_multi(self, queries, debug=False):
+        # Implement query_works_multi by calling query_works several
+        # times. This is the opposite of what happens in the
+        # non-mocked ExternalSearchIndex, because it's easier to mock
+        # the simple case and performance isn't an issue.
+        for (query_string, filter, pagination) in queries:
+            yield self.query_works(query_string, filter, pagination, debug)
+
     def count_works(self, filter):
         return len(self.docs)
 
