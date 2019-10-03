@@ -1496,21 +1496,29 @@ class WorkList(object):
             WorkSearchResult,
         )
 
-        test_case = None
+        has_script_fields = None
         work_ids = set()
         for resultset in resultsets:
             for result in resultset:
                 work_ids.add(result.work_id)
-                if not test_case:
-                    test_case = result
+                if has_script_fields is None:
+                    # We don't know whether any script fields were
+                    # included, and now we're in a position to find
+                    # out.
+                    has_script_fields = (
+                        any(
+                            x in result for x in Filter.KNOWN_SCRIPT_FIELDS
+                        )
+                    )
+
+        if has_script_fields is None:
+            # This can only happen when there are no results. The code
+            # will work even if has_script_fields is None, but just to
+            # be safe.
+            has_script_fields = False
 
         # Check the first search result see if any script fields were
         # included.
-        has_script_fields = (
-            test_case is not None and any(
-                x in test_case for x in Filter.KNOWN_SCRIPT_FIELDS
-            )
-        )
 
         # The simplest way to turn Hits into Works is to create a
         # DatabaseBackedWorkList that fetches those specific Works
