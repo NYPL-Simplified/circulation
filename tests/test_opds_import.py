@@ -1682,8 +1682,9 @@ class TestMirroring(OPDSImporterTest):
         media_type=Representation.PNG_MEDIA_TYPE
         )
 
-        s3 = MockS3Uploader()
-        mirror = dict(covers=s3)
+        s3_for_books = MockS3Uploader()
+        s3_for_covers = MockS3Uploader()
+        mirror = dict(books=s3_for_books, covers=s3_for_covers)
 
         importer = OPDSImporter(
             self._db, collection=self._default_collection,
@@ -1738,32 +1739,36 @@ class TestMirroring(OPDSImporterTest):
         # original SVG image, the working PNG image, and its thumbnail, which we generated. The
         # The broken PNG image was not mirrored because our attempt to download
         # it resulted in a 404 error.
-        imported_representations = [
+        imported_book_representations = [
             e1_oa_link.resource.representation,
+            e2_oa_link.resource.representation
+        ]
+        imported_cover_representations = [
             e1_image_link.resource.representation,
-            e2_oa_link.resource.representation,
             e2_working_image_link.resource.representation,
             e2_working_image_link.resource.representation.thumbnails[0]
         ]
-        eq_(imported_representations, s3.uploaded)
+        eq_(imported_book_representations, s3_for_books.uploaded)
+        eq_(imported_cover_representations, s3_for_covers.uploaded)
 
-        eq_(5, len(s3.uploaded))
+        eq_(2, len(s3_for_books.uploaded))
+        eq_(3, len(s3_for_covers.uploaded))
 
         svg_bytes = svg.encode("utf8")
-        eq_(b"I am 10441.epub.images", s3.content[0])
-        eq_(svg_bytes, s3.content[1])
-        eq_(b"I am 10557.epub.images", s3.content[2])
-        eq_(open_png, s3.content[3])
+        eq_(b"I am 10441.epub.images", s3_for_books.content[0])
+        eq_(b"I am 10557.epub.images", s3_for_books.content[1])
+        eq_(svg_bytes, s3_for_covers.content[0])
+        eq_(open_png, s3_for_covers.content[1])
         #We don't know what the thumbnail is, but we know it's smaller than the
         #original cover image.
-        assert(len(s3.content[4]) < len(s3.content[3]))
+        assert(len(s3_for_covers.content[1]) > len(s3_for_covers.content[2]))
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
         #
-        # The "mouse" book was mirrored to a bucket corresponding to
+        # The "mouse" book was mirrored to a book bucket corresponding to
         # Project Gutenberg, its data source.
         #
-        # The images were mirrored to a bucket corresponding to the
+        # The images were mirrored to a covers bucket corresponding to the
         # open-access content server, _their_ data source. Each image
         # has an extension befitting its media type.
         #
@@ -1775,8 +1780,10 @@ class TestMirroring(OPDSImporterTest):
         book2_url = 'https://s3.amazonaws.com/test.content.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/Johnny+Crow%27s+Party.epub.images'
         book2_png_cover = 'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/working-cover-image.png'
         book2_png_thumbnail = 'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/working-cover-image.png'
-        uploaded_urls = [x.mirror_url for x in s3.uploaded]
-        eq_([book1_url, book1_svg_cover, book2_url, book2_png_cover, book2_png_thumbnail], uploaded_urls)
+        uploaded_urls = [x.mirror_url for x in s3_for_covers.uploaded]
+        uploaded_book_urls = [x.mirror_url for x in s3_for_books.uploaded]
+        eq_([book1_svg_cover, book2_png_cover, book2_png_thumbnail], uploaded_urls)
+        eq_([book1_url, book2_url], uploaded_book_urls)
 
 
         # If we fetch the feed again, and the entries have been updated since the
@@ -1803,7 +1810,7 @@ class TestMirroring(OPDSImporterTest):
         eq_([e1, e2], imported_editions)
 
         # Nothing new has been uploaded
-        eq_(5, len(s3.uploaded))
+        eq_(2, len(s3_for_books.uploaded))
 
         # If the content has changed, it will be mirrored again.
         http.queue_response(
@@ -1826,10 +1833,10 @@ class TestMirroring(OPDSImporterTest):
         )
 
         eq_([e1, e2], imported_editions)
-        eq_(8, len(s3.uploaded))
-        eq_(b"I am a new version of 10441.epub.images", s3.content[5])
-        eq_(svg_bytes, s3.content[6])
-        eq_(b"I am a new version of 10557.epub.images", s3.content[7])
+        eq_(4, len(s3_for_books.uploaded))
+        eq_(b"I am a new version of 10441.epub.images", s3_for_books.content[2])
+        eq_(svg_bytes, s3_for_covers.content[3])
+        eq_(b"I am a new version of 10557.epub.images", s3_for_books.content[3])
 
 
     def test_content_resources_not_mirrored_on_import_if_no_collection(self):

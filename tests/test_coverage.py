@@ -1593,8 +1593,8 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
 
         # ..and will then be uploaded to this 'mirror'.
-        mirror = dict(covers=MockS3Uploader())
-        mirror_type = "covers"
+        mirror = dict(books=MockS3Uploader())
+        mirror_type = "books"
 
         class Tripwire(PresentationCalculationPolicy):
             # This class sets a variable if one of its properties is

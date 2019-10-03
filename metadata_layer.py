@@ -154,9 +154,7 @@ class ReplacementPolicy(object):
         """
         if link.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]:
             return ExternalIntegrationLink.COVERS
-        elif link.rel in Hyperlink.CIRCULATION_ALLOWED:
-            return ExternalIntegrationLink.BOOKS
-        return None
+        return ExternalIntegrationLink.BOOKS
 
 
 class SubjectData(object):
@@ -733,6 +731,8 @@ class MetaToModelUtility(object):
 
         if mirror_type in policy.mirror:
             mirror = policy.mirror[mirror_type]
+            if not mirror:
+                return
         else:
             self.log.info(
                 "No mirror uploader with key %s found" % mirror_type
