@@ -459,8 +459,8 @@ class OPDSImporter(object):
 
         # Check to see if a mirror for each purpose was passed in.
         # If not, then attempt to create one.
-        covers_mirror = mirror.get(ExternalIntegrationLink.COVERS, None)
-        books_mirror = mirror.get(ExternalIntegrationLink.BOOKS, None)
+        covers_mirror = mirror.get(ExternalIntegrationLink.COVERS, None) if mirror else None
+        books_mirror = mirror.get(ExternalIntegrationLink.BOOKS, None) if mirror else None
         if collection:
             if not covers_mirror:
                 # If this Collection is configured to mirror the assets it

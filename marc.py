@@ -558,7 +558,7 @@ class MARCExporter(object):
         integrations = ExternalIntegration.for_goal(
             _db, ExternalIntegration.STORAGE_GOAL
         )
-        for integration in integrations.all():
+        for integration in integrations:
             cls.SETTING['options'].append(
                 dict(key=str(integration.id), label=integration.name)
             )

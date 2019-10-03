@@ -335,7 +335,8 @@ class TestExternalIntegration(DatabaseTest):
 
         assert_raises_regexp(
             CannotLoadConfiguration,
-            "No storage integration for purpose isbn is configured",
+            "No storage integration for collection '%s' and purpose '%s' is configured"
+            % (collection.name, wrong_purpose),
             ExternalIntegration.for_collection_and_purpose, self._db, collection, wrong_purpose
         )
 

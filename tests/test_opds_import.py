@@ -1683,10 +1683,11 @@ class TestMirroring(OPDSImporterTest):
         )
 
         s3 = MockS3Uploader()
+        mirror = dict(covers=s3)
 
         importer = OPDSImporter(
             self._db, collection=self._default_collection,
-            books_mirror=s3, http_get=http.do_get
+            mirror=mirror, http_get=http.do_get
         )
 
         imported_editions, pools, works, failures = (
@@ -1853,10 +1854,11 @@ class TestMirroring(OPDSImporterTest):
         )
 
         s3 = MockS3Uploader()
+        mirror = dict(covers=s3)
 
         importer = OPDSImporter(
             self._db, collection=None,
-            covers_mirror=s3, http_get=http.do_get
+            mirror=mirror, http_get=http.do_get
         )
 
         imported_editions, pools, works, failures = (

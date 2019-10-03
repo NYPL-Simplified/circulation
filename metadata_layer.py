@@ -55,6 +55,7 @@ from model import (
     Timestamp,
     Work,
 )
+from model.configuration import ExternalIntegrationLink
 from classifier import NO_VALUE, NO_NUMBER
 from analytics import Analytics
 from util.personal_names import display_name_to_sort_name
@@ -147,6 +148,15 @@ class ReplacementPolicy(object):
             formats=False,
             **args
         )
+
+    def mirror_type_for(self, link):
+        """Returns the type of mirror that should be used for the link.
+        """
+        if link.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]:
+            return ExternalIntegrationLink.COVERS
+        elif link.rel in Hyperlink.CIRCULATION_ALLOWED:
+            return ExternalIntegrationLink.BOOKS
+        return None
 
 
 class SubjectData(object):
@@ -1183,11 +1193,9 @@ class CirculationData(MetaToModelUtility):
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
                 if replace.mirror:
-                    for mirror_type in replace.mirror.keys():
-                        if replace.mirror[mirror_type]:
-                            # We need to mirror this resource. If it's an image, a
-                            # thumbnail may be provided as a side effect.
-                            self.mirror_link(pool, data_source, link, link_obj, replace, mirror_type)
+                    mirror_type = replace.mirror_type_for(link)
+                    # We need to mirror this resource.
+                    self.mirror_link(pool, data_source, link, link_obj, replace, mirror_type)
 
         # Next, make sure the DeliveryMechanisms associated
         # with the book reflect the formats in self.formats.
@@ -1918,11 +1926,10 @@ class Metadata(MetaToModelUtility):
                 continue
 
             if replace.mirror:
-                for mirror_type in replace.mirror.keys():
-                    if replace.mirror[mirror_type]:
-                        # We need to mirror this resource. If it's an image, a
-                        # thumbnail may be provided as a side effect.
-                        self.mirror_link(edition, data_source, link, link_obj, replace, mirror_type)
+                mirror_type = replace.mirror_type_for(link)
+                # We need to mirror this resource. If it's an image, a
+                # thumbnail may be provided as a side effect.
+                self.mirror_link(edition, data_source, link, link_obj, replace, mirror_type)
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
