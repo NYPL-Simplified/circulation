@@ -1783,8 +1783,36 @@ class TestWorkList(DatabaseTest):
         eq_(wl.fake_work_list, result)
 
     def test_works_for_hits(self):
-        # Verify that WorkList.works_for_hits turns (mocked) Hit
-        # objects into Work or WorkSearchResult objects.
+        # Verify that WorkList.works_for_hits() just calls
+        # works_for_resultsets().
+        class Mock(WorkList):
+            def works_for_resultsets(self, _db, resultsets):
+                self.called_with = (_db, resultsets)
+                return [["some", "results"]]
+        wl = Mock()
+        results = wl.works_for_hits(self._db, ["hit1", "hit2"])
+
+        # The list of hits was itself wrapped in a list, and passed
+        # into works_for_resultsets().
+        eq_(
+            (self._db, [["hit1", "hit2"]]),
+            wl.called_with
+        )
+
+        # The return value -- a list of lists of results, which
+        # contained a single item -- was unrolled and used as the
+        # return value of works_for_hits().
+        eq_(["some", "results"], results)
+
+    def test_works_for_resultsets(self):
+        # Verify that WorkList.works_for_resultsets turns lists of
+        # (mocked) Hit objects into lists of Work or WorkSearchResult
+        # objects.
+
+        # Create the WorkList we'll be testing with.
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        m = wl.works_for_resultsets
 
         # Create two works.
         w1 = self._work(with_license_pool=True)
@@ -1806,25 +1834,28 @@ class TestWorkList(DatabaseTest):
         hit1 = MockHit(w1)
         hit2 = MockHit(w2)
 
-        wl = WorkList()
-        wl.initialize(self._default_library)
-        eq_([w2], wl.works_for_hits(self._db, [hit2]))
+        # For each list of hits passed in, a corresponding list of
+        # Works is returned.
+        eq_([[w2]], m(self._db, [[hit2]]))
+        eq_([[w2], [w1]], m(self._db, [[hit2], [hit1]]))
+        eq_([[w1, w1], [w2, w2], []],
+            m(self._db, [[hit1, hit1], [hit2, hit2], []]))
 
         # Works are returned in the order we ask for.
         for ordering in ([hit1, hit2], [hit2, hit1]):
-            works = wl.works_for_hits(self._db, ordering)
+            [works] = m(self._db, [ordering])
             eq_([x.work_id for x in ordering], [x.id for x in works])
 
         # If we ask for a work ID that's not in the database,
         # we don't get it.
-        eq_([], wl.works_for_hits(self._db, [MockHit(-100)]))
+        eq_([[]], m(self._db, [[MockHit(-100)]]))
 
         # If we pass in Hit objects that have extra information in them,
         # we get WorkSearchResult objects
         hit1_extra = MockHit(w1, True)
         hit2_extra = MockHit(w2, True)
 
-        results = wl.works_for_hits(self._db, [hit2_extra, hit1_extra])
+        [results] = m(self._db, [[hit2_extra, hit1_extra]])
         assert all(isinstance(x, WorkSearchResult) for x in results)
         r1, r2 = results
 
@@ -1839,8 +1870,7 @@ class TestWorkList(DatabaseTest):
         # Finally, test that undeliverable works are filtered out.
         for lpdm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
-            eq_([], wl.works_for_hits(self._db, [hit2]))
-
+            eq_([[]], m(self._db, [[hit2]]))
 
     def test_search_target(self):
         # A WorkList can be searched - it is its own search target.
