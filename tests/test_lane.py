@@ -3725,25 +3725,39 @@ class TestWorkListGroups(DatabaseTest):
         eq_("Custom facets for Lane 2.", child2.works_called_with)
 
     def test_featured_works_with_lanes(self):
-        # _featured_works_with_lanes builds a list of queries and passes the
-        # list into search_engine.works_query_multi().
+        # _featured_works_with_lanes builds a list of queries and
+        # passes the list into search_engine.works_query_multi(). It
+        # passes the search results into works_for_resultsets() to
+        # create a sequence of (Work, Lane) 2-tuples.
         class MockWorkList(WorkList):
             """Mock the behavior of WorkList that's not being tested here --
-            works_for_resultsets() for the parent and overview_facets()
-            for the children.
+            overview_facets() for the child lanes that are being
+            searched, and works_for_resultsets() for the parent that's
+            doing the searching.
             """
             def __init__(self, *args, **kwargs):
+                # Track all the times overview_facets is called (it
+                # should be called twice), plus works_for_resultsets
+                # (which should only be called once).
                 super(MockWorkList, self).__init__(*args, **kwargs)
                 self.works_for_resultsets_calls = []
                 self.overview_facets_calls = []
 
             def overview_facets(self, _db, facets):
+                # Track that overview_facets was called with a
+                # FeaturedFacets object. Then call the superclass
+                # implementation -- we need to return a real Facets
+                # object so it can be turned into a Filter.
+                assert isinstance(facets, FeaturedFacets)
                 self.overview_facets_calls.append((_db, facets))
                 return super(MockWorkList, self).overview_facets(_db, facets)
 
             def works_for_resultsets(self, _db, resultsets):
+                # Take some lists of (mocked) of search results and turn
+                # them into lists of (mocked) Works.
                 self.works_for_resultsets_calls.append((_db, resultsets))
-                return [["Here are", "the works", "you ordered"]] * len(resultsets)
+                one_lane_worth = [["Here is", "one lane", "of works"]]
+                return one_lane_worth * len(resultsets)
 
         class MockSearchEngine(object):
             """Mock a multi-query call to an Elasticsearch server."""
@@ -3751,10 +3765,13 @@ class TestWorkListGroups(DatabaseTest):
                 self.called_with = None
 
             def query_works_multi(self, queries):
+                # Pretend to run a multi-query and return three lists of
+                # mocked results.
                 self.called_with = queries
-                return [["lots"], ["of"], ["results"]]
+                return [["some"], ["search"], ["results"]]
 
-        # We've got a parent lane with two children.
+        # Now the actual test starts. We've got a parent lane with two
+        # children.
         parent = MockWorkList()
         child1 = MockWorkList()
         child2 = MockWorkList()
@@ -3765,9 +3782,12 @@ class TestWorkListGroups(DatabaseTest):
         child1.initialize(library=self._default_library, display_name="Child 1")
         child2.initialize(library=self._default_library, display_name="Child 2")
 
-        # We've got a search engine that's ready to find works in any of these lanes.
+        # We've got a search engine that's ready to find works in any
+        # of these lanes.
         search = MockSearchEngine()
 
+        # Set up facets and pagination, and call the method that's
+        # being tested.
         facets = FeaturedFacets(0.1)
         pagination = object()
         results = parent._featured_works_with_lanes(
@@ -3775,7 +3795,8 @@ class TestWorkListGroups(DatabaseTest):
         )
         results = list(results)
 
-        # MockSearchEngine.query_works_multi was called on a list of queries perpared from child1 and child2.
+        # MockSearchEngine.query_works_multi was called on a list of
+        # queries it prepared from child1 and child2.
         q1, q2 = search.called_with
 
         # These queries are almost the same.
@@ -3788,9 +3809,11 @@ class TestWorkListGroups(DatabaseTest):
         # But each query has a different Filter.
         f1 = q1[1]
         f2 = q2[1]
+        assert f1 != f2
 
         # How did these Filters come about? Well, for each lane, we
-        # passed the FeaturedFacets object into overview_facets. This
+        # called overview_facets() and passed in the same
+        # FeaturedFacets object.
         eq_((self._db, facets), child1.overview_facets_calls.pop())
         eq_([], child1.overview_facets_calls)
         child1_facets = child1.overview_facets(self._db, facets)
@@ -3799,16 +3822,16 @@ class TestWorkListGroups(DatabaseTest):
         eq_([], child2.overview_facets_calls)
         child2_facets = child1.overview_facets(self._db, facets)
 
-        # We then passed the result into Filter.from_worklist, along
-        # with the lane.
+        # We then passed each result into Filter.from_worklist, along
+        # with the corresponding lane.
         compare_f1 = Filter.from_worklist(self._db, child1, child1_facets)
         compare_f2 = Filter.from_worklist(self._db, child2, child2_facets)
 
-        # Reproducing that code inside this test gives us Filter
-        # objects -- compare_f1 and compare_f2 -- identical to the
-        # ones passed into query_works_multi -- f1 and f2. We know
-        # they're the same because they build() to identical
-        # dictionaries.
+        # Reproducing that code inside this test, which we just did,
+        # gives us Filter objects -- compare_f1 and compare_f2 --
+        # identical to the ones passed into query_works_multi -- f1
+        # and f2. We know they're the same because they build() to
+        # identical dictionaries.
         eq_(compare_f1.build(), f1.build())
         eq_(compare_f2.build(), f2.build())
 
@@ -3818,11 +3841,11 @@ class TestWorkListGroups(DatabaseTest):
 
         # We know that query_works_multi() returned: a list
         # of lists of fake "results" that looked like this:
-        # [["lots"], ["of"], ["results"]]
+        # [["some"], ["search"], ["results"]]
         #
         # This was passed into parent.works_for_resultsets():
         call = parent.works_for_resultsets_calls.pop()
-        eq_(call, (self._db, [['lots'], ['of'], ['results']]))
+        eq_(call, (self._db, [['some'], ['search'], ['results']]))
         eq_([], parent.works_for_resultsets_calls)
 
         # The return value of works_for_resultsets -- another list of
@@ -3830,15 +3853,17 @@ class TestWorkListGroups(DatabaseTest):
         # 2-tuples.
         eq_(
             [
-                ("Here are", child1),
-                ("the works", child1),
-                ("you ordered", child1),
-                ("Here are", child2),
-                ("the works", child2),
-                ("you ordered", child2),
+                ("Here is", child1),
+                ("one lane", child1),
+                ("of works", child1),
+                ("Here is", child2),
+                ("one lane", child2),
+                ("of works", child2),
             ],
             results
         )
+        # And that's how we got a sequence of 2-tuples mapping out a
+        # grouped OPDS feed.
 
     def test__size_for_facets(self):
 
