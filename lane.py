@@ -1517,9 +1517,6 @@ class WorkList(object):
             # be safe.
             has_script_fields = False
 
-        # Check the first search result see if any script fields were
-        # included.
-
         # The simplest way to turn Hits into Works is to create a
         # DatabaseBackedWorkList that fetches those specific Works
         # while applying the general availability filters.
