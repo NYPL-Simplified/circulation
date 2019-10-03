@@ -721,7 +721,14 @@ class MetaToModelUtility(object):
             )
             return
 
-        mirror = policy.mirror[mirror_type]
+        if mirror_type in policy.mirror:
+            mirror = policy.mirror[mirror_type]
+        else:
+            self.log.info(
+                "No mirror uploader with key %s found" % mirror_type
+            )
+            return
+
         http_get = policy.http_get
 
         _db = Session.object_session(link_obj)

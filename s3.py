@@ -78,7 +78,6 @@ class S3Uploader(MirrorUploader):
     S3_BASE = "https://%s/" % S3_HOSTNAME
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
-    BOOK_BUCKET_KEY = u'book__bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
     MARC_BUCKET_KEY = u'marc_bucket'
 

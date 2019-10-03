@@ -258,14 +258,14 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.id
 
     @classmethod
-    def get_integrations_of_goal(cls, _db, goal):
+    def for_goal(cls, _db, goal):
         """Return all external integrations by goal type.
         """
         integrations = _db.query(cls).filter(
             cls.goal==goal
         ).order_by(
             cls.name
-        ).all()
+        )
 
         return integrations
 
@@ -286,7 +286,8 @@ class ExternalIntegration(Base, HasFullTableCache):
         integrations = qu.all()
         if not integrations:
             raise CannotLoadConfiguration(
-                "No storage integration for purpose %s is configured." % purpose
+                "No storage integration for collection '%s' and purpose '%s' is configured." %
+                (collection.name, purpose)
             )
         if len(integrations) > 1:
             raise CannotLoadConfiguration(

@@ -20,8 +20,8 @@ class MirrorUploader():
     def mirror(cls, _db, storage_name=None, integration=None):
         """Create a MirrorUploader from an integration or storage name.
 
-        :param storage_name: The name of the S3 storage integration.
-        :param integration: The S3 external integration.
+        :param storage_name: The name of the storage integration.
+        :param integration: The external integration.
 
         :return: A MirrorUploader.
 

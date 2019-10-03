@@ -405,8 +405,7 @@ class OPDSImporter(object):
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, http_get=None,
                  metadata_client=None, content_modifier=None,
-                 map_from_collection=None, covers_mirror=None,
-                 books_mirror=None,
+                 map_from_collection=None, mirror=None
     ):
         """:param collection: LicensePools created by this OPDS import
         will be associated with the given Collection. If this is None,
@@ -420,11 +419,8 @@ class OPDSImporter(object):
         here. This is only for use when you are importing OPDS
         metadata without any particular Collection in mind.
 
-        :param covers_mirror: Use this MirrorUploader object to mirror all
-        incoming cover images.
-
-        :param books_mirror: Use this MirrorUploader object to mirror all
-        incoming open-access books.
+        :param mirror: A dictionary of different MirrorUploader objects for
+        different purposes.
 
         :param http_get: Use this method to make an HTTP GET request. This
         can be replaced with a stub method for testing purposes.
@@ -461,6 +457,10 @@ class OPDSImporter(object):
             self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
             self.metadata_client = None
 
+        # Check to see if a mirror for each purpose was passed in.
+        # If not, then attempt to create one.
+        covers_mirror = mirror.get(ExternalIntegrationLink.COVERS, None)
+        books_mirror = mirror.get(ExternalIntegrationLink.BOOKS, None)
         if collection:
             if not covers_mirror:
                 # If this Collection is configured to mirror the assets it

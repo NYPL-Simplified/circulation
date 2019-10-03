@@ -555,10 +555,10 @@ class MARCExporter(object):
         
     @classmethod
     def get_storage_settings(cls, _db):
-        integrations = ExternalIntegration.get_integrations_of_goal(
+        integrations = ExternalIntegration.for_goal(
             _db, ExternalIntegration.STORAGE_GOAL
         )
-        for integration in integrations:
+        for integration in integrations.all():
             cls.SETTING['options'].append(
                 dict(key=str(integration.id), label=integration.name)
             )
@@ -612,7 +612,7 @@ class MARCExporter(object):
 
         return record
 
-    def records(self, lane, annotator, integration, start_time=None,
+    def records(self, lane, annotator, mirror_integration, start_time=None,
                 force_refresh=False, mirror=None, search_engine=None,
                 query_batch_size=500, upload_batch_size=7500,
     ):
@@ -621,6 +621,7 @@ class MARCExporter(object):
 
         :param lane: The Lane to export books from.
         :param annotator: The Annotator to use when creating MARC records.
+        :param mirror_integration: The mirror integration to use for MARC files.
         :param start_time: Only include records that were created or modified after this time.
         :param force_refresh: Create new records even when cached records are available.
         :param mirror: Optional mirror to use instead of loading one from configuration.
@@ -634,8 +635,8 @@ class MARCExporter(object):
         # We mirror the content, if it's not empty. If it's empty, we create a CachedMARCFile
         # and Representation, but don't actually mirror it.
         if not mirror:
-            storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
-            mirror = MirrorUploader.implementation(integration)
+            storage_protocol = self.mirror_integration.setting(self.STORAGE_PROTOCOL).value
+            mirror = MirrorUploader.implementation(mirror_integration)
             if mirror.NAME != storage_protocol:
                 raise Exception("Mirror integration does not match configured storage protocol")
 

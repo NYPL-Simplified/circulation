@@ -1634,7 +1634,7 @@ class TestMirroring(OPDSImporterTest):
         integration = self._external_integration(
             ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
             username="username", password="password",
-            settings = {S3Uploader.BOOK_BUCKET_KEY : "some-books"}
+            settings = {S3Uploader.OA_CONTENT_BUCKET_KEY : "some-books"}
         )
         # Associate the collection's integration with the storage integration
         # for the purpose of 'covers'.
@@ -1648,7 +1648,7 @@ class TestMirroring(OPDSImporterTest):
         mirror = importer.mirror
 
         assert isinstance(mirror[ExternalIntegrationLink.BOOKS], S3Uploader)
-        eq_("some-books", mirror[ExternalIntegrationLink.BOOKS].get_bucket(S3Uploader.BOOK_BUCKET_KEY))
+        eq_("some-books", mirror[ExternalIntegrationLink.BOOKS].get_bucket(S3Uploader.OA_CONTENT_BUCKET_KEY))
         eq_("some-covers", mirror[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
 
     def test_resources_are_mirrored_on_import(self):
