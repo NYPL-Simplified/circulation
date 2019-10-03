@@ -473,7 +473,7 @@ class ExternalSearchIndex(HasSelfTests):
 
         pagination = pagination or Pagination.default()
         query_data = (query_string, filter, pagination)
-        [result] = list(self.query_works_multi([query_data], debug))
+        [result] = self.query_works_multi([query_data], debug)
         return result
 
     def query_works_multi(self, queries, debug=False):
