@@ -2613,10 +2613,36 @@ class TestMirrorResourcesScript(DatabaseTest):
         result = script.collections_with_uploader(
             [self._default_collection, has_uploader, self._default_collection]
         )
+
         [(collection, policy)] = result
         eq_(has_uploader, collection)
         eq_(Mock.mock_policy, policy)
-        assert isinstance(Mock.replacement_policy_called_with, MirrorUploader)
+        # The mirror uploader was associated with a purpose of "covers", so we only
+        # expect to have one MirrorUploader.
+        eq_(Mock.replacement_policy_called_with["books"], None)
+        assert isinstance(Mock.replacement_policy_called_with["covers"], MirrorUploader)
+
+        # Add another storage for books.
+        another_mirror = self._external_integration(
+            "S3", ExternalIntegration.STORAGE_GOAL
+        )
+
+        integration_link = self._external_integration_link(
+            integration=has_uploader._external_integration,
+            other_integration=another_mirror,
+            purpose=ExternalIntegrationLink.BOOKS
+        )
+
+        result = script.collections_with_uploader(
+            [self._default_collection, has_uploader, self._default_collection]
+        )
+
+        [(collection, policy)] = result
+        eq_(has_uploader, collection)
+        eq_(Mock.mock_policy, policy)
+        # There should be two MirrorUploaders for each purpose
+        assert isinstance(Mock.replacement_policy_called_with["covers"], MirrorUploader)
+        assert isinstance(Mock.replacement_policy_called_with["books"], MirrorUploader)
 
     def test_replacement_policy(self):
         uploader = object()

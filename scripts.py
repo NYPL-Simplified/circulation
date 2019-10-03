@@ -1891,11 +1891,15 @@ class MirrorResourcesScript(CollectionInputScript):
             to use for that Collection.
         """
         for collection in collections:
-            uploader = MirrorUploader.for_collection(
+            covers = MirrorUploader.for_collection(
                 collection, ExternalIntegrationLink.COVERS
             )
-            if uploader:
-                policy = self.replacement_policy(uploader)
+            books = MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.BOOKS
+            )
+            mirror = dict(covers=covers, books=books)
+            if mirror["covers"] or mirror["books"]:
+                policy = self.replacement_policy(mirror)
                 yield collection, policy
             else:
                 self.log.info(
