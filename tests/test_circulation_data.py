@@ -620,8 +620,8 @@ class TestMetaToModelUtility(DatabaseTest):
         # Note: Mirroring tests passing does not guarantee that all code now
         # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
-        mirror = dict(covers=MockS3Uploader())
-        mirror_type = "covers"
+        mirror = dict(books=MockS3Uploader(),covers=None)
+        mirror_type = "books"
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
 
