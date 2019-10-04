@@ -149,14 +149,6 @@ class ReplacementPolicy(object):
             **args
         )
 
-    def mirror_type_for(self, link):
-        """Returns the type of mirror that should be used for the link.
-        """
-        if link.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]:
-            return ExternalIntegrationLink.COVERS
-        return ExternalIntegrationLink.BOOKS
-
-
 class SubjectData(object):
     def __init__(self, type, identifier, name=None, weight=1):
         self.type = type
@@ -550,6 +542,13 @@ class LinkData(object):
             content
         )
 
+    def mirror_type(self):
+        """Returns the type of mirror that should be used for the link.
+        """
+        if self.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]:
+            return ExternalIntegrationLink.COVERS
+        return ExternalIntegrationLink.BOOKS
+
 
 class MeasurementData(object):
     def __init__(self,
@@ -705,7 +704,7 @@ class MetaToModelUtility(object):
 
     log = logging.getLogger("Abstract metadata layer - mirror code")
 
-    def mirror_link(self, model_object, data_source, link, link_obj, policy, mirror_type):
+    def mirror_link(self, model_object, data_source, link, link_obj, policy):
         """Retrieve a copy of the given link and make sure it gets
         mirrored. If it's a full-size image, create a thumbnail and
         mirror that too.
@@ -728,6 +727,8 @@ class MetaToModelUtility(object):
                 )
             )
             return
+
+        mirror_type = link.mirror_type()
 
         if mirror_type in policy.mirror:
             mirror = policy.mirror[mirror_type]
@@ -1193,9 +1194,8 @@ class CirculationData(MetaToModelUtility):
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
                 if replace.mirror:
-                    mirror_type = replace.mirror_type_for(link)
                     # We need to mirror this resource.
-                    self.mirror_link(pool, data_source, link, link_obj, replace, mirror_type)
+                    self.mirror_link(pool, data_source, link, link_obj, replace)
 
         # Next, make sure the DeliveryMechanisms associated
         # with the book reflect the formats in self.formats.
@@ -1926,10 +1926,9 @@ class Metadata(MetaToModelUtility):
                 continue
 
             if replace.mirror:
-                mirror_type = replace.mirror_type_for(link)
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
-                self.mirror_link(edition, data_source, link, link_obj, replace, mirror_type)
+                self.mirror_link(edition, data_source, link, link_obj, replace)
             elif link.thumbnail:
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and

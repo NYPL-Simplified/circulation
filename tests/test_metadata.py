@@ -434,7 +434,7 @@ class TestMetadataImporter(DatabaseTest):
         )
         h.queue_response(403)
 
-        m.mirror_link(edition, data_source, link, link_obj, policy, "covers")
+        m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
 
@@ -478,7 +478,7 @@ class TestMetadataImporter(DatabaseTest):
 
         m = Metadata(data_source=data_source)
 
-        m.mirror_link(edition, data_source, link, link_obj, policy, mirror_type)
+        m.mirror_link(edition, data_source, link, link_obj, policy)
 
         # Since we got a 404 error, the cover image was not mirrored.
         eq_(404, link_obj.resource.representation.status_code)
@@ -511,7 +511,7 @@ class TestMetadataImporter(DatabaseTest):
 
         h.queue_response(200, media_type=Representation.JPEG_MEDIA_TYPE)
 
-        m.mirror_link(edition, data_source, link, link_obj, policy, "covers")
+        m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
 
@@ -566,7 +566,7 @@ class TestMetadataImporter(DatabaseTest):
         # The remote server told us a generic media type.
         h.queue_response(200, media_type=Representation.OCTET_STREAM_MEDIA_TYPE, content=content)
 
-        m.mirror_link(edition, data_source, link, link_obj, policy, "covers")
+        m.mirror_link(edition, data_source, link, link_obj, policy)
         representation = link_obj.resource.representation
 
         # The representation was fetched and mirrored successfully.
@@ -590,7 +590,7 @@ class TestMetadataImporter(DatabaseTest):
             rel=link.rel, href=link.href, data_source=data_source,
         )
         h.queue_response(200, media_type=Representation.OCTET_STREAM_MEDIA_TYPE, content=content)
-        m.mirror_link(edition, data_source, link, link_obj, policy, "covers")
+        m.mirror_link(edition, data_source, link, link_obj, policy)
         representation = link_obj.resource.representation
 
         # The representation is still fetched and mirrored successfully.
@@ -614,7 +614,7 @@ class TestMetadataImporter(DatabaseTest):
             rel=link.rel, href=link.href, data_source=data_source,
         )
         h.queue_response(200, media_type=Representation.OCTET_STREAM_MEDIA_TYPE, content=content)
-        m.mirror_link(edition, data_source, link, link_obj, policy, "covers")
+        m.mirror_link(edition, data_source, link, link_obj, policy)
         representation = link_obj.resource.representation
 
         # The representation is fetched, but we don't try to mirror it
@@ -655,7 +655,7 @@ class TestMetadataImporter(DatabaseTest):
         # The Hyperlink object makes it look like an open-access book,
         # but the context we have from the OPDS feed says that it's
         # not.
-        m.mirror_link(None, data_source, link, link_obj, policy, mirror_type)
+        m.mirror_link(None, data_source, link, link_obj, policy)
 
         # No HTTP requests were made.
         eq_([], h.requests)
@@ -669,8 +669,8 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = dict(covers=MockS3Uploader())
-        mirror_type = "covers"
+        mirror = dict(books=MockS3Uploader())
+        mirror_type = "books"
         def dummy_content_modifier(representation):
             representation.content = "Replaced Content"
         h = DummyHTTPClient()
@@ -691,7 +691,7 @@ class TestMetadataImporter(DatabaseTest):
 
         h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
 
-        m.mirror_link(edition, data_source, link, link_obj, policy, mirror_type)
+        m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
 
