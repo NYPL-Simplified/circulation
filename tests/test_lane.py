@@ -1783,8 +1783,36 @@ class TestWorkList(DatabaseTest):
         eq_(wl.fake_work_list, result)
 
     def test_works_for_hits(self):
-        # Verify that WorkList.works_for_hits turns (mocked) Hit
-        # objects into Work or WorkSearchResult objects.
+        # Verify that WorkList.works_for_hits() just calls
+        # works_for_resultsets().
+        class Mock(WorkList):
+            def works_for_resultsets(self, _db, resultsets):
+                self.called_with = (_db, resultsets)
+                return [["some", "results"]]
+        wl = Mock()
+        results = wl.works_for_hits(self._db, ["hit1", "hit2"])
+
+        # The list of hits was itself wrapped in a list, and passed
+        # into works_for_resultsets().
+        eq_(
+            (self._db, [["hit1", "hit2"]]),
+            wl.called_with
+        )
+
+        # The return value -- a list of lists of results, which
+        # contained a single item -- was unrolled and used as the
+        # return value of works_for_hits().
+        eq_(["some", "results"], results)
+
+    def test_works_for_resultsets(self):
+        # Verify that WorkList.works_for_resultsets turns lists of
+        # (mocked) Hit objects into lists of Work or WorkSearchResult
+        # objects.
+
+        # Create the WorkList we'll be testing with.
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        m = wl.works_for_resultsets
 
         # Create two works.
         w1 = self._work(with_license_pool=True)
@@ -1806,25 +1834,28 @@ class TestWorkList(DatabaseTest):
         hit1 = MockHit(w1)
         hit2 = MockHit(w2)
 
-        wl = WorkList()
-        wl.initialize(self._default_library)
-        eq_([w2], wl.works_for_hits(self._db, [hit2]))
+        # For each list of hits passed in, a corresponding list of
+        # Works is returned.
+        eq_([[w2]], m(self._db, [[hit2]]))
+        eq_([[w2], [w1]], m(self._db, [[hit2], [hit1]]))
+        eq_([[w1, w1], [w2, w2], []],
+            m(self._db, [[hit1, hit1], [hit2, hit2], []]))
 
         # Works are returned in the order we ask for.
         for ordering in ([hit1, hit2], [hit2, hit1]):
-            works = wl.works_for_hits(self._db, ordering)
+            [works] = m(self._db, [ordering])
             eq_([x.work_id for x in ordering], [x.id for x in works])
 
         # If we ask for a work ID that's not in the database,
         # we don't get it.
-        eq_([], wl.works_for_hits(self._db, [MockHit(-100)]))
+        eq_([[]], m(self._db, [[MockHit(-100)]]))
 
         # If we pass in Hit objects that have extra information in them,
         # we get WorkSearchResult objects
         hit1_extra = MockHit(w1, True)
         hit2_extra = MockHit(w2, True)
 
-        results = wl.works_for_hits(self._db, [hit2_extra, hit1_extra])
+        [results] = m(self._db, [[hit2_extra, hit1_extra]])
         assert all(isinstance(x, WorkSearchResult) for x in results)
         r1, r2 = results
 
@@ -1839,8 +1870,7 @@ class TestWorkList(DatabaseTest):
         # Finally, test that undeliverable works are filtered out.
         for lpdm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
-            eq_([], wl.works_for_hits(self._db, [hit2]))
-
+            eq_([[]], m(self._db, [[hit2]]))
 
     def test_search_target(self):
         # A WorkList can be searched - it is its own search target.
@@ -3725,53 +3755,145 @@ class TestWorkListGroups(DatabaseTest):
         eq_("Custom facets for Lane 2.", child2.works_called_with)
 
     def test_featured_works_with_lanes(self):
-        # _featured_works_with_lanes calls works_from_search_index
-        # on every lane we pass in to it.
-        class Mock(object):
-            """A Mock of Lane.works_from_search_index."""
-
-            def __init__(self, title, mock_works):
-                self.title = title
-                self.mock_works = mock_works
-
-            def works(self, _db, facets, pagination, *args, **kwargs):
-                self.works_called_with = [_db, facets, pagination]
-                return [self.mock_works]
+        # _featured_works_with_lanes builds a list of queries and
+        # passes the list into search_engine.works_query_multi(). It
+        # passes the search results into works_for_resultsets() to
+        # create a sequence of (Work, Lane) 2-tuples.
+        class MockWorkList(WorkList):
+            """Mock the behavior of WorkList that's not being tested here --
+            overview_facets() for the child lanes that are being
+            searched, and works_for_resultsets() for the parent that's
+            doing the searching.
+            """
+            def __init__(self, *args, **kwargs):
+                # Track all the times overview_facets is called (it
+                # should be called twice), plus works_for_resultsets
+                # (which should only be called once).
+                super(MockWorkList, self).__init__(*args, **kwargs)
+                self.works_for_resultsets_calls = []
+                self.overview_facets_calls = []
 
             def overview_facets(self, _db, facets):
-                self.overview_facets_called_with = (_db, facets)
-                return "Overview facets for %s" % self.title
+                # Track that overview_facets was called with a
+                # FeaturedFacets object. Then call the superclass
+                # implementation -- we need to return a real Facets
+                # object so it can be turned into a Filter.
+                assert isinstance(facets, FeaturedFacets)
+                self.overview_facets_calls.append((_db, facets))
+                return super(MockWorkList, self).overview_facets(_db, facets)
 
-        mock1 = Mock("Lane 1", ["work1", "work2"])
-        mock2 = Mock("Lane 2", ["workA", "workB"])
+            def works_for_resultsets(self, _db, resultsets):
+                # Take some lists of (mocked) of search results and turn
+                # them into lists of (mocked) Works.
+                self.works_for_resultsets_calls.append((_db, resultsets))
+                one_lane_worth = [["Here is", "one lane", "of works"]]
+                return one_lane_worth * len(resultsets)
 
-        lane = self._lane()
+        class MockSearchEngine(object):
+            """Mock a multi-query call to an Elasticsearch server."""
+            def __init__(self):
+                self.called_with = None
+
+            def query_works_multi(self, queries):
+                # Pretend to run a multi-query and return three lists of
+                # mocked results.
+                self.called_with = queries
+                return [["some"], ["search"], ["results"]]
+
+        # Now the actual test starts. We've got a parent lane with two
+        # children.
+        parent = MockWorkList()
+        child1 = MockWorkList()
+        child2 = MockWorkList()
+        parent.initialize(
+            library=self._default_library, children=[child1, child2],
+            display_name = "Parent lane -- call my _featured_works_with_lanes()!"
+        )
+        child1.initialize(library=self._default_library, display_name="Child 1")
+        child2.initialize(library=self._default_library, display_name="Child 2")
+
+        # We've got a search engine that's ready to find works in any
+        # of these lanes.
+        search = MockSearchEngine()
+
+        # Set up facets and pagination, and call the method that's
+        # being tested.
         facets = FeaturedFacets(0.1)
         pagination = object()
-        results = lane._featured_works_with_lanes(
-            self._db, [mock1, mock2], facets, pagination, search_engine=object()
+        results = parent._featured_works_with_lanes(
+            self._db, [child1, child2], facets, pagination, search_engine=search
         )
+        results = list(results)
 
-        # The results of works_in_window were annotated with the
-        # 'lane' that produced the result.
-        eq_([(['work1', 'work2'], mock1), (['workA', 'workB'], mock2)],
-            list(results))
+        # MockSearchEngine.query_works_multi was called on a list of
+        # queries it prepared from child1 and child2.
+        q1, q2 = search.called_with
 
-        # Each Mock was given the chance to adapt the FeaturedFacets object
-        # to its needs.
-        eq_((self._db, facets), mock1.overview_facets_called_with)
-        eq_((self._db, facets), mock2.overview_facets_called_with)
+        # These queries are almost the same.
+        for query in search.called_with:
+            # Neither has a query string.
+            eq_(None, query[0])
+            # Both have the same pagination object.
+            eq_(pagination, query[2])
 
-        # The resulting new faceting object was passed into works()
-        _db, called_with_facets, pagination = mock1.works_called_with
-        eq_(self._db, _db)
-        eq_("Overview facets for Lane 1", called_with_facets)
-        eq_(pagination, pagination)
+        # But each query has a different Filter.
+        f1 = q1[1]
+        f2 = q2[1]
+        assert f1 != f2
 
-        _db, called_with_facets, pagination = mock2.works_called_with
-        eq_(self._db, _db)
-        eq_("Overview facets for Lane 2", called_with_facets)
-        eq_(pagination, pagination)
+        # How did these Filters come about? Well, for each lane, we
+        # called overview_facets() and passed in the same
+        # FeaturedFacets object.
+        eq_((self._db, facets), child1.overview_facets_calls.pop())
+        eq_([], child1.overview_facets_calls)
+        child1_facets = child1.overview_facets(self._db, facets)
+
+        eq_((self._db, facets), child2.overview_facets_calls.pop())
+        eq_([], child2.overview_facets_calls)
+        child2_facets = child1.overview_facets(self._db, facets)
+
+        # We then passed each result into Filter.from_worklist, along
+        # with the corresponding lane.
+        compare_f1 = Filter.from_worklist(self._db, child1, child1_facets)
+        compare_f2 = Filter.from_worklist(self._db, child2, child2_facets)
+
+        # Reproducing that code inside this test, which we just did,
+        # gives us Filter objects -- compare_f1 and compare_f2 --
+        # identical to the ones passed into query_works_multi -- f1
+        # and f2. We know they're the same because they build() to
+        # identical dictionaries.
+        eq_(compare_f1.build(), f1.build())
+        eq_(compare_f2.build(), f2.build())
+
+        # So we ended up with q1 and q2, two queries to find the works
+        # from child1 and child2. That's what was passed into
+        # query_works_multi().
+
+        # We know that query_works_multi() returned: a list
+        # of lists of fake "results" that looked like this:
+        # [["some"], ["search"], ["results"]]
+        #
+        # This was passed into parent.works_for_resultsets():
+        call = parent.works_for_resultsets_calls.pop()
+        eq_(call, (self._db, [['some'], ['search'], ['results']]))
+        eq_([], parent.works_for_resultsets_calls)
+
+        # The return value of works_for_resultsets -- another list of
+        # lists -- was then turned into a sequence of ('work', Lane)
+        # 2-tuples.
+        eq_(
+            [
+                ("Here is", child1),
+                ("one lane", child1),
+                ("of works", child1),
+                ("Here is", child2),
+                ("one lane", child2),
+                ("of works", child2),
+            ],
+            results
+        )
+        # And that's how we got a sequence of 2-tuples mapping out a
+        # grouped OPDS feed.
 
     def test__size_for_facets(self):
 
