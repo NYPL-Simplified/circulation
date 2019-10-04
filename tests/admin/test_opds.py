@@ -103,8 +103,9 @@ class TestOPDS(DatabaseTest):
     def test_feed_includes_change_cover_link(self):
         work = self._work(with_open_access_download=True)
         lp = work.license_pools[0]
+        library = self._default_library
 
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 
         # Since there's no storage integration, the change cover link isn't included.
@@ -114,7 +115,17 @@ class TestOPDS(DatabaseTest):
         storage.username = "user"
         storage.password = "pass"
 
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
+        collection = self._collection()
+        # collection.external_integration_id = storage.id
+        purpose = "covers"
+        external_integration_link = self._external_integration_link(
+            integration=collection._external_integration,
+            other_integration=storage,
+            purpose=purpose
+        )
+        library.collections.append(collection)
+
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 
         [change_cover_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"]
@@ -213,8 +224,7 @@ class TestOPDS(DatabaseTest):
         eq_(work2.title, parsed['entries'][0]['title'])
 
     def test_suppressed_feed(self):
-        """Test the ability to show a paginated feed of suppressed works.
-        """
+        # Test the ability to show a paginated feed of suppressed works.
 
         work1 = self._work(with_open_access_download=True)
         work1.license_pools[0].suppressed = True

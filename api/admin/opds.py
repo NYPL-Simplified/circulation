@@ -78,7 +78,7 @@ class AdminAnnotator(LibraryAnnotator):
 
         # If there is a storage integration for the collection, changing the cover is allowed.
         mirror = MirrorUploader.for_collection(
-            active_license_pool.collection, ExternaIntegrationLink.COVERS
+            active_license_pool.collection, ExternalIntegrationLink.COVERS
         )
         if mirror:
             feed.add_link_to_entry(

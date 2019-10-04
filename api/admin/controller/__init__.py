@@ -181,6 +181,7 @@ def setup_admin_controllers(manager):
     from api.admin.controller.search_service_self_tests import SearchServiceSelfTestsController
     manager.admin_search_service_self_tests_controller = SearchServiceSelfTestsController(manager)
     manager.admin_search_services_controller = SearchServicesController(manager)
+    from api.admin.controller.storage_services import StorageServicesController
     manager.admin_storage_services_controller = StorageServicesController(manager)
     from api.admin.controller.catalog_services import *
     manager.admin_catalog_services_controller = CatalogServicesController(manager)
@@ -1601,9 +1602,12 @@ class SettingsController(AdminCirculationManagerController):
             ]
         }
         for integration in integrations:
-            mirror_integration_setting['options'].append(
-                dict(key=str(integration.id), label=integration.name)
-            )
+            # Don't need storages that will be used for MARC files.
+            [configuration_setting] = [s for s in integration.settings if s.key=="marc_bucket"]
+            if not configuration_setting.value:
+                mirror_integration_setting['options'].append(
+                    dict(key=str(integration.id), label=integration.name)
+                )
         return mirror_integration_setting
 
     def _create_integration(self, protocol_definitions, protocol, goal):
