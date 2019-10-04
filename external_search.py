@@ -11,6 +11,7 @@ from elasticsearch.exceptions import (
 )
 from elasticsearch_dsl import (
     Index,
+    MultiSearch,
     Search,
     SF,
 )
@@ -21,6 +22,7 @@ from elasticsearch_dsl.query import (
     FunctionScore,
     Match,
     MatchAll,
+    MatchNone,
     MatchPhrase,
     MultiMatch,
     Nested,
@@ -447,6 +449,8 @@ class ExternalSearchIndex(HasSelfTests):
                     debug=False):
         """Run a search query.
 
+        This works by calling query_works_multi().
+
         :param query_string: The string to search for.
         :param filter: A Filter object, used to filter out works that
             would otherwise match the query string.
@@ -458,39 +462,63 @@ class ExternalSearchIndex(HasSelfTests):
             fields known to be used by the feed generation code.  This
             all comes at a slight performance cost.
         :return: A list of Hit objects containing information about
-            the search results, including the values of any script fields
-            calculated by ElasticSearch during the search process.
+            the search results. This will include the values of any
+            script fields calculated by ElasticSearch during the
+            search process.
         """
-        if not self.works_alias:
+        if isinstance(filter, Filter) and filter.match_nothing is True:
+            # We already know this search should match nothing.  We
+            # don't even need to perform the search.
             return []
 
-        if not pagination:
-            pagination = Pagination.default()
+        pagination = pagination or Pagination.default()
+        query_data = (query_string, filter, pagination)
+        [result] = self.query_works_multi([query_data], debug)
+        return result
 
-        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug)
-        if filter is not None and filter.match_nothing is True:
-            # We already know that the search should match nothing.
-            # We don't even need to perform the search.
-            return []
-        start = pagination.offset
-        stop = start + pagination.size
+    def query_works_multi(self, queries, debug=False):
+        """Run several queries simultaneously and return the results
+        as a big list.
 
-        function_scores = filter.scoring_functions if filter else None
-        if function_scores:
-            function_score = FunctionScore(
-                query=dict(match_all=dict()),
-                functions=function_scores,
-                score_mode="sum"
-            )
-            search = search.query(function_score)
-        a = time.time()
+        :param queries: A list of (query string, Filter, Pagination) 3-tuples,
+            each representing an Elasticsearch query to be run.
 
-        results = search[start:stop]
-        # Convert the Search object into a list of hits.
+        :yield: A sequence of lists, one per item in `queries`,
+            each containing the search results from that
+            (query string, Filter, Pagination) 3-tuple.
+        """
+        # If the works alias is not set, all queries return empty.
         #
+        # TODO: Maybe an unset works_alias should raise
+        # CannotLoadConfiguration in the constructor. Then we wouldn't
+        # have to worry about this.
+        if not self.works_alias:
+            for q in queries:
+                yield []
+
+        # Create a MultiSearch. 
+        multi = MultiSearch(using=self.__client)
+
+        # Give it a Search object for every query definition passed in
+        # as part of `queries`.
+        for (query_string, filter, pagination) in queries:
+            search = self.create_search_doc(
+                query_string, filter=filter, pagination=pagination, debug=debug
+            )
+            function_scores = filter.scoring_functions if filter else None
+            if function_scores:
+                function_score = FunctionScore(
+                    query=dict(match_all=dict()),
+                    functions=function_scores,
+                    score_mode="sum"
+                )
+                search = search.query(function_score)
+            multi = multi.add(search)
+
+        a = time.time()
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
-        results = [x for x in results]
+        resultset = [x for x in multi.execute()]
 
         if debug:
             b = time.time()
@@ -498,18 +526,28 @@ class ExternalSearchIndex(HasSelfTests):
                 "Elasticsearch query %r completed in %.3fsec",
                 query_string, b-a
             )
-            for i, result in enumerate(results):
-                self.log.debug(
-                    '%02d "%s" (%s) work=%s score=%.3f shard=%s',
-                    i, result.sort_title, result.sort_author, result.meta['id'],
-                    result.meta['score'] or 0, result.meta['shard']
-                )
+            for results in resultset:
+                for i, result in enumerate(results):
+                    self.log.debug(
+                        '%02d "%s" (%s) work=%s score=%.3f shard=%s',
+                        i, result.sort_title, result.sort_author, result.meta['id'],
+                        result.meta['score'] or 0, result.meta['shard']
+                    )
 
-        # Tell the Pagination object about this page -- this may help
-        # it set up to generate a link to the next page.
-        pagination.page_loaded(results)
+        # Process each item in the resultset according to the
+        # Pagination object that was used to create it.
+        for i, results in enumerate(resultset):
+            # Use the Pagination object to slice up the results if
+            # necessary.
+            query_string, filter, pagination = queries[i]
+            start = pagination.offset
+            stop = start + pagination.size
+            page = results[start:stop]
 
-        return results
+            # Tell the Pagination object about the page that was just
+            # 'loaded' so that Pagination.next_page will work.
+            pagination.page_loaded(page)
+            yield page
 
     def count_works(self, filter):
         """Instead of retrieving works that match `filter`, count the total."""
@@ -2315,6 +2353,11 @@ class Filter(SearchBase):
 
         f = None
         nested_filters = defaultdict(list)
+        if self.match_nothing:
+            # This Filter should match nothing. There's no need to
+            # get fancy.
+            return MatchNone(), nested_filters
+
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
             collection_match = Terms(
@@ -3150,6 +3193,8 @@ class SearchIndexCoverageProvider(WorkPresentationProvider):
 
         records = list(successes)
         for (work, error) in failures:
+            if not isinstance(error, basestring):
+                error = repr(error)
             records.append(CoverageFailure(work, error))
 
         return records

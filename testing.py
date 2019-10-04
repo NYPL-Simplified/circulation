@@ -791,7 +791,7 @@ class DatabaseTest(object):
             )
             _db = Session.object_session(self)
             DatabaseTest.print_database_class(_db)
-            
+
             TODO: remove before prod
         """
         if not 'TESTING' in os.environ:
@@ -1145,7 +1145,7 @@ class EndToEndSearchTest(ExternalSearchTest):
         )
 
     def _expect_results(self, expect, query_string=None, filter=None, pagination=None, **kwargs):
-        """Helper function to call query() and verify that it
+        """Helper function to call query_works() and verify that it
         returns certain work IDs.
 
         :param ordered: If this is True (the default), then the
@@ -1156,12 +1156,47 @@ class EndToEndSearchTest(ExternalSearchTest):
         """
         if isinstance(expect, Work):
             expect = [expect]
-
         should_be_ordered = kwargs.pop('ordered', True)
-
         hits = self.search.query_works(
             query_string, filter, pagination, debug=True, **kwargs
         )
+
+        query_args = (query_string, filter, pagination)
+        self._compare_hits(
+            expect, hits, query_args, should_be_ordered, **kwargs
+        )
+
+    def _expect_results_multi(self, expect, queries, **kwargs):
+        """Helper function to call query_works_multi() and verify that it
+        returns certain work IDs.
+
+        :param expect: A list of lists of Works that you expect
+            to get back from each query in `queries`.
+        :param queries: A list of (query string, Filter, Pagination)
+            3-tuples.
+        :param ordered: If this is True (the default), then the
+           assertion will only succeed if the search results come in
+           in the exact order specified in `works`. If this is False,
+           then those exact results must come up, but their order is
+           not what's being tested.
+        """
+        should_be_ordered = kwargs.pop('ordered', True)
+        resultset = list(
+            self.search.query_works_multi(
+                queries, debug=True, **kwargs
+            )
+        )
+        for i, expect_one_query in enumerate(expect):
+            hits = resultset[i]
+            query_args = queries[i]
+            self._compare_hits(
+                expect_one_query, hits, query_args,
+                should_be_ordered, **kwargs
+            )
+
+    def _compare_hits(self, expect, hits, query_args,
+                      should_be_ordered=True, **kwargs):
+        query_string, filter, pagination = query_args
         results = [x.work_id for x in hits]
         actual = self._db.query(Work).filter(Work.id.in_(results)).all()
         if should_be_ordered:
