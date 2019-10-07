@@ -626,6 +626,7 @@ class Configuration(CoreConfiguration):
         """
         return PKCS1_OAEP.new(RSA.import_key(key))
 
+CoreConfiguration.DEFAULT_OPDS_FORMAT = Configuration.DEFAULT_OPDS_FORMAT
 
 @contextlib.contextmanager
 def empty_config():
