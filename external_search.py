@@ -1468,8 +1468,8 @@ class Query(SearchBase):
                 self.fuzzy_coefficient = 0.5
         else:
             # Since this query does not contain any words, there is no
-            # risk that a word might misspell. Do not create or run
-            # the 'fuzzy' hypotheses at all.
+            # risk that a word might be misspelled. Do not create or
+            # run the 'fuzzy' hypotheses at all.
             self.fuzzy_coefficient = 0
 
     def build(self, elasticsearch, pagination=None):
