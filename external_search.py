@@ -419,7 +419,6 @@ class ExternalSearchIndex(HasSelfTests):
                           debug):
 
         query = Query(query_string, filter)
-        query_without_filter = Query(query_string)
         search = query.build(self.search, pagination)
         if debug:
             search = search.extra(explain=True)
