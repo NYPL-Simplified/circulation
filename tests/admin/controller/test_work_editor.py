@@ -971,6 +971,7 @@ class TestWorkController(AdminControllerTest):
 
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
+        mirror_type = "covers"
         mirror = dict(covers=MockS3Uploader(),books=None)
 
         with self.request_context_with_library_and_admin("/"):
@@ -1061,8 +1062,8 @@ class TestWorkController(AdminControllerTest):
             assert identifier.identifier in thumbnail.mirror_url
 
             eq_([], process_called_with)
-            eq_([representation, thumbnail], mirror.uploaded)
-            eq_([representation.mirror_url, thumbnail.mirror_url], mirror.destinations)
+            eq_([representation, thumbnail], mirror[mirror_type].uploaded)
+            eq_([representation.mirror_url, thumbnail.mirror_url], mirror[mirror_type].destinations)
 
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
@@ -1115,8 +1116,8 @@ class TestWorkController(AdminControllerTest):
             assert identifier.identifier in resource.representation.mirror_url
             assert identifier.identifier in thumbnail.mirror_url
 
-            eq_([resource.representation, thumbnail], mirror.uploaded[2:])
-            eq_([resource.representation.mirror_url, thumbnail.mirror_url], mirror.destinations[2:])
+            eq_([resource.representation, thumbnail], mirror[mirror_type].uploaded[2:])
+            eq_([resource.representation.mirror_url, thumbnail.mirror_url], mirror[mirror_type].destinations[2:])
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):

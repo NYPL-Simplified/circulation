@@ -781,13 +781,13 @@ class CacheMARCFiles(LaneSweeperScript):
             self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
             return
 
-        integrationLink = get_one(
+        integration_link = get_one(
             self._db, ExternalIntegrationLink,
-            external_integration_id=exporter.integration.id,
+            other_integration_id=exporter.integration.id,
             purpose=ExternalIntegrationLink.MARC
         )
         integration = get_one(self._db, ExternalIntegration,
-            id=integrationLink.other_integration_id
+            id=integration_link.other_integration_id
         )
 
         if not integration:
@@ -796,7 +796,7 @@ class CacheMARCFiles(LaneSweeperScript):
 
         # First update the file with ALL the records.
         records = exporter.records(
-            lane, annotator=annotator, integration=integration
+            lane, annotator, integration
         )
 
         # Then create a new file with changes since the last update.
@@ -806,8 +806,7 @@ class CacheMARCFiles(LaneSweeperScript):
             start_time = last_update - timedelta(days=1)
 
             records = exporter.records(
-                lane, annotator=annotator, start_time=start_time,
-                integration=integration
+                lane, annotator, integration, start_time=start_time
             )
 
 

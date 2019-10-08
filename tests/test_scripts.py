@@ -68,6 +68,7 @@ from core.model import (
     RightsStatus,
     Timestamp,
 )
+from core.model.configuration import ExternalIntegrationLink
 
 from core.opds import AcquisitionFeed
 
@@ -580,10 +581,16 @@ class TestCacheMARCFiles(TestLaneScript):
         class MockMARCExporter(MARCExporter):
             called_with = []
 
-            def records(self, lane, annotator, start_time=None):
-                self.called_with += [(lane, annotator, start_time)]
+            def records(self, lane, annotator, mirror_integration, start_time=None):
+                self.called_with += [(lane, annotator, mirror_integration, start_time)]
 
         exporter = MockMARCExporter(None, None, integration)
+        integration_link = self._external_integration_link(
+            integration=integration,
+            other_integration=exporter.integration,
+            purpose=ExternalIntegrationLink.MARC
+        )
+
         script = CacheMARCFiles(self._db, cmd_args=[])
         script.process_lane(lane, exporter)
 
@@ -593,7 +600,9 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        # set_trace()
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         # If we have a cached file already, and it's old enough, the script will
         # run the exporter twice, first to update that file and second to create
@@ -616,11 +625,13 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        assert exporter.called_with[1][2] < last_week
+        eq_(exporter.integration, exporter.called_with[1][2])
+        assert exporter.called_with[1][3] < last_week
 
         # If we already have a recent cached file, the script won't do anything.
         cached.end_time = yesterday
@@ -636,12 +647,14 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        assert exporter.called_with[1][2] < yesterday
-        assert exporter.called_with[1][2] > last_week
+        eq_(exporter.integration, exporter.called_with[1][2])
+        assert exporter.called_with[1][3] < yesterday
+        assert exporter.called_with[1][3] > last_week
 
         # The update frequency can also be 0, in which case it will always run.
         ConfigurationSetting.for_library_and_externalintegration(
@@ -655,12 +668,14 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        assert exporter.called_with[1][2] < yesterday
-        assert exporter.called_with[1][2] > last_week
+        eq_(exporter.integration, exporter.called_with[1][2])
+        assert exporter.called_with[1][3] < yesterday
+        assert exporter.called_with[1][3] > last_week
 
 
 
@@ -825,9 +840,9 @@ class MockDirectoryImportScript(DirectoryImportScript):
 class TestDirectoryImportScript(DatabaseTest):
 
     def test_do_run(self):
-        """Calling do_run with command-line arguments parses the
-        arguments and calls run_with_arguments.
-        """
+        # Calling do_run with command-line arguments parses the
+        # arguments and calls run_with_arguments.
+
         class Mock(DirectoryImportScript):
             def run_with_arguments(self, *args):
                 self.ran_with = args
