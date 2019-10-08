@@ -769,7 +769,6 @@ class WorkController(AdminCirculationManagerController):
             return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=image_url))
 
         title_position = flask.request.form.get("title_position")
-
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
 
@@ -849,8 +848,11 @@ class WorkController(AdminCirculationManagerController):
             return collection
 
         # Look for an appropriate mirror to store this cover image.
-        mirror = mirror or MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS)
-        if not mirror:
+        mirror = mirror or dict(
+            covers=MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS),
+            books=MirrorUploader.for_collection(collection, ExternalIntegrationLink.BOOKS)
+        )
+        if not mirror.get("covers"):
             return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))
 
         image = self.generate_cover_image(work, identifier_type, identifier)

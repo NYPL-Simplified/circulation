@@ -971,7 +971,7 @@ class TestWorkController(AdminControllerTest):
 
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        mirror = MockS3Uploader()
+        mirror = dict(covers=MockS3Uploader(),books=None)
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([

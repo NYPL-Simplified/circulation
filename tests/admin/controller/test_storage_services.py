@@ -14,17 +14,10 @@ from test_controller import SettingsControllerTest
 
 class TestStorageServices(SettingsControllerTest):
     def test_storage_service_management(self):
-        """The configuration of search and logging collections is delegated to
-        the _manage_sitewide_service and _delete_integration methods.
-
-        Since search collections are more comprehensively tested in test_search_services,
-        this provides test coverage for storage collections."""
-
-        # Test storage services first.
 
         class MockStorage(StorageServicesController):
-            def _manage_sitewide_service(self,*args):
-                self.manage_called_with = args
+            def _get_integration_protocols(self, apis, protocol_name_attr):
+                self.manage_called_with = (apis, protocol_name_attr)
 
             def _delete_integration(self, *args):
                 self.delete_called_with = args
@@ -32,11 +25,10 @@ class TestStorageServices(SettingsControllerTest):
         EI = ExternalIntegration
         with self.request_context_with_admin("/"):
             controller.process_services()
-            goal, apis, key_name, problem = controller.manage_called_with
-            eq_(EI.STORAGE_GOAL, goal)
+            (apis, procotol_name) = controller.manage_called_with
+
             assert S3Uploader in apis
-            eq_('storage_services', key_name)
-            assert 'new storage service' in problem
+            eq_(procotol_name, 'NAME')
 
         with self.request_context_with_admin("/"):
             id = object()
