@@ -619,7 +619,6 @@ class TestCollectionSettings(SettingsControllerTest):
             )
             flask.request.form = request
             response = self.manager.admin_collection_settings_controller.process_collections()
-            set_trace()
             eq_(response, INTEGRATION_GOAL_CONFLICT)
 
     def test_collections_post_edit_library_specific_configuration(self):
