@@ -1363,7 +1363,7 @@ class DirectoryImportScript(TimestampScript):
             if not dry_run:
                 self._db.commit()
 
-    def load_collection(self, collection_name, data_source_name, storage_name):
+    def load_collection(self, collection_name, data_source_name, storage_name=None):
         """Create or locate a Collection with the given name.
 
         If the Collection needs to be created, it will be associated
@@ -1416,8 +1416,11 @@ class DirectoryImportScript(TimestampScript):
                     collection.name,
                     storage_name
                 )
-        mirror = MirrorUploader.for_collection(
-            collection, ExternalIntegrationLink.COVERS
+        mirror = dict(
+            covers=MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.COVERS),
+            books=MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.COVERS)
         )
 
         return collection, mirror
@@ -1512,8 +1515,9 @@ class DirectoryImportScript(TimestampScript):
             # no point in proceeding.
             return
 
-        if mirror:
-            book_url = mirror.book_url(
+        # Use the S3 storage for books.
+        if mirror and mirror["books"]:
+            book_url = mirror["books"].book_url(
                 identifier,
                 '.' + Representation.FILE_EXTENSIONS[book_media_type],
                 data_source=data_source,
@@ -1563,8 +1567,9 @@ class DirectoryImportScript(TimestampScript):
             + '.' + Representation.FILE_EXTENSIONS[cover_media_type]
         )
 
-        if mirror:
-            cover_url = mirror.cover_image_url(
+        # Use an S3 storage mirror for specifically for covers.
+        if mirror and mirror['covers']:
+            cover_url = mirror['covers'].cover_image_url(
                 data_source, identifier, cover_filename
             )
         else:

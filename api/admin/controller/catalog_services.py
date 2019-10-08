@@ -105,8 +105,11 @@ class CatalogServicesController(SettingsController):
             if current_integration_link:
                 self._db.delete(current_integration_link)
         else:
-            storage_integration = get_one(self._db, ExternalIntegration, id=mirror_integration_id)
-            if not storage_integration:
+            storage_integration = get_one(
+                self._db, ExternalIntegration, id=mirror_integration_id
+            )
+            # set_trace()
+            if not storage_integration or not storage_integration.setting(S3Uploader.MARC_BUCKET_KEY).value:
                 return MISSING_INTEGRATION
             self._update_external_integration_link(
                 self._db,
@@ -161,28 +164,6 @@ class CatalogServicesController(SettingsController):
                             "You tried to add a MARC export service to %(library)s, but it already has one.",
                             library=library.short_name,
                         ))
-
-    def check_storage_protocol(self, service):
-        """For MARC Export integrations, check that the storage protocol corresponds to an
-        existing storage integration."""
-        if service.protocol == MARCExporter.NAME:
-            storage_protocol = service.setting(MARCExporter.STORAGE_PROTOCOL).value
-            _db = Session.object_session(service)
-            integration = ExternalIntegration.lookup(
-                _db, storage_protocol, ExternalIntegration.STORAGE_GOAL)
-            if not integration:
-                return MISSING_SERVICE.detailed(_(
-                    "You set the storage protocol to %(protocol)s, but no storage service with that protocol is configured.",
-                    protocol=storage_protocol,
-                ))
-            if storage_protocol == ExternalIntegration.S3:
-                # For S3, the storage service must also have a MARC file bucket.
-                bucket = integration.setting(S3Uploader.MARC_BUCKET_KEY).value
-                if not bucket:
-                    return MISSING_SERVICE.detailed(_(
-                        "You set the storage protocol to %(protocol)s, but the storage service with that protocol does not have a MARC file bucket configured.",
-                        protocol=storage_protocol,
-                    ))
 
     def process_delete(self, service_id):
         return self._delete_integration(

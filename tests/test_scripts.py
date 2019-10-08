@@ -851,6 +851,7 @@ class TestDirectoryImportScript(DatabaseTest):
         script.do_run(
             cmd_args=[
                 "--collection-name=coll1",
+                "--storage-name=some_storage",
                 "--data-source-name=ds1",
                 "--metadata-file=metadata",
                 "--metadata-format=marc",
@@ -860,7 +861,7 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--dry-run"
             ]
         )
-        eq_(('coll1', 'ds1', 'metadata', 'marc', 'covers', 'ebooks', 'rights', True),
+        eq_(('coll1', 'ds1', 'metadata', 'marc', 'covers', 'ebooks', 'rights', True, 'some_storage'),
             script.ran_with)
 
     def test_run_with_arguments(self):
@@ -898,10 +899,10 @@ class TestDirectoryImportScript(DatabaseTest):
         script = Mock(self._db)
         basic_args = ["collection name", "data source name", "metadata file", "marc",
                       "cover directory", "ebook directory", "rights URI"]
-        script.run_with_arguments(*(basic_args + [True]))
+        script.run_with_arguments(*(basic_args + [True] + ["storage name"]))
 
         # load_collection was called with the collection and data source names.
-        eq_([('collection name', 'data source name')],
+        eq_([('collection name', 'data source name', 'storage name')],
             script.load_collection_calls)
 
         # load_metadata was called with the metadata file and data source name.
@@ -938,7 +939,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # Now try it not as a dry run.
         script = Mock(self._db)
-        script.run_with_arguments(*(basic_args + [False]))
+        script.run_with_arguments(*(basic_args + [False] + ["storage name"]))
 
         # This time, the ReplacementPolicy has a mirror set
         # appropriately.
@@ -968,11 +969,11 @@ class TestDirectoryImportScript(DatabaseTest):
             integration.protocol)
 
         # The Collection has no mirror integration because there is no
-        # sitewide storage integration to use.
+        # storage integration to use.
         eq_(None, collection.mirror_integration)
-        eq_(None, mirror)
+        eq_(dict(covers=None,books=None), mirror)
 
-    def test_load_collection_installs_site_wide_mirror(self):
+    def test_load_collection_does_not_install_site_wide_mirror(self):
         # We have a sitewide storage integration.
         integration = self._external_integration("my uploader")
         integration.goal = ExternalIntegration.STORAGE_GOAL
@@ -984,7 +985,8 @@ class TestDirectoryImportScript(DatabaseTest):
             "A collection", "A data source"
         )
         eq_(integration, collection.mirror_integration)
-        assert isinstance(mirror, MirrorUploader)
+        eq_(mirror["covers"], None)
+        eq_(mirror["books"], None)
 
         # Calling create_collection again with the same arguments does
         # nothing.
@@ -994,8 +996,7 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(collection2, collection)
 
     def test_work_from_metadata(self):
-        """Validate the ability to create a new Work from appropriate metadata.
-        """
+        # Validate the ability to create a new Work from appropriate metadata.
 
         class Mock(MockDirectoryImportScript):
             """In this test we need to verify that annotate_metadata
@@ -1017,7 +1018,9 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata.annotated = False
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy.from_license_source(self._db)
-        mirror = MockS3Uploader()
+        mirror = dict(books=MockS3Uploader(),covers=MockS3Uploader())
+        mirror_type_books = "books"
+        mirror_type_covers = "covers"
         policy.mirror = mirror
 
         # Here, work_from_metadata calls annotate_metadata, but does
@@ -1063,16 +1066,18 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(RightsStatus.CC0,
             pool.delivery_mechanisms[0].rights_status.uri)
 
-        # The mock S3Uploader has a record of 'uploading' all these files
-        # to S3.
-        epub, full, thumbnail = mirror.uploaded
+        # The two mock S3Uploaders have records of 'uploading' all these files
+        # to S3. The "books" mirror has the epubs and the "covers" mirror
+        # contains all the images.
+        [epub] = mirror[mirror_type_books].uploaded
+        [full, thumbnail] = mirror[mirror_type_covers].uploaded
         eq_(epub.url, pool.open_access_download_url)
         eq_(full.url, work.cover_full_url)
         eq_(thumbnail.url, work.cover_thumbnail_url)
 
         # The EPUB Representation was cleared out after the upload, to
         # save database space.
-        eq_("I'm an EPUB.", mirror.content[0])
+        eq_("I'm an EPUB.", mirror[mirror_type_books].content[0])
         eq_(None, epub.content)
 
     def test_annotate_metadata(self):
@@ -1175,7 +1180,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        mirror = MockS3Uploader()
+        mirror = dict(books=MockS3Uploader(),covers=None)
         args = (identifier, gutenberg, "ebooks", mirror, "Name of book",
                 "rights URI")
 
@@ -1228,7 +1233,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        mirror = MockS3Uploader()
+        mirror = dict(covers=MockS3Uploader(),books=None)
         args = (identifier, gutenberg, "covers", mirror)
 
         # There is nothing on the mock filesystem, so in this case
