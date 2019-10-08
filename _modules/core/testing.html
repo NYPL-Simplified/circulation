@@ -807,7 +807,7 @@
 <span class="sd">            )</span>
 <span class="sd">            _db = Session.object_session(self)</span>
 <span class="sd">            DatabaseTest.print_database_class(_db)</span>
-<span class="sd">            </span>
+
 <span class="sd">            TODO: remove before prod</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;TESTING&#39;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
@@ -1161,7 +1161,7 @@
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_expect_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expect</span><span class="p">,</span> <span class="n">query_string</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Helper function to call query() and verify that it</span>
+        <span class="sd">&quot;&quot;&quot;Helper function to call query_works() and verify that it</span>
 <span class="sd">        returns certain work IDs.</span>
 
 <span class="sd">        :param ordered: If this is True (the default), then the</span>
@@ -1172,12 +1172,47 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expect</span><span class="p">,</span> <span class="n">Work</span><span class="p">):</span>
             <span class="n">expect</span> <span class="o">=</span> <span class="p">[</span><span class="n">expect</span><span class="p">]</span>
-
         <span class="n">should_be_ordered</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;ordered&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-
         <span class="n">hits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="o">.</span><span class="n">query_works</span><span class="p">(</span>
             <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span>
+
+        <span class="n">query_args</span> <span class="o">=</span> <span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_compare_hits</span><span class="p">(</span>
+            <span class="n">expect</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="n">query_args</span><span class="p">,</span> <span class="n">should_be_ordered</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_expect_results_multi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expect</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper function to call query_works_multi() and verify that it</span>
+<span class="sd">        returns certain work IDs.</span>
+
+<span class="sd">        :param expect: A list of lists of Works that you expect</span>
+<span class="sd">            to get back from each query in `queries`.</span>
+<span class="sd">        :param queries: A list of (query string, Filter, Pagination)</span>
+<span class="sd">            3-tuples.</span>
+<span class="sd">        :param ordered: If this is True (the default), then the</span>
+<span class="sd">           assertion will only succeed if the search results come in</span>
+<span class="sd">           in the exact order specified in `works`. If this is False,</span>
+<span class="sd">           then those exact results must come up, but their order is</span>
+<span class="sd">           not what&#39;s being tested.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">should_be_ordered</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;ordered&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">resultset</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="o">.</span><span class="n">query_works_multi</span><span class="p">(</span>
+                <span class="n">queries</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">expect_one_query</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">expect</span><span class="p">):</span>
+            <span class="n">hits</span> <span class="o">=</span> <span class="n">resultset</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">query_args</span> <span class="o">=</span> <span class="n">queries</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compare_hits</span><span class="p">(</span>
+                <span class="n">expect_one_query</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="n">query_args</span><span class="p">,</span>
+                <span class="n">should_be_ordered</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_compare_hits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expect</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="n">query_args</span><span class="p">,</span>
+                      <span class="n">should_be_ordered</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span> <span class="o">=</span> <span class="n">query_args</span>
         <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">work_id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">hits</span><span class="p">]</span>
         <span class="n">actual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">results</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">should_be_ordered</span><span class="p">:</span>

@@ -661,6 +661,15 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">PKCS1_OAEP</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">RSA</span><span class="o">.</span><span class="n">import_key</span><span class="p">(</span><span class="n">key</span><span class="p">))</span></div></div>
 
+<span class="c1"># We changed Configuration.DEFAULT_OPDS_FORMAT, but the Configuration</span>
+<span class="c1"># class from core still has the old value. Change that one to match,</span>
+<span class="c1"># so that core code that checks this constant will get the right</span>
+<span class="c1"># value.</span>
+<span class="c1">#</span>
+<span class="c1"># TODO: We should come up with a better solution for this, probably</span>
+<span class="c1"># involving a registry of Configuration objects that returns the</span>
+<span class="c1"># appropriate one in any situation. This is a source of subtle bugs.</span>
+<span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">DEFAULT_OPDS_FORMAT</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">DEFAULT_OPDS_FORMAT</span>
 
 <div class="viewcode-block" id="empty_config"><a class="viewcode-back" href="../../api.html#api.config.empty_config">[docs]</a><span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
 <span class="k">def</span> <span class="nf">empty_config</span><span class="p">():</span>

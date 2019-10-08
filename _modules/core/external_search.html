@@ -46,6 +46,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">elasticsearch_dsl</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">Index</span><span class="p">,</span>
+    <span class="n">MultiSearch</span><span class="p">,</span>
     <span class="n">Search</span><span class="p">,</span>
     <span class="n">SF</span><span class="p">,</span>
 <span class="p">)</span>
@@ -56,6 +57,7 @@
     <span class="n">FunctionScore</span><span class="p">,</span>
     <span class="n">Match</span><span class="p">,</span>
     <span class="n">MatchAll</span><span class="p">,</span>
+    <span class="n">MatchNone</span><span class="p">,</span>
     <span class="n">MatchPhrase</span><span class="p">,</span>
     <span class="n">MultiMatch</span><span class="p">,</span>
     <span class="n">Nested</span><span class="p">,</span>
@@ -452,7 +454,6 @@
                           <span class="n">debug</span><span class="p">):</span>
 
         <span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">)</span>
-        <span class="n">query_without_filter</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">query_string</span><span class="p">)</span>
         <span class="n">search</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">search</span><span class="p">,</span> <span class="n">pagination</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
             <span class="n">search</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="n">explain</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -475,12 +476,13 @@
         <span class="c1"># we&#39;re asking for.</span>
         <span class="k">if</span> <span class="n">fields</span><span class="p">:</span>
             <span class="n">search</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
-
         <span class="k">return</span> <span class="n">search</span></div>
 
 <div class="viewcode-block" id="ExternalSearchIndex.query_works"><a class="viewcode-back" href="../../core.html#core.external_search.ExternalSearchIndex.query_works">[docs]</a>    <span class="k">def</span> <span class="nf">query_works</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                     <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Run a search query.</span>
+
+<span class="sd">        This works by calling query_works_multi().</span>
 
 <span class="sd">        :param query_string: The string to search for.</span>
 <span class="sd">        :param filter: A Filter object, used to filter out works that</span>
@@ -493,39 +495,63 @@
 <span class="sd">            fields known to be used by the feed generation code.  This</span>
 <span class="sd">            all comes at a slight performance cost.</span>
 <span class="sd">        :return: A list of Hit objects containing information about</span>
-<span class="sd">            the search results, including the values of any script fields</span>
-<span class="sd">            calculated by ElasticSearch during the search process.</span>
+<span class="sd">            the search results. This will include the values of any</span>
+<span class="sd">            script fields calculated by ElasticSearch during the</span>
+<span class="sd">            search process.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_alias</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">filter</span><span class="p">,</span> <span class="n">Filter</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">filter</span><span class="o">.</span><span class="n">match_nothing</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="c1"># We already know this search should match nothing.  We</span>
+            <span class="c1"># don&#39;t even need to perform the search.</span>
             <span class="k">return</span> <span class="p">[]</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">pagination</span><span class="p">:</span>
-            <span class="n">pagination</span> <span class="o">=</span> <span class="n">Pagination</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
+        <span class="n">pagination</span> <span class="o">=</span> <span class="n">pagination</span> <span class="ow">or</span> <span class="n">Pagination</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
+        <span class="n">query_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">)</span>
+        <span class="p">[</span><span class="n">result</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_works_multi</span><span class="p">([</span><span class="n">query_data</span><span class="p">],</span> <span class="n">debug</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
 
-        <span class="n">search</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_search_doc</span><span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">filter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">filter</span><span class="o">.</span><span class="n">match_nothing</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="c1"># We already know that the search should match nothing.</span>
-            <span class="c1"># We don&#39;t even need to perform the search.</span>
-            <span class="k">return</span> <span class="p">[]</span>
-        <span class="n">start</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">offset</span>
-        <span class="n">stop</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">pagination</span><span class="o">.</span><span class="n">size</span>
+<div class="viewcode-block" id="ExternalSearchIndex.query_works_multi"><a class="viewcode-back" href="../../core.html#core.external_search.ExternalSearchIndex.query_works_multi">[docs]</a>    <span class="k">def</span> <span class="nf">query_works_multi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run several queries simultaneously and return the results</span>
+<span class="sd">        as a big list.</span>
 
-        <span class="n">function_scores</span> <span class="o">=</span> <span class="nb">filter</span><span class="o">.</span><span class="n">scoring_functions</span> <span class="k">if</span> <span class="nb">filter</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">function_scores</span><span class="p">:</span>
-            <span class="n">function_score</span> <span class="o">=</span> <span class="n">FunctionScore</span><span class="p">(</span>
-                <span class="n">query</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">match_all</span><span class="o">=</span><span class="nb">dict</span><span class="p">()),</span>
-                <span class="n">functions</span><span class="o">=</span><span class="n">function_scores</span><span class="p">,</span>
-                <span class="n">score_mode</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span>
-            <span class="p">)</span>
-            <span class="n">search</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">function_score</span><span class="p">)</span>
-        <span class="n">a</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="sd">        :param queries: A list of (query string, Filter, Pagination) 3-tuples,</span>
+<span class="sd">            each representing an Elasticsearch query to be run.</span>
 
-        <span class="n">results</span> <span class="o">=</span> <span class="n">search</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span>
-        <span class="c1"># Convert the Search object into a list of hits.</span>
+<span class="sd">        :yield: A sequence of lists, one per item in `queries`,</span>
+<span class="sd">            each containing the search results from that</span>
+<span class="sd">            (query string, Filter, Pagination) 3-tuple.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># If the works alias is not set, all queries return empty.</span>
         <span class="c1">#</span>
+        <span class="c1"># TODO: Maybe an unset works_alias should raise</span>
+        <span class="c1"># CannotLoadConfiguration in the constructor. Then we wouldn&#39;t</span>
+        <span class="c1"># have to worry about this.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_alias</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="p">[]</span>
+
+        <span class="c1"># Create a MultiSearch. </span>
+        <span class="n">multi</span> <span class="o">=</span> <span class="n">MultiSearch</span><span class="p">(</span><span class="n">using</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">__client</span><span class="p">)</span>
+
+        <span class="c1"># Give it a Search object for every query definition passed in</span>
+        <span class="c1"># as part of `queries`.</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">)</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">:</span>
+            <span class="n">search</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_search_doc</span><span class="p">(</span>
+                <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
+            <span class="p">)</span>
+            <span class="n">function_scores</span> <span class="o">=</span> <span class="nb">filter</span><span class="o">.</span><span class="n">scoring_functions</span> <span class="k">if</span> <span class="nb">filter</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">function_scores</span><span class="p">:</span>
+                <span class="n">function_score</span> <span class="o">=</span> <span class="n">FunctionScore</span><span class="p">(</span>
+                    <span class="n">query</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">match_all</span><span class="o">=</span><span class="nb">dict</span><span class="p">()),</span>
+                    <span class="n">functions</span><span class="o">=</span><span class="n">function_scores</span><span class="p">,</span>
+                    <span class="n">score_mode</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span>
+                <span class="p">)</span>
+                <span class="n">search</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">function_score</span><span class="p">)</span>
+            <span class="n">multi</span> <span class="o">=</span> <span class="n">multi</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">search</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="c1"># NOTE: This is the code that actually executes the ElasticSearch</span>
         <span class="c1"># request.</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+        <span class="n">resultset</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">multi</span><span class="o">.</span><span class="n">execute</span><span class="p">()]</span>
 
         <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
             <span class="n">b</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
@@ -533,18 +559,28 @@
                 <span class="s2">&quot;Elasticsearch query </span><span class="si">%r</span><span class="s2"> completed in </span><span class="si">%.3f</span><span class="s2">sec&quot;</span><span class="p">,</span>
                 <span class="n">query_string</span><span class="p">,</span> <span class="n">b</span><span class="o">-</span><span class="n">a</span>
             <span class="p">)</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="s1">&#39;</span><span class="si">%02d</span><span class="s1"> &quot;</span><span class="si">%s</span><span class="s1">&quot; (</span><span class="si">%s</span><span class="s1">) work=</span><span class="si">%s</span><span class="s1"> score=</span><span class="si">%.3f</span><span class="s1"> shard=</span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span>
-                    <span class="n">i</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">sort_title</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">sort_author</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
-                    <span class="n">result</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;shard&#39;</span><span class="p">]</span>
-                <span class="p">)</span>
+            <span class="k">for</span> <span class="n">results</span> <span class="ow">in</span> <span class="n">resultset</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                        <span class="s1">&#39;</span><span class="si">%02d</span><span class="s1"> &quot;</span><span class="si">%s</span><span class="s1">&quot; (</span><span class="si">%s</span><span class="s1">) work=</span><span class="si">%s</span><span class="s1"> score=</span><span class="si">%.3f</span><span class="s1"> shard=</span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span>
+                        <span class="n">i</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">sort_title</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">sort_author</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+                        <span class="n">result</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;shard&#39;</span><span class="p">]</span>
+                    <span class="p">)</span>
 
-        <span class="c1"># Tell the Pagination object about this page -- this may help</span>
-        <span class="c1"># it set up to generate a link to the next page.</span>
-        <span class="n">pagination</span><span class="o">.</span><span class="n">page_loaded</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="c1"># Process each item in the resultset according to the</span>
+        <span class="c1"># Pagination object that was used to create it.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">results</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">resultset</span><span class="p">):</span>
+            <span class="c1"># Use the Pagination object to slice up the results if</span>
+            <span class="c1"># necessary.</span>
+            <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span> <span class="o">=</span> <span class="n">queries</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">offset</span>
+            <span class="n">stop</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">pagination</span><span class="o">.</span><span class="n">size</span>
+            <span class="n">page</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">results</span></div>
+            <span class="c1"># Tell the Pagination object about the page that was just</span>
+            <span class="c1"># &#39;loaded&#39; so that Pagination.next_page will work.</span>
+            <span class="n">pagination</span><span class="o">.</span><span class="n">page_loaded</span><span class="p">(</span><span class="n">page</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">page</span></div>
 
 <div class="viewcode-block" id="ExternalSearchIndex.count_works"><a class="viewcode-back" href="../../core.html#core.external_search.ExternalSearchIndex.count_works">[docs]</a>    <span class="k">def</span> <span class="nf">count_works</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Instead of retrieving works that match `filter`, count the total.&quot;&quot;&quot;</span>
@@ -1406,6 +1442,10 @@
     <span class="c1"># in a query string are _important_.</span>
     <span class="n">STOPWORD_FIELDS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;subtitle&#39;</span><span class="p">,</span> <span class="s1">&#39;series&#39;</span><span class="p">]</span>
 
+    <span class="c1"># SpellChecker is expensive to initialize, so keep around</span>
+    <span class="c1"># a class-level instance.</span>
+    <span class="n">SPELLCHECKER</span> <span class="o">=</span> <span class="n">SpellChecker</span><span class="p">()</span>
+
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_query_parser</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Store a query string and filter.</span>
 
@@ -1447,22 +1487,25 @@
         <span class="c1">#</span>
         <span class="c1"># Depending on the query, the stregnth of a fuzzy hypothesis</span>
         <span class="c1"># may be reduced even further -- that&#39;s determined here.</span>
-        <span class="c1">#</span>
-        <span class="c1"># NOTE: if you ever have reason to set fuzzy_coefficient to</span>
-        <span class="c1"># zero, fuzzy hypotheses will not be considered at all.</span>
-        <span class="k">if</span> <span class="n">SpellChecker</span><span class="p">()</span><span class="o">.</span><span class="n">unknown</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">words</span><span class="p">):</span>
-            <span class="c1"># Spell check failed. This is the default behavior, if</span>
-            <span class="c1"># only because peoples&#39; names will generally fail spell</span>
-            <span class="c1"># check. Fuzzy queries will be given their full weight.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fuzzy_coefficient</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">words</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">SPELLCHECKER</span><span class="o">.</span><span class="n">unknown</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">words</span><span class="p">):</span>
+                <span class="c1"># Spell check failed. This is the default behavior, if</span>
+                <span class="c1"># only because peoples&#39; names will generally fail spell</span>
+                <span class="c1"># check. Fuzzy queries will be given their full weight.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fuzzy_coefficient</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Everything seems to be spelled correctly. But sometimes</span>
+                <span class="c1"># a word can be misspelled as another word, e.g. &quot;came&quot; -&gt;</span>
+                <span class="c1"># &quot;cane&quot;, or a name may be misspelled as a word. We&#39;ll</span>
+                <span class="c1"># still check the fuzzy hypotheses, but we can improve</span>
+                <span class="c1"># results overall by giving them only half their normal</span>
+                <span class="c1"># strength.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fuzzy_coefficient</span> <span class="o">=</span> <span class="mf">0.5</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Everything seems to be spelled correctly. But sometimes</span>
-            <span class="c1"># a word can be misspelled as another word, e.g. &quot;came&quot; -&gt;</span>
-            <span class="c1"># &quot;cane&quot;, or a name may be misspelled as a word. We&#39;ll</span>
-            <span class="c1"># still check the fuzzy hypotheses, but we can improve</span>
-            <span class="c1"># results overall by giving them only half their normal</span>
-            <span class="c1"># strength.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fuzzy_coefficient</span> <span class="o">=</span> <span class="mf">0.5</span>
+            <span class="c1"># Since this query does not contain any words, there is no</span>
+            <span class="c1"># risk that a word might be misspelled. Do not create or</span>
+            <span class="c1"># run the &#39;fuzzy&#39; hypotheses at all.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fuzzy_coefficient</span> <span class="o">=</span> <span class="mi">0</span>
 
 <div class="viewcode-block" id="Query.build"><a class="viewcode-back" href="../../core.html#core.external_search.Query.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">elasticsearch</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make an Elasticsearch-DSL Search object out of this query.</span>
@@ -2350,6 +2393,11 @@
 
         <span class="n">f</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">nested_filters</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">match_nothing</span><span class="p">:</span>
+            <span class="c1"># This Filter should match nothing. There&#39;s no need to</span>
+            <span class="c1"># get fancy.</span>
+            <span class="k">return</span> <span class="n">MatchNone</span><span class="p">(),</span> <span class="n">nested_filters</span>
+
         <span class="n">collection_ids</span> <span class="o">=</span> <span class="n">filter_ids</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_ids</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">collection_ids</span><span class="p">:</span>
             <span class="n">collection_match</span> <span class="o">=</span> <span class="n">Terms</span><span class="p">(</span>
@@ -3120,6 +3168,14 @@
             <span class="n">pagination</span><span class="o">.</span><span class="n">page_loaded</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">results</span></div>
 
+<div class="viewcode-block" id="MockExternalSearchIndex.query_works_multi"><a class="viewcode-back" href="../../core.html#core.external_search.MockExternalSearchIndex.query_works_multi">[docs]</a>    <span class="k">def</span> <span class="nf">query_works_multi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># Implement query_works_multi by calling query_works several</span>
+        <span class="c1"># times. This is the opposite of what happens in the</span>
+        <span class="c1"># non-mocked ExternalSearchIndex, because it&#39;s easier to mock</span>
+        <span class="c1"># the simple case and performance isn&#39;t an issue.</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">)</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_works</span><span class="p">(</span><span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">debug</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="MockExternalSearchIndex.count_works"><a class="viewcode-back" href="../../core.html#core.external_search.MockExternalSearchIndex.count_works">[docs]</a>    <span class="k">def</span> <span class="nf">count_works</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">docs</span><span class="p">)</span></div>
 
@@ -3185,6 +3241,8 @@
 
         <span class="n">records</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">successes</span><span class="p">)</span>
         <span class="k">for</span> <span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span> <span class="ow">in</span> <span class="n">failures</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
             <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CoverageFailure</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">error</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">records</span></div></div>

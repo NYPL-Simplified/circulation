@@ -476,7 +476,7 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.DEFAULT_OPDS_FORMAT">
-<code class="descname">DEFAULT_OPDS_FORMAT</code><em class="property"> = 'verbose_opds_entry'</em><a class="headerlink" href="#core.config.Configuration.DEFAULT_OPDS_FORMAT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_OPDS_FORMAT</code><em class="property"> = 'simple_opds_entry'</em><a class="headerlink" href="#core.config.Configuration.DEFAULT_OPDS_FORMAT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2275,6 +2275,7 @@ defined below.</p>
 <dt id="core.external_search.ExternalSearchIndex.query_works">
 <code class="descname">query_works</code><span class="sig-paren">(</span><em>query_string</em>, <em>filter=None</em>, <em>pagination=None</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/external_search.html#ExternalSearchIndex.query_works"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.external_search.ExternalSearchIndex.query_works" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run a search query.</p>
+<p>This works by calling query_works_multi().</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -2294,9 +2295,30 @@ all comes at a slight performance cost.</li>
 </td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list of Hit objects containing information about
-the search results, including the values of any script fields
-calculated by ElasticSearch during the search process.</p>
+the search results. This will include the values of any
+script fields calculated by ElasticSearch during the
+search process.</p>
 </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.external_search.ExternalSearchIndex.query_works_multi">
+<code class="descname">query_works_multi</code><span class="sig-paren">(</span><em>queries</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/external_search.html#ExternalSearchIndex.query_works_multi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.external_search.ExternalSearchIndex.query_works_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run several queries simultaneously and return the results
+as a big list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>queries</strong> – A list of (query string, Filter, Pagination) 3-tuples,
+each representing an Elasticsearch query to be run.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Yield:</th><td class="field-body">A sequence of lists, one per item in <cite>queries</cite>,
+each containing the search results from that
+(query string, Filter, Pagination) 3-tuple.</td>
 </tr>
 </tbody>
 </table>
@@ -2723,6 +2745,7 @@ sub-document of this one.</p>
 <dt id="core.external_search.MockExternalSearchIndex.query_works">
 <code class="descname">query_works</code><span class="sig-paren">(</span><em>query_string</em>, <em>filter</em>, <em>pagination</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/external_search.html#MockExternalSearchIndex.query_works"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.external_search.MockExternalSearchIndex.query_works" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run a search query.</p>
+<p>This works by calling query_works_multi().</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -2742,9 +2765,30 @@ all comes at a slight performance cost.</li>
 </td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list of Hit objects containing information about
-the search results, including the values of any script fields
-calculated by ElasticSearch during the search process.</p>
+the search results. This will include the values of any
+script fields calculated by ElasticSearch during the
+search process.</p>
 </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.external_search.MockExternalSearchIndex.query_works_multi">
+<code class="descname">query_works_multi</code><span class="sig-paren">(</span><em>queries</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/external_search.html#MockExternalSearchIndex.query_works_multi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.external_search.MockExternalSearchIndex.query_works_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run several queries simultaneously and return the results
+as a big list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>queries</strong> – A list of (query string, Filter, Pagination) 3-tuples,
+each representing an Elasticsearch query to be run.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Yield:</th><td class="field-body">A sequence of lists, one per item in <cite>queries</cite>,
+each containing the search results from that
+(query string, Filter, Pagination) 3-tuple.</td>
 </tr>
 </tbody>
 </table>
@@ -2825,6 +2869,11 @@ MockExternalSearchIndex.</p>
 <dl class="attribute">
 <dt id="core.external_search.Query.SLIGHTLY_ABOVE_BASELINE">
 <code class="descname">SLIGHTLY_ABOVE_BASELINE</code><em class="property"> = 1.1</em><a class="headerlink" href="#core.external_search.Query.SLIGHTLY_ABOVE_BASELINE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.external_search.Query.SPELLCHECKER">
+<code class="descname">SPELLCHECKER</code><em class="property"> = &lt;spellchecker.spellchecker.SpellChecker object&gt;</em><a class="headerlink" href="#core.external_search.Query.SPELLCHECKER" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -4708,6 +4757,8 @@ that generates such a list when executed.</p>
 <dt id="core.lane.WorkList.works_for_hits">
 <code class="descname">works_for_hits</code><span class="sig-paren">(</span><em>_db</em>, <em>hits</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.works_for_hits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.works_for_hits" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert a list of search results into Work objects.</p>
+<p>This works by calling works_for_resultsets() on a list
+containing a single list of search results.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -4724,6 +4775,13 @@ script fields), WorkSearchResult objects.</p>
 </tr>
 </tbody>
 </table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.lane.WorkList.works_for_resultsets">
+<code class="descname">works_for_resultsets</code><span class="sig-paren">(</span><em>_db</em>, <em>resultsets</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.works_for_resultsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.works_for_resultsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a list of lists of Hit objects into a list
+of lists of Work objects.</p>
 </dd></dl>
 
 </dd></dl>
@@ -4899,7 +4957,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-ecdd30da-ec7b-495d-ac4f-e64c32739ca6'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-efbc7c78-13e6-44c6-8efa-2f10476f2d84'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
