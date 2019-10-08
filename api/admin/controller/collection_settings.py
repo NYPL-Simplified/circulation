@@ -95,24 +95,25 @@ class CollectionSettingsController(SettingsController):
 
         settings = {}
         for protocol_setting in protocol_settings:
-            key = protocol_setting.get("key")
-            if not collection_settings or key not in collection_settings:
-                if 'mirror_integration_id' in key:
-                    storage_integration = get_one(
-                        self._db, ExternalIntegrationLink,
-                        external_integration_id=collection_object.external_integration_id,
-                        # either 'books' or 'covers'
-                        purpose=key.split('_')[0]
-                    )
-                    if storage_integration:
-                        value = str(storage_integration.other_integration_id)
+            if protocol_setting:
+                key = protocol_setting.get("key")
+                if not collection_settings or key not in collection_settings:
+                    if key.endswith('mirror_integration_id'):
+                        storage_integration = get_one(
+                            self._db, ExternalIntegrationLink,
+                            external_integration_id=collection_object.external_integration_id,
+                            # either 'books' or 'covers'
+                            purpose=key.split('_')[0]
+                        )
+                        if storage_integration:
+                            value = str(storage_integration.other_integration_id)
+                        else:
+                            value = self.NO_MIRROR_INTEGRATION
+                    elif protocol_setting.get("type") == "list":
+                        value = collection_object.external_integration.setting(key).json_value
                     else:
-                        value = self.NO_MIRROR_INTEGRATION
-                elif protocol_setting.get("type") == "list":
-                    value = collection_object.external_integration.setting(key).json_value
-                else:
-                    value = collection_object.external_integration.setting(key).value
-                settings[key] = value
+                        value = collection_object.external_integration.setting(key).value
+                    settings[key] = value
         settings["external_account_id"] = collection_object.external_account_id
         return settings
 
@@ -158,6 +159,7 @@ class CollectionSettingsController(SettingsController):
             self._db.rollback()
             return settings
 
+        # set_trace()
         settings_error = self.process_settings(settings, collection)
         if settings_error:
             self._db.rollback()
@@ -249,7 +251,7 @@ class CollectionSettingsController(SettingsController):
                 if error:
                     return error
                 collection.external_account_id = value
-            elif 'mirror_integration_id' in key:
+            elif key.endswith('mirror_integration_id') and value:
                 external_integration_link = self._set_external_integration_link(
                     self._db, key, value, collection,
                 )
@@ -272,6 +274,9 @@ class CollectionSettingsController(SettingsController):
             _db, ExternalIntegration,
             id=collection.external_integration_id
         )
+
+        if collection_service.goal != ExternalIntegration.STORAGE_GOAL:
+            return INTEGRATION_GOAL_CONFLICT
 
         storage_service = None
         other_integration_id = None
@@ -296,6 +301,8 @@ class CollectionSettingsController(SettingsController):
             )
             if storage_service:
                 other_integration_id = storage_service.id
+            else:
+                return MISSING_SERVICE
 
         external_integration_link.other_integration_id = other_integration_id
 

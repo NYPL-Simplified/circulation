@@ -18,6 +18,7 @@ from core.model import (
     get_one,
     Library,
 )
+from core.model.configuration import ExternalIntegrationLink
 from werkzeug import MultiDict
 
 from test_controller import SettingsControllerTest
@@ -40,20 +41,21 @@ class TestCollectionSettings(SettingsControllerTest):
         old_prior_test_results = HasSelfTests.prior_test_results
         HasSelfTests.prior_test_results = self.mock_prior_test_results
 
-        [c1] = self._default_library.collections
+        l1 = self._default_library
+        [c1] = l1.collections
 
         # When there is no storage integration configured,
         # the protocols will not offer a 'mirror_integration_id'
-        # setting.
+        # setting for covers or books.
         with self.request_context_with_admin("/"):
             response = self.manager.admin_collection_settings_controller.process_collections()
             protocols = response.get('protocols')
             for protocol in protocols:
                 assert all([s.get('key') != 'mirror_integration_id'
-                            for s in protocol['settings']])
+                            for s in protocol['settings'] if s])
 
         # When storage integrations are configured, each protocol will
-        # offer a 'mirror_integration_id' setting.
+        # offer a 'mirror_integration_id' setting for covers and books.
         storage1 = self._external_integration(
             name="integration 1",
             protocol=ExternalIntegration.S3,
@@ -70,23 +72,32 @@ class TestCollectionSettings(SettingsControllerTest):
             response = controller.process_collections()
             protocols = response.get('protocols')
             for protocol in protocols:
-                [setting] = [x for x in protocol['settings']
-                             if x.get('key') == 'mirror_integration_id']
-                eq_("Mirror", setting['label'])
-                options = setting['options']
+                mirror_settings = [x for x in protocol['settings']
+                             if x.get('key').endswith('mirror_integration_id')]
+
+                covers_mirror = mirror_settings[0]
+                books_mirror = mirror_settings[1]
+                eq_("Covers Mirror", covers_mirror['label'])
+                eq_("Books Mirror", books_mirror['label'])
+                covers_mirror_option = covers_mirror['options']
+                books_mirror_option = books_mirror['options']
 
                 # The first option is to disable mirroring on this
                 # collection altogether.
-                no_mirror = options[0]
-                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror['key'])
+                no_mirror_covers = covers_mirror_option[0]
+                no_mirror_books = books_mirror_option[0]
+                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_covers['key'])
+                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror_books['key'])
 
                 # The other options are to use one of the storage
                 # integrations to do the mirroring.
-                use_mirrors = [(x['key'], x['label'])
-                               for x in options[1:]]
-                expect = [(integration.id, integration.name)
+                use_covers_mirror = [(x['key'], x['label'])
+                               for x in covers_mirror_option[1:]]
+
+                # Get expect to have two separate mirrors
+                expect = [(str(integration.id), integration.name)
                           for integration in (storage1, storage2)]
-                eq_(expect, use_mirrors)
+                eq_(expect, use_covers_mirror)
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -104,11 +115,16 @@ class TestCollectionSettings(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL
         )
+        c2_external_integration_link = self._external_integration_link(
+            integration=c2.external_integration,
+            other_integration=c2_storage, purpose="covers"
+        )
+
         c2.external_account_id = "1234"
         c2.external_integration.password = "b"
         c2.external_integration.username = "user"
         c2.external_integration.setting('website_id').value = '100'
-        c2.mirror_integration_id=c2_storage.id
+        # c2.mirror_integration_id=c2_storage.id
 
         c3 = self._collection(
             name="Collection 3", protocol=ExternalIntegration.OVERDRIVE,
@@ -153,10 +169,16 @@ class TestCollectionSettings(SettingsControllerTest):
             settings3 = coll3.get("settings", {})
 
             eq_(controller.NO_MIRROR_INTEGRATION,
-                settings1.get("mirror_integration_id"))
-            eq_(c2_storage.id, settings2.get("mirror_integration_id"))
+                settings1.get("covers_mirror_integration_id"))
             eq_(controller.NO_MIRROR_INTEGRATION,
-                settings3.get("mirror_integration_id"))
+                settings1.get("books_mirror_integration_id"))
+            # Only added an integration for S3 storage for covers.
+            eq_(str(c2_storage.id), settings2.get("covers_mirror_integration_id"))
+            eq_(controller.NO_MIRROR_INTEGRATION, settings2.get("books_mirror_integration_id"))
+            eq_(controller.NO_MIRROR_INTEGRATION,
+                settings3.get("covers_mirror_integration_id"))
+            eq_(controller.NO_MIRROR_INTEGRATION,
+                settings3.get("books_mirror_integration_id"))
 
             eq_(c1.external_account_id, settings1.get("external_account_id"))
             eq_(c2.external_account_id, settings2.get("external_account_id"))
@@ -523,36 +545,48 @@ class TestCollectionSettings(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL
         )
+
         eq_(None, collection.mirror_integration_id)
 
         # It's possible to associate the storage integration with the
-        # collection.
+        # collection for either a books or covers mirror.
         base_request = self._base_collections_post_request(collection)
         with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
-                base_request + [("mirror_integration_id", storage.id)]
+                base_request + [("books_mirror_integration_id", storage.id)]
             )
             flask.request.form = request
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.status_code, 200)
-            eq_(storage.id, collection.mirror_integration_id)
 
-        # It's possible to unset the mirror integration ID.
+            # There is an external integration link to associate the collection's
+            # external integration with the storage integration for a books mirror.
+            external_integration_link = get_one(
+                self._db, ExternalIntegrationLink,
+                external_integration_id=collection.external_integration.id
+            )
+            eq_(storage.id, external_integration_link.other_integration_id)
+
+        # It's possible to unset the mirror integration.
         controller = self.manager.admin_collection_settings_controller
         with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
-                base_request + [("mirror_integration_id",
+                base_request + [("books_mirror_integration_id",
                                  str(controller.NO_MIRROR_INTEGRATION))]
             )
             flask.request.form = request
             response = controller.process_collections()
             eq_(response.status_code, 200)
-            eq_(None, collection.mirror_integration_id)
+            external_integration_link = get_one(
+                self._db, ExternalIntegrationLink,
+                external_integration_id=collection.external_integration.id
+            )
+            eq_(None, external_integration_link)
 
         # Providing a nonexistent integration ID gives an error.
         with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
-                base_request + [("mirror_integration_id", -200)]
+                base_request + [("books_mirror_integration_id", -200)]
             )
             flask.request.form = request
             response = self.manager.admin_collection_settings_controller.process_collections()
@@ -580,11 +614,12 @@ class TestCollectionSettings(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
                 base_request + [
-                    ("mirror_integration_id", collection.external_integration.id)
+                    ("books_mirror_integration_id", collection.external_integration.id)
                 ]
             )
             flask.request.form = request
             response = self.manager.admin_collection_settings_controller.process_collections()
+            set_trace()
             eq_(response, INTEGRATION_GOAL_CONFLICT)
 
     def test_collections_post_edit_library_specific_configuration(self):

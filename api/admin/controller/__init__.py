@@ -1585,7 +1585,8 @@ class SettingsController(AdminCirculationManagerController):
             ExternalIntegration.goal==ExternalIntegration.STORAGE_GOAL
         ).order_by(
             ExternalIntegration.name
-        ).all()
+        )
+
         if not integrations:
             return
         key = "%s_mirror_integration_id" % type.lower() if type else "mirror_integration_id"
@@ -1602,12 +1603,9 @@ class SettingsController(AdminCirculationManagerController):
             ]
         }
         for integration in integrations:
-            # Don't need storages that will be used for MARC files.
-            [configuration_setting] = [s for s in integration.settings if s.key=="marc_bucket"]
-            if not configuration_setting.value:
-                mirror_integration_setting['options'].append(
-                    dict(key=str(integration.id), label=integration.name)
-                )
+            mirror_integration_setting['options'].append(
+                dict(key=str(integration.id), label=integration.name)
+            )
         return mirror_integration_setting
 
     def _create_integration(self, protocol_definitions, protocol, goal):
