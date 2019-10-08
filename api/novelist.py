@@ -378,6 +378,8 @@ class NoveListAPI(object):
         )
         metadata.subtitle = self._scrub_subtitle(subtitle)
 
+        # TODO: How well do we trust this data? We could conceivably bump up
+        # the weight here.
         if appeals_info:
             extracted_genres = False
             for appeal in appeals_info:

@@ -9,6 +9,7 @@ from nose.tools import (
 )
 import json
 
+from core.config import Configuration as CoreConfiguration
 from core.model import (
     ConfigurationSetting
 )
@@ -180,3 +181,8 @@ class TestConfiguration(DatabaseTest):
         setting.value = "100"
         max_fines = m(self._default_library)
         eq_(100, max_fines.amount)
+
+    def test_default_opds_format(self):
+        # Initializing the Configuration object modifies the corresponding
+        # object in core, so that core code will behave appropriately.
+        eq_(Configuration.DEFAULT_OPDS_FORMAT, CoreConfiguration.DEFAULT_OPDS_FORMAT)

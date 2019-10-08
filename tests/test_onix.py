@@ -9,6 +9,7 @@ from . import sample_data
 
 from api.onix import ONIXExtractor
 from core.model import (
+    Classification,
     Edition,
     Identifier,
 )
@@ -44,6 +45,7 @@ class TestONIXExtractor(object):
         eq_("EDU015000", subjects[0].identifier)
         eq_(Classifier.AUDIENCE_ADULT, subjects[-1].identifier)
         eq_(Classifier.BISAC, subjects[0].type)
+        eq_(Classification.TRUSTED_DISTRIBUTOR_WEIGHT, subjects[0].weight)
         eq_(Edition.BOOK_MEDIUM, record.medium)
         eq_(2017, record.issued.year)
 

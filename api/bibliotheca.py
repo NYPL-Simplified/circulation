@@ -37,6 +37,7 @@ from selftest import (
 
 from core.model import (
     CirculationEvent,
+    Classification,
     Collection,
     Contributor,
     DataSource,
@@ -699,7 +700,7 @@ class ItemListParser(XMLParser):
             if not i:
                 continue
             i = i.replace("&amp;amp;", "&amp;").replace("&amp;", "&").replace("&#39;", "'")
-            genres.append(SubjectData(Subject.BISAC, None, i, weight=15))
+            genres.append(SubjectData(Subject.BISAC, None, i, weight=Classification.TRUSTED_DISTRIBUTOR_WEIGHT))
         return genres
 
 
