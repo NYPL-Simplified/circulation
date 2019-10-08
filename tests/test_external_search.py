@@ -2024,6 +2024,13 @@ class TestQuery(DatabaseTest):
         eq_(True, query.contains_stopwords)
         eq_(1, query.fuzzy_coefficient)
 
+        # Try again with a query that contains no query string.
+        # The fuzzy hypotheses will not be run at all.
+        query = Query(None)
+        eq_(None, query.contains_stopwords)
+        eq_(0, query.fuzzy_coefficient)
+
+
     def test_build(self):
         # Verify that the build() method combines the 'query' part of
         # a Query and the 'filter' part to create a single
