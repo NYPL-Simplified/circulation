@@ -626,6 +626,14 @@ class Configuration(CoreConfiguration):
         """
         return PKCS1_OAEP.new(RSA.import_key(key))
 
+# We changed Configuration.DEFAULT_OPDS_FORMAT, but the Configuration
+# class from core still has the old value. Change that one to match,
+# so that core code that checks this constant will get the right
+# value.
+#
+# TODO: We should come up with a better solution for this, probably
+# involving a registry of Configuration objects that returns the
+# appropriate one in any situation. This is a source of subtle bugs.
 CoreConfiguration.DEFAULT_OPDS_FORMAT = Configuration.DEFAULT_OPDS_FORMAT
 
 @contextlib.contextmanager
