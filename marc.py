@@ -639,7 +639,7 @@ class MARCExporter(object):
         # We mirror the content, if it's not empty. If it's empty, we create a CachedMARCFile
         # and Representation, but don't actually mirror it.
         if not mirror:
-            storage_protocol = self.mirror_integration.setting(self.STORAGE_PROTOCOL).value
+            storage_protocol = mirror_integration.setting(self.STORAGE_PROTOCOL).value
             mirror = MirrorUploader.implementation(mirror_integration)
             if mirror.NAME != storage_protocol:
                 raise Exception("Mirror integration does not match configured storage protocol")
