@@ -108,6 +108,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
 
+    
         service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.MARC_EXPORT,
@@ -144,8 +145,22 @@ class TestCatalogServicesController(SettingsControllerTest):
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
             eq_(response.uri, MISSING_INTEGRATION.uri)
 
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self._db.flush()
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "new name"),
+                ("protocol", ME.NAME),
+                (ME.STORAGE_PROTOCOL, ExternalIntegration.S3),
+            ])
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_catalog_services_controller.process_catalog_services)
+
+        # This should be the last test to check since rolling back database
+        # changes in the test can cause it to crash.
         s3.setting(S3Uploader.MARC_BUCKET_KEY).value = "marc-files"
         service.libraries += [self._default_library]
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
         with self.request_context_with_admin("/", method="POST"):
             ME = MARCExporter
@@ -161,18 +176,6 @@ class TestCatalogServicesController(SettingsControllerTest):
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
             eq_(response.uri, MULTIPLE_SERVICES_FOR_LIBRARY.uri)
-
-        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        self._db.flush()
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "new name"),
-                ("protocol", ME.NAME),
-                (ME.STORAGE_PROTOCOL, ExternalIntegration.S3),
-            ])
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_catalog_services_controller.process_catalog_services)
-
 
     def test_catalog_services_post_create(self):
         ME = MARCExporter

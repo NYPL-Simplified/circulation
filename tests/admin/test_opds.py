@@ -111,6 +111,9 @@ class TestOPDS(DatabaseTest):
         # Since there's no storage integration, the change cover link isn't included.
         eq_([], [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"])
 
+        # There is now a covers storage integration that is linked to the external
+        # integration for a collection that the work is in. It will use that
+        # covers mirror and the change cover link is included.
         storage = self._external_integration(ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL)
         storage.username = "user"
         storage.password = "pass"
@@ -123,6 +126,8 @@ class TestOPDS(DatabaseTest):
             purpose=purpose
         )
         library.collections.append(collection)
+        work = self._work(with_open_access_download=True, collection=collection)
+        lp = work.license_pools[0]
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 
