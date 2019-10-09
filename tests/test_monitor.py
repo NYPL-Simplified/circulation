@@ -26,6 +26,7 @@ from ..model import (
     CollectionMissing,
     Credential,
     DataSource,
+    Edition,
     ExternalIntegration,
     Identifier,
     Patron,
@@ -59,6 +60,7 @@ from ..monitor import (
     SweepMonitor,
     TimelineMonitor,
     WorkRandomnessUpdateMonitor,
+    WorkReaper,
     WorkSweepMonitor,
 )
 
@@ -987,6 +989,43 @@ class TestReaperMonitor(DatabaseTest):
         eq_([active], remaining)
 
         eq_([], self._db.query(Credential).all())
+
+
+class TestWorkReaper(DatabaseTest):
+
+    def test_end_to_end(self):
+
+        # This work has a license pool.
+        has_license_pool = self._work(with_license_pool=True)
+
+        # This work had a license pool and then lost it.
+        had_license_pool = self._work(with_license_pool=True)
+        self._db.delete(had_license_pool.license_pools[0])
+
+        # This work never had a license pool.
+        never_had_license_pool = self._work(with_license_pool=False)
+
+        # Each work has a presentation edition
+        works = self._db.query(Work)
+        presentation_editions = [x.presentation_edition for x in works]
+
+        m = WorkReaper(self._db)
+
+        # The two works with no license pools are due do be reaped.
+        eq_(set([never_had_license_pool, had_license_pool]),
+            set(m.query().all()))
+
+        # Run the reaper.
+        m.run_once()
+
+        # Only the work with a license pool remains.
+        eq_([has_license_pool], [x for x in works])
+
+        # The presentation editions are still around, since they might
+        # theoretically be used by other parts of the system.
+        all_editions = self._db.query(Edition).all()
+        for e in presentation_editions:
+            assert e in all_editions
 
 
 class TestCollectionReaper(DatabaseTest):
