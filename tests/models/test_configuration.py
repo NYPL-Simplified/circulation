@@ -285,8 +285,8 @@ nonsecret_setting='2'"""
 
 class TestExternalIntegrationLink(DatabaseTest):
 
-    def test__get_settings(self):
-        settings = ExternalIntegrationLink._get_settings()
+    def test_collection_mirror_settings(self):
+        settings = ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS
 
         eq_(settings[0]["key"], "covers_mirror_integration_id")
         eq_(settings[0]["label"], "Covers Mirror")

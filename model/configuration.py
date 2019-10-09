@@ -56,28 +56,25 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
     )
     purpose = Column(Unicode, index=True)
 
-    @classmethod
-    def _get_settings(cls):
-        types = [cls.COVERS, cls.BOOKS]
-        settings = []
+    types = [COVERS, BOOKS]
+    settings = []
 
-        for type in types:
-            description_type = "cover images" if type == cls.COVERS else "free books"
-            key = "%s_mirror_integration_id" % type.lower()
-            settings.append({
-                "key": key,
-                "label": _("%s Mirror" % type.capitalize()),
-                "description": _("Any %s encountered while importing content from this collection can be mirrored to a server you control." % description_type),
-                "type": "select",
-                "options" : [
-                    dict(
-                        key=cls.NO_MIRROR_INTEGRATION,
-                        label=_("None - Do not mirror %s" % description_type)
-                    )
-                ]
-            })
-        
-        return settings
+    for type in types:
+        description_type = "cover images" if type == COVERS else "free books"
+        key = "%s_mirror_integration_id" % type.lower()
+        settings.append({
+            "key": key,
+            "label": _("%s Mirror" % type.capitalize()),
+            "description": _("Any %s encountered while importing content from this collection can be mirrored to a server you control." % description_type),
+            "type": "select",
+            "options" : [
+                dict(
+                    key=NO_MIRROR_INTEGRATION,
+                    label=_("None - Do not mirror %s" % description_type)
+                )
+            ]
+        })
+    COLLECTION_MIRROR_SETTINGS = settings
 
 
 class ExternalIntegration(Base, HasFullTableCache):
