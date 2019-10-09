@@ -51,7 +51,7 @@ class TestCollectionSettings(SettingsControllerTest):
             response = self.manager.admin_collection_settings_controller.process_collections()
             protocols = response.get('protocols')
             for protocol in protocols:
-                assert all([s.get('key') != 'mirror_integration_id'
+                assert all([not s.get('key').endswith('mirror_integration_id')
                             for s in protocol['settings'] if s])
 
         # When storage integrations are configured, each protocol will

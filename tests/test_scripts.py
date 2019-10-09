@@ -850,7 +850,6 @@ class TestDirectoryImportScript(DatabaseTest):
         script.do_run(
             cmd_args=[
                 "--collection-name=coll1",
-                "--storage-name=some_storage",
                 "--data-source-name=ds1",
                 "--metadata-file=metadata",
                 "--metadata-format=marc",
@@ -860,7 +859,7 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--dry-run"
             ]
         )
-        eq_(('coll1', 'ds1', 'metadata', 'marc', 'covers', 'ebooks', 'rights', True, 'some_storage'),
+        eq_(('coll1', 'ds1', 'metadata', 'marc', 'covers', 'ebooks', 'rights', True),
             script.ran_with)
 
     def test_run_with_arguments(self):
@@ -898,11 +897,10 @@ class TestDirectoryImportScript(DatabaseTest):
         script = Mock(self._db)
         basic_args = ["collection name", "data source name", "metadata file", "marc",
                       "cover directory", "ebook directory", "rights URI"]
-        script.run_with_arguments(*(basic_args + [True] + ["storage name"]))
+        script.run_with_arguments(*(basic_args + [True]))
 
         # load_collection was called with the collection and data source names.
-        eq_([('collection name', 'data source name', 'storage name')],
-            script.load_collection_calls)
+        eq_([('collection name',)], script.load_collection_calls)
 
         # load_metadata was called with the metadata file and data source name.
         eq_([('metadata file', 'marc', 'data source name')], script.load_metadata_calls)
@@ -938,7 +936,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # Now try it not as a dry run.
         script = Mock(self._db)
-        script.run_with_arguments(*(basic_args + [False] + ["storage name"]))
+        script.run_with_arguments(*(basic_args + [False]))
 
         # This time, the ReplacementPolicy has a mirror set
         # appropriately.
@@ -951,49 +949,54 @@ class TestDirectoryImportScript(DatabaseTest):
         # used when a Timestamp is created for this script.
         eq_(self._default_collection, script.timestamp_collection)
 
-    def test_load_collection_no_site_wide_mirror(self):
-        # Calling load_collection creates a new collection with
-        # the given data source.
+    def test_load_collection_setting_mirrors(self):
+        # Calling load_collection does not create a new collection.
         script = DirectoryImportScript(self._db)
-        collection, mirror = script.load_collection(
-            "A collection", "A data source"
+        collection, mirror = script.load_collection("New collection")
+        eq_(None, collection)
+        eq_(None, mirror)
+
+        existing_collection = self._collection(
+            name="some collection", protocol=ExternalIntegration.MANUAL
         )
-        eq_("A collection", collection.name)
-        eq_("A data source", collection.data_source.name)
-        eq_(True, collection.data_source.offers_licenses)
 
-        integration = collection.external_integration
-        eq_(ExternalIntegration.LICENSE_GOAL, integration.goal)
-        eq_(ExternalIntegration.MANUAL,
-            integration.protocol)
+        collection, mirror = script.load_collection("some collection")
 
-        # The Collection has no mirror integration because there are no
-        # storage integrations associated with it.
-        eq_(dict(covers=None,books=None), mirror)
+        # No covers or books mirrors were created beforehand for this collection
+        # so nothing is returned.
+        eq_(None, collection)
+        eq_(None, mirror)
 
-    # TODO: Should be able to pass a storage name instead of setting
-    # a sitewide mirror.
-    def test_load_collection_does_not_install_site_wide_mirror(self):
-        # We have a sitewide storage integration.
-        integration = self._external_integration("my uploader")
-        integration.goal = ExternalIntegration.STORAGE_GOAL
-
-        # Calling load_collection creates a Collection and installs
-        # the sitewide storage integration as its mirror integration.
-        script = DirectoryImportScript(self._db)
-        collection, mirror = script.load_collection(
-            "A collection", "A data source"
+        # Both mirrors need to set up or else nothing is returned.
+        storage1 = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="name", password="password"
         )
-        eq_(integration, collection.mirror_integration)
-        eq_(mirror["covers"], None)
-        eq_(mirror["books"], None)
-
-        # Calling create_collection again with the same arguments does
-        # nothing.
-        collection2, mirror2 = script.load_collection(
-            "A collection", "A data source"
+        external_integration_link = self._external_integration_link(
+            integration=existing_collection.external_integration,
+            other_integration=storage1,
+            purpose=ExternalIntegrationLink.COVERS
         )
-        eq_(collection2, collection)
+
+        collection, mirror = script.load_collection("some collection")
+        eq_(None, collection)
+        eq_(None, mirror)
+
+        # Create another storage and assign it for the books mirror
+        storage2 = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="name", password="password"
+        )
+        external_integration_link = self._external_integration_link(
+            integration=existing_collection.external_integration,
+            other_integration=storage2,
+            purpose=ExternalIntegrationLink.BOOKS
+        )
+
+        collection, mirror = script.load_collection("some collection")
+        eq_(collection, existing_collection)
+        assert isinstance(mirror[ExternalIntegrationLink.COVERS], MirrorUploader)
+        assert isinstance(mirror[ExternalIntegrationLink.BOOKS], MirrorUploader)
 
     def test_work_from_metadata(self):
         # Validate the ability to create a new Work from appropriate metadata.

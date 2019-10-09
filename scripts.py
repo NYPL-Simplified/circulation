@@ -1279,11 +1279,6 @@ class DirectoryImportScript(TimestampScript):
             required=True
         )
         parser.add_argument(
-            '--storage-name',
-            help=u'Storage service to use.',
-            required=True
-        )
-        parser.add_argument(
             '--data-source-name',
             help=u'All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.',
             required=True
@@ -1332,25 +1327,27 @@ class DirectoryImportScript(TimestampScript):
         ebook_directory = parsed.ebook_directory
         rights_uri = parsed.rights_uri
         dry_run = parsed.dry_run
-        storage_name = parsed.storage_name
         return self.run_with_arguments(
             collection_name, data_source_name,
             metadata_file, metadata_format, cover_directory,
-            ebook_directory, rights_uri, dry_run, storage_name
+            ebook_directory, rights_uri, dry_run
         )
 
     def run_with_arguments(
             self, collection_name, data_source_name, metadata_file,
             metadata_format, cover_directory, ebook_directory, rights_uri,
-            dry_run, storage_name
+            dry_run
     ):
         if dry_run:
             self.log.warn(
                 "This is a dry run. No files will be uploaded and nothing will change in the database."
             )
-        collection, mirror = self.load_collection(
-            collection_name, data_source_name, storage_name
-        )
+
+        collection, mirror = self.load_collection(collection_name)
+
+        if not collection or not mirror:
+            return
+
         self.timestamp_collection = collection
 
         if dry_run:
@@ -1367,18 +1364,14 @@ class DirectoryImportScript(TimestampScript):
             if not dry_run:
                 self._db.commit()
 
-    def load_collection(self, collection_name, data_source_name, storage_name=None):
-        """Create or locate a Collection with the given name.
+    def load_collection(self, collection_name):
+        """Locate a Collection with the given name.
 
         If the Collection needs to be created, it will be associated
         with the given data source and (if configured) the site-wide
         mirror configuration.
 
         :param collection_name: Name of the Collection.
-        :param data_source_name: Associate this data source with
-            the Collection if it does not already have a data source.
-            A DataSource object will be created if necessary.
-        :param storage_name: Name of the Storage service.
 
         :return: A 2-tuple (Collection, MirrorUploader)
         """
@@ -1387,45 +1380,22 @@ class DirectoryImportScript(TimestampScript):
         )
 
         if is_new:
-            self.log.info("CREATED Collection for %s: %r" % (
-                    data_source_name, collection))
             self.log.warn(
-                "The new Collection is not associated with any libraries; you must do this yourself through the admin interface."
+                "An existing collection must be used and should be set up before running this script."
             )
+            return None, None
 
-            data_source = DataSource.lookup(
-                self._db, data_source_name, autocreate=True,
-                offers_licenses=True
-            )
-            collection.external_integration.set_setting(
-                Collection.DATA_SOURCE_NAME_SETTING, data_source.name
-            )
-            self.log.info(
-                "Associated Collection %s with data source %s",
-                collection.name, data_source.name
-            )
+        mirror = dict(covers=None, books=None)
 
-            try:
-                mirror_integration = MirrorUploader.integration_by_name(
-                    self._db, storage_name
+        types = [ExternalIntegrationLink.COVERS, ExternalIntegrationLink.BOOKS]
+        for type in types:
+            mirror_for_type = MirrorUploader.for_collection(collection, type)
+            if not mirror_for_type:
+                self.log.warn(
+                    "An existing %s mirror integration should be assigned to the collection before running the script." % type
                 )
-            except CannotLoadConfiguration, e:
-                # We can't associate any mirror integration with the new collection.
-                mirror_integration = None
-
-            if mirror_integration:
-                collection.mirror_integration = mirror_integration
-                self.log.info(
-                    "Associated Collection %s with the storage integration %s.",
-                    collection.name,
-                    storage_name
-                )
-        mirror = dict(
-            covers=MirrorUploader.for_collection(
-                collection, ExternalIntegrationLink.COVERS),
-            books=MirrorUploader.for_collection(
-                collection, ExternalIntegrationLink.BOOKS)
-        )
+                return None, None
+            mirror[type] = mirror_for_type
 
         return collection, mirror
 
