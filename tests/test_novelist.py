@@ -22,7 +22,6 @@ from api.config import CannotLoadConfiguration
 from api.novelist import (
     MockNoveListAPI,
     NoveListAPI,
-    NoveListCoverageProvider,
 )
 from core.util.http import (
     HTTP
