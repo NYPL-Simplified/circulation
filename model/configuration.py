@@ -27,6 +27,7 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
+from flask_babel import lazy_gettext as _
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
@@ -37,10 +38,11 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
 
     __tablename__ = 'externalintegrationslinks'
 
+    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
     # Possible purposes that a storage external integration can be used for.
     COVERS = "covers"
-    MARC = "MARC"
     BOOKS = "books"
+    MARC = "MARC"
 
     id = Column(Integer, primary_key=True)
     external_integration_id = Column(
@@ -53,6 +55,30 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
         Integer, ForeignKey('externalintegrations.id'), index=True
     )
     purpose = Column(Unicode, index=True)
+
+    @classmethod
+    def _get_settings(cls):
+        types = [cls.COVERS, cls.BOOKS]
+        settings = []
+
+        for type in types:
+            description_type = "cover images" if type == cls.COVERS else "free books"
+            key = "%s_mirror_integration_id" % type.lower()
+            settings.append({
+                "key": key,
+                "label": _("%s Mirror" % type.capitalize()),
+                "description": _("Any %s encountered while importing content from this collection can be mirrored to a server you control." % description_type),
+                "type": "select",
+                "options" : [
+                    dict(
+                        key=cls.NO_MIRROR_INTEGRATION,
+                        label=_("None - Do not mirror %s" % description_type)
+                    )
+                ]
+            })
+        
+        return settings
+
 
 class ExternalIntegration(Base, HasFullTableCache):
 

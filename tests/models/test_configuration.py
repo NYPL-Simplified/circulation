@@ -17,8 +17,10 @@ from ...model.collection import Collection
 from ...model.configuration import (
     ConfigurationSetting,
     ExternalIntegration,
+    ExternalIntegrationLink
 )
 from ...model.datasource import DataSource
+from flask_babel import lazy_gettext as _
 
 class TestConfigurationSetting(DatabaseTest):
 
@@ -280,6 +282,24 @@ nonsecret_setting='2'"""
         ))
         assert 'a_secret' not in without_secrets
         assert 'nonsecret_setting' in without_secrets
+
+class TestExternalIntegrationLink(DatabaseTest):
+
+    def test__get_settings(self):
+        settings = ExternalIntegrationLink._get_settings()
+
+        eq_(settings[0]["key"], "covers_mirror_integration_id")
+        eq_(settings[0]["label"], "Covers Mirror")
+        eq_(settings[0]["options"][0]['key'],
+            ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
+        eq_(settings[0]["options"][0]['label'],
+            _("None - Do not mirror cover images"))
+        eq_(settings[1]["key"], "books_mirror_integration_id")
+        eq_(settings[1]["label"], "Books Mirror")
+        eq_(settings[1]["options"][0]['key'],
+            ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
+        eq_(settings[1]["options"][0]['label'],
+            _("None - Do not mirror free books"))
 
 class TestExternalIntegration(DatabaseTest):
 
