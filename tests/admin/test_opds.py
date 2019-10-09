@@ -123,7 +123,6 @@ class TestOPDS(DatabaseTest):
             purpose=purpose
         )
         library.collections.append(collection)
-        set_trace()
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 
