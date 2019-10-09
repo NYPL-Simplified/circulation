@@ -1393,8 +1393,9 @@ class SettingsController(AdminCirculationManagerController):
             for setting in protocol.get("settings", []):
                 key = setting.get("key")
 
-                # If the setting is a mirror, need to get the value from
-                # ExternalIntegrationLink and not ConfigurationSetting
+                # If the setting is a covers or books mirror, we need to get
+                # the value from ExternalIntegrationLink and
+                # not from a ConfigurationSetting.
                 if key.endswith('mirror_integration_id'):
                     storage_integration = get_one(
                         self._db, ExternalIntegrationLink, external_integration_id=service.id
@@ -1577,7 +1578,7 @@ class SettingsController(AdminCirculationManagerController):
 
         return self_test_results
 
-    def _mirror_integration_setting(self, type=""):
+    def _mirror_integration_setting(self, type):
         """Create a setting interface for selecting a storage integration to
         be used when mirroring items from a collection.
         """
@@ -1587,12 +1588,12 @@ class SettingsController(AdminCirculationManagerController):
             ExternalIntegration.name
         )
 
-        if not integrations:
+        if not integrations.all():
             return
-        key = "%s_mirror_integration_id" % type.lower() if type else "mirror_integration_id"
+        key = "%s_mirror_integration_id" % type.lower()
         mirror_integration_setting = {
             "key": key,
-            "label": _("%s Mirror" % type),
+            "label": _("%s Mirror" % type.capitalize()),
             "description": _("Any cover images or free books encountered while importing content from this collection can be mirrored to a server you control."),
             "type": "select",
             "options" : [

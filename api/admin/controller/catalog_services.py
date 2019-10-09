@@ -93,7 +93,13 @@ class CatalogServicesController(SettingsController):
             return Response(unicode(service.id), 200)
     
     def _set_external_integration_link(self, service):
+        """Either set or delete the external integration link between the
+        service and the storage integration.
+        """
         mirror_integration_id = flask.request.form.get('mirror_integration_id')
+        
+        # If no storage integration was selected, then delete the existing
+        # external integration link.
         if mirror_integration_id == self.NO_MIRROR_INTEGRATION:
             current_integration_link = get_one(
                 self._db,
@@ -108,7 +114,7 @@ class CatalogServicesController(SettingsController):
             storage_integration = get_one(
                 self._db, ExternalIntegration, id=mirror_integration_id
             )
-            # set_trace()
+            # Only get storage integrations that have a MARC file option set
             if not storage_integration or not storage_integration.setting(S3Uploader.MARC_BUCKET_KEY).value:
                 return MISSING_INTEGRATION
             self._update_external_integration_link(
@@ -120,8 +126,8 @@ class CatalogServicesController(SettingsController):
     def _update_external_integration_link(
             self, _db, external_integration, other_external_integration
     ):
-        """Find or create a ExternalIntegrationLink associated with a Library
-        and an ExternalIntegration.
+        """Find or create a ExternalIntegrationLink and update the other
+        external integration it links to.
         """
         external_integration_link, ignore = get_one_or_create(
             _db, ExternalIntegrationLink,
@@ -131,7 +137,6 @@ class CatalogServicesController(SettingsController):
         )
 
         external_integration_link.other_integration_id=other_external_integration.id
-        _db.commit()
 
     def validate_form_fields(self, protocol):
         """Verify that the protocol which the user has selected is in the list

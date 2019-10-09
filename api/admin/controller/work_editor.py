@@ -847,10 +847,11 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(collection, ProblemDetail):
             return collection
 
-        # Look for an appropriate mirror to store this cover image.
+        # Look for an appropriate mirror to store this cover image. Since the 
+        # mirror should be used for covers, we don't need a mirror for books.
         mirror = mirror or dict(
             covers=MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS),
-            books=MirrorUploader.for_collection(collection, ExternalIntegrationLink.BOOKS)
+            books=None
         )
         if not mirror.get("covers"):
             return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))

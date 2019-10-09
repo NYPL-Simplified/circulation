@@ -25,7 +25,7 @@ class CollectionSettingsController(SettingsController):
         protocols = super(CollectionSettingsController, self)._get_collection_protocols(self.PROVIDER_APIS)
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.
-        mirror_type = ['Covers', 'Books']
+        mirror_type = [ExternalIntegrationLink.BOOKS, ExternalIntegrationLink.COVERS]
         mirror_integration_settings = [self._mirror_integration_setting(type) for type in mirror_type]
         if mirror_integration_settings:
             for protocol in protocols:
@@ -265,8 +265,8 @@ class CollectionSettingsController(SettingsController):
     def _set_external_integration_link(
             self, _db, key, value, collection,
     ):
-        """Find or create a ExternalIntegrationLink associated with a Library
-        and set a storage ExternalIntegration.
+        """Find or create a ExternalIntegrationLink and either delete it
+        or update the other external integration it links to.
         """
 
         collection_service = get_one(

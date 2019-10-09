@@ -600,7 +600,6 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        # set_trace()
         eq_(exporter.integration, exporter.called_with[0][2])
         eq_(None, exporter.called_with[0][3])
 
@@ -968,11 +967,12 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(ExternalIntegration.MANUAL,
             integration.protocol)
 
-        # The Collection has no mirror integration because there is no
-        # storage integration to use.
-        eq_(None, collection.mirror_integration)
+        # The Collection has no mirror integration because there are no
+        # storage integrations associated with it.
         eq_(dict(covers=None,books=None), mirror)
 
+    # TODO: Should be able to pass a storage name instead of setting
+    # a sitewide mirror.
     def test_load_collection_does_not_install_site_wide_mirror(self):
         # We have a sitewide storage integration.
         integration = self._external_integration("my uploader")

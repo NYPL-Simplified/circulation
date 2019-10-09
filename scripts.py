@@ -781,11 +781,15 @@ class CacheMARCFiles(LaneSweeperScript):
             self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
             return
 
+        # To find the storage integration for the exporter, first find the
+        # external integration link associated with the exporter's external
+        # integration.
         integration_link = get_one(
             self._db, ExternalIntegrationLink,
             other_integration_id=exporter.integration.id,
             purpose=ExternalIntegrationLink.MARC
         )
+        # Then use the "other" integration value to find the storage integration.
         integration = get_one(self._db, ExternalIntegration,
             id=integration_link.other_integration_id
         )
@@ -1420,7 +1424,7 @@ class DirectoryImportScript(TimestampScript):
             covers=MirrorUploader.for_collection(
                 collection, ExternalIntegrationLink.COVERS),
             books=MirrorUploader.for_collection(
-                collection, ExternalIntegrationLink.COVERS)
+                collection, ExternalIntegrationLink.BOOKS)
         )
 
         return collection, mirror
