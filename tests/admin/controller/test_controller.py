@@ -2308,43 +2308,47 @@ class TestSettingsController(SettingsControllerTest):
             response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
             eq_(response, INVALID_EMAIL)
 
-    def test__mirror_integration_setting(self):
+    def test__mirror_integration_settings(self):
         # If no storage integrations are available, return none
-        mirror_integration_setting = self.manager.admin_settings_controller._mirror_integration_setting
+        mirror_integration_settings = self.manager.admin_settings_controller._mirror_integration_settings
 
-        eq_(None, mirror_integration_setting(ExternalIntegrationLink.BOOKS))
+        eq_(None, mirror_integration_settings())
 
         # Storages created will appear for settings of any purpose
         storage1 = self._external_integration(
             "S3", ExternalIntegration.STORAGE_GOAL
         )
 
-        setting = mirror_integration_setting(ExternalIntegrationLink.BOOKS)
+        settings = mirror_integration_settings()
 
-        eq_(setting["key"], "books_mirror_integration_id")
-        eq_(setting["label"], "Books Mirror")
-        eq_(setting["options"][0]['key'],
+        eq_(settings[0]["key"], "covers_mirror_integration_id")
+        eq_(settings[0]["label"], "Covers Mirror")
+        eq_(settings[0]["options"][0]['key'],
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
-        eq_(setting["options"][1]['key'],
+        eq_(settings[0]["options"][1]['key'],
+            str(storage1.id))
+        eq_(settings[1]["key"], "books_mirror_integration_id")
+        eq_(settings[1]["label"], "Books Mirror")
+        eq_(settings[1]["options"][0]['key'],
+            self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
+        eq_(settings[1]["options"][1]['key'],
             str(storage1.id))
 
         storage2 = self._external_integration(
             "S3 - 2", ExternalIntegration.STORAGE_GOAL
         )
+        settings = mirror_integration_settings()
 
-        purposes = [ExternalIntegrationLink.BOOKS, ExternalIntegrationLink.COVERS]
-        settings = [mirror_integration_setting(purpose) for purpose in purposes]
-
-        eq_(settings[0]["key"], "books_mirror_integration_id")
-        eq_(settings[0]["label"], "Books Mirror")
+        eq_(settings[0]["key"], "covers_mirror_integration_id")
+        eq_(settings[0]["label"], "Covers Mirror")
         eq_(settings[0]["options"][0]['key'],
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
         eq_(settings[0]["options"][1]['key'],
             str(storage1.id))
         eq_(settings[0]["options"][2]['key'],
             str(storage2.id))
-        eq_(settings[1]["key"], "covers_mirror_integration_id")
-        eq_(settings[1]["label"], "Covers Mirror")
+        eq_(settings[1]["key"], "books_mirror_integration_id")
+        eq_(settings[1]["label"], "Books Mirror")
         eq_(settings[1]["options"][0]['key'],
             self.manager.admin_settings_controller.NO_MIRROR_INTEGRATION)
         eq_(settings[1]["options"][1]['key'],

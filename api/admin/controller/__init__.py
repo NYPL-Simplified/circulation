@@ -1477,7 +1477,7 @@ class SettingsController(AdminCirculationManagerController):
     def _set_integration_settings_and_libraries(self, integration, protocol):
         settings = protocol.get("settings")
         for setting in settings:
-            if setting.get('key') != 'mirror_integration_id':
+            if not setting.get('key').endswith('mirror_integration_id'):
                 result = self._set_integration_setting(integration, setting)
                 if isinstance(result, ProblemDetail):
                     return result
@@ -1578,7 +1578,7 @@ class SettingsController(AdminCirculationManagerController):
 
         return self_test_results
 
-    def _mirror_integration_setting(self, type):
+    def _mirror_integration_settings(self):
         """Create a setting interface for selecting a storage integration to
         be used when mirroring items from a collection.
         """
@@ -1590,24 +1590,14 @@ class SettingsController(AdminCirculationManagerController):
 
         if not integrations.all():
             return
-        key = "%s_mirror_integration_id" % type.lower()
-        mirror_integration_setting = {
-            "key": key,
-            "label": _("%s Mirror" % type.capitalize()),
-            "description": _("Any cover images or free books encountered while importing content from this collection can be mirrored to a server you control."),
-            "type": "select",
-            "options" : [
-                dict(
-                    key=self.NO_MIRROR_INTEGRATION,
-                    label=_("None - Do not mirror cover images or free books")
-                )
-            ]
-        }
+
+        mirror_integration_settings = ExternalIntegrationLink._get_settings()
         for integration in integrations:
-            mirror_integration_setting['options'].append(
-                dict(key=str(integration.id), label=integration.name)
-            )
-        return mirror_integration_setting
+            for setting in mirror_integration_settings:
+                setting['options'].append(
+                    dict(key=str(integration.id), label=integration.name)
+                )
+        return mirror_integration_settings
 
     def _create_integration(self, protocol_definitions, protocol, goal):
         """Create a new ExternalIntegration for the given protocol and

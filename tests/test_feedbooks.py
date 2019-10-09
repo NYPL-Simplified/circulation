@@ -272,7 +272,6 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         [edition], [pool], [work], failures = importer.import_from_feed(feed)
 
         eq_({}, failures)
-        # set_trace()
 
         # The work has been created and has metadata.
         eq_("Discourse on the Method", work.title)

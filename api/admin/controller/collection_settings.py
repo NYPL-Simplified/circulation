@@ -25,8 +25,7 @@ class CollectionSettingsController(SettingsController):
         protocols = super(CollectionSettingsController, self)._get_collection_protocols(self.PROVIDER_APIS)
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.
-        mirror_type = [ExternalIntegrationLink.BOOKS, ExternalIntegrationLink.COVERS]
-        mirror_integration_settings = [self._mirror_integration_setting(type) for type in mirror_type]
+        mirror_integration_settings = self._mirror_integration_settings()
         if mirror_integration_settings:
             for protocol in protocols:
                 protocol['settings'] += mirror_integration_settings
@@ -95,25 +94,26 @@ class CollectionSettingsController(SettingsController):
 
         settings = {}
         for protocol_setting in protocol_settings:
-            if protocol_setting:
-                key = protocol_setting.get("key")
-                if not collection_settings or key not in collection_settings:
-                    if key.endswith('mirror_integration_id'):
-                        storage_integration = get_one(
-                            self._db, ExternalIntegrationLink,
-                            external_integration_id=collection_object.external_integration_id,
-                            # either 'books' or 'covers'
-                            purpose=key.split('_')[0]
-                        )
-                        if storage_integration:
-                            value = str(storage_integration.other_integration_id)
-                        else:
-                            value = self.NO_MIRROR_INTEGRATION
-                    elif protocol_setting.get("type") == "list":
-                        value = collection_object.external_integration.setting(key).json_value
+            if not protocol_setting:
+                continue
+            key = protocol_setting.get("key")
+            if not collection_settings or key not in collection_settings:
+                if key.endswith('mirror_integration_id'):
+                    storage_integration = get_one(
+                        self._db, ExternalIntegrationLink,
+                        external_integration_id=collection_object.external_integration_id,
+                        # either 'books' or 'covers'
+                        purpose=key.split('_')[0]
+                    )
+                    if storage_integration:
+                        value = str(storage_integration.other_integration_id)
                     else:
-                        value = collection_object.external_integration.setting(key).value
-                    settings[key] = value
+                        value = self.NO_MIRROR_INTEGRATION
+                elif protocol_setting.get("type") == "list":
+                    value = collection_object.external_integration.setting(key).json_value
+                else:
+                    value = collection_object.external_integration.setting(key).value
+                settings[key] = value
         settings["external_account_id"] = collection_object.external_account_id
         return settings
 
