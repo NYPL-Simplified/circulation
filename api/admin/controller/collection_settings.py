@@ -159,7 +159,6 @@ class CollectionSettingsController(SettingsController):
             self._db.rollback()
             return settings
 
-        # set_trace()
         settings_error = self.process_settings(settings, collection)
         if settings_error:
             self._db.rollback()
@@ -275,9 +274,6 @@ class CollectionSettingsController(SettingsController):
             id=collection.external_integration_id
         )
 
-        if collection_service.goal != ExternalIntegration.STORAGE_GOAL:
-            return INTEGRATION_GOAL_CONFLICT
-
         storage_service = None
         other_integration_id = None
 
@@ -296,10 +292,11 @@ class CollectionSettingsController(SettingsController):
         else:
             storage_service = get_one(
                 _db, ExternalIntegration,
-                id=value,
-                goal=ExternalIntegration.STORAGE_GOAL
+                id=value
             )
             if storage_service:
+                if storage_service.goal != ExternalIntegration.STORAGE_GOAL:
+                    return INTEGRATION_GOAL_CONFLICT
                 other_integration_id = storage_service.id
             else:
                 return MISSING_SERVICE

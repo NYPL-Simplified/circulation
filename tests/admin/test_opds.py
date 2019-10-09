@@ -116,7 +116,6 @@ class TestOPDS(DatabaseTest):
         storage.password = "pass"
 
         collection = self._collection()
-        # collection.external_integration_id = storage.id
         purpose = "covers"
         external_integration_link = self._external_integration_link(
             integration=collection._external_integration,
@@ -124,7 +123,7 @@ class TestOPDS(DatabaseTest):
             purpose=purpose
         )
         library.collections.append(collection)
-
+        set_trace()
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 

@@ -93,11 +93,16 @@ class TestCollectionSettings(SettingsControllerTest):
                 # integrations to do the mirroring.
                 use_covers_mirror = [(x['key'], x['label'])
                                for x in covers_mirror_option[1:]]
+                use_books_mirror = [(x['key'], x['label'])
+                               for x in books_mirror_option[1:]]
 
-                # Get expect to have two separate mirrors
-                expect = [(str(integration.id), integration.name)
+                # Expect to have two separate mirrors
+                expect_covers = [(str(integration.id), integration.name)
                           for integration in (storage1, storage2)]
-                eq_(expect, use_covers_mirror)
+                eq_(expect_covers, use_covers_mirror)
+                expect_books = [(str(integration.id), integration.name)
+                          for integration in (storage1, storage2)]
+                eq_(expect_books, use_books_mirror)
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -124,7 +129,6 @@ class TestCollectionSettings(SettingsControllerTest):
         c2.external_integration.password = "b"
         c2.external_integration.username = "user"
         c2.external_integration.setting('website_id').value = '100'
-        # c2.mirror_integration_id=c2_storage.id
 
         c3 = self._collection(
             name="Collection 3", protocol=ExternalIntegration.OVERDRIVE,
@@ -545,8 +549,6 @@ class TestCollectionSettings(SettingsControllerTest):
             protocol=ExternalIntegration.S3,
             goal=ExternalIntegration.STORAGE_GOAL
         )
-
-        eq_(None, collection.mirror_integration_id)
 
         # It's possible to associate the storage integration with the
         # collection for either a books or covers mirror.

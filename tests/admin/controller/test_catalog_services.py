@@ -71,42 +71,42 @@ class TestCatalogServicesController(SettingsControllerTest):
 
 
     def test_catalog_services_post_errors(self):
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("protocol", "Unknown"),
-        #     ])
-        #     response = self.manager.admin_catalog_services_controller.process_catalog_services()
-        #     eq_(response, UNKNOWN_PROTOCOL)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_catalog_services_controller.process_catalog_services()
+            eq_(response, UNKNOWN_PROTOCOL)
 
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("id", "123"),
-        #     ])
-        #     response = self.manager.admin_catalog_services_controller.process_catalog_services()
-        #     eq_(response, MISSING_SERVICE)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_catalog_services_controller.process_catalog_services()
+            eq_(response, MISSING_SERVICE)
 
-        # service, ignore = create(
-        #     self._db, ExternalIntegration,
-        #     protocol="fake protocol",
-        #     goal=ExternalIntegration.CATALOG_GOAL,
-        #     name="name",
-        # )
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol="fake protocol",
+            goal=ExternalIntegration.CATALOG_GOAL,
+            name="name",
+        )
 
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("id", service.id),
-        #         ("protocol", ExternalIntegration.MARC_EXPORT),
-        #     ])
-        #     response = self.manager.admin_catalog_services_controller.process_catalog_services()
-        #     eq_(response, CANNOT_CHANGE_PROTOCOL)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.MARC_EXPORT),
+            ])
+            response = self.manager.admin_catalog_services_controller.process_catalog_services()
+            eq_(response, CANNOT_CHANGE_PROTOCOL)
 
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", service.name),
-        #         ("protocol", ExternalIntegration.MARC_EXPORT),
-        #     ])
-        #     response = self.manager.admin_catalog_services_controller.process_catalog_services()
-        #     eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", service.name),
+                ("protocol", ExternalIntegration.MARC_EXPORT),
+            ])
+            response = self.manager.admin_catalog_services_controller.process_catalog_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -152,7 +152,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "new name"),
                 ("protocol", ME.NAME),
-                ("mirror_integration_id", s3.id)
+                ("mirror_integration_id", s3.id),
                 ("libraries", json.dumps([{
                     "short_name": self._default_library.short_name,
                     ME.INCLUDE_SUMMARY: "false",
