@@ -830,6 +830,20 @@ class PatronRecordReaper(ReaperMonitor):
 ReaperMonitor.REGISTRY.append(PatronRecordReaper)
 
 
+class WorkReaper(ReaperMonitor):
+    """Remove Works that have no associated LicensePools.
+
+    Unlike other reapers, no timestamp is relevant. As soon as a Work
+    loses its last LicensePool it can be removed.
+    """
+    MODEL_CLASS = Work
+
+    def query(self):
+        return self._db.query(Work).outerjoin(Work.license_pools).filter(
+            LicensePool.id==None
+        )
+
+
 class CollectionReaper(ReaperMonitor):
     """Remove collections that have been marked for deletion."""
     MODEL_CLASS = Collection
