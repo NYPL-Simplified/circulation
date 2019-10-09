@@ -419,7 +419,6 @@ class ExternalSearchIndex(HasSelfTests):
                           debug):
 
         query = Query(query_string, filter)
-        query_without_filter = Query(query_string)
         search = query.build(self.search, pagination)
         if debug:
             search = search.extra(explain=True)
@@ -442,7 +441,6 @@ class ExternalSearchIndex(HasSelfTests):
         # we're asking for.
         if fields:
             search = search.source(fields)
-
         return search
 
     def query_works(self, query_string, filter=None, pagination=None,
@@ -1409,6 +1407,10 @@ class Query(SearchBase):
     # in a query string are _important_.
     STOPWORD_FIELDS = ['title', 'subtitle', 'series']
 
+    # SpellChecker is expensive to initialize, so keep around
+    # a class-level instance.
+    SPELLCHECKER = SpellChecker()
+
     def __init__(self, query_string, filter=None, use_query_parser=True):
         """Store a query string and filter.
 
@@ -1450,22 +1452,25 @@ class Query(SearchBase):
         #
         # Depending on the query, the stregnth of a fuzzy hypothesis
         # may be reduced even further -- that's determined here.
-        #
-        # NOTE: if you ever have reason to set fuzzy_coefficient to
-        # zero, fuzzy hypotheses will not be considered at all.
-        if SpellChecker().unknown(self.words):
-            # Spell check failed. This is the default behavior, if
-            # only because peoples' names will generally fail spell
-            # check. Fuzzy queries will be given their full weight.
-            self.fuzzy_coefficient = 1.0
+        if self.words:
+            if self.SPELLCHECKER.unknown(self.words):
+                # Spell check failed. This is the default behavior, if
+                # only because peoples' names will generally fail spell
+                # check. Fuzzy queries will be given their full weight.
+                self.fuzzy_coefficient = 1.0
+            else:
+                # Everything seems to be spelled correctly. But sometimes
+                # a word can be misspelled as another word, e.g. "came" ->
+                # "cane", or a name may be misspelled as a word. We'll
+                # still check the fuzzy hypotheses, but we can improve
+                # results overall by giving them only half their normal
+                # strength.
+                self.fuzzy_coefficient = 0.5
         else:
-            # Everything seems to be spelled correctly. But sometimes
-            # a word can be misspelled as another word, e.g. "came" ->
-            # "cane", or a name may be misspelled as a word. We'll
-            # still check the fuzzy hypotheses, but we can improve
-            # results overall by giving them only half their normal
-            # strength.
-            self.fuzzy_coefficient = 0.5
+            # Since this query does not contain any words, there is no
+            # risk that a word might be misspelled. Do not create or
+            # run the 'fuzzy' hypotheses at all.
+            self.fuzzy_coefficient = 0
 
     def build(self, elasticsearch, pagination=None):
         """Make an Elasticsearch-DSL Search object out of this query.

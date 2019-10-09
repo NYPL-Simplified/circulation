@@ -1869,6 +1869,8 @@ class DatabaseBackedWorkList(WorkList):
             joinedload(license_pool_name, "delivery_mechanisms"),
             joinedload(license_pool_name, "delivery_mechanisms", "delivery_mechanism"),
 
+            joinedload(license_pool_name, "identifier"),
+
             # These speed up the process of generating the open-access link
             # for open-access works.
             joinedload(license_pool_name, "delivery_mechanisms", "resource"),
