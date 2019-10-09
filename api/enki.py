@@ -30,6 +30,7 @@ from core.util.http import (
 
 from core.model import (
     CirculationEvent,
+    Classification,
     Collection,
     ConfigurationSetting,
     DataSource,
@@ -627,7 +628,12 @@ class BibliographicParser(object):
             for topic in element.get(key, []):
                 if not topic or topic in seen_topics:
                     continue
-                subjects.append(SubjectData(Subject.TAG, topic))
+                subjects.append(
+                    SubjectData(
+                        Subject.TAG, topic,
+                        weight=Classification.TRUSTED_DISTRIBUTOR_WEIGHT
+                    )
+                )
                 seen_topics.add(topic)
 
         language_code = element.get("language", "English")

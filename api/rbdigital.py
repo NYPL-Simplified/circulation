@@ -49,6 +49,7 @@ from core.metadata_layer import (
 
 from core.model import (
     CirculationEvent,
+    Classification,
     Collection,
     ConfigurationSetting,
     Contributor,
@@ -1862,13 +1863,14 @@ class RBDigitalRepresentationExtractor(object):
                         contributor = ContributorData(sort_name=sort_name, display_name=display_name, roles=roles)
                         contributors.append(contributor)
 
+            trusted_weight = Classification.TRUSTED_DISTRIBUTOR_WEIGHT
             subjects = []
             if 'genres' in book:
                 # example: "FICTION / Humorous / General"
                 genres = book['genres']
                 subject = SubjectData(
                     type=Subject.BISAC, identifier=None, name=genres,
-                    weight=100
+                    weight=trusted_weight,
                 )
                 subjects.append(subject)
 
@@ -1878,7 +1880,7 @@ class RBDigitalRepresentationExtractor(object):
                 for genre in genres.split(","):
                     subject = SubjectData(
                         type=Subject.RBDIGITAL, identifier=genre.strip(),
-                        weight=200
+                        weight=trusted_weight,
                     )
                     subjects.append(subject)
 
@@ -1889,7 +1891,7 @@ class RBDigitalRepresentationExtractor(object):
                 subject = SubjectData(
                     type=Subject.RBDIGITAL_AUDIENCE,
                     identifier=audience.strip().lower(),
-                    weight=500
+                    weight=trusted_weight
                 )
                 subjects.append(subject)
 
