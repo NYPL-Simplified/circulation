@@ -952,7 +952,7 @@ class TestDirectoryImportScript(DatabaseTest):
     def test_load_collection_setting_mirrors(self):
         # Calling load_collection does not create a new collection.
         script = DirectoryImportScript(self._db)
-        collection, mirror = script.load_collection("New collection", "data source name")
+        collection, mirrors = script.load_collection("New collection", "data source name")
         eq_(None, collection)
         eq_(None, mirrors)
 
