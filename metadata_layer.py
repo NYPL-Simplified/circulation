@@ -73,7 +73,7 @@ class ReplacementPolicy(object):
             formats=False,
             rights=False,
             link_content=False,
-            mirror=None,
+            mirrors=None,
             content_modifier=None,
             analytics=None,
             http_get=None,
@@ -88,7 +88,7 @@ class ReplacementPolicy(object):
         self.formats = formats
         self.link_content = link_content
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
-        self.mirror = mirror
+        self.mirrors = mirrors
         self.content_modifier = content_modifier
         self.analytics = analytics
         self.http_get = http_get
@@ -730,8 +730,8 @@ class MetaToModelUtility(object):
 
         mirror_type = link.mirror_type()
 
-        if mirror_type in policy.mirror:
-            mirror = policy.mirror[mirror_type]
+        if mirror_type in policy.mirrors:
+            mirror = policy.mirrors[mirror_type]
             if not mirror:
                 return
         else:
@@ -1193,7 +1193,7 @@ class CirculationData(MetaToModelUtility):
         for link in self.links:
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
-                if replace.mirror:
+                if replace.mirrors:
                     # We need to mirror this resource.
                     self.mirror_link(pool, data_source, link, link_obj, replace)
 
@@ -1670,8 +1670,6 @@ class Metadata(MetaToModelUtility):
     ):
         """Apply this metadata to the given edition.
 
-        :param mirror: Open-access books and cover images will be mirrored
-            to this MirrorUploader.
         :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes
             answers the question: were any edition core fields harmed in the making of this update?
             So, if title changed, return True.
@@ -1925,7 +1923,7 @@ class Metadata(MetaToModelUtility):
                 # so we don't need to separately mirror the thumbnail.
                 continue
 
-            if replace.mirror:
+            if replace.mirrors:
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
                 self.mirror_link(edition, data_source, link, link_obj, replace)

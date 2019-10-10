@@ -1600,10 +1600,10 @@ class TestMirroring(OPDSImporterTest):
         # resources it finds for either its books or covers.
         collection = self._default_collection
         importer = OPDSImporter(self._db, collection=collection)
-        eq_(None, importer.mirror[ExternalIntegrationLink.BOOKS])
-        eq_(None, importer.mirror[ExternalIntegrationLink.COVERS])
+        eq_(None, importer.mirrors[ExternalIntegrationLink.BOOKS])
+        eq_(None, importer.mirrors[ExternalIntegrationLink.COVERS])
 
-        # Let's configure a mirror integration for it.
+        # Let's configure mirrors integration for it.
 
         # First set up a storage integration.
         integration = self._external_integration(
@@ -1623,11 +1623,11 @@ class TestMirroring(OPDSImporterTest):
         # appropriately configured MirrorUploader associated with it for the
         # 'covers' purpose.
         importer = OPDSImporter(self._db, collection=collection)
-        mirror = importer.mirror
+        mirrors = importer.mirrors
 
-        assert isinstance(mirror[ExternalIntegrationLink.COVERS], S3Uploader)
-        eq_("some-covers", mirror[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
-        eq_(mirror[ExternalIntegrationLink.BOOKS], None)
+        assert isinstance(mirrors[ExternalIntegrationLink.COVERS], S3Uploader)
+        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+        eq_(mirrors[ExternalIntegrationLink.BOOKS], None)
 
 
         # An OPDSImporter can have two types of mirrors.
@@ -1645,11 +1645,11 @@ class TestMirroring(OPDSImporterTest):
         )
 
         importer = OPDSImporter(self._db, collection=collection)
-        mirror = importer.mirror
+        mirrors = importer.mirrors
 
-        assert isinstance(mirror[ExternalIntegrationLink.BOOKS], S3Uploader)
-        eq_("some-books", mirror[ExternalIntegrationLink.BOOKS].get_bucket(S3Uploader.OA_CONTENT_BUCKET_KEY))
-        eq_("some-covers", mirror[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+        assert isinstance(mirrors[ExternalIntegrationLink.BOOKS], S3Uploader)
+        eq_("some-books", mirrors[ExternalIntegrationLink.BOOKS].get_bucket(S3Uploader.OA_CONTENT_BUCKET_KEY))
+        eq_("some-covers", mirrors[ExternalIntegrationLink.COVERS].get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
 
     def test_resources_are_mirrored_on_import(self):
 
@@ -1684,11 +1684,11 @@ class TestMirroring(OPDSImporterTest):
 
         s3_for_books = MockS3Uploader()
         s3_for_covers = MockS3Uploader()
-        mirror = dict(books=s3_for_books, covers=s3_for_covers)
+        mirrors = dict(books=s3_for_books, covers=s3_for_covers)
 
         importer = OPDSImporter(
             self._db, collection=self._default_collection,
-            mirror=mirror, http_get=http.do_get
+            mirrors=mirrors, http_get=http.do_get
         )
 
         imported_editions, pools, works, failures = (
@@ -1861,11 +1861,11 @@ class TestMirroring(OPDSImporterTest):
         )
 
         s3 = MockS3Uploader()
-        mirror = dict(covers=s3)
+        mirrors = dict(covers=s3)
 
         importer = OPDSImporter(
             self._db, collection=None,
-            mirror=mirror, http_get=http.do_get
+            mirrors=mirrors, http_get=http.do_get
         )
 
         imported_editions, pools, works, failures = (
