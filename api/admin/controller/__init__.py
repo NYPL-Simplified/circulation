@@ -1595,11 +1595,9 @@ class SettingsController(AdminCirculationManagerController):
         mirror_integration_settings = copy.deepcopy(ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS)
         for setting in mirror_integration_settings:
             for integration in integrations:
-                existing = [option for option in setting['options'] if option['key']==str(integration.id)]
-                if not existing: 
-                    setting['options'].append(
-                        dict(key=str(integration.id), label=integration.name)
-                    )
+                setting['options'].append(
+                    dict(key=str(integration.id), label=integration.name)
+                )
         return mirror_integration_settings
 
     def _create_integration(self, protocol_definitions, protocol, goal):
