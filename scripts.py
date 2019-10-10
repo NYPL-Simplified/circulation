@@ -1354,7 +1354,7 @@ class DirectoryImportScript(TimestampScript):
             mirrors = None
 
         replacement_policy = ReplacementPolicy.from_license_source(self._db)
-        replacement_policy.mirror = mirrors
+        replacement_policy.mirrors = mirrors
         metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name)
         for metadata in metadata_records:
             self.work_from_metadata(
@@ -1367,9 +1367,9 @@ class DirectoryImportScript(TimestampScript):
     def load_collection(self, collection_name, data_source_name):
         """Locate a Collection with the given name.
 
-        If the Collection needs to be created, it will be associated
-        with the given data source and (if configured) the site-wide
-        mirror configuration.
+        If the collection is found, it will be associated
+        with the given data source and configured with existing
+        covers and books mirror configurations.
 
         :param collection_name: Name of the Collection.
         :param data_source_name: Associate this data source with
@@ -1457,10 +1457,10 @@ class DirectoryImportScript(TimestampScript):
         """
         identifier, ignore = metadata.primary_identifier.load(self._db)
         data_source = metadata.data_source(self._db)
-        mirror = policy.mirror
+        mirrors = policy.mirrors
 
         circulation_data = self.load_circulation_data(
-            identifier, data_source, ebook_directory, mirror,
+            identifier, data_source, ebook_directory, mirrors,
             metadata.title, rights_uri
         )
         if not circulation_data:
@@ -1473,7 +1473,7 @@ class DirectoryImportScript(TimestampScript):
         cover_link = None
         if cover_directory:
             cover_link = self.load_cover_link(
-                identifier, data_source, cover_directory, mirror
+                identifier, data_source, cover_directory, mirrors
             )
         if cover_link:
             metadata.links.append(cover_link)
@@ -1484,7 +1484,7 @@ class DirectoryImportScript(TimestampScript):
             )
 
     def load_circulation_data(self, identifier, data_source, ebook_directory,
-                              mirror, title, rights_uri):
+                              mirrors, title, rights_uri):
         """Load an actual copy of a book from disk.
 
         :return: A CirculationData that contains the book as an open-access
@@ -1501,8 +1501,8 @@ class DirectoryImportScript(TimestampScript):
             return
 
         # Use the S3 storage for books.
-        if mirror and mirror["books"]:
-            book_url = mirror["books"].book_url(
+        if mirrors and mirrors["books"]:
+            book_url = mirrors["books"].book_url(
                 identifier,
                 '.' + Representation.FILE_EXTENSIONS[book_media_type],
                 data_source=data_source,
@@ -1534,7 +1534,7 @@ class DirectoryImportScript(TimestampScript):
         )
         return circulation_data
 
-    def load_cover_link(self, identifier, data_source, cover_directory, mirror):
+    def load_cover_link(self, identifier, data_source, cover_directory, mirrors):
         """Load an actual book cover from disk.
         
         :return: A LinkData containing a cover of the book, or None
@@ -1553,8 +1553,8 @@ class DirectoryImportScript(TimestampScript):
         )
 
         # Use an S3 storage mirror for specifically for covers.
-        if mirror and mirror['covers']:
-            cover_url = mirror['covers'].cover_image_url(
+        if mirrors and mirrors['covers']:
+            cover_url = mirrors['covers'].cover_image_url(
                 data_source, identifier, cover_filename
             )
         else:
