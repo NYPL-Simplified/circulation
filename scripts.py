@@ -1343,18 +1343,18 @@ class DirectoryImportScript(TimestampScript):
                 "This is a dry run. No files will be uploaded and nothing will change in the database."
             )
 
-        collection, mirror = self.load_collection(collection_name)
+        collection, mirrors = self.load_collection(collection_name, data_source_name)
 
-        if not collection or not mirror:
+        if not collection or not mirrors:
             return
 
         self.timestamp_collection = collection
 
         if dry_run:
-            mirror = None
+            mirrors = None
 
         replacement_policy = ReplacementPolicy.from_license_source(self._db)
-        replacement_policy.mirror = mirror
+        replacement_policy.mirror = mirrors
         metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name)
         for metadata in metadata_records:
             self.work_from_metadata(
@@ -1364,7 +1364,7 @@ class DirectoryImportScript(TimestampScript):
             if not dry_run:
                 self._db.commit()
 
-    def load_collection(self, collection_name):
+    def load_collection(self, collection_name, data_source_name):
         """Locate a Collection with the given name.
 
         If the Collection needs to be created, it will be associated
@@ -1372,6 +1372,9 @@ class DirectoryImportScript(TimestampScript):
         mirror configuration.
 
         :param collection_name: Name of the Collection.
+        :param data_source_name: Associate this data source with
+            the Collection if it does not already have a data source.
+            A DataSource object will be created if necessary.
 
         :return: A 2-tuple (Collection, MirrorUploader)
         """
@@ -1380,24 +1383,32 @@ class DirectoryImportScript(TimestampScript):
         )
 
         if is_new:
-            self.log.warn(
+            self.log.error(
                 "An existing collection must be used and should be set up before running this script."
             )
             return None, None
 
-        mirror = dict(covers=None, books=None)
+        mirrors = dict(covers=None, books=None)
 
         types = [ExternalIntegrationLink.COVERS, ExternalIntegrationLink.BOOKS]
         for type in types:
             mirror_for_type = MirrorUploader.for_collection(collection, type)
             if not mirror_for_type:
-                self.log.warn(
+                self.log.error(
                     "An existing %s mirror integration should be assigned to the collection before running the script." % type
                 )
                 return None, None
-            mirror[type] = mirror_for_type
+            mirrors[type] = mirror_for_type
 
-        return collection, mirror
+        data_source = DataSource.lookup(
+            self._db, data_source_name, autocreate=True,
+            offers_licenses=True
+        )
+        collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING, data_source.name
+        )
+
+        return collection, mirrors
 
     def load_metadata(self, metadata_file, metadata_format, data_source_name):
         """Read a metadata file and convert the data into Metadata records."""

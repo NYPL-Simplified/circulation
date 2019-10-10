@@ -900,7 +900,7 @@ class TestDirectoryImportScript(DatabaseTest):
         script.run_with_arguments(*(basic_args + [True]))
 
         # load_collection was called with the collection and data source names.
-        eq_([('collection name',)], script.load_collection_calls)
+        eq_([('collection name', 'data source name')], script.load_collection_calls)
 
         # load_metadata was called with the metadata file and data source name.
         eq_([('metadata file', 'marc', 'data source name')], script.load_metadata_calls)
@@ -952,7 +952,7 @@ class TestDirectoryImportScript(DatabaseTest):
     def test_load_collection_setting_mirrors(self):
         # Calling load_collection does not create a new collection.
         script = DirectoryImportScript(self._db)
-        collection, mirror = script.load_collection("New collection")
+        collection, mirror = script.load_collection("New collection", "data source name")
         eq_(None, collection)
         eq_(None, mirror)
 
@@ -960,7 +960,7 @@ class TestDirectoryImportScript(DatabaseTest):
             name="some collection", protocol=ExternalIntegration.MANUAL
         )
 
-        collection, mirror = script.load_collection("some collection")
+        collection, mirror = script.load_collection("some collection", "data source name")
 
         # No covers or books mirrors were created beforehand for this collection
         # so nothing is returned.
@@ -978,7 +978,7 @@ class TestDirectoryImportScript(DatabaseTest):
             purpose=ExternalIntegrationLink.COVERS
         )
 
-        collection, mirror = script.load_collection("some collection")
+        collection, mirror = script.load_collection("some collection", "data source name")
         eq_(None, collection)
         eq_(None, mirror)
 
@@ -993,7 +993,7 @@ class TestDirectoryImportScript(DatabaseTest):
             purpose=ExternalIntegrationLink.BOOKS
         )
 
-        collection, mirror = script.load_collection("some collection")
+        collection, mirror = script.load_collection("some collection", "data source name")
         eq_(collection, existing_collection)
         assert isinstance(mirror[ExternalIntegrationLink.COVERS], MirrorUploader)
         assert isinstance(mirror[ExternalIntegrationLink.BOOKS], MirrorUploader)

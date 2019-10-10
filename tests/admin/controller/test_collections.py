@@ -59,12 +59,12 @@ class TestCollectionSettings(SettingsControllerTest):
         storage1 = self._external_integration(
             name="integration 1",
             protocol=ExternalIntegration.S3,
-            goal=ExternalIntegration.STORAGE_GOAL
+            goal=ExternalIntegration.STORAGE_GOAL,
         )
         storage2 = self._external_integration(
             name="integration 2",
             protocol="Some other protocol",
-            goal=ExternalIntegration.STORAGE_GOAL
+            goal=ExternalIntegration.STORAGE_GOAL,
         )
 
         with self.request_context_with_admin("/"):

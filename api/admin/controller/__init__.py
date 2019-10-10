@@ -9,6 +9,7 @@ import jwt
 import re
 import urllib
 import urlparse
+import copy
 
 import flask
 from flask import (
@@ -1591,10 +1592,9 @@ class SettingsController(AdminCirculationManagerController):
         if not integrations.all():
             return
 
-        mirror_integration_settings = list(ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS)
+        mirror_integration_settings = copy.deepcopy(ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS)
         for setting in mirror_integration_settings:
             for integration in integrations:
-                # set_trace()
                 existing = [option for option in setting['options'] if option['key']==str(integration.id)]
                 if not existing: 
                     setting['options'].append(
