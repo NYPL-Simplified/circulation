@@ -259,11 +259,11 @@ class ExternalIntegration(Base, HasFullTableCache):
         foreign_keys='Collection.external_integration_id',
     )
 
-    # An ExternalIntegration may be used by many Collections
-    # to mirror book covers or other files.
-    mirror_for = relationship(
-        "Collection", backref="mirror_integration",
-        foreign_keys='Collection.mirror_integration_id',
+    links = relationship(
+        "ExternalIntegrationLink",
+        backref="other_integration",
+        foreign_keys="ExternalIntegrationLink.other_integration_id",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self):

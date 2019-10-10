@@ -96,14 +96,6 @@ class Collection(Base, HasFullTableCache):
     # external_account_id.
     parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
 
-    # Some Collections use an ExternalIntegration to mirror books and
-    # cover images they discover. Such a collection should use an
-    # ExternalIntegration to set up its mirroring technique, and keep
-    # a reference to that ExternalIntegration here.
-    mirror_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), nullable=True
-    )
-
     # When deleting a collection, this flag is set to True so that the deletion
     # script can take care of deleting it in the background. This is
     # useful for deleting large collections which can timeout when deleting.
