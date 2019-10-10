@@ -620,7 +620,7 @@ class TestMetaToModelUtility(DatabaseTest):
         # Note: Mirroring tests passing does not guarantee that all code now
         # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
-        mirror = dict(books=MockS3Uploader(),covers=None)
+        mirrors = dict(books=MockS3Uploader(),covers=None)
         mirror_type = "books"
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
@@ -640,14 +640,14 @@ class TestMetaToModelUtility(DatabaseTest):
         )
 
         # Apply the metadata.
-        policy = ReplacementPolicy(mirror=mirror)
+        policy = ReplacementPolicy(mirrors=mirrors)
 
         metadata = Metadata(data_source=edition.data_source,
         	links=[link_mirrored, link_unmirrored],
     	)
         metadata.apply(edition, pool.collection, replace=policy)
         # make sure the refactor is done right, and metadata does not upload
-        eq_(0, len(mirror[mirror_type].uploaded))
+        eq_(0, len(mirrors[mirror_type].uploaded))
 
 
         circulation_data = CirculationData(
@@ -658,10 +658,10 @@ class TestMetaToModelUtility(DatabaseTest):
         circulation_data.apply(self._db, pool.collection, replace=policy)
 
         # make sure the refactor is done right, and circulation does upload
-        eq_(1, len(mirror[mirror_type].uploaded))
+        eq_(1, len(mirrors[mirror_type].uploaded))
 
         # Only the open-access link has been 'mirrored'.
-        [book] = mirror[mirror_type].uploaded
+        [book] = mirrors[mirror_type].uploaded
 
         # It's remained an open-access link.
         eq_(
@@ -690,13 +690,13 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_fetch_failure(self):
-        mirror = dict(books=MockS3Uploader())
+        mirrors = dict(books=MockS3Uploader())
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)
 
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
         circulation_data = CirculationData(
             data_source=edition.data_source,
             primary_identifier=edition.primary_identifier,
@@ -733,13 +733,13 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_mirror_failure(self):
-        mirror = dict(books=MockS3Uploader(fail=True),covers=None)
+        mirrors = dict(books=MockS3Uploader(fail=True),covers=None)
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)
 
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
 
         circulation_data = CirculationData(
             data_source=edition.data_source,

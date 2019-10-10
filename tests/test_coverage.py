@@ -1593,7 +1593,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
 
         # ..and will then be uploaded to this 'mirror'.
-        mirror = dict(books=MockS3Uploader())
+        mirrors = dict(books=MockS3Uploader())
         mirror_type = "books"
 
         class Tripwire(PresentationCalculationPolicy):
@@ -1612,7 +1612,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
 
         presentation_calculation_policy = Tripwire()
         replacement_policy = ReplacementPolicy(
-            mirror=mirror,
+            mirrors=mirrors,
             http_get=http.do_get,
             presentation_calculation_policy=presentation_calculation_policy
         )
@@ -1650,7 +1650,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
 
         # The open-access download was 'downloaded' and 'mirrored'.
-        [mirrored] = mirror[mirror_type].uploaded
+        [mirrored] = mirrors[mirror_type].uploaded
         eq_("http://foo.com/", mirrored.url)
         assert mirrored.mirror_url.endswith(
             "/%s/%s.epub" % (identifier.identifier, edition.title)

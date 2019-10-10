@@ -2647,7 +2647,7 @@ class TestMirrorResourcesScript(DatabaseTest):
     def test_replacement_policy(self):
         uploader = object()
         p = MirrorResourcesScript.replacement_policy(uploader)
-        eq_(uploader, p.mirror)
+        eq_(uploader, p.mirrors)
         eq_(True, p.link_content)
         eq_(True, p.even_if_not_apparently_updated)
         eq_(False, p.rights)
