@@ -12,7 +12,7 @@ from ...config import (
     CannotLoadConfiguration,
     Configuration,
 )
-from ...model import create
+from ...model import (create, get_one)
 from ...model.collection import Collection
 from ...model.configuration import (
     ConfigurationSetting,
@@ -300,6 +300,53 @@ class TestExternalIntegrationLink(DatabaseTest):
             ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
         eq_(settings[1]["options"][0]['label'],
             _("None - Do not mirror free books"))
+    
+    def test_relationships(self):
+        # Create a collection with two storage external integrations.
+        collection = self._collection(
+            name="Collection", protocol=ExternalIntegration.OVERDRIVE,
+        )
+
+        storage1 = self._external_integration(
+            name="integration1",
+            protocol=ExternalIntegration.S3,
+        )
+        storage2 = self._external_integration(
+            name="integration2",
+            protocol=ExternalIntegration.S3,
+            goal=ExternalIntegration.STORAGE_GOAL,
+            username="username", password="password",
+        )
+
+        # Two external integration links need to be created to associate
+        # the collection's external integration with the two storage
+        # external integrations.
+        s1_external_integration_link = self._external_integration_link(
+            integration=collection.external_integration,
+            other_integration=storage1, purpose="covers"
+        )
+        s2_external_integration_link = self._external_integration_link(
+            integration=collection.external_integration,
+            other_integration=storage2, purpose="books"
+        )
+
+        qu = self._db.query(ExternalIntegrationLink)
+        external_integration_links = qu.all()
+
+        eq_(len(external_integration_links), 2)
+        eq_(external_integration_links[0].other_integration_id, storage1.id)
+        eq_(external_integration_links[1].other_integration_id, storage2.id)
+
+        # When a storage integration is deleted, the related external
+        # integration link row is deleted, and the relationship with the
+        # collection is removed.
+        self._db.delete(storage1)
+
+        qu = self._db.query(ExternalIntegrationLink)
+        external_integration_links = qu.all()
+
+        eq_(len(external_integration_links), 1)
+        eq_(external_integration_links[0].other_integration_id, storage2.id)
 
 class TestExternalIntegration(DatabaseTest):
 
