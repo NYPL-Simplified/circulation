@@ -827,7 +827,7 @@ class WorkController(AdminCirculationManagerController):
         collection = pools[0].collection
         return collection
 
-    def change_book_cover(self, identifier_type, identifier, mirror=None):
+    def change_book_cover(self, identifier_type, identifier, mirrors=None):
         """Save a new book cover based on the submitted form."""
         self.require_librarian(flask.request.library)
 
@@ -849,11 +849,11 @@ class WorkController(AdminCirculationManagerController):
 
         # Look for an appropriate mirror to store this cover image. Since the 
         # mirror should be used for covers, we don't need a mirror for books.
-        mirror = mirror or dict(
+        mirrors = mirrors or dict(
             covers=MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS),
             books=None
         )
-        if not mirror.get("covers"):
+        if not mirrors.get("covers"):
             return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))
 
         image = self.generate_cover_image(work, identifier_type, identifier)
@@ -894,7 +894,7 @@ class WorkController(AdminCirculationManagerController):
             # link_content is false because we already have the content.
             # We don't want the metadata layer to try to fetch it again.
             link_content=False,
-            mirror=mirror,
+            mirrors=mirrors,
             presentation_calculation_policy=presentation_policy,
         )
 
