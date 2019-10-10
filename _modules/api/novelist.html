@@ -722,46 +722,6 @@
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
         <span class="k">return</span> <span class="n">response</span></div></div>
-
-
-<div class="viewcode-block" id="NoveListCoverageProvider"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">NoveListCoverageProvider</span><span class="p">(</span><span class="n">IdentifierCoverageProvider</span><span class="p">):</span>
-
-    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;NoveList CoverageProvider&quot;</span>
-    <span class="n">DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">NOVELIST</span>
-    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">25</span>
-    <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">]</span>
-
-<div class="viewcode-block" id="NoveListCoverageProvider.process_item"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListCoverageProvider.process_item">[docs]</a>    <span class="k">def</span> <span class="nf">process_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
-        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
-            <span class="c1"># Either NoveList didn&#39;t recognize the identifier or</span>
-            <span class="c1"># no interesting data came of this. Consider it covered.</span>
-            <span class="k">return</span> <span class="n">identifier</span>
-
-        <span class="c1"># Set identifier equivalent to its NoveList ID.</span>
-        <span class="n">identifier</span><span class="o">.</span><span class="n">equivalent_to</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">,</span>
-            <span class="n">strength</span><span class="o">=</span><span class="mi">1</span>
-        <span class="p">)</span>
-        <span class="c1"># Create an edition with the NoveList metadata &amp; NoveList identifier.</span>
-        <span class="c1"># This will capture equivalent ISBNs and less appealing metadata in</span>
-        <span class="c1"># its unfettered state on the NoveList identifier alone.</span>
-        <span class="n">edition</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-        <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">series</span> <span class="ow">or</span> <span class="n">edition</span><span class="o">.</span><span class="n">series_position</span><span class="p">:</span>
-            <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span> <span class="o">=</span> <span class="n">identifier</span>
-            <span class="c1"># Series data from NoveList is appealing, but we need to avoid</span>
-            <span class="c1"># creating any potentially-inaccurate ISBN equivalencies on the</span>
-            <span class="c1"># license source identifier.</span>
-            <span class="c1">#</span>
-            <span class="c1"># So just remove the identifiers from the metadata object entirely.</span>
-            <span class="n">metadata</span><span class="o">.</span><span class="n">identifiers</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="c1"># Before creating an edition for the original identifier.</span>
-            <span class="n">novelist_edition</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">edition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-            <span class="n">metadata</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">novelist_edition</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">identifier</span></div></div>
 </pre></div>
 
           </div>

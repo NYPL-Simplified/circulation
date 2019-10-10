@@ -3265,12 +3265,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x52d8110&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x407cea0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4ec66d0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3dc5940&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3285,7 +3285,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x52ffdd0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x40a56f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8120,7 +8120,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 10, 19, 16, 11, 18, 674391)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 10, 20, 13, 41, 23, 348734)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8648,41 +8648,6 @@ the Author property since there are multiple contributors.</p>
 <dt id="api.novelist.NoveListAPI.version">
 <code class="descname">version</code><em class="property"> = '2.2'</em><a class="headerlink" href="#api.novelist.NoveListAPI.version" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.novelist.NoveListCoverageProvider">
-<em class="property">class </em><code class="descclassname">api.novelist.</code><code class="descname">NoveListCoverageProvider</code><span class="sig-paren">(</span><em>_db</em>, <em>collection=None</em>, <em>input_identifiers=None</em>, <em>replacement_policy=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/novelist.html#NoveListCoverageProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.novelist.NoveListCoverageProvider" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.coverage.IdentifierCoverageProvider" title="core.coverage.IdentifierCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.coverage.IdentifierCoverageProvider</span></code></a></p>
-<dl class="attribute">
-<dt id="api.novelist.NoveListCoverageProvider.DATA_SOURCE_NAME">
-<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = u'NoveList Select'</em><a class="headerlink" href="#api.novelist.NoveListCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.novelist.NoveListCoverageProvider.DEFAULT_BATCH_SIZE">
-<code class="descname">DEFAULT_BATCH_SIZE</code><em class="property"> = 25</em><a class="headerlink" href="#api.novelist.NoveListCoverageProvider.DEFAULT_BATCH_SIZE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.novelist.NoveListCoverageProvider.INPUT_IDENTIFIER_TYPES">
-<code class="descname">INPUT_IDENTIFIER_TYPES</code><em class="property"> = [u'ISBN']</em><a class="headerlink" href="#api.novelist.NoveListCoverageProvider.INPUT_IDENTIFIER_TYPES" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.novelist.NoveListCoverageProvider.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'NoveList CoverageProvider'</em><a class="headerlink" href="#api.novelist.NoveListCoverageProvider.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.novelist.NoveListCoverageProvider.process_item">
-<code class="descname">process_item</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/novelist.html#NoveListCoverageProvider.process_item"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.novelist.NoveListCoverageProvider.process_item" title="Permalink to this definition">¶</a></dt>
-<dd><p>Do the work necessary to give coverage to one specific item.</p>
-<p>Since this is where the actual work happens, this is not
-implemented in IdentifierCoverageProvider or
-WorkCoverageProvider, and must be handled in a subclass.</p>
-</dd></dl>
 
 </dd></dl>
 
