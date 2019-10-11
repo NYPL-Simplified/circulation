@@ -45,8 +45,10 @@ class TestDiscoveryServices(SettingsControllerTest):
         )
         discovery_service.url = self._str
 
+        controller = self.manager.admin_discovery_services_controller
+
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_discovery_services_controller.process_discovery_services()
+            response = controller.process_discovery_services()
             [service] = response.get("discovery_services")
 
             eq_(discovery_service.id, service.get("id"))
@@ -54,19 +56,20 @@ class TestDiscoveryServices(SettingsControllerTest):
             eq_(discovery_service.url, service.get("settings").get(ExternalIntegration.URL))
 
     def test_discovery_services_post_errors(self):
+        controller = self.manager.admin_discovery_services_controller
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
                 ("protocol", "Unknown"),
             ])
-            response = self.manager.admin_discovery_services_controller.process_discovery_services()
+            response = controller.process_discovery_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
             ])
-            response = self.manager.admin_discovery_services_controller.process_discovery_services()
+            response = controller.process_discovery_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
         with self.request_context_with_admin("/", method="POST"):
@@ -75,7 +78,7 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("id", "123"),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
-            response = self.manager.admin_discovery_services_controller.process_discovery_services()
+            response = controller.process_discovery_services()
             eq_(response, MISSING_SERVICE)
 
         service, ignore = create(
@@ -90,15 +93,29 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("name", service.name),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
-            response = self.manager.admin_discovery_services_controller.process_discovery_services()
+            response = controller.process_discovery_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+
+        existing_integration = self._external_integration(
+            ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVERY_GOAL,
+            url=self._url
+        )
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "new name"),
+                ("protocol", existing_integration.protocol),
+                ("url", existing_integration.url)
+            ])
+            response = controller.process_discovery_services()
+            eq_(response, INTEGRATION_URL_ALREADY_IN_USE)
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
-            response = self.manager.admin_discovery_services_controller.process_discovery_services()
+            response = controller.process_discovery_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
@@ -108,7 +125,7 @@ class TestDiscoveryServices(SettingsControllerTest):
                 (ExternalIntegration.URL, "registry url"),
             ])
             assert_raises(AdminNotAuthorized,
-                          self.manager.admin_discovery_services_controller.process_discovery_services)
+                          controller.process_discovery_services)
 
     def test_discovery_services_post_create(self):
         with self.request_context_with_admin("/", method="POST"):

@@ -2366,11 +2366,18 @@ class TestSettingsController(SettingsControllerTest):
         eq_(False, is_dupe(original.url, "different protocol", goal))
         eq_(False, is_dupe(original.url, protocol, "different goal"))
 
+        # If you're not considering a URL at all, we assume no
+        # duplicate.
+        eq_(False, is_dupe(None, protocol, goal))
+
     def test_url_variants(self):
         # Test the helper method that generates slight variants of
         # any given URL.
         def m(url):
             return list(SettingsController.url_variants(url))
+
+        # No URL, no variants.
+        eq_([], m(None))
 
         # Variants of an HTTP URL with a trailing slash.
         eq_(

@@ -1660,6 +1660,10 @@ class SettingsController(AdminCirculationManagerController):
         differently. Since this isn't an exact science, this doesn't
         need to catch all variant URLs, only the most common ones.
         """
+        if not url:
+            # None has no variants.
+            return
+
         # A URL is a 'variant' of itself.
         yield url
 
@@ -1690,8 +1694,11 @@ class SettingsController(AdminCirculationManagerController):
         is up to you -- it's a good general rule but there are
         conceivable exceptions.
 
-        This method is used by discovery_services and metadata_services.
+        This method is used by metadata_services.
         """
+        if not url:
+            return
+
         # Look for the given URL as well as minor variations.
         #
         # We can't use urlparse to ignore minor differences in URLs
