@@ -1650,6 +1650,38 @@ class SettingsController(AdminCirculationManagerController):
             # changes to an existing service unless you've also changed its name.
             return INTEGRATION_NAME_ALREADY_IN_USE
 
+    @classmethod
+    def url_variants(cls, url, check_protocol_variant=True):
+        """Generate minor variants of a URL -- HTTP vs HTTPS, trailing slash
+        vs not, etc.
+
+        Technically these are all distinct URLs, but in real life they
+        generally mean someone typed the same URL slightly
+        differently. Since this isn't an exact science, this doesn't
+        need to catch all variant URLs, only the most common ones.
+        """
+        # A URL is a 'variant' of itself.
+        yield url
+
+        # Adding or removing a slash creates a variant.
+        if url.endswith("/"):
+            yield url[:-1]
+        else:
+            yield url + '/'
+
+        # Changing protocols may create one or more variants.
+        https = "https://"
+        http = "http://"
+        if check_protocol_variant:
+            protocol_variant = None
+            if url.startswith(https):
+                protocol_variant = url.replace(https, http, 1)
+            elif url.startswith(http):
+                protocol_variant = url.replace(http, https, 1)
+            if protocol_variant:
+                for v in cls.url_variants(protocol_variant, False):
+                    yield v
+
     def check_url_unique(self, new_service, url, protocol, goal):
         """Enforce a rule that a given circulation manager can only have
         one integration that uses a given URL for a certain purpose.
@@ -1660,14 +1692,11 @@ class SettingsController(AdminCirculationManagerController):
 
         This method is used by discovery_services and metadata_services.
         """
-        # Treat HTTP and HTTPS URLs as interchangeable.
-        urls = [url]
-        https = "https://"
-        http = "http://"
-        if url.startswith(https):
-            urls.append(url.replace(https, http, 1))
-        elif url.startswith(http):
-            urls.append(url.replace(http, https, 1))
+        # Look for the given URL as well as minor variations.
+        #
+        # We can't use urlparse to ignore minor differences in URLs
+        # because we're doing the comparison in the database.
+        urls = list(self.url_variants(url))
 
         qu = self._db.query(ExternalIntegration).join(
             ExternalIntegration.settings
