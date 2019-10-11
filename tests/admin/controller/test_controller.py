@@ -2306,3 +2306,54 @@ class TestSettingsController(SettingsControllerTest):
             # If the validator returns an problem detail, validate_formats returns it.
             response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
             eq_(response, INVALID_EMAIL)
+
+    def test_check_url_unique(self):
+        # Verify our ability to prohibit duplicate integrations being created
+        # for a given URL.
+        m = self.manager.admin_settings_controller._check_url_unique
+
+        # Here's an ExternalIntegration.
+        original = self._external_integration(url="http://service/")
+        protocol = original.protocol
+        goal = original.goal
+
+        # Here's another ExternalIntegration that might or might not
+        # be about to become a duplicate of the original.
+        new = self._external_integration()
+
+        # We're going to call this helper function multiple times to check if
+        # different scenarios trip the "duplicate" logic.
+        def is_dupe(url, protocol, goal):
+            result = check_url_unique(new, url, protocol, goal)
+            if result is None:
+                return False
+            elif result is INTEGRATION_URL_ALREADY_IN_USE:
+                return True
+            else:
+                raise Exception(
+                    "check_url_unique must return either the problem detail or None"
+                )
+
+        # The original ExternalIntegration is not a duplicate of itself.
+        eq_(
+            None,
+            check_url_unique(original, original.url, protocol, goal)
+        )
+
+        # However, any other ExternalIntegration with the same URL,
+        # protocol, and goal is considered a duplicate.
+        eq_(True, is_dupe(original.url, protocol, goal))
+
+        # Minor URL differences are ignored when considering duplicates.
+        eq_(True, is_dupe("https://service/", protocol, goal))
+        eq_(True, is_dupe("https://service", protocol, goal))
+        eq_(True, is_dupe("https://service/#extra", protocol, goal))
+
+        original.url = "https://service/"
+        eq_(True, is_dupe("http://service/", protocol, goal))
+
+        # If any of URL, protocol, and goal are different, then the
+        # integration is not considered a duplicate.
+        eq_(False, is_dupe("different url", protocol, goal))
+        eq_(False, is_dupe(original.url, "different protocol", goal))
+        eq_(False, is_dupe(original.url, protocol, "different goal"))

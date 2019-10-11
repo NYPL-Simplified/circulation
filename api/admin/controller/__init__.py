@@ -1650,6 +1650,45 @@ class SettingsController(AdminCirculationManagerController):
             # changes to an existing service unless you've also changed its name.
             return INTEGRATION_NAME_ALREADY_IN_USE
 
+    def check_url_unique(self, new_service, url, protocol, goal):
+        """Enforce a rule that a given circulation manager can only have
+        one integration that uses a given URL for a certain purpose.
+
+        Whether to enforce this rule for a given type of integration
+        is up to you -- it's a good general rule but there are
+        conceivable exceptions.
+
+        This method is used by discovery_services and metadata_services.
+        """
+        # Treat HTTP and HTTPS URLs as interchangeable.
+        urls = [url]
+        https = "https://"
+        http = "http://"
+        if url.startswith(https):
+            urls.append(url.replace(https, http, 1))
+        elif url.startswith(http):
+            urls.append(url.replace(http, https, 1))
+
+        qu = self._db.query(ExternalIntegration).join(
+            ExternalIntegration.settings
+        ).filter(
+            # Protocol must match.
+            ExternalIntegration.protocol==protocol
+        ).filter(
+            # Goal must match.
+            ExternalIntegration.goal==goal
+        ).filter(
+            ConfigurationSetting.key==ExternalIntegration.URL
+        ).filter(
+            # URL must be one of the URLs we're concerned about.
+            ConfigurationSetting.value.in_(urls)
+        ).filter(
+            # But don't count the service we're trying to edit.
+            ExternalIntegration.id != new_service.id
+        )
+        if qu.count() > 0:
+            return INTEGRATION_URL_ALREADY_IN_USE
+
     def look_up_service_by_id(self, id, protocol, goal=None):
         """Find an existing service, and make sure that the user is not trying to edit
         its protocol.

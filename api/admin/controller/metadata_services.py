@@ -69,6 +69,12 @@ class MetadataServicesController(SitewideRegistrationController):
             self._db.rollback()
             return name_error
 
+        url = flask.request.form.get("url")
+        url_error = self.check_url_unique(service, url, protocol, self.goal)
+        if url_error:
+            self._db.rollback()
+            return url_error
+
         protocol_error = self.set_protocols(service, protocol)
         if protocol_error:
             self._db.rollback()
