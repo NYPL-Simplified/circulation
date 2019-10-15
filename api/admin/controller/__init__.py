@@ -1660,8 +1660,8 @@ class SettingsController(AdminCirculationManagerController):
         differently. Since this isn't an exact science, this doesn't
         need to catch all variant URLs, only the most common ones.
         """
-        if not url:
-            # None has no variants.
+        if not Validator()._is_url(url, []):
+            # An invalid URL has no variants.
             return
 
         # A URL is a 'variant' of itself.
@@ -1694,7 +1694,7 @@ class SettingsController(AdminCirculationManagerController):
         is up to you -- it's a good general rule but there are
         conceivable exceptions.
 
-        This method is used by metadata_services.
+        This method is used by discovery_services.
         """
         if not url:
             return

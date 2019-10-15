@@ -2378,6 +2378,7 @@ class TestSettingsController(SettingsControllerTest):
 
         # No URL, no variants.
         eq_([], m(None))
+        eq_([], m("not a url"))
 
         # Variants of an HTTP URL with a trailing slash.
         eq_(

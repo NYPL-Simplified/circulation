@@ -94,10 +94,12 @@ class DiscoveryServicesController(SettingsController):
             return name_error
 
         url = flask.request.form.get("url")
-        url_error = self.check_url_unique(service, url, protocol, self.goal)
-        if url_error:
+        url_not_unique = self.check_url_unique(
+            service, url, protocol, self.goal
+        )
+        if url_not_unique:
             self._db.rollback()
-            return url_error
+            return url_not_unique
 
         protocol_error = self.set_protocols(service, protocol)
         if protocol_error:
