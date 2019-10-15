@@ -118,7 +118,10 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">allowed</span><span class="p">):</span>
                     <span class="k">return</span> <span class="n">INVALID_URL</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(url)s</span><span class="s1">&quot; is not a valid URL.&#39;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">))</span></div>
 
-    <span class="k">def</span> <span class="nf">_is_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">allowed</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_is_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">allowed</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">url</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
         <span class="n">has_protocol</span> <span class="o">=</span> <span class="nb">any</span><span class="p">([</span><span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">protocol</span> <span class="o">+</span> <span class="s2">&quot;://&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">has_protocol</span> <span class="ow">or</span> <span class="p">(</span><span class="n">url</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">)</span>
 

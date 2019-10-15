@@ -4957,7 +4957,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-02438a3b-afa2-44a1-ad84-d4e1b5ba41e2'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-bde0f2c3-075c-4480-afd6-26a7ac16d8ab'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7054,6 +7054,26 @@ for only the fields you want to set.</td>
 because it works on a large number of Works at once using raw
 SQL.</p>
 </dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.monitor.WorkReaper">
+<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">WorkReaper</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#WorkReaper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.WorkReaper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.monitor.ReaperMonitor" title="core.monitor.ReaperMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.ReaperMonitor</span></code></a></p>
+<p>Remove Works that have no associated LicensePools.</p>
+<p>Unlike other reapers, no timestamp is relevant. As soon as a Work
+loses its last LicensePool it can be removed.</p>
+<dl class="attribute">
+<dt id="core.monitor.WorkReaper.MODEL_CLASS">
+<code class="descname">MODEL_CLASS</code><a class="headerlink" href="#core.monitor.WorkReaper.MODEL_CLASS" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="core.model.html#core.model.work.Work" title="core.model.work.Work"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.work.Work</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.monitor.WorkReaper.query">
+<code class="descname">query</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#WorkReaper.query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.WorkReaper.query" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 

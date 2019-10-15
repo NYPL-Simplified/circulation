@@ -1356,6 +1356,17 @@ metadata_services, and sitewide_services.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="api.admin.controller.SettingsController.check_url_unique">
+<code class="descname">check_url_unique</code><span class="sig-paren">(</span><em>new_service</em>, <em>url</em>, <em>protocol</em>, <em>goal</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.check_url_unique"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.check_url_unique" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enforce a rule that a given circulation manager can only have
+one integration that uses a given URL for a certain purpose.</p>
+<p>Whether to enforce this rule for a given type of integration
+is up to you – it’s a good general rule but there are
+conceivable exceptions.</p>
+<p>This method is used by discovery_services.</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="api.admin.controller.SettingsController.look_up_service_by_id">
 <code class="descname">look_up_service_by_id</code><span class="sig-paren">(</span><em>id</em>, <em>protocol</em>, <em>goal=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.look_up_service_by_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.look_up_service_by_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Find an existing service, and make sure that the user is not trying to edit
@@ -1372,6 +1383,17 @@ the validations pass, either save it to this metadata service or
 return an error message.
 This method is used by analytics_services, cdn_services, discovery_services,
 metadata_services, and sitewide_services.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="api.admin.controller.SettingsController.url_variants">
+<em class="property">classmethod </em><code class="descname">url_variants</code><span class="sig-paren">(</span><em>url</em>, <em>check_protocol_variant=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller.html#SettingsController.url_variants"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.SettingsController.url_variants" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate minor variants of a URL – HTTP vs HTTPS, trailing slash
+vs not, etc.</p>
+<p>Technically these are all distinct URLs, but in real life they
+generally mean someone typed the same URL slightly
+differently. Since this isn’t an exact science, this doesn’t
+need to catch all variant URLs, only the most common ones.</p>
 </dd></dl>
 
 <dl class="method">

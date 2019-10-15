@@ -865,6 +865,20 @@
 <span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PatronRecordReaper</span><span class="p">)</span>
 
 
+<div class="viewcode-block" id="WorkReaper"><a class="viewcode-back" href="../../core.html#core.monitor.WorkReaper">[docs]</a><span class="k">class</span> <span class="nc">WorkReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove Works that have no associated LicensePools.</span>
+
+<span class="sd">    Unlike other reapers, no timestamp is relevant. As soon as a Work</span>
+<span class="sd">    loses its last LicensePool it can be removed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Work</span>
+
+<div class="viewcode-block" id="WorkReaper.query"><a class="viewcode-back" href="../../core.html#core.monitor.WorkReaper.query">[docs]</a>    <span class="k">def</span> <span class="nf">query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span>
+        <span class="p">)</span></div></div>
+
+
 <div class="viewcode-block" id="CollectionReaper"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionReaper">[docs]</a><span class="k">class</span> <span class="nc">CollectionReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Remove collections that have been marked for deletion.&quot;&quot;&quot;</span>
     <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Collection</span>
