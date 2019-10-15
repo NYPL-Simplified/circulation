@@ -268,6 +268,13 @@ INTEGRATION_NAME_ALREADY_IN_USE = pd(
     detail=_("The integration name must be unique, and there's already an integration with the specified name."),
 )
 
+INTEGRATION_URL_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/integration-url-already-in-use",
+    status_code=400,
+    title=_("Integration URL already in use"),
+    detail=_("There's already an integration of this type for this URL."),
+)
+
 INTEGRATION_GOAL_CONFLICT = pd(
     "http://librarysimplified.org/terms/problem/integration-goal-conflict",
     status_code=409,

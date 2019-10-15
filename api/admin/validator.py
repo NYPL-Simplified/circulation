@@ -83,7 +83,10 @@ class Validator(object):
                 if not self._is_url(url, allowed):
                     return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
-    def _is_url(self, url, allowed):
+    @classmethod
+    def _is_url(cls, url, allowed):
+        if not url:
+            return False
         has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
         return has_protocol or (url in allowed)
 
