@@ -122,7 +122,7 @@ class TestCollectionSettings(SettingsControllerTest):
         )
         c2_external_integration_link = self._external_integration_link(
             integration=c2.external_integration,
-            other_integration=c2_storage, purpose="covers"
+            other_integration=c2_storage, purpose=ExternalIntegrationLink.COVERS
         )
 
         c2.external_account_id = "1234"
@@ -172,6 +172,7 @@ class TestCollectionSettings(SettingsControllerTest):
             settings2 = coll2.get("settings", {})
             settings3 = coll3.get("settings", {})
 
+            set_trace()
             eq_(controller.NO_MIRROR_INTEGRATION,
                 settings1.get("covers_mirror_integration_id"))
             eq_(controller.NO_MIRROR_INTEGRATION,

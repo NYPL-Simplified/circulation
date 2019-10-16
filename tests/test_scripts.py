@@ -1021,9 +1021,9 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata.annotated = False
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy.from_license_source(self._db)
-        mirrors = dict(books=MockS3Uploader(),covers=MockS3Uploader())
-        mirror_type_books = "books"
-        mirror_type_covers = "covers"
+        mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=MockS3Uploader())
+        mirror_type_books = ExternalIntegrationLink.BOOKS
+        mirror_type_covers = ExternalIntegrationLink.COVERS
         policy.mirrors = mirrors
 
         # Here, work_from_metadata calls annotate_metadata, but does
@@ -1183,7 +1183,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        mirrors = dict(books=MockS3Uploader(),covers=None)
+        mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=None)
         args = (identifier, gutenberg, "ebooks", mirrors, "Name of book",
                 "rights URI")
 
@@ -1236,7 +1236,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        mirrors = dict(covers=MockS3Uploader(),books=None)
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
         args = (identifier, gutenberg, "covers", mirrors)
 
         # There is nothing on the mock filesystem, so in this case

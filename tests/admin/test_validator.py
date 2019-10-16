@@ -201,3 +201,20 @@ class TestValidator():
             'validate_language_code',
             'validate_image'
         ])
+
+    def test__is_url(self):
+        m = Validator._is_url
+
+        eq_(False, m(None, []))
+        eq_(False, m("", []))
+        eq_(False, m("not a url", []))
+
+        # Only HTTP and HTTP URLs are allowed.
+        eq_(True, m("http://server.com/", []))
+        eq_(True, m("https://server.com/", []))
+        eq_(False, m("gopher://server.com/", []))
+        eq_(False, m("http:/server.com/", []))
+
+        # You can make specific URLs go through even if they
+        # wouldn't normally pass.
+        eq_(True, m("Not a URL", ["Not a URL", "Also not a URL"]))

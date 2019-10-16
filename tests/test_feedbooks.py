@@ -24,6 +24,7 @@ from core.model import (
     Representation,
     RightsStatus,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.metadata_layer import (
     Metadata,
     LinkData,
@@ -69,7 +70,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         super(TestFeedbooksOPDSImporter, self).setup()
         self.http = DummyHTTPClient()
         self.metadata = DummyMetadataClient()
-        self.mirrors = dict(covers=MockS3Uploader(),books=MockS3Uploader())
+        self.mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=MockS3Uploader())
 
         self.data_source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
 
@@ -306,7 +307,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # The mirrored content contains the modified CSS in the books mirror
         # due to the link rel type.
-        content = StringIO(self.mirrors['books'].content[0])
+        content = StringIO(self.mirrors[ExternalIntegrationLink.BOOKS].content[0])
         with ZipFile(content) as zip:
             # The zip still contains the original epub's files.
             assert "META-INF/container.xml" in zip.namelist()
@@ -340,7 +341,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         eq_([], self.http.requests)
 
         # Nothing was uploaded to the mock S3 covers mirror.
-        eq_([], self.mirrors["covers"].uploaded)
+        eq_([], self.mirrors[ExternalIntegrationLink.COVERS].uploaded)
 
         # The LicensePool's delivery mechanism is set appropriately
         # to reflect an in-copyright work.

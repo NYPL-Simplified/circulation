@@ -40,6 +40,7 @@ from core.model import (
     SessionManager,
     Subject,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.s3 import MockS3Uploader
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
@@ -971,8 +972,8 @@ class TestWorkController(AdminControllerTest):
 
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        mirror_type = "covers"
-        mirrors = dict(covers=MockS3Uploader(),books=None)
+        mirror_type = ExternalIntegrationLink.COVERS
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([

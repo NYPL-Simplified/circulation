@@ -14,6 +14,7 @@ from core.model import (
     Library,
     Measurement,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.lane import Facets, Pagination
 from core.opds import Annotator
 
@@ -119,7 +120,7 @@ class TestOPDS(DatabaseTest):
         storage.password = "pass"
 
         collection = self._collection()
-        purpose = "covers"
+        purpose = ExternalIntegrationLink.COVERS
         external_integration_link = self._external_integration_link(
             integration=collection._external_integration,
             other_integration=storage,

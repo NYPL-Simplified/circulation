@@ -1388,7 +1388,7 @@ class DirectoryImportScript(TimestampScript):
             )
             return None, None
 
-        mirrors = dict(covers=None, books=None)
+        mirrors = dict(covers_mirror=None, books_mirror=None)
 
         types = [ExternalIntegrationLink.COVERS, ExternalIntegrationLink.BOOKS]
         for type in types:
@@ -1501,8 +1501,8 @@ class DirectoryImportScript(TimestampScript):
             return
 
         # Use the S3 storage for books.
-        if mirrors and mirrors["books"]:
-            book_url = mirrors["books"].book_url(
+        if mirrors and mirrors[ExternalIntegrationLink.BOOKS]:
+            book_url = mirrors[ExternalIntegrationLink.BOOKS].book_url(
                 identifier,
                 '.' + Representation.FILE_EXTENSIONS[book_media_type],
                 data_source=data_source,
@@ -1553,8 +1553,8 @@ class DirectoryImportScript(TimestampScript):
         )
 
         # Use an S3 storage mirror for specifically for covers.
-        if mirrors and mirrors['covers']:
-            cover_url = mirrors['covers'].cover_image_url(
+        if mirrors and mirrors[ExternalIntegrationLink.COVERS]:
+            cover_url = mirrors[ExternalIntegrationLink.COVERS].cover_image_url(
                 data_source, identifier, cover_filename
             )
         else:
