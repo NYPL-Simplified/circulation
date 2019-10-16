@@ -44,6 +44,7 @@ from ..model import (
     Work,
     WorkCoverageRecord,
 )
+from ..model.configuration import ExternalIntegrationLink
 
 from ..util.http import RemoteIntegrationException
 
@@ -335,7 +336,7 @@ class TestMetadataImporter(DatabaseTest):
         # However, updated tests passing does not guarantee that all code now
         # correctly calls on CirculationData, too.  This is a risk.
 
-        mirrors = dict(covers=MockS3Uploader(),books=None)
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
         edition, pool = self._edition(with_license_pool=True)
         content = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
         l1 = LinkData(
@@ -357,7 +358,7 @@ class TestMetadataImporter(DatabaseTest):
         metadata.apply(edition, pool.collection, replace=policy)
 
         # Two Representations were 'mirrored'.
-        image, thumbnail = mirrors['covers'].uploaded
+        image, thumbnail = mirrors[ExternalIntegrationLink.COVERS].uploaded
 
         # The image...
         [image_link] = image.resource.links
@@ -390,8 +391,8 @@ class TestMetadataImporter(DatabaseTest):
 
     def test_mirror_thumbnail_only(self):
         # Make sure a thumbnail image is mirrored when there's no cover image.
-        mirrors = dict(covers=MockS3Uploader())
-        mirror_type = "covers"
+        mirrors = dict(covers_mirror=MockS3Uploader())
+        mirror_type = ExternalIntegrationLink.COVERS
         edition, pool = self._edition(with_license_pool=True)
         thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png"), "rb").read()
         l = LinkData(
@@ -417,7 +418,7 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirrors = dict(covers=MockS3Uploader())
+        mirrors = dict(covers_mirror=MockS3Uploader())
         h = DummyHTTPClient()
 
         policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
@@ -455,8 +456,8 @@ class TestMetadataImporter(DatabaseTest):
         eq_(None, pool.license_exception)
 
     def test_mirror_404_error(self):
-        mirrors = dict(covers=MockS3Uploader(),books=None)
-        mirror_type = "covers"
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
+        mirror_type = ExternalIntegrationLink.COVERS
         h = DummyHTTPClient()
         h.queue_response(404)
         policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
@@ -491,7 +492,7 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirrors = dict(covers=MockS3Uploader(fail=True))
+        mirrors = dict(covers_mirror=MockS3Uploader(fail=True))
         h = DummyHTTPClient()
 
         policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
@@ -545,7 +546,7 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirrors = dict(covers=MockS3Uploader())
+        mirrors = dict(covers_mirror=MockS3Uploader())
         h = DummyHTTPClient()
 
         policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
@@ -631,8 +632,8 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirrors = dict(covers=MockS3Uploader(fail=True))
-        mirror_type = "covers"
+        mirrors = dict(covers_mirror=MockS3Uploader(fail=True))
+        mirror_type = ExternalIntegrationLink.COVERS
         h = DummyHTTPClient()
 
         policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
@@ -669,8 +670,8 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirrors = dict(books=MockS3Uploader())
-        mirror_type = "books"
+        mirrors = dict(books_mirror=MockS3Uploader())
+        mirror_type = ExternalIntegrationLink.BOOKS
         def dummy_content_modifier(representation):
             representation.content = "Replaced Content"
         h = DummyHTTPClient()

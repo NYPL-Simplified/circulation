@@ -40,9 +40,9 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
 
     NO_MIRROR_INTEGRATION = u"NO_MIRROR"
     # Possible purposes that a storage external integration can be used for.
-    COVERS = "covers"
-    BOOKS = "books"
-    MARC = "MARC"
+    COVERS = "covers_mirror"
+    BOOKS = "books_mirror"
+    MARC = "MARC_mirror"
 
     id = Column(Integer, primary_key=True)
     external_integration_id = Column(
@@ -61,10 +61,11 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
 
     for type in types:
         description_type = "cover images" if type == COVERS else "free books"
-        key = "%s_mirror_integration_id" % type.lower()
+        key = "%s_integration_id" % type.lower()
+        label = type.split('_')[0]
         settings.append({
             "key": key,
-            "label": _("%s Mirror" % type.capitalize()),
+            "label": _("%s Mirror" % label.capitalize()),
             "description": _("Any %s encountered while importing content from this collection can be mirrored to a server you control." % description_type),
             "type": "select",
             "options" : [

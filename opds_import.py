@@ -474,7 +474,7 @@ class OPDSImporter(object):
                     collection, ExternalIntegrationLink.BOOKS
                 )
 
-        self.mirrors = dict(covers=covers_mirror, books=books_mirror)
+        self.mirrors = dict(covers_mirror=covers_mirror, books_mirror=books_mirror)
         self.content_modifier = content_modifier
 
         # In general, we are cautious when mirroring resources so that

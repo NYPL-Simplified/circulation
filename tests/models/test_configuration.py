@@ -323,14 +323,15 @@ class TestExternalIntegrationLink(DatabaseTest):
         # external integrations.
         s1_external_integration_link = self._external_integration_link(
             integration=collection.external_integration,
-            other_integration=storage1, purpose="covers"
+            other_integration=storage1, purpose="covers_mirror"
         )
         s2_external_integration_link = self._external_integration_link(
             integration=collection.external_integration,
-            other_integration=storage2, purpose="books"
+            other_integration=storage2, purpose="books_mirror"
         )
 
-        qu = self._db.query(ExternalIntegrationLink)
+        qu = self._db.query(ExternalIntegrationLink
+            ).order_by(ExternalIntegrationLink.other_integration_id)
         external_integration_links = qu.all()
 
         eq_(len(external_integration_links), 2)
@@ -409,7 +410,7 @@ class TestExternalIntegration(DatabaseTest):
 
         external_integration = self._external_integration("some protocol")
         collection.external_integration_id = external_integration.id
-        purpose = "covers"
+        purpose = "covers_mirror"
         external_integration_link = self._external_integration_link(
             integration=external_integration, purpose=purpose
         )

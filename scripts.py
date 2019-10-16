@@ -1898,7 +1898,7 @@ class MirrorResourcesScript(CollectionInputScript):
                 collection, ExternalIntegrationLink.BOOKS
             )
             if covers or books:
-                mirrors = dict(covers=covers, books=books)
+                mirrors = dict(covers_mirror=covers, books_mirror=books)
                 policy = self.replacement_policy(mirrors)
                 yield collection, policy
             else:

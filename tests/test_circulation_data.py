@@ -30,6 +30,7 @@ from ..model import (
     RightsStatus,
     Subject,
 )
+from ..model.configuration import ExternalIntegrationLink
 
 from . import (
     DatabaseTest,
@@ -620,8 +621,8 @@ class TestMetaToModelUtility(DatabaseTest):
         # Note: Mirroring tests passing does not guarantee that all code now
         # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
-        mirrors = dict(books=MockS3Uploader(),covers=None)
-        mirror_type = "books"
+        mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=None)
+        mirror_type = ExternalIntegrationLink.BOOKS
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
 
@@ -690,7 +691,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_fetch_failure(self):
-        mirrors = dict(books=MockS3Uploader())
+        mirrors = dict(books_mirror=MockS3Uploader())
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)
@@ -733,7 +734,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_mirror_failure(self):
-        mirrors = dict(books=MockS3Uploader(fail=True),covers=None)
+        mirrors = dict(books_mirror=MockS3Uploader(fail=True),covers_mirror=None)
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)

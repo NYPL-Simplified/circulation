@@ -664,7 +664,7 @@ class DatabaseTest(object):
         return integration
     
     def _external_integration_link(self, integration=None, library=None,
-                                    other_integration=None, purpose="covers"):
+                                    other_integration=None, purpose="covers_mirror"):
 
         integration = integration or self._external_integration("some protocol")
         other_integration = other_integration or self._external_integration("some other protocol")

@@ -40,6 +40,7 @@ from ..model import (
     Work,
     WorkCoverageRecord,
 )
+from ..model.configuration import ExternalIntegrationLink
 from ..metadata_layer import (
     Metadata,
     CirculationData,
@@ -1593,8 +1594,8 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
 
         # ..and will then be uploaded to this 'mirror'.
-        mirrors = dict(books=MockS3Uploader())
-        mirror_type = "books"
+        mirrors = dict(books_mirror=MockS3Uploader())
+        mirror_type = ExternalIntegrationLink.BOOKS
 
         class Tripwire(PresentationCalculationPolicy):
             # This class sets a variable if one of its properties is
