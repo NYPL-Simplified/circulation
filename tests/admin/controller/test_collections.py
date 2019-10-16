@@ -172,7 +172,6 @@ class TestCollectionSettings(SettingsControllerTest):
             settings2 = coll2.get("settings", {})
             settings3 = coll3.get("settings", {})
 
-            set_trace()
             eq_(controller.NO_MIRROR_INTEGRATION,
                 settings1.get("covers_mirror_integration_id"))
             eq_(controller.NO_MIRROR_INTEGRATION,
