@@ -102,8 +102,8 @@ class CollectionSettingsController(SettingsController):
                     storage_integration = get_one(
                         self._db, ExternalIntegrationLink,
                         external_integration_id=collection_object.external_integration_id,
-                        # either 'books' or 'covers'
-                        purpose=key.split('_')[0]
+                        # either 'books_mirror' or 'covers_mirror'
+                        purpose='_'.join(key.split('_', 2)[:2])
                     )
                     if storage_integration:
                         value = str(storage_integration.other_integration_id)
