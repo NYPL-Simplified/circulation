@@ -8,27 +8,13 @@ DO $$
                 other_integration_id INTEGER REFERENCES externalintegrations(id),
                 purpose VARCHAR
             );
+
+            CREATE INDEX ix_externalintegrationslinks_external_integration_id ON externalintegrationslinks USING btree (external_integration_id);
+            CREATE INDEX ix_externalintegrationslinks_library_id ON externalintegrationslinks USING btree (library_id);
+            CREATE INDEX ix_externalintegrationslinks_other_integration_id ON externalintegrationslinks USING btree (other_integration_id);
         EXCEPTION
             WHEN duplicate_table THEN RAISE NOTICE 'Warning: externalintegrationslinks already exists.';
         END;
-    
-        ALTER TABLE ONLY externalintegrationslinks ADD CONSTRAINT externalintegrationslinks_pkey PRIMARY KEY (id);
-
-        CREATE INDEX ix_externalintegrationslinks_external_integration_id ON externalintegrationslinks USING btree (external_integration_id);
-
-        CREATE INDEX ix_externalintegrationslinks_library_id ON externalintegrationslinks USING btree (library_id);
-
-        CREATE INDEX ix_externalintegrationslinks_other_integration_id ON externalintegrationslinks USING btree (other_integration_id);
-
-        ALTER TABLE ONLY externalintegrationslinks
-            ADD CONSTRAINT externalintegrationslinks_external_integration_id_fkey FOREIGN KEY (external_integration_id) REFERENCES externalintegrations(id);
-
-        ALTER TABLE ONLY externalintegrationslinks
-            ADD CONSTRAINT externalintegrationslinks_library_id_fkey FOREIGN KEY (library_id) REFERENCES libraries(id);
-
-        ALTER TABLE ONLY externalintegrationslinks
-            ADD CONSTRAINT externalintegrationslinks_other_integration_id_fkey FOREIGN KEY (other_integration_id) REFERENCES externalintegrations(id);
-
     END;
 $$;
 
