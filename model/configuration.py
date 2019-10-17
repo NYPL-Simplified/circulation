@@ -1,5 +1,5 @@
 # encoding: utf-8
-# ExternalIntegration, ConfigurationSetting
+# ExternalIntegration, ExternalIntegrationLink, ConfigurationSetting
 from nose.tools import set_trace
 
 from . import (
@@ -27,11 +27,56 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
+from flask_babel import lazy_gettext as _
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.functions import func
+
+class ExternalIntegrationLink(Base, HasFullTableCache):
+
+    __tablename__ = 'externalintegrationslinks'
+
+    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+    # Possible purposes that a storage external integration can be used for.
+    COVERS = "covers_mirror"
+    BOOKS = "books_mirror"
+    MARC = "MARC_mirror"
+
+    id = Column(Integer, primary_key=True)
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True
+    )
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True
+    )
+    other_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True
+    )
+    purpose = Column(Unicode, index=True)
+
+    types = [COVERS, BOOKS]
+    settings = []
+
+    for type in types:
+        description_type = "cover images" if type == COVERS else "free books"
+        key = "%s_integration_id" % type.lower()
+        label = type.split('_')[0]
+        settings.append({
+            "key": key,
+            "label": _("%s Mirror" % label.capitalize()),
+            "description": _("Any %s encountered while importing content from this collection can be mirrored to a server you control." % description_type),
+            "type": "select",
+            "options" : [
+                dict(
+                    key=NO_MIRROR_INTEGRATION,
+                    label=_("None - Do not mirror %s" % description_type)
+                )
+            ]
+        })
+    COLLECTION_MIRROR_SETTINGS = settings
+
 
 class ExternalIntegration(Base, HasFullTableCache):
 
@@ -215,11 +260,11 @@ class ExternalIntegration(Base, HasFullTableCache):
         foreign_keys='Collection.external_integration_id',
     )
 
-    # An ExternalIntegration may be used by many Collections
-    # to mirror book covers or other files.
-    mirror_for = relationship(
-        "Collection", backref="mirror_integration",
-        foreign_keys='Collection.mirror_integration_id',
+    links = relationship(
+        "ExternalIntegrationLink",
+        backref="other_integration",
+        foreign_keys="ExternalIntegrationLink.other_integration_id",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self):
@@ -235,6 +280,46 @@ class ExternalIntegration(Base, HasFullTableCache):
         # This is okay because we need by_id() quite a
         # bit and by_cache_key() not as much.
         return self.id
+
+    @classmethod
+    def for_goal(cls, _db, goal):
+        """Return all external integrations by goal type.
+        """
+        integrations = _db.query(cls).filter(
+            cls.goal==goal
+        ).order_by(
+            cls.name
+        )
+
+        return integrations
+
+    @classmethod
+    def for_collection_and_purpose(cls, _db, collection, purpose):
+        """Find the ExternalIntegration for the collection.
+         
+        :param collection: Use the mirror configuration for this Collection.
+        :param purpose: Use the purpose of the mirror configuration.
+        """
+        qu = _db.query(cls).join(
+            ExternalIntegrationLink,
+            ExternalIntegrationLink.other_integration_id==cls.id
+        ).filter(
+            ExternalIntegrationLink.external_integration_id==collection.external_integration_id,
+            ExternalIntegrationLink.purpose==purpose
+        )
+        integrations = qu.all()
+        if not integrations:
+            raise CannotLoadConfiguration(
+                "No storage integration for collection '%s' and purpose '%s' is configured." %
+                (collection.name, purpose)
+            )
+        if len(integrations) > 1:
+            raise CannotLoadConfiguration(
+                "Multiple integrations found for collection '%s' and purpose '%s'" % (collection.name, purpose)
+            )
+
+        [integration] = integrations
+        return integration
 
     @classmethod
     def lookup(cls, _db, protocol, goal, library=None):

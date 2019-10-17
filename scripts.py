@@ -88,6 +88,7 @@ from model import (
     WorkGenre,
     site_configuration_has_changed,
 )
+from model.configuration import ExternalIntegrationLink
 from monitor import (
     CollectionMonitor,
     ReaperMonitor,
@@ -1890,9 +1891,15 @@ class MirrorResourcesScript(CollectionInputScript):
             to use for that Collection.
         """
         for collection in collections:
-            uploader = MirrorUploader.for_collection(collection)
-            if uploader:
-                policy = self.replacement_policy(uploader)
+            covers = MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.COVERS
+            )
+            books = MirrorUploader.for_collection(
+                collection, ExternalIntegrationLink.BOOKS
+            )
+            if covers or books:
+                mirrors = dict(covers_mirror=covers, books_mirror=books)
+                policy = self.replacement_policy(mirrors)
                 yield collection, policy
             else:
                 self.log.info(
@@ -1900,12 +1907,12 @@ class MirrorResourcesScript(CollectionInputScript):
                 )
 
     @classmethod
-    def replacement_policy(cls, uploader):
+    def replacement_policy(cls, mirrors):
         """Create a ReplacementPolicy for this script that uses the
-        given uploader.
+        given mirrors.
         """
         return ReplacementPolicy(
-            mirror=uploader, link_content=True,
+            mirrors=mirrors, link_content=True,
             even_if_not_apparently_updated=True,
             http_get=Representation.cautious_http_get,
         )

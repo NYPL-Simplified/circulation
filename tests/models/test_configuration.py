@@ -12,13 +12,15 @@ from ...config import (
     CannotLoadConfiguration,
     Configuration,
 )
-from ...model import create
+from ...model import (create, get_one)
 from ...model.collection import Collection
 from ...model.configuration import (
     ConfigurationSetting,
     ExternalIntegration,
+    ExternalIntegrationLink
 )
 from ...model.datasource import DataSource
+from flask_babel import lazy_gettext as _
 
 class TestConfigurationSetting(DatabaseTest):
 
@@ -281,6 +283,72 @@ nonsecret_setting='2'"""
         assert 'a_secret' not in without_secrets
         assert 'nonsecret_setting' in without_secrets
 
+class TestExternalIntegrationLink(DatabaseTest):
+
+    def test_collection_mirror_settings(self):
+        settings = ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS
+
+        eq_(settings[0]["key"], "covers_mirror_integration_id")
+        eq_(settings[0]["label"], "Covers Mirror")
+        eq_(settings[0]["options"][0]['key'],
+            ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
+        eq_(settings[0]["options"][0]['label'],
+            _("None - Do not mirror cover images"))
+        eq_(settings[1]["key"], "books_mirror_integration_id")
+        eq_(settings[1]["label"], "Books Mirror")
+        eq_(settings[1]["options"][0]['key'],
+            ExternalIntegrationLink.NO_MIRROR_INTEGRATION)
+        eq_(settings[1]["options"][0]['label'],
+            _("None - Do not mirror free books"))
+    
+    def test_relationships(self):
+        # Create a collection with two storage external integrations.
+        collection = self._collection(
+            name="Collection", protocol=ExternalIntegration.OVERDRIVE,
+        )
+
+        storage1 = self._external_integration(
+            name="integration1",
+            protocol=ExternalIntegration.S3,
+        )
+        storage2 = self._external_integration(
+            name="integration2",
+            protocol=ExternalIntegration.S3,
+            goal=ExternalIntegration.STORAGE_GOAL,
+            username="username", password="password",
+        )
+
+        # Two external integration links need to be created to associate
+        # the collection's external integration with the two storage
+        # external integrations.
+        s1_external_integration_link = self._external_integration_link(
+            integration=collection.external_integration,
+            other_integration=storage1, purpose="covers_mirror"
+        )
+        s2_external_integration_link = self._external_integration_link(
+            integration=collection.external_integration,
+            other_integration=storage2, purpose="books_mirror"
+        )
+
+        qu = self._db.query(ExternalIntegrationLink
+            ).order_by(ExternalIntegrationLink.other_integration_id)
+        external_integration_links = qu.all()
+
+        eq_(len(external_integration_links), 2)
+        eq_(external_integration_links[0].other_integration_id, storage1.id)
+        eq_(external_integration_links[1].other_integration_id, storage2.id)
+
+        # When a storage integration is deleted, the related external
+        # integration link row is deleted, and the relationship with the
+        # collection is removed.
+        self._db.delete(storage1)
+
+        qu = self._db.query(ExternalIntegrationLink)
+        external_integration_links = qu.all()
+
+        eq_(len(external_integration_links), 1)
+        eq_(external_integration_links[0].other_integration_id, storage2.id)
+
 class TestExternalIntegration(DatabaseTest):
 
     def setup(self):
@@ -328,6 +396,45 @@ class TestExternalIntegration(DatabaseTest):
             "Library .* defines multiple integrations with goal .*",
             get_one, self._db, self._default_library, goal
         )
+    
+    def test_for_collection_and_purpose(self):
+        wrong_purpose = "isbn"
+        collection = self._collection()
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "No storage integration for collection '%s' and purpose '%s' is configured"
+            % (collection.name, wrong_purpose),
+            ExternalIntegration.for_collection_and_purpose, self._db, collection, wrong_purpose
+        )
+
+        external_integration = self._external_integration("some protocol")
+        collection.external_integration_id = external_integration.id
+        purpose = "covers_mirror"
+        external_integration_link = self._external_integration_link(
+            integration=external_integration, purpose=purpose
+        )
+
+        integration = ExternalIntegration.for_collection_and_purpose(
+            self._db, collection=collection, purpose=purpose
+        )
+
+        assert isinstance(integration, ExternalIntegration)
+
+        another_external_integration_link = self._external_integration_link(
+            integration=external_integration, purpose=purpose
+        )
+
+        integration = ExternalIntegration.for_collection_and_purpose(
+            self._db, collection=collection, purpose=purpose
+        )
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Multiple integrations found for collection '%s' and purpose '%s'" %
+            (collection.name, purpose)
+        )
+
 
     def test_with_setting_value(self):
         def results():

@@ -55,6 +55,7 @@ from model import (
     Timestamp,
     Work,
 )
+from model.configuration import ExternalIntegrationLink
 from classifier import NO_VALUE, NO_NUMBER
 from analytics import Analytics
 from util.personal_names import display_name_to_sort_name
@@ -72,7 +73,7 @@ class ReplacementPolicy(object):
             formats=False,
             rights=False,
             link_content=False,
-            mirror=None,
+            mirrors=None,
             content_modifier=None,
             analytics=None,
             http_get=None,
@@ -87,7 +88,7 @@ class ReplacementPolicy(object):
         self.formats = formats
         self.link_content = link_content
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
-        self.mirror = mirror
+        self.mirrors = mirrors
         self.content_modifier = content_modifier
         self.analytics = analytics
         self.http_get = http_get
@@ -147,7 +148,6 @@ class ReplacementPolicy(object):
             formats=False,
             **args
         )
-
 
 class SubjectData(object):
     def __init__(self, type, identifier, name=None, weight=1):
@@ -542,6 +542,13 @@ class LinkData(object):
             content
         )
 
+    def mirror_type(self):
+        """Returns the type of mirror that should be used for the link.
+        """
+        if self.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]:
+            return ExternalIntegrationLink.COVERS
+        return ExternalIntegrationLink.BOOKS
+
 
 class MeasurementData(object):
     def __init__(self,
@@ -721,7 +728,18 @@ class MetaToModelUtility(object):
             )
             return
 
-        mirror = policy.mirror
+        mirror_type = link.mirror_type()
+
+        if mirror_type in policy.mirrors:
+            mirror = policy.mirrors[mirror_type]
+            if not mirror:
+                return
+        else:
+            self.log.info(
+                "No mirror uploader with key %s found" % mirror_type
+            )
+            return
+
         http_get = policy.http_get
 
         _db = Session.object_session(link_obj)
@@ -1175,9 +1193,8 @@ class CirculationData(MetaToModelUtility):
         for link in self.links:
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj = link_objects[link]
-                if replace.mirror:
-                    # We need to mirror this resource. If it's an image, a
-                    # thumbnail may be provided as a side effect.
+                if replace.mirrors:
+                    # We need to mirror this resource.
                     self.mirror_link(pool, data_source, link, link_obj, replace)
 
         # Next, make sure the DeliveryMechanisms associated
@@ -1653,8 +1670,6 @@ class Metadata(MetaToModelUtility):
     ):
         """Apply this metadata to the given edition.
 
-        :param mirror: Open-access books and cover images will be mirrored
-            to this MirrorUploader.
         :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes
             answers the question: were any edition core fields harmed in the making of this update?
             So, if title changed, return True.
@@ -1908,7 +1923,7 @@ class Metadata(MetaToModelUtility):
                 # so we don't need to separately mirror the thumbnail.
                 continue
 
-            if replace.mirror:
+            if replace.mirrors:
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.
                 self.mirror_link(edition, data_source, link, link_obj, replace)

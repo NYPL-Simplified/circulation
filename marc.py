@@ -521,15 +521,19 @@ class MARCExporter(object):
         },
     ]
 
-    SETTINGS = [
-        { "key": STORAGE_PROTOCOL,
-          "label": _("Storage service protocol"),
-          "description": _("Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'."),
-          "type": "select",
-          "options": [{ "key": ExternalIntegration.S3, "label": ExternalIntegration.S3 }],
-          "default": ExternalIntegration.S3,
-        },
-    ]
+    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+    SETTING = {
+        "key": "mirror_integration_id",
+        "label": _("MARC Mirror"),
+        "description": _("Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'."),
+        "type": "select",
+        "options" : [
+            dict(
+                key=NO_MIRROR_INTEGRATION,
+                label=_("None - Do not mirror MARC files")
+            )
+        ]
+    }
 
     @classmethod
     def from_config(cls, library):
@@ -548,6 +552,23 @@ class MARCExporter(object):
         self._db = _db
         self.library = library
         self.integration = integration
+        
+    @classmethod
+    def get_storage_settings(cls, _db):
+        integrations = ExternalIntegration.for_goal(
+            _db, ExternalIntegration.STORAGE_GOAL
+        )
+        for integration in integrations:
+            # Only add an integration to choose from if it has a 
+            # MARC File Bucket field in its settings.
+            [configuration_setting] = [s for s in integration.settings if s.key=="marc_bucket"]
+            if configuration_setting.value:
+                cls.SETTING['options'].append(
+                    dict(key=str(integration.id), label=integration.name)
+                )
+        
+        return cls.SETTING
+
 
     @classmethod
     def create_record(cls, work, annotator, force_create=False, integration=None):
@@ -595,15 +616,16 @@ class MARCExporter(object):
 
         return record
 
-    def records(self, lane, annotator, start_time=None, force_refresh=False,
-                mirror=None, search_engine=None, query_batch_size=500,
-                upload_batch_size=7500
+    def records(self, lane, annotator, mirror_integration, start_time=None,
+                force_refresh=False, mirror=None, search_engine=None,
+                query_batch_size=500, upload_batch_size=7500,
     ):
         """
         Create and export a MARC file for the books in a lane.
 
         :param lane: The Lane to export books from.
         :param annotator: The Annotator to use when creating MARC records.
+        :param mirror_integration: The mirror integration to use for MARC files.
         :param start_time: Only include records that were created or modified after this time.
         :param force_refresh: Create new records even when cached records are available.
         :param mirror: Optional mirror to use instead of loading one from configuration.
@@ -617,10 +639,10 @@ class MARCExporter(object):
         # We mirror the content, if it's not empty. If it's empty, we create a CachedMARCFile
         # and Representation, but don't actually mirror it.
         if not mirror:
-            storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
-            mirror = MirrorUploader.sitewide(self._db)
+            storage_protocol = mirror_integration.setting(self.STORAGE_PROTOCOL).value
+            mirror = MirrorUploader.implementation(mirror_integration)
             if mirror.NAME != storage_protocol:
-                raise Exception("Sitewide mirror integration does not match configured storage protocol")
+                raise Exception("Mirror integration does not match configured storage protocol")
 
         if not mirror:
             raise Exception("No mirror integration is configured")

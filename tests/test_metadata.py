@@ -44,6 +44,7 @@ from ..model import (
     Work,
     WorkCoverageRecord,
 )
+from ..model.configuration import ExternalIntegrationLink
 
 from ..util.http import RemoteIntegrationException
 
@@ -335,7 +336,7 @@ class TestMetadataImporter(DatabaseTest):
         # However, updated tests passing does not guarantee that all code now
         # correctly calls on CirculationData, too.  This is a risk.
 
-        mirror = MockS3Uploader()
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
         edition, pool = self._edition(with_license_pool=True)
         content = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
         l1 = LinkData(
@@ -352,12 +353,12 @@ class TestMetadataImporter(DatabaseTest):
 
         # When we call metadata.apply, all image links will be scaled and
         # 'mirrored'.
-        policy = ReplacementPolicy(mirror=mirror)
+        policy = ReplacementPolicy(mirrors=mirrors)
         metadata = Metadata(links=[l1, l2], data_source=edition.data_source)
         metadata.apply(edition, pool.collection, replace=policy)
 
         # Two Representations were 'mirrored'.
-        image, thumbnail = mirror.uploaded
+        image, thumbnail = mirrors[ExternalIntegrationLink.COVERS].uploaded
 
         # The image...
         [image_link] = image.resource.links
@@ -390,7 +391,8 @@ class TestMetadataImporter(DatabaseTest):
 
     def test_mirror_thumbnail_only(self):
         # Make sure a thumbnail image is mirrored when there's no cover image.
-        mirror = MockS3Uploader()
+        mirrors = dict(covers_mirror=MockS3Uploader())
+        mirror_type = ExternalIntegrationLink.COVERS
         edition, pool = self._edition(with_license_pool=True)
         thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png"), "rb").read()
         l = LinkData(
@@ -399,12 +401,12 @@ class TestMetadataImporter(DatabaseTest):
             content=thumbnail_content
         )
 
-        policy = ReplacementPolicy(mirror=mirror)
+        policy = ReplacementPolicy(mirrors=mirrors)
         metadata = Metadata(links=[l], data_source=edition.data_source)
         metadata.apply(edition, pool.collection, replace=policy)
 
         # One Representation was 'mirrored'.
-        [thumbnail] = mirror.uploaded
+        [thumbnail] = mirrors[mirror_type].uploaded
 
         # The image has been 'mirrored' to Amazon S3.
         assert thumbnail.mirror_url.startswith('https://s3.amazonaws.com/test.cover.bucket/')
@@ -416,10 +418,10 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = MockS3Uploader()
+        mirrors = dict(covers_mirror=MockS3Uploader())
         h = DummyHTTPClient()
 
-        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
 
         link = LinkData(
             rel=Hyperlink.IMAGE,
@@ -454,10 +456,11 @@ class TestMetadataImporter(DatabaseTest):
         eq_(None, pool.license_exception)
 
     def test_mirror_404_error(self):
-        mirror = MockS3Uploader()
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
+        mirror_type = ExternalIntegrationLink.COVERS
         h = DummyHTTPClient()
         h.queue_response(404)
-        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
 
         edition, pool = self._edition(with_license_pool=True)
 
@@ -481,7 +484,7 @@ class TestMetadataImporter(DatabaseTest):
         # Since we got a 404 error, the cover image was not mirrored.
         eq_(404, link_obj.resource.representation.status_code)
         eq_(None, link_obj.resource.representation.mirror_url)
-        eq_([], mirror.uploaded)
+        eq_([], mirrors[mirror_type].uploaded)
 
     def test_mirror_open_access_link_mirror_failure(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -489,10 +492,10 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = MockS3Uploader(fail=True)
+        mirrors = dict(covers_mirror=MockS3Uploader(fail=True))
         h = DummyHTTPClient()
 
-        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
 
         content = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
         link = LinkData(
@@ -543,10 +546,10 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = MockS3Uploader()
+        mirrors = dict(covers_mirror=MockS3Uploader())
         h = DummyHTTPClient()
 
-        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
 
         content = open(self.sample_cover_path("test-book-cover.png"), "rb").read()
 
@@ -629,10 +632,11 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = MockS3Uploader(fail=True)
+        mirrors = dict(covers_mirror=MockS3Uploader(fail=True))
+        mirror_type = ExternalIntegrationLink.COVERS
         h = DummyHTTPClient()
 
-        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, http_get=h.do_get)
 
         content = "foo"
         link = LinkData(
@@ -658,7 +662,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_([], h.requests)
 
         # Nothing was uploaded.
-        eq_([], mirror.uploaded)
+        eq_([], mirrors[mirror_type].uploaded)
 
     def test_mirror_with_content_modifier(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -666,12 +670,13 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = MockS3Uploader()
+        mirrors = dict(books_mirror=MockS3Uploader())
+        mirror_type = ExternalIntegrationLink.BOOKS
         def dummy_content_modifier(representation):
             representation.content = "Replaced Content"
         h = DummyHTTPClient()
 
-        policy = ReplacementPolicy(mirror=mirror, content_modifier=dummy_content_modifier, http_get=h.do_get)
+        policy = ReplacementPolicy(mirrors=mirrors, content_modifier=dummy_content_modifier, http_get=h.do_get)
 
         link = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
@@ -703,8 +708,8 @@ class TestMetadataImporter(DatabaseTest):
         eq_(None, representation.content)
 
         # The representation was mirrored, with the modified content.
-        eq_([representation], mirror.uploaded)
-        eq_(["Replaced Content"], mirror.content)
+        eq_([representation], mirrors[mirror_type].uploaded)
+        eq_(["Replaced Content"], mirrors[mirror_type].content)
 
     def test_measurements(self):
         edition = self._edition()

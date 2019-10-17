@@ -56,6 +56,7 @@ from model import (
     Subject,
     get_one,
 )
+from model.configuration import ExternalIntegrationLink
 from model.constants import MediaTypes
 from coverage import CoverageFailure
 from util.http import (
@@ -402,9 +403,9 @@ class OPDSImporter(object):
     SUCCESS_STATUS_CODES = None
 
     def __init__(self, _db, collection, data_source_name=None,
-                 identifier_mapping=None, mirror=None, http_get=None,
+                 identifier_mapping=None, http_get=None,
                  metadata_client=None, content_modifier=None,
-                 map_from_collection=None,
+                 map_from_collection=None, mirrors=None
     ):
         """:param collection: LicensePools created by this OPDS import
         will be associated with the given Collection. If this is None,
@@ -418,8 +419,8 @@ class OPDSImporter(object):
         here. This is only for use when you are importing OPDS
         metadata without any particular Collection in mind.
 
-        :param mirror: Use this MirrorUploader object to mirror all
-        incoming open-access books and cover images.
+        :param mirrors: A dictionary of different MirrorUploader objects for
+        different purposes.
 
         :param http_get: Use this method to make an HTTP GET request. This
         can be replaced with a stub method for testing purposes.
@@ -456,12 +457,24 @@ class OPDSImporter(object):
             self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
             self.metadata_client = None
 
-        if collection and not mirror:
-            # If this Collection is configured to mirror the assets it
-            # discovers, this will create a MirrorUploader for that
-            # Collection. Otherwise, this will return None.
-            mirror = MirrorUploader.for_collection(collection)
-        self.mirror = mirror
+        # Check to see if a mirror for each purpose was passed in.
+        # If not, then attempt to create one.
+        covers_mirror = mirrors.get(ExternalIntegrationLink.COVERS, None) if mirrors else None
+        books_mirror = mirrors.get(ExternalIntegrationLink.BOOKS, None) if mirrors else None
+        if collection:
+            if not covers_mirror:
+                # If this Collection is configured to mirror the assets it
+                # discovers, this will create a MirrorUploader for that
+                # Collection for its purpose. Otherwise, this will return None.
+                covers_mirror = MirrorUploader.for_collection(
+                    collection, ExternalIntegrationLink.COVERS
+                )
+            if not books_mirror:
+                books_mirror = MirrorUploader.for_collection(
+                    collection, ExternalIntegrationLink.BOOKS
+                )
+
+        self.mirrors = dict(covers_mirror=covers_mirror, books_mirror=books_mirror)
         self.content_modifier = content_modifier
 
         # In general, we are cautious when mirroring resources so that
@@ -620,7 +633,7 @@ class OPDSImporter(object):
             rights=True,
             link_content=True,
             even_if_not_apparently_updated=True,
-            mirror=self.mirror,
+            mirrors=self.mirrors,
             content_modifier=self.content_modifier,
             http_get=self.http_get,
         )

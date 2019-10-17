@@ -12,7 +12,6 @@ from sqlalchemy.orm.session import Session
 from urlparse import urlsplit
 from contextlib import contextmanager
 from mirror import MirrorUploader
-
 from config import CannotLoadConfiguration
 from model import ExternalIntegration
 from requests.exceptions import (

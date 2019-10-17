@@ -49,6 +49,7 @@ from ..model import (
     Work,
     WorkCoverageRecord,
 )
+from ..model.configuration import ExternalIntegrationLink
 from ..lane import (
     Lane,
     WorkList,
@@ -2598,7 +2599,12 @@ class TestMirrorResourcesScript(DatabaseTest):
         mirror = self._external_integration(
             "S3", ExternalIntegration.STORAGE_GOAL
         )
-        has_uploader.mirror_integration = mirror
+
+        integration_link = self._external_integration_link(
+            integration=has_uploader._external_integration,
+            other_integration=mirror,
+            purpose=ExternalIntegrationLink.COVERS
+        )
 
         # Calling collections_with_uploader will do nothing for collections
         # that don't have an uploader. It will make a MirrorUploader for
@@ -2607,15 +2613,43 @@ class TestMirrorResourcesScript(DatabaseTest):
         result = script.collections_with_uploader(
             [self._default_collection, has_uploader, self._default_collection]
         )
+
         [(collection, policy)] = result
         eq_(has_uploader, collection)
         eq_(Mock.mock_policy, policy)
-        assert isinstance(Mock.replacement_policy_called_with, MirrorUploader)
+        # The mirror uploader was associated with a purpose of "covers", so we only
+        # expect to have one MirrorUploader.
+        eq_(Mock.replacement_policy_called_with[ExternalIntegrationLink.BOOKS], None)
+        assert isinstance(
+            Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], MirrorUploader
+        )
+
+        # Add another storage for books.
+        another_mirror = self._external_integration(
+            "S3", ExternalIntegration.STORAGE_GOAL
+        )
+
+        integration_link = self._external_integration_link(
+            integration=has_uploader._external_integration,
+            other_integration=another_mirror,
+            purpose=ExternalIntegrationLink.BOOKS
+        )
+
+        result = script.collections_with_uploader(
+            [self._default_collection, has_uploader, self._default_collection]
+        )
+
+        [(collection, policy)] = result
+        eq_(has_uploader, collection)
+        eq_(Mock.mock_policy, policy)
+        # There should be two MirrorUploaders for each purpose.
+        assert isinstance(Mock.replacement_policy_called_with[ExternalIntegrationLink.COVERS], MirrorUploader)
+        assert isinstance(Mock.replacement_policy_called_with[ExternalIntegrationLink.BOOKS], MirrorUploader)
 
     def test_replacement_policy(self):
         uploader = object()
         p = MirrorResourcesScript.replacement_policy(uploader)
-        eq_(uploader, p.mirror)
+        eq_(uploader, p.mirrors)
         eq_(True, p.link_content)
         eq_(True, p.even_if_not_apparently_updated)
         eq_(False, p.rights)

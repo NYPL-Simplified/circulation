@@ -2,8 +2,7 @@ from nose.tools import set_trace
 import datetime
 from config import CannotLoadConfiguration
 
-class MirrorUploader(object):
-
+class MirrorUploader():
     """Handles the job of uploading a representation's content to
     a mirror that we control.
     """
@@ -18,65 +17,55 @@ class MirrorUploader(object):
     IMPLEMENTATION_REGISTRY = {}
 
     @classmethod
-    def sitewide(cls, _db):
-        """Create a MirrorUploader from a sitewide configuration.
+    def mirror(cls, _db, storage_name=None, integration=None):
+        """Create a MirrorUploader from an integration or storage name.
+
+        :param storage_name: The name of the storage integration.
+        :param integration: The external integration.
 
         :return: A MirrorUploader.
 
         :raise: CannotLoadConfiguration if no integration with
-            goal==STORAGE_GOAL is configured, or if multiple integrations
-            are so configured.
+            goal==STORAGE_GOAL is configured.
         """
-        integration = cls.sitewide_integration(_db)
+        if not integration:
+            integration = cls.integration_by_name(_db, storage_name)
         return cls.implementation(integration)
 
     @classmethod
-    def sitewide_integration(cls, _db):
-        """Find the ExternalIntegration for the site-wide mirror."""
+    def integration_by_name(cls, _db, storage_name=None):
+        """Find the ExternalIntegration for the mirror by storage name."""
         from model import ExternalIntegration
         qu = _db.query(ExternalIntegration).filter(
-            ExternalIntegration.goal==cls.STORAGE_GOAL
+            ExternalIntegration.goal==cls.STORAGE_GOAL,
+            ExternalIntegration.name==storage_name
         )
         integrations = qu.all()
         if not integrations:
             raise CannotLoadConfiguration(
-                "No storage integration is configured."
-            )
-            return None
-
-        if len(integrations) > 1:
-            # If there are multiple integrations configured, none of
-            # them can be the 'site-wide' configuration.
-            raise CannotLoadConfiguration(
-                'Multiple storage integrations are configured'
+                "No storage integration with name '%s' is configured." % storage_name
             )
 
         [integration] = integrations
         return integration
 
     @classmethod
-    def for_collection(cls, collection, use_sitewide=False):
+    def for_collection(cls, collection, purpose):
         """Create a MirrorUploader for the given Collection.
 
         :param collection: Use the mirror configuration for this Collection.
-
-        :param use_sitewide: If there's no mirror for this specific Collection,
-            should we return a sitewide mirror instead?
+        :param purpose: Use the purpose of the mirror configuration.
 
         :return: A MirrorUploader, or None if the Collection has no
             mirror integration.
         """
-        integration = collection.mirror_integration
-        if not integration:
-            if use_sitewide:
-                try:
-                    from model import Session
-                    _db = Session.object_session(collection)
-                    return cls.sitewide(_db)
-                except CannotLoadConfiguration, e:
-                    return None
-            else:
-                return None
+        from model import ExternalIntegration
+        try:
+            from model import Session
+            _db = Session.object_session(collection)
+            integration = ExternalIntegration.for_collection_and_purpose(_db, collection, purpose)
+        except CannotLoadConfiguration, e:
+            return None
         return cls.implementation(integration)
 
     @classmethod
@@ -84,6 +73,8 @@ class MirrorUploader(object):
         """Instantiate the appropriate implementation of MirrorUploader
         for the given ExternalIntegration.
         """
+        if not integration:
+            return None
         implementation_class = cls.IMPLEMENTATION_REGISTRY.get(
             integration.protocol, cls
         )
