@@ -842,6 +842,7 @@ class WorkReaper(ReaperMonitor):
         return self._db.query(Work).outerjoin(Work.license_pools).filter(
             LicensePool.id==None
         )
+ReaperMonitor.REGISTRY.append(WorkReaper)
 
 
 class CollectionReaper(ReaperMonitor):
