@@ -103,7 +103,7 @@ class CollectionSettingsController(SettingsController):
                         self._db, ExternalIntegrationLink,
                         external_integration_id=collection_object.external_integration_id,
                         # either 'books_mirror' or 'covers_mirror'
-                        purpose='_'.join(key.split('_', 2)[:2])
+                        purpose=key.rsplit('_', 2)[0]
                     )
                     if storage_integration:
                         value = str(storage_integration.other_integration_id)
@@ -277,7 +277,7 @@ class CollectionSettingsController(SettingsController):
         storage_service = None
         other_integration_id = None
 
-        purpose = key.split('_')[0]
+        purpose = key.rsplit('_', 2)[0]
         external_integration_link, ignore = get_one_or_create(
             _db, ExternalIntegrationLink,
             library_id=None,
