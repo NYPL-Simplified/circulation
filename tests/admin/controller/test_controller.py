@@ -2316,7 +2316,7 @@ class TestSettingsController(SettingsControllerTest):
 
         # Storages created will appear for settings of any purpose
         storage1 = self._external_integration(
-            "S3", ExternalIntegration.STORAGE_GOAL
+            "storage1", ExternalIntegration.STORAGE_GOAL
         )
 
         settings = mirror_integration_settings()
@@ -2335,7 +2335,7 @@ class TestSettingsController(SettingsControllerTest):
             str(storage1.id))
 
         storage2 = self._external_integration(
-            "S3 - 2", ExternalIntegration.STORAGE_GOAL
+            "storage2", ExternalIntegration.STORAGE_GOAL
         )
         settings = mirror_integration_settings()
 
