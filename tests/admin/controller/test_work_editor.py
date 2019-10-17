@@ -40,6 +40,7 @@ from core.model import (
     SessionManager,
     Subject,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.s3 import MockS3Uploader
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
@@ -971,14 +972,15 @@ class TestWorkController(AdminControllerTest):
 
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        mirror = MockS3Uploader()
+        mirror_type = ExternalIntegrationLink.COVERS
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("rights_status", RightsStatus.CC_BY),
                 ("rights_explanation", "explanation"),
             ])
-            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirror)
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
             eq_(INVALID_IMAGE.uri, response.uri)
             eq_("Image file or image URL is required.", response.detail)
 
@@ -998,7 +1000,7 @@ class TestWorkController(AdminControllerTest):
                 ("title_position", "none"),
                 ("rights_status", RightsStatus.CC_BY),
             ])
-            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirror)
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
             eq_(INVALID_URL.uri, response.uri)
             eq_('"bad_url" is not a valid URL.', response.detail)
 
@@ -1037,7 +1039,7 @@ class TestWorkController(AdminControllerTest):
             flask.request.files = MultiDict([
                 ("cover_file", TestFileUpload(image_data)),
             ])
-            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirror)
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
             eq_(200, response.status_code)
 
             [link] = identifier.links
@@ -1061,8 +1063,8 @@ class TestWorkController(AdminControllerTest):
             assert identifier.identifier in thumbnail.mirror_url
 
             eq_([], process_called_with)
-            eq_([representation, thumbnail], mirror.uploaded)
-            eq_([representation.mirror_url, thumbnail.mirror_url], mirror.destinations)
+            eq_([representation, thumbnail], mirrors[mirror_type].uploaded)
+            eq_([representation.mirror_url, thumbnail.mirror_url], mirrors[mirror_type].destinations)
 
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
@@ -1078,7 +1080,7 @@ class TestWorkController(AdminControllerTest):
             flask.request.files = MultiDict([
                 ("cover_file", TestFileUpload(image_data)),
             ])
-            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirror)
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirrors)
             eq_(200, response.status_code)
 
             [link] = identifier.links
@@ -1115,8 +1117,8 @@ class TestWorkController(AdminControllerTest):
             assert identifier.identifier in resource.representation.mirror_url
             assert identifier.identifier in thumbnail.mirror_url
 
-            eq_([resource.representation, thumbnail], mirror.uploaded[2:])
-            eq_([resource.representation.mirror_url, thumbnail.mirror_url], mirror.destinations[2:])
+            eq_([resource.representation, thumbnail], mirrors[mirror_type].uploaded[2:])
+            eq_([resource.representation.mirror_url, thumbnail.mirror_url], mirrors[mirror_type].destinations[2:])
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):

@@ -53,6 +53,7 @@ from core.model import (
     Subject,
     Work
 )
+from core.model.configuration import ExternalIntegrationLink
 import base64
 from datetime import date, datetime, timedelta
 import json
@@ -768,7 +769,6 @@ class WorkController(AdminCirculationManagerController):
             return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=image_url))
 
         title_position = flask.request.form.get("title_position")
-
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
 
@@ -827,7 +827,7 @@ class WorkController(AdminCirculationManagerController):
         collection = pools[0].collection
         return collection
 
-    def change_book_cover(self, identifier_type, identifier, mirror=None):
+    def change_book_cover(self, identifier_type, identifier, mirrors=None):
         """Save a new book cover based on the submitted form."""
         self.require_librarian(flask.request.library)
 
@@ -847,9 +847,13 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(collection, ProblemDetail):
             return collection
 
-        # Look for an appropriate mirror to store this cover image.
-        mirror = mirror or MirrorUploader.for_collection(collection, use_sitewide=True)
-        if not mirror:
+        # Look for an appropriate mirror to store this cover image. Since the 
+        # mirror should be used for covers, we don't need a mirror for books.
+        mirrors = mirrors or dict(
+            covers_mirror=MirrorUploader.for_collection(collection, ExternalIntegrationLink.COVERS),
+            books_mirror=None
+        )
+        if not mirrors.get(ExternalIntegrationLink.COVERS):
             return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))
 
         image = self.generate_cover_image(work, identifier_type, identifier)
@@ -890,7 +894,7 @@ class WorkController(AdminCirculationManagerController):
             # link_content is false because we already have the content.
             # We don't want the metadata layer to try to fetch it again.
             link_content=False,
-            mirror=mirror,
+            mirrors=mirrors,
             presentation_calculation_policy=presentation_policy,
         )
 

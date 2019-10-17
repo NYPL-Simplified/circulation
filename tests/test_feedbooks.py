@@ -24,6 +24,7 @@ from core.model import (
     Representation,
     RightsStatus,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.metadata_layer import (
     Metadata,
     LinkData,
@@ -61,7 +62,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         return collection, FeedbooksOPDSImporter(
             self._db, collection,
-            http_get=self.http.do_get, mirror=self.mirror,
+            http_get=self.http.do_get, mirrors=self.mirrors,
             metadata_client=self.metadata,
         )
 
@@ -69,7 +70,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         super(TestFeedbooksOPDSImporter, self).setup()
         self.http = DummyHTTPClient()
         self.metadata = DummyMetadataClient()
-        self.mirror = MockS3Uploader()
+        self.mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=MockS3Uploader())
 
         self.data_source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
 
@@ -95,10 +96,10 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         eq_('de', self.collection.unique_account_id)
 
     def test_error_retrieving_replacement_css(self):
-        """The importer cannot be instantiated if a replacement CSS
-        is specified but the replacement CSS document cannot be
-        retrieved or does not appear to be CSS.
-        """
+        # The importer cannot be instantiated if a replacement CSS
+        # is specified but the replacement CSS document cannot be
+        # retrieved or does not appear to be CSS.
+
         settings = {FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: "http://foo"}
 
         self.http.queue_response(500, content="An error message")
@@ -304,8 +305,9 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # delivery mechanism that was mirrored.
         eq_(True, pool.open_access)
 
-        # The mirrored content contains the modified CSS.
-        content = StringIO(self.mirror.content[0])
+        # The mirrored content contains the modified CSS in the books mirror
+        # due to the link rel type.
+        content = StringIO(self.mirrors[ExternalIntegrationLink.BOOKS].content[0])
         with ZipFile(content) as zip:
             # The zip still contains the original epub's files.
             assert "META-INF/container.xml" in zip.namelist()
@@ -338,8 +340,8 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # No mock HTTP requests were made.
         eq_([], self.http.requests)
 
-        # Nothing was uploaded to the mock S3.
-        eq_([], self.mirror.uploaded)
+        # Nothing was uploaded to the mock S3 covers mirror.
+        eq_([], self.mirrors[ExternalIntegrationLink.COVERS].uploaded)
 
         # The LicensePool's delivery mechanism is set appropriately
         # to reflect an in-copyright work.

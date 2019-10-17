@@ -9,6 +9,7 @@ import jwt
 import re
 import urllib
 import urlparse
+import copy
 
 import flask
 from flask import (
@@ -60,6 +61,7 @@ from core.model import (
     Work,
     WorkGenre,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.lane import (Lane, WorkList)
 from core.log import (LogConfiguration, SysLogger, Loggly, CloudwatchLogs)
 from core.util.problem_detail import ProblemDetail
@@ -180,6 +182,7 @@ def setup_admin_controllers(manager):
     from api.admin.controller.search_service_self_tests import SearchServiceSelfTestsController
     manager.admin_search_service_self_tests_controller = SearchServiceSelfTestsController(manager)
     manager.admin_search_services_controller = SearchServicesController(manager)
+    from api.admin.controller.storage_services import StorageServicesController
     manager.admin_storage_services_controller = StorageServicesController(manager)
     from api.admin.controller.catalog_services import *
     manager.admin_catalog_services_controller = CatalogServicesController(manager)
@@ -813,7 +816,15 @@ class CustomListsController(AdminCirculationManagerController):
             if isinstance(pagination, ProblemDetail):
                 return pagination
 
-            query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
+            query = self._db.query(
+                Work
+            ).join(
+                Work.custom_list_entries
+            ).filter(
+                CustomListEntry.list_id==list_id
+            ).order_by(
+                Work.id
+            )
             url = self.url_for(
                 "custom_list", list_name=list.name,
                 library_short_name=library.short_name,
@@ -1390,12 +1401,25 @@ class SettingsController(AdminCirculationManagerController):
             settings = dict()
             for setting in protocol.get("settings", []):
                 key = setting.get("key")
-                if setting.get("type") == "list":
-                    value = ConfigurationSetting.for_externalintegration(
-                        key, service).json_value
+
+                # If the setting is a covers or books mirror, we need to get
+                # the value from ExternalIntegrationLink and
+                # not from a ConfigurationSetting.
+                if key.endswith('mirror_integration_id'):
+                    storage_integration = get_one(
+                        self._db, ExternalIntegrationLink, external_integration_id=service.id
+                    )
+                    if storage_integration:
+                        value = str(storage_integration.other_integration_id)
+                    else:
+                        value = self.NO_MIRROR_INTEGRATION
                 else:
-                    value = ConfigurationSetting.for_externalintegration(
-                        key, service).value
+                    if setting.get("type") == "list":
+                        value = ConfigurationSetting.for_externalintegration(
+                            key, service).json_value
+                    else:
+                        value = ConfigurationSetting.for_externalintegration(
+                            key, service).value
                 settings[key] = value
 
             service_info = dict(
@@ -1462,9 +1486,10 @@ class SettingsController(AdminCirculationManagerController):
     def _set_integration_settings_and_libraries(self, integration, protocol):
         settings = protocol.get("settings")
         for setting in settings:
-            result = self._set_integration_setting(integration, setting)
-            if isinstance(result, ProblemDetail):
-                return result
+            if not setting.get('key').endswith('mirror_integration_id'):
+                result = self._set_integration_setting(integration, setting)
+                if isinstance(result, ProblemDetail):
+                    return result
 
         if not protocol.get("sitewide") or protocol.get("library_settings"):
             integration.libraries = []
@@ -1562,7 +1587,7 @@ class SettingsController(AdminCirculationManagerController):
 
         return self_test_results
 
-    def _mirror_integration_setting(self):
+    def _mirror_integration_settings(self):
         """Create a setting interface for selecting a storage integration to
         be used when mirroring items from a collection.
         """
@@ -1570,26 +1595,18 @@ class SettingsController(AdminCirculationManagerController):
             ExternalIntegration.goal==ExternalIntegration.STORAGE_GOAL
         ).order_by(
             ExternalIntegration.name
-        ).all()
-        if not integrations:
+        )
+
+        if not integrations.all():
             return
-        mirror_integration_setting = {
-            "key": "mirror_integration_id",
-            "label": _("Mirror"),
-            "description": _("Any cover images or free books encountered while importing content from this collection can be mirrored to a server you control."),
-            "type": "select",
-            "options" : [
-                dict(
-                    key=self.NO_MIRROR_INTEGRATION,
-                    label=_("None - Do not mirror cover images or free books")
+
+        mirror_integration_settings = copy.deepcopy(ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS)
+        for setting in mirror_integration_settings:
+            for integration in integrations:
+                setting['options'].append(
+                    dict(key=str(integration.id), label=integration.name)
                 )
-            ]
-        }
-        for integration in integrations:
-            mirror_integration_setting['options'].append(
-                dict(key=integration.id, label=integration.name)
-            )
-        return mirror_integration_setting
+        return mirror_integration_settings
 
     def _create_integration(self, protocol_definitions, protocol, goal):
         """Create a new ExternalIntegration for the given protocol and

@@ -14,6 +14,7 @@ from core.model import (
     Library,
 )
 from core.util.problem_detail import ProblemDetail
+from core.model.configuration import ExternalIntegrationLink
 
 class CollectionSettingsController(SettingsController):
     def __init__(self, manager):
@@ -24,10 +25,10 @@ class CollectionSettingsController(SettingsController):
         protocols = super(CollectionSettingsController, self)._get_collection_protocols(self.PROVIDER_APIS)
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.
-        mirror_integration_setting = self._mirror_integration_setting()
-        if mirror_integration_setting:
+        mirror_integration_settings = self._mirror_integration_settings()
+        if mirror_integration_settings:
             for protocol in protocols:
-                protocol['settings'].append(mirror_integration_setting)
+                protocol['settings'] += mirror_integration_settings
         return protocols
 
     def process_collections(self):
@@ -93,10 +94,21 @@ class CollectionSettingsController(SettingsController):
 
         settings = {}
         for protocol_setting in protocol_settings:
+            if not protocol_setting:
+                continue
             key = protocol_setting.get("key")
             if not collection_settings or key not in collection_settings:
-                if key == 'mirror_integration_id':
-                    value = collection_object.mirror_integration_id or self.NO_MIRROR_INTEGRATION
+                if key.endswith('mirror_integration_id'):
+                    storage_integration = get_one(
+                        self._db, ExternalIntegrationLink,
+                        external_integration_id=collection_object.external_integration_id,
+                        # either 'books_mirror' or 'covers_mirror'
+                        purpose=key.rsplit('_', 2)[0]
+                    )
+                    if storage_integration:
+                        value = str(storage_integration.other_integration_id)
+                    else:
+                        value = self.NO_MIRROR_INTEGRATION
                 elif protocol_setting.get("type") == "list":
                     value = collection_object.external_integration.setting(key).json_value
                 else:
@@ -225,23 +237,6 @@ class CollectionSettingsController(SettingsController):
                 _("The collection configuration is missing a required setting: %(setting)s",
                   setting=setting.get("label")))
 
-    def get_mirror_integration_id(self, value):
-        """If the user is trying to set up a mirror integration, check that the
-        attempted configuration for the mirror integration is valid; if so,
-        find the mirror integration's id."""
-
-        if value == self.NO_MIRROR_INTEGRATION:
-            integration_id = None
-        else:
-            integration = get_one(
-                self._db, ExternalIntegration, id=value
-            )
-            if not integration:
-                return MISSING_SERVICE
-            if integration.goal != ExternalIntegration.STORAGE_GOAL:
-                return INTEGRATION_GOAL_CONFLICT
-            return integration.id
-
     def process_settings(self, settings, collection):
         """Go through the settings that the user has just submitted for this collection,
         and check that each setting is valid and that no required settings are missing.  If
@@ -255,15 +250,60 @@ class CollectionSettingsController(SettingsController):
                 if error:
                     return error
                 collection.external_account_id = value
-            elif key == 'mirror_integration_id':
-                integration_id = self.get_mirror_integration_id(value)
-                if isinstance(integration_id, ProblemDetail):
-                    return integration_id
-                collection.mirror_integration_id = integration_id
+            elif key.endswith('mirror_integration_id') and value:
+                external_integration_link = self._set_external_integration_link(
+                    self._db, key, value, collection,
+                )
+
+                if isinstance(external_integration_link, ProblemDetail):
+                    return external_integration_link
             else:
                 result = self._set_integration_setting(collection.external_integration, setting)
                 if isinstance(result, ProblemDetail):
                     return result
+    
+    def _set_external_integration_link(
+            self, _db, key, value, collection,
+    ):
+        """Find or create a ExternalIntegrationLink and either delete it
+        or update the other external integration it links to.
+        """
+
+        collection_service = get_one(
+            _db, ExternalIntegration,
+            id=collection.external_integration_id
+        )
+
+        storage_service = None
+        other_integration_id = None
+
+        purpose = key.rsplit('_', 2)[0]
+        external_integration_link, ignore = get_one_or_create(
+            _db, ExternalIntegrationLink,
+            library_id=None,
+            external_integration_id=collection_service.id,
+            purpose=purpose
+        )
+        if not external_integration_link:
+            return MISSING_INTEGRATION
+
+        if value == self.NO_MIRROR_INTEGRATION:
+            _db.delete(external_integration_link)
+        else:
+            storage_service = get_one(
+                _db, ExternalIntegration,
+                id=value
+            )
+            if storage_service:
+                if storage_service.goal != ExternalIntegration.STORAGE_GOAL:
+                    return INTEGRATION_GOAL_CONFLICT
+                other_integration_id = storage_service.id
+            else:
+                return MISSING_SERVICE
+
+        external_integration_link.other_integration_id = other_integration_id
+
+        return external_integration_link
 
     def process_libraries(self, protocol, collection):
         """Go through the libraries that the user is trying to associate with this collection;
