@@ -148,6 +148,14 @@ api.admin.controller.sitewide\_settings module
     :undoc-members:
     :show-inheritance:
 
+api.admin.controller.storage\_services module
+---------------------------------------------
+
+.. automodule:: api.admin.controller.storage_services
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 api.admin.controller.work\_editor module
 ----------------------------------------
 

@@ -88,6 +88,7 @@
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">Work</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">import</span> <span class="nn">json</span>
@@ -803,7 +804,6 @@
             <span class="k">return</span> <span class="n">INVALID_URL</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%(url)s</span><span class="s1">&quot; is not a valid URL.&#39;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">image_url</span><span class="p">))</span>
 
         <span class="n">title_position</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;title_position&quot;</span><span class="p">)</span>
-
         <span class="k">if</span> <span class="n">image_url</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">image_file</span><span class="p">:</span>
             <span class="n">image_file</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">image_url</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
 
@@ -862,7 +862,7 @@
         <span class="n">collection</span> <span class="o">=</span> <span class="n">pools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">collection</span>
         <span class="k">return</span> <span class="n">collection</span>
 
-<div class="viewcode-block" id="WorkController.change_book_cover"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.work_editor.WorkController.change_book_cover">[docs]</a>    <span class="k">def</span> <span class="nf">change_book_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="WorkController.change_book_cover"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.work_editor.WorkController.change_book_cover">[docs]</a>    <span class="k">def</span> <span class="nf">change_book_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">mirrors</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Save a new book cover based on the submitted form.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_librarian</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
 
@@ -882,9 +882,13 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">collection</span>
 
-        <span class="c1"># Look for an appropriate mirror to store this cover image.</span>
-        <span class="n">mirror</span> <span class="o">=</span> <span class="n">mirror</span> <span class="ow">or</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">use_sitewide</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
+        <span class="c1"># Look for an appropriate mirror to store this cover image. Since the </span>
+        <span class="c1"># mirror should be used for covers, we don&#39;t need a mirror for books.</span>
+        <span class="n">mirrors</span> <span class="o">=</span> <span class="n">mirrors</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">covers_mirror</span><span class="o">=</span><span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">),</span>
+            <span class="n">books_mirror</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">mirrors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">INVALID_CONFIGURATION_OPTION</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;Could not find a storage integration for uploading the cover.&quot;</span><span class="p">))</span>
 
         <span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_cover_image</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
@@ -925,7 +929,7 @@
             <span class="c1"># link_content is false because we already have the content.</span>
             <span class="c1"># We don&#39;t want the metadata layer to try to fetch it again.</span>
             <span class="n">link_content</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">mirror</span><span class="o">=</span><span class="n">mirror</span><span class="p">,</span>
+            <span class="n">mirrors</span><span class="o">=</span><span class="n">mirrors</span><span class="p">,</span>
             <span class="n">presentation_calculation_policy</span><span class="o">=</span><span class="n">presentation_policy</span><span class="p">,</span>
         <span class="p">)</span>
 

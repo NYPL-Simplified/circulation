@@ -123,6 +123,7 @@
     <span class="n">WorkGenre</span><span class="p">,</span>
     <span class="n">site_configuration_has_changed</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">monitor</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">CollectionMonitor</span><span class="p">,</span>
     <span class="n">ReaperMonitor</span><span class="p">,</span>
@@ -1925,9 +1926,15 @@
 <span class="sd">            to use for that Collection.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>
-            <span class="n">uploader</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">uploader</span><span class="p">:</span>
-                <span class="n">policy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span><span class="p">(</span><span class="n">uploader</span><span class="p">)</span>
+            <span class="n">covers</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span>
+            <span class="p">)</span>
+            <span class="n">books</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">covers</span> <span class="ow">or</span> <span class="n">books</span><span class="p">:</span>
+                <span class="n">mirrors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">covers_mirror</span><span class="o">=</span><span class="n">covers</span><span class="p">,</span> <span class="n">books_mirror</span><span class="o">=</span><span class="n">books</span><span class="p">)</span>
+                <span class="n">policy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">replacement_policy</span><span class="p">(</span><span class="n">mirrors</span><span class="p">)</span>
                 <span class="k">yield</span> <span class="n">collection</span><span class="p">,</span> <span class="n">policy</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -1935,12 +1942,12 @@
                 <span class="p">)</span></div>
 
 <div class="viewcode-block" id="MirrorResourcesScript.replacement_policy"><a class="viewcode-back" href="../../core.html#core.scripts.MirrorResourcesScript.replacement_policy">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">replacement_policy</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">uploader</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">replacement_policy</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">mirrors</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a ReplacementPolicy for this script that uses the</span>
-<span class="sd">        given uploader.</span>
+<span class="sd">        given mirrors.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">ReplacementPolicy</span><span class="p">(</span>
-            <span class="n">mirror</span><span class="o">=</span><span class="n">uploader</span><span class="p">,</span> <span class="n">link_content</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">mirrors</span><span class="o">=</span><span class="n">mirrors</span><span class="p">,</span> <span class="n">link_content</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">even_if_not_apparently_updated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">http_get</span><span class="o">=</span><span class="n">Representation</span><span class="o">.</span><span class="n">cautious_http_get</span><span class="p">,</span>
         <span class="p">)</span></div>

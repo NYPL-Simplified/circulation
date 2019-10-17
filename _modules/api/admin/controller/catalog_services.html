@@ -42,9 +42,12 @@
 <span class="kn">from</span> <span class="nn">core.marc</span> <span class="k">import</span> <span class="n">MARCExporter</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">get_one_or_create</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">core.s3</span> <span class="k">import</span> <span class="n">S3Uploader</span>
@@ -55,6 +58,9 @@
         <span class="nb">super</span><span class="p">(</span><span class="n">CatalogServicesController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
         <span class="n">service_apis</span> <span class="o">=</span> <span class="p">[</span><span class="n">MARCExporter</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span><span class="n">service_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;settings&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">MARCExporter</span><span class="o">.</span><span class="n">get_storage_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="CatalogServicesController.process_catalog_services"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.catalog_services.CatalogServicesController.process_catalog_services">[docs]</a>    <span class="k">def</span> <span class="nf">process_catalog_services</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
@@ -102,24 +108,51 @@
             <span class="n">service</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
 
         <span class="p">[</span><span class="n">protocol</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">protocol</span><span class="p">]</span>
+
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_integration_settings_and_libraries</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">result</span>
+
+        <span class="n">external_integration_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_external_integration_link</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">external_integration_link</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">external_integration_link</span>
 
         <span class="n">library_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_libraries</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">library_error</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">library_error</span>
 
-        <span class="n">storage_protocol_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_storage_protocol</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">storage_protocol_error</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
-            <span class="k">return</span> <span class="n">storage_protocol_error</span>
-
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">201</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="mi">200</span><span class="p">)</span></div>
+    
+    <span class="k">def</span> <span class="nf">_set_external_integration_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Either set or delete the external integration link between the</span>
+<span class="sd">        service and the storage integration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mirror_integration_id</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mirror_integration_id&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># If no storage integration was selected, then delete the existing</span>
+        <span class="c1"># external integration link.</span>
+        <span class="n">current_integration_link</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="p">,</span>
+            <span class="n">library_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">external_integration_id</span><span class="o">=</span><span class="n">service</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">purpose</span><span class="o">=</span><span class="s2">&quot;MARC&quot;</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mirror_integration_id</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_MIRROR_INTEGRATION</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">current_integration_link</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">current_integration_link</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">storage_integration</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">mirror_integration_id</span>
+            <span class="p">)</span>
+            <span class="c1"># Only get storage integrations that have a MARC file option set</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">storage_integration</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">storage_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">MISSING_INTEGRATION</span>
+            <span class="n">current_integration_link</span><span class="o">.</span><span class="n">other_integration_id</span><span class="o">=</span><span class="n">storage_integration</span><span class="o">.</span><span class="n">id</span>
 
 <div class="viewcode-block" id="CatalogServicesController.validate_form_fields"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.catalog_services.CatalogServicesController.validate_form_fields">[docs]</a>    <span class="k">def</span> <span class="nf">validate_form_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Verify that the protocol which the user has selected is in the list</span>
@@ -152,28 +185,6 @@
                             <span class="s2">&quot;You tried to add a MARC export service to </span><span class="si">%(library)s</span><span class="s2">, but it already has one.&quot;</span><span class="p">,</span>
                             <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">,</span>
                         <span class="p">))</span></div>
-
-<div class="viewcode-block" id="CatalogServicesController.check_storage_protocol"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.catalog_services.CatalogServicesController.check_storage_protocol">[docs]</a>    <span class="k">def</span> <span class="nf">check_storage_protocol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;For MARC Export integrations, check that the storage protocol corresponds to an</span>
-<span class="sd">        existing storage integration.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">service</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">MARCExporter</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span>
-            <span class="n">storage_protocol</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">MARCExporter</span><span class="o">.</span><span class="n">STORAGE_PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
-            <span class="n">integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">storage_protocol</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">STORAGE_GOAL</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">MISSING_SERVICE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span>
-                    <span class="s2">&quot;You set the storage protocol to </span><span class="si">%(protocol)s</span><span class="s2">, but no storage service with that protocol is configured.&quot;</span><span class="p">,</span>
-                    <span class="n">protocol</span><span class="o">=</span><span class="n">storage_protocol</span><span class="p">,</span>
-                <span class="p">))</span>
-            <span class="k">if</span> <span class="n">storage_protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span><span class="p">:</span>
-                <span class="c1"># For S3, the storage service must also have a MARC file bucket.</span>
-                <span class="n">bucket</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">S3Uploader</span><span class="o">.</span><span class="n">MARC_BUCKET_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">bucket</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">MISSING_SERVICE</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">_</span><span class="p">(</span>
-                        <span class="s2">&quot;You set the storage protocol to </span><span class="si">%(protocol)s</span><span class="s2">, but the storage service with that protocol does not have a MARC file bucket configured.&quot;</span><span class="p">,</span>
-                        <span class="n">protocol</span><span class="o">=</span><span class="n">storage_protocol</span><span class="p">,</span>
-                    <span class="p">))</span></div>
 
 <div class="viewcode-block" id="CatalogServicesController.process_delete"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.catalog_services.CatalogServicesController.process_delete">[docs]</a>    <span class="k">def</span> <span class="nf">process_delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_id</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delete_integration</span><span class="p">(</span>

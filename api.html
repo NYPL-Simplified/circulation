@@ -62,6 +62,7 @@
 <li class="toctree-l4"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.self_tests">api.admin.controller.self_tests module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.sitewide_services">api.admin.controller.sitewide_services module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.sitewide_settings">api.admin.controller.sitewide_settings module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.storage_services">api.admin.controller.storage_services module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller.work_editor">api.admin.controller.work_editor module</a></li>
 <li class="toctree-l4"><a class="reference internal" href="api.admin.controller.html#module-api.admin.controller">Module contents</a></li>
 </ul>
@@ -3265,12 +3266,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x42822c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x53f2ee0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4437330&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x5138810&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3285,7 +3286,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x45e6620&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x5418b10&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5765,7 +5766,7 @@ small batch. Not efficient, but it works.</p>
 
 <dl class="class">
 <dt id="api.coverage.ReaperImporter">
-<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">ReaperImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>mirror=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#ReaperImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.ReaperImporter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">ReaperImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#ReaperImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.ReaperImporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.opds_import.OPDSImporter" title="core.opds_import.OPDSImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.OPDSImporter</span></code></a></p>
 <p>We are successful if the metadata wrangler acknowledges that an
 identifier has been removed, and also if the identifier wasn’t in
@@ -5779,7 +5780,7 @@ the catalog in the first place.</p>
 
 <dl class="class">
 <dt id="api.coverage.RegistrarImporter">
-<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">RegistrarImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>mirror=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#RegistrarImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.RegistrarImporter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">RegistrarImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#RegistrarImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.RegistrarImporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.opds_import.OPDSImporter" title="core.opds_import.OPDSImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.OPDSImporter</span></code></a></p>
 <p>We are successful whenever the metadata wrangler puts an identifier
 into the catalog, even if no metadata is immediately available.</p>
@@ -8120,7 +8121,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 10, 25, 19, 40, 46, 576176)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 10, 27, 18, 32, 15, 180436)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9624,7 +9625,7 @@ for only the fields you want to set.</td>
 
 <dl class="class">
 <dt id="api.odl.ODLImporter">
-<em class="property">class </em><code class="descclassname">api.odl.</code><code class="descname">ODLImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>mirror=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#ODLImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.ODLImporter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.odl.</code><code class="descname">ODLImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#ODLImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.ODLImporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.opds_import.OPDSImporter" title="core.opds_import.OPDSImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.OPDSImporter</span></code></a></p>
 <p>Import information and formats from an ODL feed.</p>
 <p>The only change from OPDSImporter is that this importer extracts
@@ -9824,7 +9825,7 @@ subclasses may override this.</p>
 
 <dl class="class">
 <dt id="api.odl.SharedODLImporter">
-<em class="property">class </em><code class="descclassname">api.odl.</code><code class="descname">SharedODLImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>mirror=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#SharedODLImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.SharedODLImporter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.odl.</code><code class="descname">SharedODLImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/odl.html#SharedODLImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.odl.SharedODLImporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.opds_import.OPDSImporter" title="core.opds_import.OPDSImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.OPDSImporter</span></code></a></p>
 <dl class="attribute">
 <dt id="api.odl.SharedODLImporter.NAME">
@@ -10582,7 +10583,7 @@ such as Biblioboard or Plympton.</p>
 
 <dl class="class">
 <dt id="api.opds_for_distributors.OPDSForDistributorsImporter">
-<em class="property">class </em><code class="descclassname">api.opds_for_distributors.</code><code class="descname">OPDSForDistributorsImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>mirror=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds_for_distributors.html#OPDSForDistributorsImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsImporter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.opds_for_distributors.</code><code class="descname">OPDSForDistributorsImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds_for_distributors.html#OPDSForDistributorsImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsImporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.opds_import.OPDSImporter" title="core.opds_import.OPDSImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.OPDSImporter</span></code></a></p>
 <dl class="attribute">
 <dt id="api.opds_for_distributors.OPDSForDistributorsImporter.NAME">

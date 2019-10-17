@@ -39,7 +39,6 @@
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
-<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
@@ -170,20 +169,6 @@
 <div class="viewcode-block" id="SearchServicesController.process_delete"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_services.SearchServicesController.process_delete">[docs]</a>    <span class="k">def</span> <span class="nf">process_delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_id</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delete_integration</span><span class="p">(</span>
             <span class="n">service_id</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">SEARCH_GOAL</span>
-        <span class="p">)</span></div></div>
-
-<div class="viewcode-block" id="StorageServicesController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_services.StorageServicesController">[docs]</a><span class="k">class</span> <span class="nc">StorageServicesController</span><span class="p">(</span><span class="n">SitewideServicesController</span><span class="p">):</span>
-<div class="viewcode-block" id="StorageServicesController.process_services"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_services.StorageServicesController.process_services">[docs]</a>    <span class="k">def</span> <span class="nf">process_services</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">detail</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You tried to create a new storage service, but a storage service is already configured.&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_manage_sitewide_service</span><span class="p">(</span>
-            <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">STORAGE_GOAL</span><span class="p">,</span>
-            <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">IMPLEMENTATION_REGISTRY</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
-            <span class="s1">&#39;storage_services&#39;</span><span class="p">,</span> <span class="n">detail</span>
-        <span class="p">)</span></div>
-
-<div class="viewcode-block" id="StorageServicesController.process_delete"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_services.StorageServicesController.process_delete">[docs]</a>    <span class="k">def</span> <span class="nf">process_delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service_id</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delete_integration</span><span class="p">(</span>
-            <span class="n">service_id</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">STORAGE_GOAL</span>
         <span class="p">)</span></div></div>
 </pre></div>
 

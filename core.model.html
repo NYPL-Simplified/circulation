@@ -1247,11 +1247,6 @@ of that collection on the circulation manager side.</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="core.model.collection.Collection.mirror_integration_id">
-<code class="descname">mirror_integration_id</code><a class="headerlink" href="#core.model.collection.Collection.mirror_integration_id" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
 <dt id="core.model.collection.Collection.name">
 <code class="descname">name</code><a class="headerlink" href="#core.model.collection.Collection.name" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1915,6 +1910,30 @@ sensitive settings such as passwords are not displayed by default.</li>
 </dd></dl>
 
 <dl class="classmethod">
+<dt id="core.model.configuration.ExternalIntegration.for_collection_and_purpose">
+<em class="property">classmethod </em><code class="descname">for_collection_and_purpose</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>purpose</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ExternalIntegration.for_collection_and_purpose"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ExternalIntegration.for_collection_and_purpose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the ExternalIntegration for the collection.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>collection</strong> – Use the mirror configuration for this Collection.</li>
+<li><strong>purpose</strong> – Use the purpose of the mirror configuration.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="core.model.configuration.ExternalIntegration.for_goal">
+<em class="property">classmethod </em><code class="descname">for_goal</code><span class="sig-paren">(</span><em>_db</em>, <em>goal</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ExternalIntegration.for_goal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ExternalIntegration.for_goal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return all external integrations by goal type.</p>
+</dd></dl>
+
+<dl class="classmethod">
 <dt id="core.model.configuration.ExternalIntegration.for_library_and_goal">
 <em class="property">classmethod </em><code class="descname">for_library_and_goal</code><span class="sig-paren">(</span><em>_db</em>, <em>library</em>, <em>goal</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ExternalIntegration.for_library_and_goal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ExternalIntegration.for_library_and_goal" title="Permalink to this definition">¶</a></dt>
 <dd><p>Find all ExternalIntegrations associated with the given
@@ -1932,14 +1951,14 @@ Library and the given goal.
 <code class="descname">id</code><a class="headerlink" href="#core.model.configuration.ExternalIntegration.id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegration.links">
+<code class="descname">links</code><a class="headerlink" href="#core.model.configuration.ExternalIntegration.links" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="classmethod">
 <dt id="core.model.configuration.ExternalIntegration.lookup">
 <em class="property">classmethod </em><code class="descname">lookup</code><span class="sig-paren">(</span><em>_db</em>, <em>protocol</em>, <em>goal</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ExternalIntegration.lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ExternalIntegration.lookup" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.model.configuration.ExternalIntegration.mirror_for">
-<code class="descname">mirror_for</code><a class="headerlink" href="#core.model.configuration.ExternalIntegration.mirror_for" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2024,6 +2043,92 @@ has this value.</li>
 </tbody>
 </table>
 </dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.model.configuration.ExternalIntegrationLink">
+<em class="property">class </em><code class="descclassname">core.model.configuration.</code><code class="descname">ExternalIntegrationLink</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/configuration.html#ExternalIntegrationLink"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code>, <a class="reference internal" href="#core.model.hasfulltablecache.HasFullTableCache" title="core.model.hasfulltablecache.HasFullTableCache"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.model.hasfulltablecache.HasFullTableCache</span></code></a></p>
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.BOOKS">
+<code class="descname">BOOKS</code><em class="property"> = 'books_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.BOOKS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS">
+<code class="descname">COLLECTION_MIRROR_SETTINGS</code><em class="property"> = [{'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror cover images'}], 'type': 'select', 'description': l'Any cover images encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'covers_mirror_integration_id', 'label': l'Covers Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror free books'}], 'type': 'select', 'description': l'Any free books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'books_mirror_integration_id', 'label': l'Books Mirror'}]</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.COLLECTION_MIRROR_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.COVERS">
+<code class="descname">COVERS</code><em class="property"> = 'covers_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.COVERS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.MARC">
+<code class="descname">MARC</code><em class="property"> = 'MARC_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.MARC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.NO_MIRROR_INTEGRATION">
+<code class="descname">NO_MIRROR_INTEGRATION</code><em class="property"> = u'NO_MIRROR'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.NO_MIRROR_INTEGRATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.description_type">
+<code class="descname">description_type</code><em class="property"> = 'free books'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.description_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.external_integration_id">
+<code class="descname">external_integration_id</code><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.external_integration_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.id">
+<code class="descname">id</code><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.key">
+<code class="descname">key</code><em class="property"> = 'books_mirror_integration_id'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.key" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.label">
+<code class="descname">label</code><em class="property"> = 'books'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.label" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.library_id">
+<code class="descname">library_id</code><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.library_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.other_integration_id">
+<code class="descname">other_integration_id</code><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.other_integration_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.purpose">
+<code class="descname">purpose</code><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.purpose" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.settings">
+<code class="descname">settings</code><em class="property"> = [{'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror cover images'}], 'type': 'select', 'description': l'Any cover images encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'covers_mirror_integration_id', 'label': l'Covers Mirror'}, {'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror free books'}], 'type': 'select', 'description': l'Any free books encountered while importing content from this collection can be mirrored to a server you control.', 'key': 'books_mirror_integration_id', 'label': l'Books Mirror'}]</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.settings" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.type">
+<code class="descname">type</code><em class="property"> = 'books_mirror'</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.configuration.ExternalIntegrationLink.types">
+<code class="descname">types</code><em class="property"> = ['covers_mirror', 'books_mirror']</em><a class="headerlink" href="#core.model.configuration.ExternalIntegrationLink.types" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 

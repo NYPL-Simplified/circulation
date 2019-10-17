@@ -556,15 +556,19 @@
         <span class="p">},</span>
     <span class="p">]</span>
 
-    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">STORAGE_PROTOCOL</span><span class="p">,</span>
-          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Storage service protocol&quot;</span><span class="p">),</span>
-          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Storage protocol to use for uploading generated MARC files. The service must already be configured under &#39;Storage Services&#39;.&quot;</span><span class="p">),</span>
-          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
-          <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span> <span class="p">}],</span>
-          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">S3</span><span class="p">,</span>
-        <span class="p">},</span>
-    <span class="p">]</span>
+    <span class="n">NO_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NO_MIRROR&quot;</span>
+    <span class="n">SETTING</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;mirror_integration_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;MARC Mirror&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Storage protocol to use for uploading generated MARC files. The service must already be configured under &#39;Storage Services&#39;.&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;options&quot;</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">NO_MIRROR_INTEGRATION</span><span class="p">,</span>
+                <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;None - Do not mirror MARC files&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
 
 <div class="viewcode-block" id="MARCExporter.from_config"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.from_config">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
@@ -583,6 +587,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">integration</span> <span class="o">=</span> <span class="n">integration</span>
+        
+<div class="viewcode-block" id="MARCExporter.get_storage_settings"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.get_storage_settings">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_storage_settings</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="n">integrations</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">for_goal</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">STORAGE_GOAL</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="c1"># Only add an integration to choose from if it has a </span>
+            <span class="c1"># MARC File Bucket field in its settings.</span>
+            <span class="p">[</span><span class="n">configuration_setting</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">integration</span><span class="o">.</span><span class="n">settings</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">key</span><span class="o">==</span><span class="s2">&quot;marc_bucket&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">configuration_setting</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">SETTING</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="p">)</span>
+        
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SETTING</span></div>
+
 
 <div class="viewcode-block" id="MARCExporter.create_record"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.create_record">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">create_record</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">force_create</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">integration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -630,15 +651,16 @@
 
         <span class="k">return</span> <span class="n">record</span></div>
 
-<div class="viewcode-block" id="MARCExporter.records"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.records">[docs]</a>    <span class="k">def</span> <span class="nf">records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                <span class="n">mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">query_batch_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-                <span class="n">upload_batch_size</span><span class="o">=</span><span class="mi">7500</span>
+<div class="viewcode-block" id="MARCExporter.records"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporter.records">[docs]</a>    <span class="k">def</span> <span class="nf">records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">mirror_integration</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">query_batch_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">upload_batch_size</span><span class="o">=</span><span class="mi">7500</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create and export a MARC file for the books in a lane.</span>
 
 <span class="sd">        :param lane: The Lane to export books from.</span>
 <span class="sd">        :param annotator: The Annotator to use when creating MARC records.</span>
+<span class="sd">        :param mirror_integration: The mirror integration to use for MARC files.</span>
 <span class="sd">        :param start_time: Only include records that were created or modified after this time.</span>
 <span class="sd">        :param force_refresh: Create new records even when cached records are available.</span>
 <span class="sd">        :param mirror: Optional mirror to use instead of loading one from configuration.</span>
@@ -652,10 +674,10 @@
         <span class="c1"># We mirror the content, if it&#39;s not empty. If it&#39;s empty, we create a CachedMARCFile</span>
         <span class="c1"># and Representation, but don&#39;t actually mirror it.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
-            <span class="n">storage_protocol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">STORAGE_PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
-            <span class="n">mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="n">storage_protocol</span> <span class="o">=</span> <span class="n">mirror_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">STORAGE_PROTOCOL</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">implementation</span><span class="p">(</span><span class="n">mirror_integration</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">mirror</span><span class="o">.</span><span class="n">NAME</span> <span class="o">!=</span> <span class="n">storage_protocol</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Sitewide mirror integration does not match configured storage protocol&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Mirror integration does not match configured storage protocol&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;No mirror integration is configured&quot;</span><span class="p">)</span>

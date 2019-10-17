@@ -348,7 +348,7 @@ to <cite>metadata</cite>.</p>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.load_circulation_data">
-<code class="descname">load_circulation_data</code><span class="sig-paren">(</span><em>identifier</em>, <em>data_source</em>, <em>ebook_directory</em>, <em>mirror</em>, <em>title</em>, <em>rights_uri</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_circulation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_circulation_data" title="Permalink to this definition">¶</a></dt>
+<code class="descname">load_circulation_data</code><span class="sig-paren">(</span><em>identifier</em>, <em>data_source</em>, <em>ebook_directory</em>, <em>mirrors</em>, <em>title</em>, <em>rights_uri</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_circulation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_circulation_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Load an actual copy of a book from disk.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -364,10 +364,10 @@ download, or None if no such book can be found.</td>
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.load_collection">
 <code class="descname">load_collection</code><span class="sig-paren">(</span><em>collection_name</em>, <em>data_source_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_collection" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create or locate a Collection with the given name.</p>
-<p>If the Collection needs to be created, it will be associated
-with the given data source and (if configured) the site-wide
-mirror configuration.</p>
+<dd><p>Locate a Collection with the given name.</p>
+<p>If the collection is found, it will be associated
+with the given data source and configured with existing
+covers and books mirror configurations.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -389,7 +389,7 @@ A DataSource object will be created if necessary.</li>
 
 <dl class="method">
 <dt id="scripts.DirectoryImportScript.load_cover_link">
-<code class="descname">load_cover_link</code><span class="sig-paren">(</span><em>identifier</em>, <em>data_source</em>, <em>cover_directory</em>, <em>mirror</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_cover_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_cover_link" title="Permalink to this definition">¶</a></dt>
+<code class="descname">load_cover_link</code><span class="sig-paren">(</span><em>identifier</em>, <em>data_source</em>, <em>cover_directory</em>, <em>mirrors</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/scripts.html#DirectoryImportScript.load_cover_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#scripts.DirectoryImportScript.load_cover_link" title="Permalink to this definition">¶</a></dt>
 <dd><p>Load an actual book cover from disk.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />

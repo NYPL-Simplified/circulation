@@ -4957,7 +4957,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-bde0f2c3-075c-4480-afd6-26a7ac16d8ab'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-65770ff3-540e-4c5e-a750-2913aea9fce3'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5417,8 +5417,13 @@ Work, the client has expressed interest in this one.</td>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="core.marc.MARCExporter.SETTINGS">
-<code class="descname">SETTINGS</code><em class="property"> = [{'description': l'Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'.', 'default': u'Amazon S3', 'label': l'Storage service protocol', 'key': u'storage_protocol', 'type': 'select', 'options': [{'key': u'Amazon S3', 'label': u'Amazon S3'}]}]</em><a class="headerlink" href="#core.marc.MARCExporter.SETTINGS" title="Permalink to this definition">¶</a></dt>
+<dt id="core.marc.MARCExporter.NO_MIRROR_INTEGRATION">
+<code class="descname">NO_MIRROR_INTEGRATION</code><em class="property"> = u'NO_MIRROR'</em><a class="headerlink" href="#core.marc.MARCExporter.NO_MIRROR_INTEGRATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.marc.MARCExporter.SETTING">
+<code class="descname">SETTING</code><em class="property"> = {'description': l'Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'.', 'key': 'mirror_integration_id', 'label': l'MARC Mirror', 'options': [{'key': u'NO_MIRROR', 'label': l'None - Do not mirror MARC files'}], 'type': 'select'}</em><a class="headerlink" href="#core.marc.MARCExporter.SETTING" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5447,9 +5452,14 @@ Work, the client has expressed interest in this one.</td>
 <em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>library</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/marc.html#MARCExporter.from_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.marc.MARCExporter.from_config" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="classmethod">
+<dt id="core.marc.MARCExporter.get_storage_settings">
+<em class="property">classmethod </em><code class="descname">get_storage_settings</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/marc.html#MARCExporter.get_storage_settings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.marc.MARCExporter.get_storage_settings" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="core.marc.MARCExporter.records">
-<code class="descname">records</code><span class="sig-paren">(</span><em>lane</em>, <em>annotator</em>, <em>start_time=None</em>, <em>force_refresh=False</em>, <em>mirror=None</em>, <em>search_engine=None</em>, <em>query_batch_size=500</em>, <em>upload_batch_size=7500</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/marc.html#MARCExporter.records"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.marc.MARCExporter.records" title="Permalink to this definition">¶</a></dt>
+<code class="descname">records</code><span class="sig-paren">(</span><em>lane</em>, <em>annotator</em>, <em>mirror_integration</em>, <em>start_time=None</em>, <em>force_refresh=False</em>, <em>mirror=None</em>, <em>search_engine=None</em>, <em>query_batch_size=500</em>, <em>upload_batch_size=7500</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/marc.html#MARCExporter.records"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.marc.MARCExporter.records" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create and export a MARC file for the books in a lane.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -5458,6 +5468,7 @@ Work, the client has expressed interest in this one.</td>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>lane</strong> – The Lane to export books from.</li>
 <li><strong>annotator</strong> – The Annotator to use when creating MARC records.</li>
+<li><strong>mirror_integration</strong> – The mirror integration to use for MARC files.</li>
 <li><strong>start_time</strong> – Only include records that were created or modified after this time.</li>
 <li><strong>force_refresh</strong> – Create new records even when cached records are available.</li>
 <li><strong>mirror</strong> – Optional mirror to use instead of loading one from configuration.</li>
@@ -5753,6 +5764,12 @@ the best available information in the database.</p>
 <dd><p>If the media type of a link is unknown, take a guess.</p>
 </dd></dl>
 
+<dl class="method">
+<dt id="core.metadata_layer.LinkData.mirror_type">
+<code class="descname">mirror_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#LinkData.mirror_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.LinkData.mirror_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the type of mirror that should be used for the link.</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="class">
@@ -5839,10 +5856,7 @@ mirror that too.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>mirror</strong> – Open-access books and cover images will be mirrored
-to this MirrorUploader.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">(edition, made_core_changes), where edition is the newly-updated object, and made_core_changes
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">(edition, made_core_changes), where edition is the newly-updated object, and made_core_changes
 answers the question: were any edition core fields harmed in the making of this update?
 So, if title changed, return True.
 New: If contributors changed, this is now considered a core change,
@@ -5950,7 +5964,7 @@ object.</p>
 
 <dl class="class">
 <dt id="core.metadata_layer.ReplacementPolicy">
-<em class="property">class </em><code class="descclassname">core.metadata_layer.</code><code class="descname">ReplacementPolicy</code><span class="sig-paren">(</span><em>identifiers=False</em>, <em>subjects=False</em>, <em>contributions=False</em>, <em>links=False</em>, <em>formats=False</em>, <em>rights=False</em>, <em>link_content=False</em>, <em>mirror=None</em>, <em>content_modifier=None</em>, <em>analytics=None</em>, <em>http_get=None</em>, <em>even_if_not_apparently_updated=False</em>, <em>presentation_calculation_policy=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#ReplacementPolicy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.ReplacementPolicy" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.metadata_layer.</code><code class="descname">ReplacementPolicy</code><span class="sig-paren">(</span><em>identifiers=False</em>, <em>subjects=False</em>, <em>contributions=False</em>, <em>links=False</em>, <em>formats=False</em>, <em>rights=False</em>, <em>link_content=False</em>, <em>mirrors=None</em>, <em>content_modifier=None</em>, <em>analytics=None</em>, <em>http_get=None</em>, <em>even_if_not_apparently_updated=False</em>, <em>presentation_calculation_policy=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/metadata_layer.html#ReplacementPolicy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.metadata_layer.ReplacementPolicy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>How serious should we be about overwriting old metadata with
 this new metadata?</p>
@@ -6046,12 +6060,11 @@ completion is known.</p>
 <dl class="class">
 <dt id="core.mirror.MirrorUploader">
 <em class="property">class </em><code class="descclassname">core.mirror.</code><code class="descname">MirrorUploader</code><span class="sig-paren">(</span><em>integration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Handles the job of uploading a representation’s content to
+<dd><p>Handles the job of uploading a representation’s content to
 a mirror that we control.</p>
 <dl class="attribute">
 <dt id="core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY">
-<code class="descname">IMPLEMENTATION_REGISTRY</code><em class="property"> = {u'Amazon S3': &lt;class 'core.s3.S3Uploader'&gt;}</em><a class="headerlink" href="#core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">IMPLEMENTATION_REGISTRY</code><em class="property"> = {u'Amazon S3': &lt;class core.s3.S3Uploader&gt;}</em><a class="headerlink" href="#core.mirror.MirrorUploader.IMPLEMENTATION_REGISTRY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -6084,7 +6097,7 @@ make that representation end up at that URL.</p>
 
 <dl class="classmethod">
 <dt id="core.mirror.MirrorUploader.for_collection">
-<em class="property">classmethod </em><code class="descname">for_collection</code><span class="sig-paren">(</span><em>collection</em>, <em>use_sitewide=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.for_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.for_collection" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">for_collection</code><span class="sig-paren">(</span><em>collection</em>, <em>purpose</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.for_collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.for_collection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a MirrorUploader for the given Collection.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -6092,8 +6105,7 @@ make that representation end up at that URL.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>collection</strong> – Use the mirror configuration for this Collection.</li>
-<li><strong>use_sitewide</strong> – If there’s no mirror for this specific Collection,
-should we return a sitewide mirror instead?</li>
+<li><strong>purpose</strong> – Use the purpose of the mirror configuration.</li>
 </ul>
 </td>
 </tr>
@@ -6112,6 +6124,37 @@ mirror integration.</p>
 for the given ExternalIntegration.</p>
 </dd></dl>
 
+<dl class="classmethod">
+<dt id="core.mirror.MirrorUploader.integration_by_name">
+<em class="property">classmethod </em><code class="descname">integration_by_name</code><span class="sig-paren">(</span><em>_db</em>, <em>storage_name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.integration_by_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.integration_by_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the ExternalIntegration for the mirror by storage name.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="core.mirror.MirrorUploader.mirror">
+<em class="property">classmethod </em><code class="descname">mirror</code><span class="sig-paren">(</span><em>_db</em>, <em>storage_name=None</em>, <em>integration=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.mirror"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.mirror" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a MirrorUploader from an integration or storage name.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>storage_name</strong> – The name of the storage integration.</li>
+<li><strong>integration</strong> – The external integration.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A MirrorUploader.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raise:</th><td class="field-body"><p class="first last">CannotLoadConfiguration if no integration with
+goal==STORAGE_GOAL is configured.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="method">
 <dt id="core.mirror.MirrorUploader.mirror_batch">
 <code class="descname">mirror_batch</code><span class="sig-paren">(</span><em>representations</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.mirror_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.mirror_batch" title="Permalink to this definition">¶</a></dt>
@@ -6122,30 +6165,6 @@ for the given ExternalIntegration.</p>
 <dt id="core.mirror.MirrorUploader.mirror_one">
 <code class="descname">mirror_one</code><span class="sig-paren">(</span><em>representation</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.mirror_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.mirror_one" title="Permalink to this definition">¶</a></dt>
 <dd><p>Mirror a single Representation.</p>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="core.mirror.MirrorUploader.sitewide">
-<em class="property">classmethod </em><code class="descname">sitewide</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.sitewide"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.sitewide" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a MirrorUploader from a sitewide configuration.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A MirrorUploader.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Raise:</th><td class="field-body">CannotLoadConfiguration if no integration with
-goal==STORAGE_GOAL is configured, or if multiple integrations
-are so configured.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="core.mirror.MirrorUploader.sitewide_integration">
-<em class="property">classmethod </em><code class="descname">sitewide_integration</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/mirror.html#MirrorUploader.sitewide_integration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.mirror.MirrorUploader.sitewide_integration" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find the ExternalIntegration for the site-wide mirror.</p>
 </dd></dl>
 
 </dd></dl>
@@ -6727,7 +6746,7 @@ the time that must pass before an item can be safely deleted.</p>
 
 <dl class="attribute">
 <dt id="core.monitor.ReaperMonitor.REGISTRY">
-<code class="descname">REGISTRY</code><em class="property"> = [&lt;class 'core.monitor.CachedFeedReaper'&gt;, &lt;class 'core.monitor.CredentialReaper'&gt;, &lt;class 'core.monitor.PatronRecordReaper'&gt;, &lt;class 'core.monitor.CollectionReaper'&gt;, &lt;class 'core.monitor.CirculationEventLocationScrubber'&gt;, &lt;class 'core.monitor.PatronNeighborhoodScrubber'&gt;, &lt;class 'api.monitor.LoanReaper'&gt;, &lt;class 'api.monitor.HoldReaper'&gt;, &lt;class 'api.monitor.IdlingAnnotationReaper'&gt;]</em><a class="headerlink" href="#core.monitor.ReaperMonitor.REGISTRY" title="Permalink to this definition">¶</a></dt>
+<code class="descname">REGISTRY</code><em class="property"> = [&lt;class 'core.monitor.CachedFeedReaper'&gt;, &lt;class 'core.monitor.CredentialReaper'&gt;, &lt;class 'core.monitor.PatronRecordReaper'&gt;, &lt;class 'core.monitor.WorkReaper'&gt;, &lt;class 'core.monitor.CollectionReaper'&gt;, &lt;class 'core.monitor.CirculationEventLocationScrubber'&gt;, &lt;class 'core.monitor.PatronNeighborhoodScrubber'&gt;, &lt;class 'api.monitor.LoanReaper'&gt;, &lt;class 'api.monitor.HoldReaper'&gt;, &lt;class 'api.monitor.IdlingAnnotationReaper'&gt;]</em><a class="headerlink" href="#core.monitor.ReaperMonitor.REGISTRY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8151,7 +8170,7 @@ for only the fields you want to set.</td>
 
 <dl class="class">
 <dt id="core.opds_import.OPDSImporter">
-<em class="property">class </em><code class="descclassname">core.opds_import.</code><code class="descname">OPDSImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>mirror=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.opds_import.</code><code class="descname">OPDSImporter</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>data_source_name=None</em>, <em>identifier_mapping=None</em>, <em>http_get=None</em>, <em>metadata_client=None</em>, <em>content_modifier=None</em>, <em>map_from_collection=None</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Imports editions and license pools from an OPDS feed.
 Creates Edition, LicensePool and Work rows in the database, if those
@@ -9103,8 +9122,7 @@ boto3 client.</p>
 <dl class="method">
 <dt id="core.s3.MockS3Uploader.mirror_one">
 <code class="descname">mirror_one</code><span class="sig-paren">(</span><em>representation</em>, <em>mirror_to</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/s3.html#MockS3Uploader.mirror_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.s3.MockS3Uploader.mirror_one" title="Permalink to this definition">¶</a></dt>
-<dd><p>Mirror a single representation to the given URL.</p>
-</dd></dl>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="core.s3.MockS3Uploader.multipart_upload">
@@ -10040,9 +10058,9 @@ the rationale that lets us mirror that URL. Then mirror it.</p>
 
 <dl class="classmethod">
 <dt id="core.scripts.MirrorResourcesScript.replacement_policy">
-<em class="property">classmethod </em><code class="descname">replacement_policy</code><span class="sig-paren">(</span><em>uploader</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#MirrorResourcesScript.replacement_policy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.MirrorResourcesScript.replacement_policy" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">replacement_policy</code><span class="sig-paren">(</span><em>mirrors</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/scripts.html#MirrorResourcesScript.replacement_policy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.scripts.MirrorResourcesScript.replacement_policy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a ReplacementPolicy for this script that uses the
-given uploader.</p>
+given mirrors.</p>
 </dd></dl>
 
 </dd></dl>

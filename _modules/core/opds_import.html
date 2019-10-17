@@ -91,6 +91,7 @@
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">model.constants</span> <span class="k">import</span> <span class="n">MediaTypes</span>
 <span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="n">CoverageFailure</span>
 <span class="kn">from</span> <span class="nn">util.http</span> <span class="k">import</span> <span class="p">(</span>
@@ -437,9 +438,9 @@
     <span class="n">SUCCESS_STATUS_CODES</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">identifier_mapping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">http_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">identifier_mapping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">http_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content_modifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">map_from_collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">map_from_collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mirrors</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;:param collection: LicensePools created by this OPDS import</span>
 <span class="sd">        will be associated with the given Collection. If this is None,</span>
@@ -453,8 +454,8 @@
 <span class="sd">        here. This is only for use when you are importing OPDS</span>
 <span class="sd">        metadata without any particular Collection in mind.</span>
 
-<span class="sd">        :param mirror: Use this MirrorUploader object to mirror all</span>
-<span class="sd">        incoming open-access books and cover images.</span>
+<span class="sd">        :param mirrors: A dictionary of different MirrorUploader objects for</span>
+<span class="sd">        different purposes.</span>
 
 <span class="sd">        :param http_get: Use this method to make an HTTP GET request. This</span>
 <span class="sd">        can be replaced with a stub method for testing purposes.</span>
@@ -491,12 +492,24 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Metadata Wrangler integration couldn&#39;t be loaded, importing without it.&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">metadata_client</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">if</span> <span class="n">collection</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
-            <span class="c1"># If this Collection is configured to mirror the assets it</span>
-            <span class="c1"># discovers, this will create a MirrorUploader for that</span>
-            <span class="c1"># Collection. Otherwise, this will return None.</span>
-            <span class="n">mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mirror</span> <span class="o">=</span> <span class="n">mirror</span>
+        <span class="c1"># Check to see if a mirror for each purpose was passed in.</span>
+        <span class="c1"># If not, then attempt to create one.</span>
+        <span class="n">covers_mirror</span> <span class="o">=</span> <span class="n">mirrors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">mirrors</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">books_mirror</span> <span class="o">=</span> <span class="n">mirrors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">mirrors</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">collection</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">covers_mirror</span><span class="p">:</span>
+                <span class="c1"># If this Collection is configured to mirror the assets it</span>
+                <span class="c1"># discovers, this will create a MirrorUploader for that</span>
+                <span class="c1"># Collection for its purpose. Otherwise, this will return None.</span>
+                <span class="n">covers_mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span>
+                    <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">books_mirror</span><span class="p">:</span>
+                <span class="n">books_mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span>
+                    <span class="n">collection</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span>
+                <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mirrors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">covers_mirror</span><span class="o">=</span><span class="n">covers_mirror</span><span class="p">,</span> <span class="n">books_mirror</span><span class="o">=</span><span class="n">books_mirror</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content_modifier</span> <span class="o">=</span> <span class="n">content_modifier</span>
 
         <span class="c1"># In general, we are cautious when mirroring resources so that</span>
@@ -655,7 +668,7 @@
             <span class="n">rights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">link_content</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">even_if_not_apparently_updated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">mirror</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mirror</span><span class="p">,</span>
+            <span class="n">mirrors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mirrors</span><span class="p">,</span>
             <span class="n">content_modifier</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">content_modifier</span><span class="p">,</span>
             <span class="n">http_get</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">http_get</span><span class="p">,</span>
         <span class="p">)</span>

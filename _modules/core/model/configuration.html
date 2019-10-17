@@ -34,7 +34,7 @@
             
   <h1>Source code for core.model.configuration</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
-<span class="c1"># ExternalIntegration, ConfigurationSetting</span>
+<span class="c1"># ExternalIntegration, ExternalIntegrationLink, ConfigurationSetting</span>
 <span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
@@ -62,11 +62,56 @@
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">select</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
+
+<div class="viewcode-block" id="ExternalIntegrationLink"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegrationLink">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegrationLink</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;externalintegrationslinks&#39;</span>
+
+    <span class="n">NO_MIRROR_INTEGRATION</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;NO_MIRROR&quot;</span>
+    <span class="c1"># Possible purposes that a storage external integration can be used for.</span>
+    <span class="n">COVERS</span> <span class="o">=</span> <span class="s2">&quot;covers_mirror&quot;</span>
+    <span class="n">BOOKS</span> <span class="o">=</span> <span class="s2">&quot;books_mirror&quot;</span>
+    <span class="n">MARC</span> <span class="o">=</span> <span class="s2">&quot;MARC_mirror&quot;</span>
+
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">external_integration_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;externalintegrations.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="n">library_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;libraries.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="n">other_integration_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
+        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;externalintegrations.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="n">purpose</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Unicode</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="n">COVERS</span><span class="p">,</span> <span class="n">BOOKS</span><span class="p">]</span>
+    <span class="n">settings</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
+        <span class="n">description_type</span> <span class="o">=</span> <span class="s2">&quot;cover images&quot;</span> <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="n">COVERS</span> <span class="k">else</span> <span class="s2">&quot;free books&quot;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_integration_id&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="nb">type</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">settings</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> Mirror&quot;</span> <span class="o">%</span> <span class="n">label</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()),</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Any </span><span class="si">%s</span><span class="s2"> encountered while importing content from this collection can be mirrored to a server you control.&quot;</span> <span class="o">%</span> <span class="n">description_type</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;options&quot;</span> <span class="p">:</span> <span class="p">[</span>
+                <span class="nb">dict</span><span class="p">(</span>
+                    <span class="n">key</span><span class="o">=</span><span class="n">NO_MIRROR_INTEGRATION</span><span class="p">,</span>
+                    <span class="n">label</span><span class="o">=</span><span class="n">_</span><span class="p">(</span><span class="s2">&quot;None - Do not mirror </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">description_type</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">})</span>
+    <span class="n">COLLECTION_MIRROR_SETTINGS</span> <span class="o">=</span> <span class="n">settings</span></div>
+
 
 <div class="viewcode-block" id="ExternalIntegration"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration">[docs]</a><span class="k">class</span> <span class="nc">ExternalIntegration</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
 
@@ -250,11 +295,11 @@
         <span class="n">foreign_keys</span><span class="o">=</span><span class="s1">&#39;Collection.external_integration_id&#39;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="c1"># An ExternalIntegration may be used by many Collections</span>
-    <span class="c1"># to mirror book covers or other files.</span>
-    <span class="n">mirror_for</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
-        <span class="s2">&quot;Collection&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;mirror_integration&quot;</span><span class="p">,</span>
-        <span class="n">foreign_keys</span><span class="o">=</span><span class="s1">&#39;Collection.mirror_integration_id&#39;</span><span class="p">,</span>
+    <span class="n">links</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;ExternalIntegrationLink&quot;</span><span class="p">,</span>
+        <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;other_integration&quot;</span><span class="p">,</span>
+        <span class="n">foreign_keys</span><span class="o">=</span><span class="s2">&quot;ExternalIntegrationLink.other_integration_id&quot;</span><span class="p">,</span>
+        <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span>
     <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -270,6 +315,46 @@
         <span class="c1"># This is okay because we need by_id() quite a</span>
         <span class="c1"># bit and by_cache_key() not as much.</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.for_goal"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.for_goal">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_goal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">goal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return all external integrations by goal type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">integrations</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="n">goal</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">integrations</span></div>
+
+<div class="viewcode-block" id="ExternalIntegration.for_collection_and_purpose"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.for_collection_and_purpose">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">for_collection_and_purpose</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">purpose</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the ExternalIntegration for the collection.</span>
+<span class="sd">         </span>
+<span class="sd">        :param collection: Use the mirror configuration for this Collection.</span>
+<span class="sd">        :param purpose: Use the purpose of the mirror configuration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">ExternalIntegrationLink</span><span class="p">,</span>
+            <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">other_integration_id</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">id</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">external_integration_id</span><span class="o">==</span><span class="n">collection</span><span class="o">.</span><span class="n">external_integration_id</span><span class="p">,</span>
+            <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">purpose</span><span class="o">==</span><span class="n">purpose</span>
+        <span class="p">)</span>
+        <span class="n">integrations</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integrations</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;No storage integration for collection &#39;</span><span class="si">%s</span><span class="s2">&#39; and purpose &#39;</span><span class="si">%s</span><span class="s2">&#39; is configured.&quot;</span> <span class="o">%</span>
+                <span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">purpose</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">integrations</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
+                <span class="s2">&quot;Multiple integrations found for collection &#39;</span><span class="si">%s</span><span class="s2">&#39; and purpose &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">purpose</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="p">[</span><span class="n">integration</span><span class="p">]</span> <span class="o">=</span> <span class="n">integrations</span>
+        <span class="k">return</span> <span class="n">integration</span></div>
 
 <div class="viewcode-block" id="ExternalIntegration.lookup"><a class="viewcode-back" href="../../../core.model.html#core.model.configuration.ExternalIntegration.lookup">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>

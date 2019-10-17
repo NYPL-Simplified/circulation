@@ -131,14 +131,6 @@
     <span class="c1"># external_account_id.</span>
     <span class="n">parent_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;collections.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="c1"># Some Collections use an ExternalIntegration to mirror books and</span>
-    <span class="c1"># cover images they discover. Such a collection should use an</span>
-    <span class="c1"># ExternalIntegration to set up its mirroring technique, and keep</span>
-    <span class="c1"># a reference to that ExternalIntegration here.</span>
-    <span class="n">mirror_integration_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span>
-        <span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;externalintegrations.id&#39;</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">)</span>
-
     <span class="c1"># When deleting a collection, this flag is set to True so that the deletion</span>
     <span class="c1"># script can take care of deleting it in the background. This is</span>
     <span class="c1"># useful for deleting large collections which can timeout when deleting.</span>

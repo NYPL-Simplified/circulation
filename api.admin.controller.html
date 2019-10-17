@@ -125,13 +125,6 @@ and the protocol must be selected from the list of recognized protocols.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="api.admin.controller.catalog_services.CatalogServicesController.check_storage_protocol">
-<code class="descname">check_storage_protocol</code><span class="sig-paren">(</span><em>service</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/catalog_services.html#CatalogServicesController.check_storage_protocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.catalog_services.CatalogServicesController.check_storage_protocol" title="Permalink to this definition">¶</a></dt>
-<dd><p>For MARC Export integrations, check that the storage protocol corresponds to an
-existing storage integration.</p>
-</dd></dl>
-
-<dl class="method">
 <dt id="api.admin.controller.catalog_services.CatalogServicesController.get_name">
 <code class="descname">get_name</code><span class="sig-paren">(</span><em>service</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/catalog_services.html#CatalogServicesController.get_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.catalog_services.CatalogServicesController.get_name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check that there isn’t already a service with this name</p>
@@ -313,14 +306,6 @@ display an error message if a collection with this ID turns out not to exist</p>
 <code class="descname">find_protocol_class</code><span class="sig-paren">(</span><em>collection_object</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/collection_settings.html#CollectionSettingsController.find_protocol_class"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.collection_settings.CollectionSettingsController.find_protocol_class" title="Permalink to this definition">¶</a></dt>
 <dd><p>Figure out which class this collection’s protocol belongs to, from the list
 of possible protocols defined in PROVIDER_APIS (in SettingsController)</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.admin.controller.collection_settings.CollectionSettingsController.get_mirror_integration_id">
-<code class="descname">get_mirror_integration_id</code><span class="sig-paren">(</span><em>value</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/collection_settings.html#CollectionSettingsController.get_mirror_integration_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.collection_settings.CollectionSettingsController.get_mirror_integration_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>If the user is trying to set up a mirror integration, check that the
-attempted configuration for the mirror integration is valid; if so,
-find the mirror integration’s id.</p>
 </dd></dl>
 
 <dl class="method">
@@ -920,22 +905,6 @@ be selected from the list of recognized protocols.</p>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="api.admin.controller.sitewide_services.StorageServicesController">
-<em class="property">class </em><code class="descclassname">api.admin.controller.sitewide_services.</code><code class="descname">StorageServicesController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/sitewide_services.html#StorageServicesController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.sitewide_services.StorageServicesController" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.admin.controller.sitewide_services.SitewideServicesController" title="api.admin.controller.sitewide_services.SitewideServicesController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.sitewide_services.SitewideServicesController</span></code></a></p>
-<dl class="method">
-<dt id="api.admin.controller.sitewide_services.StorageServicesController.process_delete">
-<code class="descname">process_delete</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/sitewide_services.html#StorageServicesController.process_delete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.sitewide_services.StorageServicesController.process_delete" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.admin.controller.sitewide_services.StorageServicesController.process_services">
-<code class="descname">process_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/sitewide_services.html#StorageServicesController.process_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.sitewide_services.StorageServicesController.process_services" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
 </div>
 <div class="section" id="module-api.admin.controller.sitewide_settings">
 <span id="api-admin-controller-sitewide-settings-module"></span><h2>api.admin.controller.sitewide_settings module<a class="headerlink" href="#module-api.admin.controller.sitewide_settings" title="Permalink to this headline">¶</a></h2>
@@ -961,6 +930,35 @@ be selected from the list of recognized protocols.</p>
 <dl class="method">
 <dt id="api.admin.controller.sitewide_settings.SitewideConfigurationSettingsController.validate_form_fields">
 <code class="descname">validate_form_fields</code><span class="sig-paren">(</span><em>setting</em>, <em>fields</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/sitewide_settings.html#SitewideConfigurationSettingsController.validate_form_fields"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.sitewide_settings.SitewideConfigurationSettingsController.validate_form_fields" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-api.admin.controller.storage_services">
+<span id="api-admin-controller-storage-services-module"></span><h2>api.admin.controller.storage_services module<a class="headerlink" href="#module-api.admin.controller.storage_services" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.admin.controller.storage_services.StorageServicesController">
+<em class="property">class </em><code class="descclassname">api.admin.controller.storage_services.</code><code class="descname">StorageServicesController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/storage_services.html#StorageServicesController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.storage_services.StorageServicesController" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.admin.controller.SettingsController" title="api.admin.controller.SettingsController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.SettingsController</span></code></a></p>
+<dl class="method">
+<dt id="api.admin.controller.storage_services.StorageServicesController.process_delete">
+<code class="descname">process_delete</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/storage_services.html#StorageServicesController.process_delete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.storage_services.StorageServicesController.process_delete" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.controller.storage_services.StorageServicesController.process_get">
+<code class="descname">process_get</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/storage_services.html#StorageServicesController.process_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.storage_services.StorageServicesController.process_get" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.controller.storage_services.StorageServicesController.process_post">
+<code class="descname">process_post</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/storage_services.html#StorageServicesController.process_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.storage_services.StorageServicesController.process_post" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.controller.storage_services.StorageServicesController.process_services">
+<code class="descname">process_services</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/storage_services.html#StorageServicesController.process_services"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.storage_services.StorageServicesController.process_services" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -1009,7 +1007,7 @@ be selected from the list of recognized protocols.</p>
 
 <dl class="method">
 <dt id="api.admin.controller.work_editor.WorkController.change_book_cover">
-<code class="descname">change_book_cover</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em>, <em>mirror=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/work_editor.html#WorkController.change_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.work_editor.WorkController.change_book_cover" title="Permalink to this definition">¶</a></dt>
+<code class="descname">change_book_cover</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em>, <em>mirrors=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/work_editor.html#WorkController.change_book_cover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.work_editor.WorkController.change_book_cover" title="Permalink to this definition">¶</a></dt>
 <dd><p>Save a new book cover based on the submitted form.</p>
 </dd></dl>
 

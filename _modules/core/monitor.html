@@ -877,6 +877,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span>
         <span class="p">)</span></div></div>
+<span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">WorkReaper</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="CollectionReaper"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionReaper">[docs]</a><span class="k">class</span> <span class="nc">CollectionReaper</span><span class="p">(</span><span class="n">ReaperMonitor</span><span class="p">):</span>

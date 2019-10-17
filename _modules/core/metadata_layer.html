@@ -90,6 +90,7 @@
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">NO_VALUE</span><span class="p">,</span> <span class="n">NO_NUMBER</span>
 <span class="kn">from</span> <span class="nn">analytics</span> <span class="k">import</span> <span class="n">Analytics</span>
 <span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="k">import</span> <span class="n">display_name_to_sort_name</span>
@@ -107,7 +108,7 @@
             <span class="n">formats</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">rights</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">link_content</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">mirrors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">content_modifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">http_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -122,7 +123,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">formats</span> <span class="o">=</span> <span class="n">formats</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">link_content</span> <span class="o">=</span> <span class="n">link_content</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">even_if_not_apparently_updated</span> <span class="o">=</span> <span class="n">even_if_not_apparently_updated</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mirror</span> <span class="o">=</span> <span class="n">mirror</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mirrors</span> <span class="o">=</span> <span class="n">mirrors</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content_modifier</span> <span class="o">=</span> <span class="n">content_modifier</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">http_get</span> <span class="o">=</span> <span class="n">http_get</span>
@@ -182,7 +183,6 @@
             <span class="n">formats</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="o">**</span><span class="n">args</span>
         <span class="p">)</span></div></div>
-
 
 <div class="viewcode-block" id="SubjectData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.SubjectData">[docs]</a><span class="k">class</span> <span class="nc">SubjectData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
@@ -575,7 +575,14 @@
         <span class="k">return</span> <span class="s1">&#39;&lt;LinkData: rel=&quot;</span><span class="si">%s</span><span class="s1">&quot; href=&quot;</span><span class="si">%s</span><span class="s1">&quot; media_type=</span><span class="si">%r%s%s</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">rel</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">href</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_type</span><span class="p">,</span> <span class="n">thumbnail</span><span class="p">,</span>
             <span class="n">content</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="LinkData.mirror_type"><a class="viewcode-back" href="../../core.html#core.metadata_layer.LinkData.mirror_type">[docs]</a>    <span class="k">def</span> <span class="nf">mirror_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the type of mirror that should be used for the link.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rel</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">IMAGE</span><span class="p">,</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">THUMBNAIL_IMAGE</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span>
+        <span class="k">return</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span></div></div>
 
 
 <div class="viewcode-block" id="MeasurementData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.MeasurementData">[docs]</a><span class="k">class</span> <span class="nc">MeasurementData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -756,7 +763,18 @@
             <span class="p">)</span>
             <span class="k">return</span>
 
-        <span class="n">mirror</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">mirror</span>
+        <span class="n">mirror_type</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">mirror_type</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">mirror_type</span> <span class="ow">in</span> <span class="n">policy</span><span class="o">.</span><span class="n">mirrors</span><span class="p">:</span>
+            <span class="n">mirror</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">mirrors</span><span class="p">[</span><span class="n">mirror_type</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror</span><span class="p">:</span>
+                <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;No mirror uploader with key </span><span class="si">%s</span><span class="s2"> found&quot;</span> <span class="o">%</span> <span class="n">mirror_type</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
         <span class="n">http_get</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">http_get</span>
 
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">link_obj</span><span class="p">)</span>
@@ -1210,9 +1228,8 @@
         <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">links</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="ow">in</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">CIRCULATION_ALLOWED</span><span class="p">:</span>
                 <span class="n">link_obj</span> <span class="o">=</span> <span class="n">link_objects</span><span class="p">[</span><span class="n">link</span><span class="p">]</span>
-                <span class="k">if</span> <span class="n">replace</span><span class="o">.</span><span class="n">mirror</span><span class="p">:</span>
-                    <span class="c1"># We need to mirror this resource. If it&#39;s an image, a</span>
-                    <span class="c1"># thumbnail may be provided as a side effect.</span>
+                <span class="k">if</span> <span class="n">replace</span><span class="o">.</span><span class="n">mirrors</span><span class="p">:</span>
+                    <span class="c1"># We need to mirror this resource.</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">mirror_link</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">link</span><span class="p">,</span> <span class="n">link_obj</span><span class="p">,</span> <span class="n">replace</span><span class="p">)</span>
 
         <span class="c1"># Next, make sure the DeliveryMechanisms associated</span>
@@ -1688,8 +1705,6 @@
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Apply this metadata to the given edition.</span>
 
-<span class="sd">        :param mirror: Open-access books and cover images will be mirrored</span>
-<span class="sd">            to this MirrorUploader.</span>
 <span class="sd">        :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes</span>
 <span class="sd">            answers the question: were any edition core fields harmed in the making of this update?</span>
 <span class="sd">            So, if title changed, return True.</span>
@@ -1943,7 +1958,7 @@
                 <span class="c1"># so we don&#39;t need to separately mirror the thumbnail.</span>
                 <span class="k">continue</span>
 
-            <span class="k">if</span> <span class="n">replace</span><span class="o">.</span><span class="n">mirror</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">replace</span><span class="o">.</span><span class="n">mirrors</span><span class="p">:</span>
                 <span class="c1"># We need to mirror this resource. If it&#39;s an image, a</span>
                 <span class="c1"># thumbnail may be provided as a side effect.</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">mirror_link</span><span class="p">(</span><span class="n">edition</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">link</span><span class="p">,</span> <span class="n">link_obj</span><span class="p">,</span> <span class="n">replace</span><span class="p">)</span>

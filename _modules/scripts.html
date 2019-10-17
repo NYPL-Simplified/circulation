@@ -97,6 +97,7 @@
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">core.scripts</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">Script</span> <span class="k">as</span> <span class="n">CoreScript</span><span class="p">,</span>
     <span class="n">DatabaseMigrationInitializationScript</span><span class="p">,</span>
@@ -815,9 +816,26 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Skipping lane </span><span class="si">%s</span><span class="s2"> because last update was less than </span><span class="si">%d</span><span class="s2"> days ago&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">update_frequency</span><span class="p">))</span>
             <span class="k">return</span>
 
+        <span class="c1"># To find the storage integration for the exporter, first find the</span>
+        <span class="c1"># external integration link associated with the exporter&#39;s external</span>
+        <span class="c1"># integration.</span>
+        <span class="n">integration_link</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="p">,</span>
+            <span class="n">other_integration_id</span><span class="o">=</span><span class="n">exporter</span><span class="o">.</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">purpose</span><span class="o">=</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">MARC</span>
+        <span class="p">)</span>
+        <span class="c1"># Then use the &quot;other&quot; integration value to find the storage integration.</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span>
+            <span class="nb">id</span><span class="o">=</span><span class="n">integration_link</span><span class="o">.</span><span class="n">other_integration_id</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">integration</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No storage External Integration was found.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
         <span class="c1"># First update the file with ALL the records.</span>
         <span class="n">records</span> <span class="o">=</span> <span class="n">exporter</span><span class="o">.</span><span class="n">records</span><span class="p">(</span>
-            <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+            <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">integration</span>
         <span class="p">)</span>
 
         <span class="c1"># Then create a new file with changes since the last update.</span>
@@ -827,7 +845,7 @@
             <span class="n">start_time</span> <span class="o">=</span> <span class="n">last_update</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
             <span class="n">records</span> <span class="o">=</span> <span class="n">exporter</span><span class="o">.</span><span class="n">records</span><span class="p">(</span>
-                <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">,</span>
+                <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span>
             <span class="p">)</span></div></div>
 
 
@@ -1359,16 +1377,19 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                 <span class="s2">&quot;This is a dry run. No files will be uploaded and nothing will change in the database.&quot;</span>
             <span class="p">)</span>
-        <span class="n">collection</span><span class="p">,</span> <span class="n">mirror</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span>
-            <span class="n">collection_name</span><span class="p">,</span> <span class="n">data_source_name</span>
-        <span class="p">)</span>
+
+        <span class="n">collection</span><span class="p">,</span> <span class="n">mirrors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">mirrors</span><span class="p">:</span>
+            <span class="k">return</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_collection</span> <span class="o">=</span> <span class="n">collection</span>
 
         <span class="k">if</span> <span class="n">dry_run</span><span class="p">:</span>
-            <span class="n">mirror</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">mirrors</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">replacement_policy</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="o">.</span><span class="n">from_license_source</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-        <span class="n">replacement_policy</span><span class="o">.</span><span class="n">mirror</span> <span class="o">=</span> <span class="n">mirror</span>
+        <span class="n">replacement_policy</span><span class="o">.</span><span class="n">mirrors</span> <span class="o">=</span> <span class="n">mirrors</span>
         <span class="n">metadata_records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_metadata</span><span class="p">(</span><span class="n">metadata_file</span><span class="p">,</span> <span class="n">metadata_format</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">metadata_records</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">work_from_metadata</span><span class="p">(</span>
@@ -1379,11 +1400,11 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="DirectoryImportScript.load_collection"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_collection">[docs]</a>    <span class="k">def</span> <span class="nf">load_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create or locate a Collection with the given name.</span>
+        <span class="sd">&quot;&quot;&quot;Locate a Collection with the given name.</span>
 
-<span class="sd">        If the Collection needs to be created, it will be associated</span>
-<span class="sd">        with the given data source and (if configured) the site-wide</span>
-<span class="sd">        mirror configuration.</span>
+<span class="sd">        If the collection is found, it will be associated</span>
+<span class="sd">        with the given data source and configured with existing</span>
+<span class="sd">        covers and books mirror configurations.</span>
 
 <span class="sd">        :param collection_name: Name of the Collection.</span>
 <span class="sd">        :param data_source_name: Associate this data source with</span>
@@ -1397,43 +1418,32 @@
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;CREATED Collection for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-                    <span class="n">data_source_name</span><span class="p">,</span> <span class="n">collection</span><span class="p">))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;The new Collection is not associated with any libraries; you must do this yourself through the admin interface.&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;An existing collection must be used and should be set up before running this script.&quot;</span>
             <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
 
-            <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">offers_licenses</span><span class="o">=</span><span class="kc">True</span>
-            <span class="p">)</span>
-            <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span>
-                <span class="n">Collection</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME_SETTING</span><span class="p">,</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;Associated Collection </span><span class="si">%s</span><span class="s2"> with data source </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
-            <span class="p">)</span>
+        <span class="n">mirrors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">covers_mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">books_mirror</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">mirror_integration</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">sitewide_integration</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">,</span> <span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">]</span>
+        <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
+            <span class="n">mirror_for_type</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">mirror_for_type</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;An existing </span><span class="si">%s</span><span class="s2"> mirror integration should be assigned to the collection before running the script.&quot;</span> <span class="o">%</span> <span class="nb">type</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-                <span class="c1"># There is no sitewide mirror configuration, or else</span>
-                <span class="c1"># there is more than one. Either way, we can&#39;t</span>
-                <span class="c1"># associate a mirror integration with the new collection.</span>
-                <span class="n">mirror_integration</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="n">mirrors</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="n">mirror_for_type</span>
 
-            <span class="k">if</span> <span class="n">mirror_integration</span><span class="p">:</span>
-                <span class="n">collection</span><span class="o">.</span><span class="n">mirror_integration</span> <span class="o">=</span> <span class="n">mirror_integration</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="s2">&quot;Associated Collection </span><span class="si">%s</span><span class="s2"> with the sitewide storage integration.&quot;</span><span class="p">,</span>
-                    <span class="n">collection</span><span class="o">.</span><span class="n">name</span>
-                <span class="p">)</span>
-        <span class="n">mirror</span> <span class="o">=</span> <span class="n">MirrorUploader</span><span class="o">.</span><span class="n">for_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+        <span class="n">data_source</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">autocreate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">offers_licenses</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">set_setting</span><span class="p">(</span>
+            <span class="n">Collection</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME_SETTING</span><span class="p">,</span> <span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">collection</span><span class="p">,</span> <span class="n">mirror</span></div>
+        <span class="k">return</span> <span class="n">collection</span><span class="p">,</span> <span class="n">mirrors</span></div>
 
 <div class="viewcode-block" id="DirectoryImportScript.load_metadata"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">load_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata_file</span><span class="p">,</span> <span class="n">metadata_format</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Read a metadata file and convert the data into Metadata records.&quot;&quot;&quot;</span>
@@ -1482,10 +1492,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">identifier</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">primary_identifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">data_source</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">data_source</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-        <span class="n">mirror</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">mirror</span>
+        <span class="n">mirrors</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">mirrors</span>
 
         <span class="n">circulation_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_circulation_data</span><span class="p">(</span>
-            <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span> <span class="n">mirror</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span> <span class="n">mirrors</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">rights_uri</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">circulation_data</span><span class="p">:</span>
@@ -1498,7 +1508,7 @@
         <span class="n">cover_link</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">cover_directory</span><span class="p">:</span>
             <span class="n">cover_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_cover_link</span><span class="p">(</span>
-                <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span> <span class="n">mirror</span>
+                <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span> <span class="n">mirrors</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">cover_link</span><span class="p">:</span>
             <span class="n">metadata</span><span class="o">.</span><span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cover_link</span><span class="p">)</span>
@@ -1509,7 +1519,7 @@
             <span class="p">)</span></div>
 
 <div class="viewcode-block" id="DirectoryImportScript.load_circulation_data"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_circulation_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_circulation_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">ebook_directory</span><span class="p">,</span>
-                              <span class="n">mirror</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">):</span>
+                              <span class="n">mirrors</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Load an actual copy of a book from disk.</span>
 
 <span class="sd">        :return: A CirculationData that contains the book as an open-access</span>
@@ -1525,8 +1535,9 @@
             <span class="c1"># no point in proceeding.</span>
             <span class="k">return</span>
 
-        <span class="k">if</span> <span class="n">mirror</span><span class="p">:</span>
-            <span class="n">book_url</span> <span class="o">=</span> <span class="n">mirror</span><span class="o">.</span><span class="n">book_url</span><span class="p">(</span>
+        <span class="c1"># Use the S3 storage for books.</span>
+        <span class="k">if</span> <span class="n">mirrors</span> <span class="ow">and</span> <span class="n">mirrors</span><span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">]:</span>
+            <span class="n">book_url</span> <span class="o">=</span> <span class="n">mirrors</span><span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">BOOKS</span><span class="p">]</span><span class="o">.</span><span class="n">book_url</span><span class="p">(</span>
                 <span class="n">identifier</span><span class="p">,</span>
                 <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">Representation</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="p">[</span><span class="n">book_media_type</span><span class="p">],</span>
                 <span class="n">data_source</span><span class="o">=</span><span class="n">data_source</span><span class="p">,</span>
@@ -1558,7 +1569,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">circulation_data</span></div>
 
-<div class="viewcode-block" id="DirectoryImportScript.load_cover_link"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_cover_link">[docs]</a>    <span class="k">def</span> <span class="nf">load_cover_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span> <span class="n">mirror</span><span class="p">):</span>
+<div class="viewcode-block" id="DirectoryImportScript.load_cover_link"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_cover_link">[docs]</a>    <span class="k">def</span> <span class="nf">load_cover_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span> <span class="n">mirrors</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Load an actual book cover from disk.</span>
 <span class="sd">        </span>
 <span class="sd">        :return: A LinkData containing a cover of the book, or None</span>
@@ -1576,8 +1587,9 @@
             <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">Representation</span><span class="o">.</span><span class="n">FILE_EXTENSIONS</span><span class="p">[</span><span class="n">cover_media_type</span><span class="p">]</span>
         <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">mirror</span><span class="p">:</span>
-            <span class="n">cover_url</span> <span class="o">=</span> <span class="n">mirror</span><span class="o">.</span><span class="n">cover_image_url</span><span class="p">(</span>
+        <span class="c1"># Use an S3 storage mirror for specifically for covers.</span>
+        <span class="k">if</span> <span class="n">mirrors</span> <span class="ow">and</span> <span class="n">mirrors</span><span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">]:</span>
+            <span class="n">cover_url</span> <span class="o">=</span> <span class="n">mirrors</span><span class="p">[</span><span class="n">ExternalIntegrationLink</span><span class="o">.</span><span class="n">COVERS</span><span class="p">]</span><span class="o">.</span><span class="n">cover_image_url</span><span class="p">(</span>
                 <span class="n">data_source</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">cover_filename</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
