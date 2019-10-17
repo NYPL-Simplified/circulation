@@ -21,7 +21,7 @@ update classifications set weight=1 where id in (select c.id from classification
 
 -- Clear out the audience of all DDC and LCC subjects where were were
 -- deriving audience=Adult from a lack of explicit information.
-update subjects set audience=None where type in ('DDC', 'LCC') and audience='Adult';
+update subjects set audience=NULL where type in ('DDC', 'LCC') and audience='Adult';
 
 -- Delete the 'classify' coverage record for every work on the site,
 -- effectively forcing all works to be reclassified.
