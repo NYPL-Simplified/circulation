@@ -62,6 +62,7 @@ from core.model import (
     Timestamp,
     Work,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.scripts import (
     Script as CoreScript,
     DatabaseMigrationInitializationScript,
@@ -780,9 +781,26 @@ class CacheMARCFiles(LaneSweeperScript):
             self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
             return
 
+        # To find the storage integration for the exporter, first find the
+        # external integration link associated with the exporter's external
+        # integration.
+        integration_link = get_one(
+            self._db, ExternalIntegrationLink,
+            other_integration_id=exporter.integration.id,
+            purpose=ExternalIntegrationLink.MARC
+        )
+        # Then use the "other" integration value to find the storage integration.
+        integration = get_one(self._db, ExternalIntegration,
+            id=integration_link.other_integration_id
+        )
+
+        if not integration:
+            self.log.info("No storage External Integration was found.")
+            return
+
         # First update the file with ALL the records.
         records = exporter.records(
-            lane, annotator=annotator,
+            lane, annotator, integration
         )
 
         # Then create a new file with changes since the last update.
@@ -792,7 +810,7 @@ class CacheMARCFiles(LaneSweeperScript):
             start_time = last_update - timedelta(days=1)
 
             records = exporter.records(
-                lane, annotator=annotator, start_time=start_time,
+                lane, annotator, integration, start_time=start_time
             )
 
 
@@ -1324,16 +1342,19 @@ class DirectoryImportScript(TimestampScript):
             self.log.warn(
                 "This is a dry run. No files will be uploaded and nothing will change in the database."
             )
-        collection, mirror = self.load_collection(
-            collection_name, data_source_name
-        )
+
+        collection, mirrors = self.load_collection(collection_name, data_source_name)
+
+        if not collection or not mirrors:
+            return
+
         self.timestamp_collection = collection
 
         if dry_run:
-            mirror = None
+            mirrors = None
 
         replacement_policy = ReplacementPolicy.from_license_source(self._db)
-        replacement_policy.mirror = mirror
+        replacement_policy.mirrors = mirrors
         metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name)
         for metadata in metadata_records:
             self.work_from_metadata(
@@ -1344,11 +1365,11 @@ class DirectoryImportScript(TimestampScript):
                 self._db.commit()
 
     def load_collection(self, collection_name, data_source_name):
-        """Create or locate a Collection with the given name.
+        """Locate a Collection with the given name.
 
-        If the Collection needs to be created, it will be associated
-        with the given data source and (if configured) the site-wide
-        mirror configuration.
+        If the collection is found, it will be associated
+        with the given data source and configured with existing
+        covers and books mirror configurations.
 
         :param collection_name: Name of the Collection.
         :param data_source_name: Associate this data source with
@@ -1362,43 +1383,32 @@ class DirectoryImportScript(TimestampScript):
         )
 
         if is_new:
-            self.log.info("CREATED Collection for %s: %r" % (
-                    data_source_name, collection))
-            self.log.warn(
-                "The new Collection is not associated with any libraries; you must do this yourself through the admin interface."
+            self.log.error(
+                "An existing collection must be used and should be set up before running this script."
             )
+            return None, None
 
-            data_source = DataSource.lookup(
-                self._db, data_source_name, autocreate=True,
-                offers_licenses=True
-            )
-            collection.external_integration.set_setting(
-                Collection.DATA_SOURCE_NAME_SETTING, data_source.name
-            )
-            self.log.info(
-                "Associated Collection %s with data source %s",
-                collection.name, data_source.name
-            )
+        mirrors = dict(covers_mirror=None, books_mirror=None)
 
-            try:
-                mirror_integration = MirrorUploader.sitewide_integration(
-                    self._db
+        types = [ExternalIntegrationLink.COVERS, ExternalIntegrationLink.BOOKS]
+        for type in types:
+            mirror_for_type = MirrorUploader.for_collection(collection, type)
+            if not mirror_for_type:
+                self.log.error(
+                    "An existing %s mirror integration should be assigned to the collection before running the script." % type
                 )
-            except CannotLoadConfiguration, e:
-                # There is no sitewide mirror configuration, or else
-                # there is more than one. Either way, we can't
-                # associate a mirror integration with the new collection.
-                mirror_integration = None
+                return None, None
+            mirrors[type] = mirror_for_type
 
-            if mirror_integration:
-                collection.mirror_integration = mirror_integration
-                self.log.info(
-                    "Associated Collection %s with the sitewide storage integration.",
-                    collection.name
-                )
-        mirror = MirrorUploader.for_collection(collection)
+        data_source = DataSource.lookup(
+            self._db, data_source_name, autocreate=True,
+            offers_licenses=True
+        )
+        collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING, data_source.name
+        )
 
-        return collection, mirror
+        return collection, mirrors
 
     def load_metadata(self, metadata_file, metadata_format, data_source_name):
         """Read a metadata file and convert the data into Metadata records."""
@@ -1447,10 +1457,10 @@ class DirectoryImportScript(TimestampScript):
         """
         identifier, ignore = metadata.primary_identifier.load(self._db)
         data_source = metadata.data_source(self._db)
-        mirror = policy.mirror
+        mirrors = policy.mirrors
 
         circulation_data = self.load_circulation_data(
-            identifier, data_source, ebook_directory, mirror,
+            identifier, data_source, ebook_directory, mirrors,
             metadata.title, rights_uri
         )
         if not circulation_data:
@@ -1463,7 +1473,7 @@ class DirectoryImportScript(TimestampScript):
         cover_link = None
         if cover_directory:
             cover_link = self.load_cover_link(
-                identifier, data_source, cover_directory, mirror
+                identifier, data_source, cover_directory, mirrors
             )
         if cover_link:
             metadata.links.append(cover_link)
@@ -1474,7 +1484,7 @@ class DirectoryImportScript(TimestampScript):
             )
 
     def load_circulation_data(self, identifier, data_source, ebook_directory,
-                              mirror, title, rights_uri):
+                              mirrors, title, rights_uri):
         """Load an actual copy of a book from disk.
 
         :return: A CirculationData that contains the book as an open-access
@@ -1490,8 +1500,9 @@ class DirectoryImportScript(TimestampScript):
             # no point in proceeding.
             return
 
-        if mirror:
-            book_url = mirror.book_url(
+        # Use the S3 storage for books.
+        if mirrors and mirrors[ExternalIntegrationLink.BOOKS]:
+            book_url = mirrors[ExternalIntegrationLink.BOOKS].book_url(
                 identifier,
                 '.' + Representation.FILE_EXTENSIONS[book_media_type],
                 data_source=data_source,
@@ -1523,7 +1534,7 @@ class DirectoryImportScript(TimestampScript):
         )
         return circulation_data
 
-    def load_cover_link(self, identifier, data_source, cover_directory, mirror):
+    def load_cover_link(self, identifier, data_source, cover_directory, mirrors):
         """Load an actual book cover from disk.
         
         :return: A LinkData containing a cover of the book, or None
@@ -1541,8 +1552,9 @@ class DirectoryImportScript(TimestampScript):
             + '.' + Representation.FILE_EXTENSIONS[cover_media_type]
         )
 
-        if mirror:
-            cover_url = mirror.cover_image_url(
+        # Use an S3 storage mirror for specifically for covers.
+        if mirrors and mirrors[ExternalIntegrationLink.COVERS]:
+            cover_url = mirrors[ExternalIntegrationLink.COVERS].cover_image_url(
                 data_source, identifier, cover_filename
             )
         else:

@@ -14,6 +14,7 @@ from core.model import (
     Library,
     Measurement,
 )
+from core.model.configuration import ExternalIntegrationLink
 from core.lane import Facets, Pagination
 from core.opds import Annotator
 
@@ -103,18 +104,32 @@ class TestOPDS(DatabaseTest):
     def test_feed_includes_change_cover_link(self):
         work = self._work(with_open_access_download=True)
         lp = work.license_pools[0]
+        library = self._default_library
 
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 
         # Since there's no storage integration, the change cover link isn't included.
         eq_([], [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"])
 
+        # There is now a covers storage integration that is linked to the external
+        # integration for a collection that the work is in. It will use that
+        # covers mirror and the change cover link is included.
         storage = self._external_integration(ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL)
         storage.username = "user"
         storage.password = "pass"
 
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
+        collection = self._collection()
+        purpose = ExternalIntegrationLink.COVERS
+        external_integration_link = self._external_integration_link(
+            integration=collection._external_integration,
+            other_integration=storage,
+            purpose=purpose
+        )
+        library.collections.append(collection)
+        work = self._work(with_open_access_download=True, collection=collection)
+        lp = work.license_pools[0]
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 
         [change_cover_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"]
@@ -213,8 +228,7 @@ class TestOPDS(DatabaseTest):
         eq_(work2.title, parsed['entries'][0]['title'])
 
     def test_suppressed_feed(self):
-        """Test the ability to show a paginated feed of suppressed works.
-        """
+        # Test the ability to show a paginated feed of suppressed works.
 
         work1 = self._work(with_open_access_download=True)
         work1.license_pools[0].suppressed = True
