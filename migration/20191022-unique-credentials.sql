@@ -1,5 +1,5 @@
 -- Delete all duplicate credentials before creating unique indexes.
-delete from credentials where id in (select c1.id from credentials c1 join credentials c2 on c1.data_source_id = c2.data_source_id and c1.patron_id=c2.patron_id and c1.type = c2.type and c1.collection_id = c2.collection_id and c1.id < c2.id);
+delete from credentials where id in (select c1.id from credentials c1 join credentials c2 on c1.data_source_id = c2.data_source_id and c1.patron_id=c2.patron_id and c1.type = c2.type and (c1.collection_id = c2.collection_id or (c1.collection_id is null and c2.collection_id is null)) and c1.id < c2.id);
 
 DO $$ 
  BEGIN
