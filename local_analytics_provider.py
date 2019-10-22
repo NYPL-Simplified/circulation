@@ -1,5 +1,11 @@
 from flask_babel import lazy_gettext as _
-from model import Session, CirculationEvent
+from model import (
+    Session,
+    CirculationEvent,
+    ExternalIntegration,
+    get_one,
+    create
+)
 
 class LocalAnalyticsProvider(object):
     NAME = _("Local Analytics")
@@ -62,5 +68,29 @@ class LocalAnalyticsProvider(object):
             _db, license_pool, event_type, old_value, new_value, start=time,
             library=library, location=neighborhood
         )
+    
+    @classmethod
+    def initialize(cls, _db):
+        """Find or create a local analytics service.
+        """
+
+        # If a local analytics service already exists, return it.
+        local_analytics = get_one(
+            _db, ExternalIntegration,
+            protocol=cls.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL
+        )
+
+        # If a local analytics service already exists, don't create a
+        # default one. Otherwise, create it with default name of
+        # "Local Analytics".
+        if not local_analytics:
+            local_analytics, ignore = create(
+                _db, ExternalIntegration,
+                protocol=cls.__module__,
+                goal=ExternalIntegration.ANALYTICS_GOAL,
+                name=str(cls.NAME)
+            )
+        return local_analytics
 
 Provider = LocalAnalyticsProvider
