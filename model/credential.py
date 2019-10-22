@@ -72,11 +72,11 @@ class Credential(Base):
         ),
 
         # If neither collection_id nor patron_id is null, then
-        # (data_source, type, collection_id, patron_id)
+        # (data_source, type, patron_id, collection_id)
         # must be unique.
         Index(
-            "ix_credentials_data_source_id_type_collection_id_patron_id",
-            data_source_id, type, collection_id, patron_id,
+            "ix_credentials_data_source_id_type_patron_id_collection_id",
+            data_source_id, type, patron_id, collection_id,
             unique=True,
         ),
     )
