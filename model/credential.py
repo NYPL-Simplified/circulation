@@ -42,9 +42,43 @@ class Credential(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint('data_source_id', 'patron_id', 'collection_id', 'type'),
-    )
 
+        # Unique indexes to prevent the creation of redundant credentials.
+
+        # If both patron_id and collection_id are null, then (data_source_id,
+        # type, credential) must be unique.
+        Index(
+            "ix_credentials_data_source_id_type_token",
+            data_source_id, type, credential, unique=True,
+            postgresql_where=(patron_id==None, collection_id==None)
+        ),
+
+        # If patron_id is null but collection_id is not, then
+        # (data_source, type, collection_id) must be unique.
+        Index(
+            "ix_credentials_data_source_id_type_token",
+            data_source_id, type, collection_id,
+            unique=True, postgresql_where=(patron_id==None)
+        ),
+
+        # If collection_id is null but patron_id is not, then
+        # (data_source, type, patron_id) must be unique.
+        # (At the moment this never happens.)
+        Index(
+            "ix_credentials_data_source_id_type_token",
+            data_source_id, type, patron_id,
+            unique=True, postgresql_where=(collection_id==None)
+        ),
+
+        # If neither collection_id nor patron_id is null, then
+        # (data_source, type, collection_id, patron_id)
+        # must be unique.
+        Index(
+            "ix_credentials_data_source_id_type_token",
+            data_source_id, type, collection_id, patron_id,
+            unique=True,
+        ),
+    )
 
     # A meaningless identifier used to identify this patron (and no other)
     # to a remote service.
@@ -156,10 +190,6 @@ class Credential(Base):
         )
         if device_id_obj:
             _db.delete(device_id_obj)
-
-
-# Index to make lookup_by_token() fast.
-Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
 
 class DRMDeviceIdentifier(Base):
     """A device identifier for a particular DRM scheme.
