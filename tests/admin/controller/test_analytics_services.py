@@ -21,10 +21,14 @@ from test_controller import SettingsControllerTest
 
 class TestAnalyticsServices(SettingsControllerTest):
 
-    def test_analytics_services_get_with_no_services(self):
+    def test_analytics_services_get_with_one_default_service(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.get("analytics_services"), [])
+            eq_(len(response.get("analytics_services")), 1)
+            local_analytics = response.get("analytics_services")[0]
+            eq_(local_analytics.get("name"), LocalAnalyticsProvider.NAME);
+            eq_(local_analytics.get("protocol"), LocalAnalyticsProvider.__module__)
+
             protocols = response.get("protocols")
             assert GoogleAnalyticsProvider.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
@@ -34,7 +38,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_analytics_services_controller.process_analytics_services)
 
-    def test_analytics_services_get_with_one_service(self):
+    def test_analytics_services_get_with_one_service_and_one_default(self):
         ga_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=GoogleAnalyticsProvider.__module__,
@@ -44,11 +48,14 @@ class TestAnalyticsServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            [service] = response.get("analytics_services")
+            [local_default, service] = response.get("analytics_services")
 
             eq_(ga_service.id, service.get("id"))
             eq_(ga_service.protocol, service.get("protocol"))
             eq_(ga_service.url, service.get("settings").get(ExternalIntegration.URL))
+
+            eq_(local_default.get("name"), LocalAnalyticsProvider.NAME)
+            eq_(local_default.get("protocol"), LocalAnalyticsProvider.__module__)
 
         ga_service.libraries += [self._default_library]
         ConfigurationSetting.for_library_and_externalintegration(
@@ -56,8 +63,9 @@ class TestAnalyticsServices(SettingsControllerTest):
         ).value = "trackingid"
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            [service] = response.get("analytics_services")
+            [local_analytics, service] = response.get("analytics_services")
 
+            set_trace()
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
             eq_("trackingid", library.get(GoogleAnalyticsProvider.TRACKING_ID))
@@ -73,7 +81,7 @@ class TestAnalyticsServices(SettingsControllerTest):
         local_service.libraries += [self._default_library]
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            [service] = response.get("analytics_services")
+            [local_analytics, service] = response.get("analytics_services")
 
             eq_(local_service.id, service.get("id"))
             eq_(local_service.protocol, service.get("protocol"))
@@ -204,23 +212,17 @@ class TestAnalyticsServices(SettingsControllerTest):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response.status_code, 201)
 
-        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.ANALYTICS_GOAL)
+        service = get_one(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol=GoogleAnalyticsProvider.__module__
+        )
         eq_(service.id, int(response.response[0]))
         eq_(GoogleAnalyticsProvider.__module__, service.protocol)
         eq_("http://test", service.url)
         eq_([library], service.libraries)
         eq_("trackingid", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value)
-
-        # Creating a local analytics service doesn't require a URL.
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "local analytics name"),
-                ("protocol", LocalAnalyticsProvider.__module__),
-                ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
-            ])
-            response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.status_code, 201)
 
     def test_analytics_services_post_edit(self):
         l1, ignore = create(

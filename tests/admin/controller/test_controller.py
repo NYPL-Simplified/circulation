@@ -251,21 +251,8 @@ class TestViewController(AdminControllerTest):
             assert token in response.headers.get('Set-Cookie')
 
     def test_show_circ_events_download(self):
-        # The local analytics provider isn't configured yet.
-        with self.app.test_request_context('/admin'):
-            flask.session['admin_email'] = self.admin.email
-            flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
-            response = self.manager.admin_view_controller("collection", "book")
-            eq_(200, response.status_code)
-            html = response.response[0]
-            assert 'showCircEventsDownload: false' in html
-
-        # Create the local analytics integration.
-        local_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=LocalAnalyticsProvider.__module__,
-            goal=ExternalIntegration.ANALYTICS_GOAL,
-        )
+        # The local analytics provider will be configured by default if
+        # there isn't one.
         with self.app.test_request_context('/admin'):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
