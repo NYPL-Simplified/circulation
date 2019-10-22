@@ -65,7 +65,6 @@ class TestAnalyticsServices(SettingsControllerTest):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             [local_analytics, service] = response.get("analytics_services")
 
-            set_trace()
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
             eq_("trackingid", library.get(GoogleAnalyticsProvider.TRACKING_ID))
