@@ -1203,6 +1203,9 @@ class OverdriveFormatSweep(IdentifierSweepMonitor):
         pools = identifier.licensed_through
         for pool in pools:
             self.api.update_formats(pool)
+            # if there are multiple pools they should all have the same formats
+            # so we break after processing the first one
+            break
 
 
 class OverdriveAdvantageAccountListScript(Script):
