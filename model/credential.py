@@ -23,6 +23,7 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import and_
 import uuid
 
 class Credential(Base):
@@ -50,13 +51,13 @@ class Credential(Base):
         Index(
             "ix_credentials_data_source_id_type_token",
             data_source_id, type, credential, unique=True,
-            postgresql_where=(patron_id==None, collection_id==None)
+            postgresql_where=and_(patron_id==None, collection_id==None)
         ),
 
         # If patron_id is null but collection_id is not, then
         # (data_source, type, collection_id) must be unique.
         Index(
-            "ix_credentials_data_source_id_type_token",
+            "ix_credentials_data_source_id_type_collection_id",
             data_source_id, type, collection_id,
             unique=True, postgresql_where=(patron_id==None)
         ),
@@ -65,7 +66,7 @@ class Credential(Base):
         # (data_source, type, patron_id) must be unique.
         # (At the moment this never happens.)
         Index(
-            "ix_credentials_data_source_id_type_token",
+            "ix_credentials_data_source_id_type_patron_id",
             data_source_id, type, patron_id,
             unique=True, postgresql_where=(collection_id==None)
         ),
@@ -74,7 +75,7 @@ class Credential(Base):
         # (data_source, type, collection_id, patron_id)
         # must be unique.
         Index(
-            "ix_credentials_data_source_id_type_token",
+            "ix_credentials_data_source_id_type_collection_id_patron_id",
             data_source_id, type, collection_id, patron_id,
             unique=True,
         ),
