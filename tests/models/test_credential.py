@@ -1,10 +1,12 @@
 # encoding: utf-8
 from nose.tools import (
+    assert_raises,
     assert_raises_regexp,
     eq_,
     set_trace,
 )
 import datetime
+from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
 from ...model.credential import (
     Credential,
@@ -211,6 +213,77 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
         eq_(identifier2.id, identifier.id)
         # id_2() was not called.
         eq_("id1", identifier2.delegated_identifier)
+
+
+class TestUniquenessConstraints(DatabaseTest):
+
+    def setup(self):
+        super(TestUniquenessConstraints, self).setup()
+        self.data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        self.type = 'a credential type'
+        self.patron = self._patron()
+        self.col1 = self._default_collection
+        self.col2 = self._collection()
+
+    def test_duplicate_sitewide_credential(self):
+        # You can't create two credentials with the same data source,
+        # type, and token value.
+        token = 'a token'
+
+        c1 = Credential(
+            data_source=self.data_source, type=self.type, credential=token
+        )
+        self._db.flush()
+        c2 = Credential(
+            data_source=self.data_source, type=self.type, credential=token
+        )
+        assert_raises(IntegrityError, self._db.flush)
+
+    def test_duplicate_patron_credential(self):
+        # A given patron can't have two global credentials with the same data
+        # source and type.
+        patron = self._patron()
+
+        c1 = Credential(
+            data_source=self.data_source, type=self.type, patron=self.patron
+        )
+        self._db.flush()
+        c2 = Credential(
+            data_source=self.data_source, type=self.type, patron=self.patron
+        )
+        assert_raises(IntegrityError, self._db.flush)
+
+    def test_duplicate_patron_collection_credential(self):
+        # A given patron can have two collection-scoped credentials
+        # with the same data source and type, but only if the two
+        # collections are different.
+
+        c1 = Credential(
+            data_source=self.data_source, type=self.type, patron=self.patron,
+            collection=self.col1
+        )
+        c2 = Credential(
+            data_source=self.data_source, type=self.type, patron=self.patron,
+            collection=self.col2
+        )
+        self._db.flush()
+        c3 = Credential(
+            data_source=self.data_source, type=self.type, patron=self.patron,
+            collection=self.col1
+        )
+        assert_raises(IntegrityError, self._db.flush)
+
+    def test_duplicate_collection_credential(self):
+        # A given collection can't have two global credentials with
+        # the same data source and type.
+        c1 = Credential(
+            data_source=self.data_source, type=self.type, collection=self.col1
+        )
+        self._db.flush()
+        c2 = Credential(
+            data_source=self.data_source, type=self.type, collection=self.col1
+        )
+        assert_raises(IntegrityError, self._db.flush)
 
 
 class TestDRMDeviceIdentifier(DatabaseTest):
