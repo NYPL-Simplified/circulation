@@ -223,6 +223,23 @@ class TestAnalyticsServices(SettingsControllerTest):
         eq_("trackingid", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value)
 
+        local_analytics_default = get_one(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol=LocalAnalyticsProvider.__module__
+        )
+        self._db.delete(local_analytics_default)
+
+        # Creating a local analytics service doesn't require a URL.
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "local analytics name"),
+                ("protocol", LocalAnalyticsProvider.__module__),
+                ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
+            ])
+            response = self.manager.admin_analytics_services_controller.process_analytics_services()
+            eq_(response.status_code, 201)
+
     def test_analytics_services_post_edit(self):
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",
