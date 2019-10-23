@@ -38,7 +38,15 @@ class TestAnalyticsServices(SettingsControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_analytics_services_controller.process_analytics_services)
 
-    def test_analytics_services_get_with_one_service_and_one_default(self):
+    def test_analytics_services_get_with_one_service(self):
+        # Delete the local analytics service that gets created by default.
+        local_analytics_default = get_one(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__
+        )
+
+        self._db.delete(local_analytics_default)
+
         ga_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=GoogleAnalyticsProvider.__module__,
@@ -48,14 +56,11 @@ class TestAnalyticsServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            [local_default, service] = response.get("analytics_services")
+            [service] = response.get("analytics_services")
 
             eq_(ga_service.id, service.get("id"))
             eq_(ga_service.protocol, service.get("protocol"))
             eq_(ga_service.url, service.get("settings").get(ExternalIntegration.URL))
-
-            eq_(local_default.get("name"), LocalAnalyticsProvider.NAME)
-            eq_(local_default.get("protocol"), LocalAnalyticsProvider.__module__)
 
         ga_service.libraries += [self._default_library]
         ConfigurationSetting.for_library_and_externalintegration(
@@ -63,7 +68,7 @@ class TestAnalyticsServices(SettingsControllerTest):
         ).value = "trackingid"
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            [local_analytics, service] = response.get("analytics_services")
+            [service] = response.get("analytics_services")
 
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
@@ -80,11 +85,12 @@ class TestAnalyticsServices(SettingsControllerTest):
         local_service.libraries += [self._default_library]
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            [local_analytics, service] = response.get("analytics_services")
+            [local_analytics] = response.get("analytics_services")
 
-            eq_(local_service.id, service.get("id"))
-            eq_(local_service.protocol, service.get("protocol"))
-            [library] = service.get("libraries")
+            eq_(local_service.id, local_analytics.get("id"))
+            eq_(local_service.protocol, local_analytics.get("protocol"))
+            eq_(local_analytics.get("protocol"), LocalAnalyticsProvider.__module__)
+            [library] = local_analytics.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
 
     def test_analytics_services_post_errors(self):
