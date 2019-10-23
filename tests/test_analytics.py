@@ -188,8 +188,6 @@ class TestAnalytics(DatabaseTest):
         assert isinstance(local_analytics, ExternalIntegration)
         eq_(local_analytics.name, LocalAnalyticsProvider.NAME)
 
-        self._db.delete(local_analytics)
-
         # When an analytics provider is initialized, retrieving a
         # local analytics service should return the same one.
         local_analytics = LocalAnalyticsProvider.initialize(self._db)
