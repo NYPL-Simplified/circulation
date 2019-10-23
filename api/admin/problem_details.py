@@ -282,6 +282,13 @@ INTEGRATION_GOAL_CONFLICT = pd(
     detail=_("You tried to use an integration in a way incompatible with the goal of that integration"),
 )
 
+MISSING_INTEGRATION = pd(
+    "http://librarysimplified.org/terms/problem/missing-integration",
+    status_code=404,
+    title=_("Missing integration"),
+    detail=_("The specified integration does not exist."),
+)
+
 MISSING_PGCRYPTO_EXTENSION = pd(
     "http://librarysimplified.org/terms/problem/missing-pgcrypto-extension",
     status_code=500,

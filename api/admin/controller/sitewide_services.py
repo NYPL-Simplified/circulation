@@ -4,7 +4,6 @@ from flask import Response
 from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
 from core.external_search import ExternalSearchIndex
-from core.mirror import MirrorUploader
 from core.model import (
     ExternalIntegration,
     get_one,
@@ -135,18 +134,4 @@ class SearchServicesController(SitewideServicesController):
     def process_delete(self, service_id):
         return self._delete_integration(
             service_id, ExternalIntegration.SEARCH_GOAL
-        )
-
-class StorageServicesController(SitewideServicesController):
-    def process_services(self):
-        detail = _("You tried to create a new storage service, but a storage service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.STORAGE_GOAL,
-            MirrorUploader.IMPLEMENTATION_REGISTRY.values(),
-            'storage_services', detail
-        )
-
-    def process_delete(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.STORAGE_GOAL
         )

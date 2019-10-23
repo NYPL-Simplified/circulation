@@ -68,6 +68,7 @@ from core.model import (
     RightsStatus,
     Timestamp,
 )
+from core.model.configuration import ExternalIntegrationLink
 
 from core.opds import AcquisitionFeed
 
@@ -580,10 +581,16 @@ class TestCacheMARCFiles(TestLaneScript):
         class MockMARCExporter(MARCExporter):
             called_with = []
 
-            def records(self, lane, annotator, start_time=None):
-                self.called_with += [(lane, annotator, start_time)]
+            def records(self, lane, annotator, mirror_integration, start_time=None):
+                self.called_with += [(lane, annotator, mirror_integration, start_time)]
 
         exporter = MockMARCExporter(None, None, integration)
+        integration_link = self._external_integration_link(
+            integration=integration,
+            other_integration=exporter.integration,
+            purpose=ExternalIntegrationLink.MARC
+        )
+
         script = CacheMARCFiles(self._db, cmd_args=[])
         script.process_lane(lane, exporter)
 
@@ -593,7 +600,8 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         # If we have a cached file already, and it's old enough, the script will
         # run the exporter twice, first to update that file and second to create
@@ -616,11 +624,13 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        assert exporter.called_with[1][2] < last_week
+        eq_(exporter.integration, exporter.called_with[1][2])
+        assert exporter.called_with[1][3] < last_week
 
         # If we already have a recent cached file, the script won't do anything.
         cached.end_time = yesterday
@@ -636,12 +646,14 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        assert exporter.called_with[1][2] < yesterday
-        assert exporter.called_with[1][2] > last_week
+        eq_(exporter.integration, exporter.called_with[1][2])
+        assert exporter.called_with[1][3] < yesterday
+        assert exporter.called_with[1][3] > last_week
 
         # The update frequency can also be 0, in which case it will always run.
         ConfigurationSetting.for_library_and_externalintegration(
@@ -655,12 +667,14 @@ class TestCacheMARCFiles(TestLaneScript):
 
         eq_(lane, exporter.called_with[0][0])
         assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
-        eq_(None, exporter.called_with[0][2])
+        eq_(exporter.integration, exporter.called_with[0][2])
+        eq_(None, exporter.called_with[0][3])
 
         eq_(lane, exporter.called_with[1][0])
         assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
-        assert exporter.called_with[1][2] < yesterday
-        assert exporter.called_with[1][2] > last_week
+        eq_(exporter.integration, exporter.called_with[1][2])
+        assert exporter.called_with[1][3] < yesterday
+        assert exporter.called_with[1][3] > last_week
 
 
 
@@ -825,9 +839,9 @@ class MockDirectoryImportScript(DirectoryImportScript):
 class TestDirectoryImportScript(DatabaseTest):
 
     def test_do_run(self):
-        """Calling do_run with command-line arguments parses the
-        arguments and calls run_with_arguments.
-        """
+        # Calling do_run with command-line arguments parses the
+        # arguments and calls run_with_arguments.
+
         class Mock(DirectoryImportScript):
             def run_with_arguments(self, *args):
                 self.ran_with = args
@@ -853,7 +867,7 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata1 = object()
         metadata2 = object()
         collection = self._default_collection
-        mirror = object()
+        mirrors = object()
 
         class Mock(DirectoryImportScript):
             """Mock the methods called by run_with_arguments."""
@@ -865,7 +879,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
             def load_collection(self, *args):
                 self.load_collection_calls.append(args)
-                return collection, mirror
+                return collection, mirrors
 
             def load_metadata(self, *args, **kwargs):
                 self.load_metadata_calls.append(args)
@@ -886,8 +900,7 @@ class TestDirectoryImportScript(DatabaseTest):
         script.run_with_arguments(*(basic_args + [True]))
 
         # load_collection was called with the collection and data source names.
-        eq_([('collection name', 'data source name')],
-            script.load_collection_calls)
+        eq_([('collection name', 'data source name')], script.load_collection_calls)
 
         # load_metadata was called with the metadata file and data source name.
         eq_([('metadata file', 'marc', 'data source name')], script.load_metadata_calls)
@@ -915,7 +928,7 @@ class TestDirectoryImportScript(DatabaseTest):
         # Since this is a dry run, the ReplacementPolicy has no mirror
         # set.
         for policy in (policy1, policy2):
-            eq_(None, policy.mirror)
+            eq_(None, policy.mirrors)
             eq_(True, policy.links)
             eq_(True, policy.formats)
             eq_(True, policy.contributions)
@@ -930,57 +943,63 @@ class TestDirectoryImportScript(DatabaseTest):
         [(coll1, o1, policy1, c1, e1, r1),
          (coll1, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
         for policy in policy1, policy2:
-            eq_(mirror, policy.mirror)
+            eq_(mirrors, policy.mirrors)
 
         # timestamp_collection has been set to the Collection that will be
         # used when a Timestamp is created for this script.
         eq_(self._default_collection, script.timestamp_collection)
 
-    def test_load_collection_no_site_wide_mirror(self):
-        # Calling load_collection creates a new collection with
-        # the given data source.
+    def test_load_collection_setting_mirrors(self):
+        # Calling load_collection does not create a new collection.
         script = DirectoryImportScript(self._db)
-        collection, mirror = script.load_collection(
-            "A collection", "A data source"
+        collection, mirrors = script.load_collection("New collection", "data source name")
+        eq_(None, collection)
+        eq_(None, mirrors)
+
+        existing_collection = self._collection(
+            name="some collection", protocol=ExternalIntegration.MANUAL
         )
-        eq_("A collection", collection.name)
-        eq_("A data source", collection.data_source.name)
-        eq_(True, collection.data_source.offers_licenses)
 
-        integration = collection.external_integration
-        eq_(ExternalIntegration.LICENSE_GOAL, integration.goal)
-        eq_(ExternalIntegration.MANUAL,
-            integration.protocol)
+        collection, mirrors = script.load_collection("some collection", "data source name")
 
-        # The Collection has no mirror integration because there is no
-        # sitewide storage integration to use.
-        eq_(None, collection.mirror_integration)
-        eq_(None, mirror)
+        # No covers or books mirrors were created beforehand for this collection
+        # so nothing is returned.
+        eq_(None, collection)
+        eq_(None, mirrors)
 
-    def test_load_collection_installs_site_wide_mirror(self):
-        # We have a sitewide storage integration.
-        integration = self._external_integration("my uploader")
-        integration.goal = ExternalIntegration.STORAGE_GOAL
-
-        # Calling load_collection creates a Collection and installs
-        # the sitewide storage integration as its mirror integration.
-        script = DirectoryImportScript(self._db)
-        collection, mirror = script.load_collection(
-            "A collection", "A data source"
+        # Both mirrors need to set up or else nothing is returned.
+        storage1 = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="name", password="password"
         )
-        eq_(integration, collection.mirror_integration)
-        assert isinstance(mirror, MirrorUploader)
-
-        # Calling create_collection again with the same arguments does
-        # nothing.
-        collection2, mirror2 = script.load_collection(
-            "A collection", "A data source"
+        external_integration_link = self._external_integration_link(
+            integration=existing_collection.external_integration,
+            other_integration=storage1,
+            purpose=ExternalIntegrationLink.COVERS
         )
-        eq_(collection2, collection)
+
+        collection, mirrors = script.load_collection("some collection", "data source name")
+        eq_(None, collection)
+        eq_(None, mirrors)
+
+        # Create another storage and assign it for the books mirror
+        storage2 = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="name", password="password"
+        )
+        external_integration_link = self._external_integration_link(
+            integration=existing_collection.external_integration,
+            other_integration=storage2,
+            purpose=ExternalIntegrationLink.BOOKS
+        )
+
+        collection, mirrors = script.load_collection("some collection", "data source name")
+        eq_(collection, existing_collection)
+        assert isinstance(mirrors[ExternalIntegrationLink.COVERS], MirrorUploader)
+        assert isinstance(mirrors[ExternalIntegrationLink.BOOKS], MirrorUploader)
 
     def test_work_from_metadata(self):
-        """Validate the ability to create a new Work from appropriate metadata.
-        """
+        # Validate the ability to create a new Work from appropriate metadata.
 
         class Mock(MockDirectoryImportScript):
             """In this test we need to verify that annotate_metadata
@@ -1002,8 +1021,10 @@ class TestDirectoryImportScript(DatabaseTest):
         metadata.annotated = False
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy.from_license_source(self._db)
-        mirror = MockS3Uploader()
-        policy.mirror = mirror
+        mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=MockS3Uploader())
+        mirror_type_books = ExternalIntegrationLink.BOOKS
+        mirror_type_covers = ExternalIntegrationLink.COVERS
+        policy.mirrors = mirrors
 
         # Here, work_from_metadata calls annotate_metadata, but does
         # not actually import anything because there are no files 'on
@@ -1048,16 +1069,18 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(RightsStatus.CC0,
             pool.delivery_mechanisms[0].rights_status.uri)
 
-        # The mock S3Uploader has a record of 'uploading' all these files
-        # to S3.
-        epub, full, thumbnail = mirror.uploaded
+        # The two mock S3Uploaders have records of 'uploading' all these files
+        # to S3. The "books" mirror has the epubs and the "covers" mirror
+        # contains all the images.
+        [epub] = mirrors[mirror_type_books].uploaded
+        [full, thumbnail] = mirrors[mirror_type_covers].uploaded
         eq_(epub.url, pool.open_access_download_url)
         eq_(full.url, work.cover_full_url)
         eq_(thumbnail.url, work.cover_thumbnail_url)
 
         # The EPUB Representation was cleared out after the upload, to
         # save database space.
-        eq_("I'm an EPUB.", mirror.content[0])
+        eq_("I'm an EPUB.", mirrors[mirror_type_books].content[0])
         eq_(None, epub.content)
 
     def test_annotate_metadata(self):
@@ -1085,8 +1108,8 @@ class TestDirectoryImportScript(DatabaseTest):
             data_source=gutenberg,
             primary_identifier=identifier
         )
-        mirror = object()
-        policy = ReplacementPolicy(mirror=mirror)
+        mirrors = object()
+        policy = ReplacementPolicy(mirrors=mirrors)
         cover_directory = object()
         ebook_directory = object()
         rights_uri = object()
@@ -1097,7 +1120,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # load_circulation_data was called.
         eq_(
-            (identifier_obj, gutenberg, ebook_directory, mirror,
+            (identifier_obj, gutenberg, ebook_directory, mirrors,
              metadata.title, rights_uri),
             script.load_circulation_data_args
         )
@@ -1129,7 +1152,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # load_cover_link was called.
         eq_(
-            (identifier_obj, gutenberg, cover_directory, mirror),
+            (identifier_obj, gutenberg, cover_directory, mirrors),
             script.load_cover_link_args
         )
 
@@ -1160,8 +1183,8 @@ class TestDirectoryImportScript(DatabaseTest):
 
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        mirror = MockS3Uploader()
-        args = (identifier, gutenberg, "ebooks", mirror, "Name of book",
+        mirrors = dict(books_mirror=MockS3Uploader(),covers_mirror=None)
+        args = (identifier, gutenberg, "ebooks", mirrors, "Name of book",
                 "rights URI")
 
         # There is nothing on the mock filesystem, so in this case
@@ -1213,8 +1236,8 @@ class TestDirectoryImportScript(DatabaseTest):
 
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        mirror = MockS3Uploader()
-        args = (identifier, gutenberg, "covers", mirror)
+        mirrors = dict(covers_mirror=MockS3Uploader(),books_mirror=None)
+        args = (identifier, gutenberg, "covers", mirrors)
 
         # There is nothing on the mock filesystem, so in this case
         # load_cover_link returns None.
