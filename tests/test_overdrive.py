@@ -1577,6 +1577,32 @@ class TestOverdriveFormatSweep(OverdriveAPITest):
         edition, pool = self._edition(with_license_pool=True)
         monitor.process_item(pool.identifier)
 
+    def test_process_item_multiple_licence_pools(self):
+        # Make sure that we only call update_formats once when an item
+        # is part of multiple licensepools.
+
+        class MockApi(MockOverdriveAPI):
+            update_format_calls = 0
+            def update_formats(self, licensepool):
+                self.update_format_calls += 1
+
+        monitor = OverdriveFormatSweep(
+            self._db, self.collection,
+            api_class=MockApi
+        )
+        monitor.api.queue_collection_token()
+        monitor.api.queue_response(404)
+
+        edition = self._edition()
+        collection1 = self._collection(name="Collection 1")
+        pool1 = self._licensepool(edition, collection=collection1)
+
+        collection2 = self._collection(name="Collection 2")
+        pool2 = self._licensepool(edition, collection=collection2)
+
+        monitor.process_item(pool1.identifier)
+        eq_(1, monitor.api.update_format_calls)
+
 
 class TestReaper(OverdriveAPITest):
 
