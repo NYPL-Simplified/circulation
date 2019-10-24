@@ -30,6 +30,7 @@ from api.routes import (
 
 import urllib
 from datetime import timedelta
+from core.local_analytics_provider import LocalAnalyticsProvider
 
 # An admin's session will expire after this amount of time and
 # the admin will have to log in again.
@@ -44,6 +45,9 @@ def setup_admin(_db=None):
     app.secret_key = ConfigurationSetting.sitewide_secret(
         _db, Configuration.SECRET_KEY
     )
+    # Create a default Local Analytics service if one does not
+    # already exist.
+    local_analytics = LocalAnalyticsProvider.initialize(_db)
 
 def allows_admin_auth_setup(f):
     @wraps(f)

@@ -21,10 +21,14 @@ from test_controller import SettingsControllerTest
 
 class TestAnalyticsServices(SettingsControllerTest):
 
-    def test_analytics_services_get_with_no_services(self):
+    def test_analytics_services_get_with_one_default_service(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.get("analytics_services"), [])
+            eq_(len(response.get("analytics_services")), 1)
+            local_analytics = response.get("analytics_services")[0]
+            eq_(local_analytics.get("name"), LocalAnalyticsProvider.NAME);
+            eq_(local_analytics.get("protocol"), LocalAnalyticsProvider.__module__)
+
             protocols = response.get("protocols")
             assert GoogleAnalyticsProvider.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
@@ -35,6 +39,14 @@ class TestAnalyticsServices(SettingsControllerTest):
                           self.manager.admin_analytics_services_controller.process_analytics_services)
 
     def test_analytics_services_get_with_one_service(self):
+        # Delete the local analytics service that gets created by default.
+        local_analytics_default = get_one(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__
+        )
+
+        self._db.delete(local_analytics_default)
+
         ga_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=GoogleAnalyticsProvider.__module__,
@@ -73,11 +85,12 @@ class TestAnalyticsServices(SettingsControllerTest):
         local_service.libraries += [self._default_library]
         with self.request_context_with_admin("/"):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            [service] = response.get("analytics_services")
+            [local_analytics] = response.get("analytics_services")
 
-            eq_(local_service.id, service.get("id"))
-            eq_(local_service.protocol, service.get("protocol"))
-            [library] = service.get("libraries")
+            eq_(local_service.id, local_analytics.get("id"))
+            eq_(local_service.protocol, local_analytics.get("protocol"))
+            eq_(local_analytics.get("protocol"), LocalAnalyticsProvider.__module__)
+            [library] = local_analytics.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
 
     def test_analytics_services_post_errors(self):
@@ -204,13 +217,24 @@ class TestAnalyticsServices(SettingsControllerTest):
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response.status_code, 201)
 
-        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.ANALYTICS_GOAL)
+        service = get_one(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol=GoogleAnalyticsProvider.__module__
+        )
         eq_(service.id, int(response.response[0]))
         eq_(GoogleAnalyticsProvider.__module__, service.protocol)
         eq_("http://test", service.url)
         eq_([library], service.libraries)
         eq_("trackingid", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value)
+
+        local_analytics_default = get_one(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol=LocalAnalyticsProvider.__module__
+        )
+        self._db.delete(local_analytics_default)
 
         # Creating a local analytics service doesn't require a URL.
         with self.request_context_with_admin("/", method="POST"):
