@@ -7,6 +7,7 @@ import datetime
 from pymarc import Record, MARCReader
 from StringIO import StringIO
 import urllib
+from sqlalchemy.orm.session import Session
 
 from . import DatabaseTest
 
@@ -22,6 +23,8 @@ from ..model import (
     LicensePoolDeliveryMechanism,
     Representation,
     RightsStatus,
+    Work,
+    get_one,
 )
 from ..config import CannotLoadConfiguration
 from ..external_search import (
@@ -465,6 +468,29 @@ class TestMARCExporter(DatabaseTest):
         annotator = MockAnnotator()
         record = MARCExporter.create_record(work, annotator, integration=integration)
         eq_(integration, annotator.integration)
+
+    def test_create_record_roundtrip(self):
+        # Create a marc record from a work with special characters
+        # in both the title and author name and round-trip it to
+        # the DB and back again to make sure we are creating records
+        # we can understand.
+
+        annotator = Annotator()
+
+        # Creates a new record and saves it to the database
+        work = self._work(
+          title=u"Little Mimi\u2019s First Counting Lesson",
+          authors=[u"Lagerlo\xf6f, Selma Ottiliana Lovisa,"],
+          with_license_pool=True
+        )
+        record = MARCExporter.create_record(work, annotator)
+
+        # Loads a existing record from the DB
+        db = Session(self.connection)
+        new_work = get_one(db, Work, id=work.id)
+        new_record = MARCExporter.create_record(new_work, annotator)
+
+        eq_(record.as_marc(), new_record.as_marc())
 
     def test_records(self):
         integration = self._integration()
