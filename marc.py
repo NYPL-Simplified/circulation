@@ -588,7 +588,7 @@ class MARCExporter(object):
         record = None
         existing_record = getattr(work, annotator.marc_cache_field)
         if existing_record and not force_create:
-            record = Record(data=existing_record, force_utf8=True)
+            record = Record(data=existing_record.encode("utf8"), force_utf8=True)
 
         if not record:
             record = Record(leader=annotator.leader(work), force_utf8=True)
