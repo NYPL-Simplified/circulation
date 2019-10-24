@@ -484,12 +484,13 @@ class TestMARCExporter(DatabaseTest):
           with_license_pool=True
         )
         record = MARCExporter.create_record(work, annotator)
+        loaded_record = MARCExporter.create_record(work, annotator)
+        eq_(record.as_marc(), loaded_record.as_marc())
 
         # Loads a existing record from the DB
         db = Session(self.connection)
         new_work = get_one(db, Work, id=work.id)
         new_record = MARCExporter.create_record(new_work, annotator)
-
         eq_(record.as_marc(), new_record.as_marc())
 
     def test_records(self):
