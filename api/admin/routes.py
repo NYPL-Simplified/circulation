@@ -70,7 +70,6 @@ def requires_admin(f):
                 setting_up = kwargs.pop('setting_up')
         else:
             setting_up = False
-
         if not setting_up:
             admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
             if isinstance(admin, ProblemDetail):
