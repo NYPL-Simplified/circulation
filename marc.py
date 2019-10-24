@@ -609,7 +609,7 @@ class MARCExporter(object):
             annotator.add_ebooks_subject(record)
 
             data = record.as_marc()
-            setattr(work, annotator.marc_cache_field, data)
+            setattr(work, annotator.marc_cache_field, data.decode("utf8"))
 
         # Add additional fields that should not be cached.
         annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
