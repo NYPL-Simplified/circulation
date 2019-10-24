@@ -65,6 +65,7 @@
 
 <span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">core.local_analytics_provider</span> <span class="k">import</span> <span class="n">LocalAnalyticsProvider</span>
 
 <span class="c1"># An admin&#39;s session will expire after this amount of time and</span>
 <span class="c1"># the admin will have to log in again.</span>
@@ -78,7 +79,10 @@
     <span class="c1"># The secret key is used for signing cookies for admin login</span>
     <span class="n">app</span><span class="o">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide_secret</span><span class="p">(</span>
         <span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">SECRET_KEY</span>
-    <span class="p">)</span></div>
+    <span class="p">)</span>
+    <span class="c1"># Create a default Local Analytics service if one does not</span>
+    <span class="c1"># already exist.</span>
+    <span class="n">local_analytics</span> <span class="o">=</span> <span class="n">LocalAnalyticsProvider</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="allows_admin_auth_setup"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.allows_admin_auth_setup">[docs]</a><span class="k">def</span> <span class="nf">allows_admin_auth_setup</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
     <span class="nd">@wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>

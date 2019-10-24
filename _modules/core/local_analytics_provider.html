@@ -34,7 +34,13 @@
             
   <h1>Source code for core.local_analytics_provider</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">Session</span><span class="p">,</span> <span class="n">CirculationEvent</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">Session</span><span class="p">,</span>
+    <span class="n">CirculationEvent</span><span class="p">,</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">get_one</span><span class="p">,</span>
+    <span class="n">create</span>
+<span class="p">)</span>
 
 <div class="viewcode-block" id="LocalAnalyticsProvider"><a class="viewcode-back" href="../../core.html#core.local_analytics_provider.LocalAnalyticsProvider">[docs]</a><span class="k">class</span> <span class="nc">LocalAnalyticsProvider</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="n">NAME</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Local Analytics&quot;</span><span class="p">)</span>
@@ -96,7 +102,31 @@
         <span class="k">return</span> <span class="n">CirculationEvent</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">license_pool</span><span class="p">,</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">old_value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
             <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="n">neighborhood</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+    
+<div class="viewcode-block" id="LocalAnalyticsProvider.initialize"><a class="viewcode-back" href="../../core.html#core.local_analytics_provider.LocalAnalyticsProvider.initialize">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find or create a local analytics service.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># If a local analytics service already exists, return it.</span>
+        <span class="n">local_analytics</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="n">goal</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ANALYTICS_GOAL</span>
+        <span class="p">)</span>
+
+        <span class="c1"># If a local analytics service already exists, don&#39;t create a</span>
+        <span class="c1"># default one. Otherwise, create it with default name of</span>
+        <span class="c1"># &quot;Local Analytics&quot;.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">local_analytics</span><span class="p">:</span>
+            <span class="n">local_analytics</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span>
+                <span class="n">protocol</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+                <span class="n">goal</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ANALYTICS_GOAL</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">NAME</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">local_analytics</span></div></div>
 
 <span class="n">Provider</span> <span class="o">=</span> <span class="n">LocalAnalyticsProvider</span>
 </pre></div>
