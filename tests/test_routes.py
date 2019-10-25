@@ -177,7 +177,6 @@ class RouteTest(ControllerTest):
         # Map an incoming URL to the name of a function within routes.py
         # and a set of arguments to the function.
         function_name, kwargs = self.resolver.match(url, method)
-
         # Locate the corresponding function in our mock app.
         mock_function = getattr(self.routes, function_name)
 
@@ -243,7 +242,6 @@ class RouteTest(ControllerTest):
         # other potential methods and verify that MethodNotAllowed is
         # raised each time.
         check = set(['GET', 'POST', 'PUT', 'DELETE']) - set(methods)
-
         # Treat HEAD specially. Any controller that supports GET
         # automatically supports HEAD. So we only assert that HEAD
         # fails if the method supports neither GET nor HEAD.

@@ -21,7 +21,6 @@ from api.config import Configuration
 from api.controller import CirculationManager
 from api.admin.controller import AdminController
 from api.admin.controller import setup_admin_controllers
-from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.routes import (
     exception_handler,
@@ -61,6 +60,9 @@ class AdminMockController(MockController):
                 "authenticated_admin_from_request called without authorizing",
                 401
             )
+    
+    def bulk_circulation_events(self):
+        return "date", "date", "date_end", "library"
 
 class AdminRouteTest(RouteTest):
     def setup(self, _db=None):
@@ -76,8 +78,8 @@ class AdminRouteTest(RouteTest):
             self.adobe_vendor_id.password = self.TEST_NODE_VALUE
             circ_manager = CirculationManager(self._db, testing=True)
             manager = AdminController(circ_manager)
-            setup_admin_controllers(manager.manager)
-            RouteTest.REAL_CIRCULATION_MANAGER = manager.manager
+            setup_admin_controllers(circ_manager)
+            RouteTest.REAL_CIRCULATION_MANAGER = circ_manager
 
         app = MockApp()
         self.routes = routes
@@ -100,7 +102,7 @@ class AdminRouteTest(RouteTest):
             self.real_controller = None
 
         self.routes.app = app
-    
+
     def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
         """First verify that an unauthenticated request fails. Then make an
         authenticated request to `url` and verify the results, as with
@@ -128,7 +130,7 @@ class AdminRouteTest(RouteTest):
             # assertions in this test function.
             self.manager.admin_sign_in_controller.authenticated = False
 
-class TestIndex(AdminRouteTest):
+class TestAdminSignIn(AdminRouteTest):
 
     CONTROLLER_NAME = "admin_sign_in_controller"
 
@@ -154,3 +156,199 @@ class TestIndex(AdminRouteTest):
         url = '/admin/change_password'
         self.assert_authenticated_request_calls(url, self.controller.change_password, http_method='POST')
         self.assert_supported_methods(url, 'POST')
+
+class TestAdminWork(AdminRouteTest):
+
+    CONTROLLER_NAME = "admin_work_controller"
+
+    def test_details(self):
+        url = "/admin/works/<identifier_type>/an/identifier"
+        self.assert_authenticated_request_calls(
+            url, self.controller.details, '<identifier_type>', 'an/identifier'
+        )
+        self.assert_supported_methods(url, 'GET')
+
+    def test_classifications(self):
+        url = "/admin/works/<identifier_type>/an/identifier/classifications"
+        self.assert_authenticated_request_calls(
+            url, self.controller.classifications, '<identifier_type>', 'an/identifier'
+        )
+        self.assert_supported_methods(url, 'GET')
+
+    def test_preview_book_cover(self):
+        url = "/admin/works/<identifier_type>/an/identifier/preview_book_cover"
+        self.assert_authenticated_request_calls(
+            url, self.controller.preview_book_cover, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_change_book_cover(self):
+        url = "/admin/works/<identifier_type>/an/identifier/change_book_cover"
+        self.assert_authenticated_request_calls(
+            url, self.controller.change_book_cover, '<identifier_type>',
+            'an/identifier', http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_complaints(self):
+        url = "/admin/works/<identifier_type>/an/identifier/complaints"
+        self.assert_authenticated_request_calls(
+            url, self.controller.complaints, '<identifier_type>', 'an/identifier'
+        )
+        # self.assert_supported_methods(url, 'GET')
+
+    def test_custom_lists(self):
+        url = "/admin/works/<identifier_type>/an/identifier/lists"
+        self.assert_authenticated_request_calls(
+            url, self.controller.custom_lists, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'GET', 'POST')
+
+    def test_edit(self):
+        url = "/admin/works/<identifier_type>/an/identifier/edit"
+        self.assert_authenticated_request_calls(
+            url, self.controller.edit, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_suppress(self):
+        url = "/admin/works/<identifier_type>/an/identifier/suppress"
+        self.assert_authenticated_request_calls(
+            url, self.controller.suppress, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_unsuppress(self):
+        url = "/admin/works/<identifier_type>/an/identifier/unsuppress"
+        self.assert_authenticated_request_calls(
+            url, self.controller.unsuppress, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_refresh_metadata(self):
+        url = "/admin/works/<identifier_type>/an/identifier/refresh"
+        self.assert_authenticated_request_calls(
+            url, self.controller.refresh_metadata, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_resolve_complaints(self):
+        url = "/admin/works/<identifier_type>/an/identifier/resolve_complaints"
+        self.assert_authenticated_request_calls(
+            url, self.controller.resolve_complaints, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_edit_classifications(self):
+        url = "/admin/works/<identifier_type>/an/identifier/edit_classifications"
+        self.assert_authenticated_request_calls(
+            url, self.controller.edit_classifications, '<identifier_type>', 'an/identifier',
+            http_method='POST'
+        )
+        # self.assert_supported_methods(url, 'POST')
+
+    def test_roles(self):
+        url = "/admin/roles"
+        self.assert_request_calls(url, self.controller.roles)
+
+    def test_languages(self):
+        url = "/admin/languages"
+        self.assert_request_calls(url, self.controller.languages)
+
+    def test_media(self):
+        url = "/admin/media"
+        self.assert_request_calls(url, self.controller.media)
+
+    def test_right_status(self):
+        url = "/admin/rights_status"
+        self.assert_request_calls(url, self.controller.rights_status)
+
+class TestAdminFeed(AdminRouteTest):
+
+    CONTROLLER_NAME = "admin_feed_controller"
+
+    def test_complaints(self):
+        url = "/admin/complaints"
+        self.assert_authenticated_request_calls(url, self.controller.complaints)
+
+    def test_suppressed(self):
+        url = "/admin/suppressed"
+        self.assert_authenticated_request_calls(url, self.controller.suppressed)
+
+    def test_genres(self):
+        url = "/admin/genres"
+        self.assert_authenticated_request_calls(url, self.controller.genres)
+
+class TestAdminDashboard(AdminRouteTest):
+
+    CONTROLLER_NAME = "admin_dashboard_controller"
+
+    # def test_bulk_circulation_events(self):
+    #     url = "/admin/bulk_circulation_events"
+    #     self.assert_authenticated_request_calls(
+    #         url, self.controller.bulk_circulation_events
+    #     )
+
+    def test_circulation_events(self):
+        url = "/admin/circulation_events"
+        self.assert_authenticated_request_calls(url, self.controller.circulation_events)
+
+    def test_stats(self):
+        url = "/admin/stats"
+        self.assert_authenticated_request_calls(url, self.controller.stats)
+
+class TestAdminLibrarySettings(AdminRouteTest):
+
+    CONTROLLER_NAME = "admin_library_settings_controller"
+
+    def test_process_get(self):
+        url = "admin/libraries"
+        self.assert_authenticated_request_calls(
+            url, self.controller.process_get, http_method='GET'
+        )
+
+    # def test_process_post(self):
+    #     url = "admin/libraries"
+    #     set_trace()
+    #     self.assert_authenticated_request_calls(
+    #         url, self.controller.process_post, http_method='POST'
+    #     )
+
+    def test_delete(self):
+        url = "/admin/library/<library_uuid>"
+        self.assert_authenticated_request_calls(
+            url, self.controller.process_delete, '<library_uuid>', http_method='DELETE'
+        )
+
+class TestAdminCollectionSettings(AdminRouteTest):
+
+    CONTROLLER_NAME = "admin_collection_settings_controller"
+
+    def test_process_get(self):
+        url = "admin/collections"
+        self.assert_authenticated_request_calls(
+            url, self.controller.process_collections, http_method='GET'
+        )
+
+    def test_process_post(self):
+        url = "admin/collection/<collection_id>"
+        self.assert_authenticated_request_calls(
+            url, self.controller.process_delete, '<collection_id>', http_method='DELETE'
+        )
+
+class TestAdminCollectionSelfTests(AdminRouteTest):
+
+    CONTROLLER_NAME = "admin_collection_self_tests_controller"
+
+    def test_process_collection_self_tests(self):
+        url = "admin/collection_self_tests/<identifier>"
+        self.assert_authenticated_request_calls(
+            url, self.controller.process_collection_self_tests, '<identifier>'
+        )
