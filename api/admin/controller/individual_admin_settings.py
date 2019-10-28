@@ -18,6 +18,12 @@ from api.admin.validator import Validator
 
 class IndividualAdminSettingsController(SettingsController):
 
+    def process_individual_admins(self):
+        if flask.request.method == 'GET':
+            return self.process_get()
+        else:
+            return self.process_post()
+
     def process_get(self):
         admins = []
         for admin in self._db.query(Admin):

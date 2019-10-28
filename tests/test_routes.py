@@ -94,6 +94,7 @@ class MockController(MockControllerMethod):
 
         self._cache = {}
         self.authenticated = False
+        self.csrf_token = False
 
     def authenticated_patron_from_request(self):
         if self.authenticated:
