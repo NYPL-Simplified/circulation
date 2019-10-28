@@ -23,7 +23,7 @@ from templates import (
     admin_sign_in_again as sign_in_again_template,
 )
 from api.routes import (
-    # has_library,
+    has_library,
     library_route,
     allows_library
 )
@@ -78,21 +78,6 @@ def requires_admin(f):
                 return admin
 
         return f(*args, **kwargs)
-    return decorated
-
-def has_library(f):
-    """Decorator to extract the library short name from the arguments."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'library_short_name' in kwargs:
-            library_short_name = kwargs.pop("library_short_name")
-        else:
-            library_short_name = None
-        library = app.manager.index_controller.library_for_request(library_short_name)
-        if isinstance(library, ProblemDetail):
-            return library.response
-        else:
-            return f(*args, **kwargs)
     return decorated
 
 def requires_csrf_token(f):

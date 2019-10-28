@@ -18,12 +18,12 @@ from core.model import (
 )
 
 from api import app
+from api import routes as api_routes
 from api.config import Configuration
 from api.controller import CirculationManager
 from api.admin.controller import AdminController
 from api.admin.controller import setup_admin_controllers
 from api.admin.problem_details import *
-
 from api.routes import (
     exception_handler,
     h as error_handler_object,
@@ -31,25 +31,26 @@ from api.routes import (
 from api.admin import routes
 from ..test_controller import ControllerTest
 from ..test_routes import (
+    MockApp,
     MockManager,
     MockController,
     RouteTest
 )
 
-class MockApp(object):
+class MockAdminApp(object):
     """Pretends to be a Flask application with a configured
     CirculationManager and Admin routes.
     """
     def __init__(self):
-        self.manager = AdminMockManager()
+        self.manager = MockAdminManager()
 
-class AdminMockManager(MockManager):
+class MockAdminManager(MockManager):
     def __getattr__(self, controller_name):
         return self._cache.setdefault(
-            controller_name, AdminMockController(controller_name)
+            controller_name, MockAdminController(controller_name)
         )
 
-class AdminMockController(MockController):
+class MockAdminController(MockController):
     AUTHENTICATED_ADMIN = "i am a mock admin"
 
     def authenticated_admin_from_request(self):
@@ -57,6 +58,9 @@ class AdminMockController(MockController):
             admin = object()
             flask.request.admin = self.AUTHENTICATED_ADMIN
             return self.AUTHENTICATED_ADMIN
+        # For the redirect case we want to return a Problem Detail.
+        elif self.authenticated_problem_detail:
+            return INVALID_ADMIN_CREDENTIALS
         else:
             return Response(
                 "authenticated_admin_from_request called without authorizing",
@@ -89,7 +93,10 @@ class AdminRouteTest(RouteTest):
             setup_admin_controllers(circ_manager)
             RouteTest.REAL_CIRCULATION_MANAGER = circ_manager
 
-        app = MockApp()
+        app = MockAdminApp()
+        # Also mock the api app in order to use functions from api/routes
+        api_app = MockApp()
+        api_routes.app = api_app
         self.routes = routes
         self.manager = app.manager
         self.original_app = self.routes.app
@@ -114,7 +121,7 @@ class AdminRouteTest(RouteTest):
     def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
         """First verify that an unauthenticated request fails. Then make an
         authenticated request to `url` and verify the results, as with
-        assert_request_calls
+        assert_request_calls.
         """
         authentication_required = kwargs.pop("authentication_required", True)
 
@@ -132,6 +139,8 @@ class AdminRouteTest(RouteTest):
         self.manager.admin_sign_in_controller.authenticated = True
         try:
             kwargs['http_method'] = http_method
+            # The file response case is specific to the bulk circulation
+            # events route where a CSV file is returned.
             if kwargs.get('file_response', None) is not None:
                 self.assert_file_response(url, *args, **kwargs)
             else:
@@ -149,6 +158,8 @@ class AdminRouteTest(RouteTest):
     
     def assert_redirect_call(self, url, *args, **kwargs):
 
+        # Correctly render the sign in again template when the admin
+        # is authenticated and there is a csrf token.
         self.manager.admin_sign_in_controller.csrf_token = True
         self.manager.admin_sign_in_controller.authenticated = True
         http_method = kwargs.pop('http_method', 'GET')
@@ -157,8 +168,28 @@ class AdminRouteTest(RouteTest):
         # A Flask template string is returned.
         assert "You are now logged in" in response
 
-        # Either not being authenticated or not having a csrf token fails
-        # but setting both to false.
+        # Even if the admin is authenticated but there is no
+        # csrf token, a redirect will occur to sign the admin in.
+        self.manager.admin_sign_in_controller.csrf_token = False
+        response = self.request(url, http_method)
+
+        eq_(302, response.status_code)
+        assert "Redirecting..." in response.data
+
+        # If there is a csrf token but the Admin is not authenticated,
+        # redirect them.
+
+        self.manager.admin_sign_in_controller.csrf_token = True
+        self.manager.admin_sign_in_controller.authenticated = False
+        # For this case we want the function to return a problem detail.
+        self.manager.admin_sign_in_controller.authenticated_problem_detail = True
+        response = self.request(url, http_method)
+
+        eq_(302, response.status_code)
+        assert "Redirecting..." in response.data
+
+        # Not being authenticated and not having a csrf token fail
+        # redirects the admin to sign in again.
         self.manager.admin_sign_in_controller.csrf_token = False
         self.manager.admin_sign_in_controller.authenticated = False
         response = self.request(url, http_method)
@@ -166,6 +197,8 @@ class AdminRouteTest(RouteTest):
         # No admin or csrf token so redirect.
         eq_(302, response.status_code)
         assert "Redirecting..." in response.data
+
+        self.manager.admin_sign_in_controller.authenticated_problem_detail = False
 
 
 class TestAdminSignIn(AdminRouteTest):
