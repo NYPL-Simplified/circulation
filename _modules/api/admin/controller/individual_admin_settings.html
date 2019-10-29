@@ -53,6 +53,12 @@
 
 <div class="viewcode-block" id="IndividualAdminSettingsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController">[docs]</a><span class="k">class</span> <span class="nc">IndividualAdminSettingsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
 
+<div class="viewcode-block" id="IndividualAdminSettingsController.process_individual_admins"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.process_individual_admins">[docs]</a>    <span class="k">def</span> <span class="nf">process_individual_admins</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_post</span><span class="p">()</span></div>
+
 <div class="viewcode-block" id="IndividualAdminSettingsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">admins</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">admin</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Admin</span><span class="p">):</span>

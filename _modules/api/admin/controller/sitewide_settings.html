@@ -44,6 +44,12 @@
 
 <div class="viewcode-block" id="SitewideConfigurationSettingsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_settings.SitewideConfigurationSettingsController">[docs]</a><span class="k">class</span> <span class="nc">SitewideConfigurationSettingsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
 
+<div class="viewcode-block" id="SitewideConfigurationSettingsController.process_services"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_settings.SitewideConfigurationSettingsController.process_services">[docs]</a>    <span class="k">def</span> <span class="nf">process_services</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_post</span><span class="p">()</span></div>
+
 <div class="viewcode-block" id="SitewideConfigurationSettingsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.sitewide_settings.SitewideConfigurationSettingsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
         <span class="n">sitewide_settings</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">SITEWIDE_SETTINGS</span>

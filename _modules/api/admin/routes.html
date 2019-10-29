@@ -105,7 +105,6 @@
                 <span class="n">setting_up</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;setting_up&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">setting_up</span> <span class="o">=</span> <span class="kc">False</span>
-
         <span class="k">if</span> <span class="ow">not</span> <span class="n">setting_up</span><span class="p">:</span>
             <span class="n">admin</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_sign_in_controller</span><span class="o">.</span><span class="n">authenticated_admin_from_request</span><span class="p">()</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">admin</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
@@ -342,10 +341,7 @@
 <span class="nd">@requires_admin</span>
 <span class="nd">@requires_csrf_token</span>
 <span class="k">def</span> <span class="nf">libraries</span><span class="p">():</span>
-    <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_library_settings_controller</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_library_settings_controller</span><span class="o">.</span><span class="n">process_post</span><span class="p">()</span></div>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_library_settings_controller</span><span class="o">.</span><span class="n">process_libraries</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="library"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.library">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/library/&lt;library_uuid&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DELETE&quot;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>
@@ -361,19 +357,19 @@
 <span class="k">def</span> <span class="nf">collections</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_settings_controller</span><span class="o">.</span><span class="n">process_collections</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="collection_self_tests"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.collection_self_tests">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/collection_self_tests/&lt;identifier&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
-<span class="nd">@returns_json_or_response_or_problem_detail</span>
-<span class="nd">@requires_admin</span>
-<span class="nd">@requires_csrf_token</span>
-<span class="k">def</span> <span class="nf">collection_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_self_tests_controller</span><span class="o">.</span><span class="n">process_collection_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
-
 <div class="viewcode-block" id="collection"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.collection">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/collection/&lt;collection_id&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DELETE&quot;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>
 <span class="nd">@requires_admin</span>
 <span class="nd">@requires_csrf_token</span>
 <span class="k">def</span> <span class="nf">collection</span><span class="p">(</span><span class="n">collection_id</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_settings_controller</span><span class="o">.</span><span class="n">process_delete</span><span class="p">(</span><span class="n">collection_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="collection_self_tests"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.collection_self_tests">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/collection_self_tests/&lt;identifier&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="nd">@returns_json_or_response_or_problem_detail</span>
+<span class="nd">@requires_admin</span>
+<span class="nd">@requires_csrf_token</span>
+<span class="k">def</span> <span class="nf">collection_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_collection_self_tests_controller</span><span class="o">.</span><span class="n">process_collection_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="collection_library_registrations"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.collection_library_registrations">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/collection_library_registrations&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;POST&#39;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>
@@ -402,10 +398,7 @@
 <span class="nd">@requires_admin</span>
 <span class="nd">@requires_csrf_token</span>
 <span class="k">def</span> <span class="nf">individual_admins</span><span class="p">():</span>
-    <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_individual_admin_settings_controller</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_individual_admin_settings_controller</span><span class="o">.</span><span class="n">process_post</span><span class="p">()</span></div>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_individual_admin_settings_controller</span><span class="o">.</span><span class="n">process_individual_admins</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="individual_admin"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.individual_admin">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/individual_admin/&lt;email&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DELETE&quot;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>
@@ -486,13 +479,6 @@
 <span class="k">def</span> <span class="nf">cdn_services</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_cdn_services_controller</span><span class="o">.</span><span class="n">process_cdn_services</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="search_service_self_tests"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.search_service_self_tests">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/search_service_self_tests/&lt;identifier&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
-<span class="nd">@returns_json_or_response_or_problem_detail</span>
-<span class="nd">@requires_admin</span>
-<span class="nd">@requires_csrf_token</span>
-<span class="k">def</span> <span class="nf">search_service_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_search_service_self_tests_controller</span><span class="o">.</span><span class="n">process_search_service_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
-
 <div class="viewcode-block" id="cdn_service"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.cdn_service">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/cdn_service/&lt;service_id&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DELETE&quot;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>
 <span class="nd">@requires_admin</span>
@@ -513,6 +499,14 @@
 <span class="nd">@requires_csrf_token</span>
 <span class="k">def</span> <span class="nf">search_service</span><span class="p">(</span><span class="n">service_id</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_search_services_controller</span><span class="o">.</span><span class="n">process_delete</span><span class="p">(</span><span class="n">service_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="search_service_self_tests"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.search_service_self_tests">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/search_service_self_tests/&lt;identifier&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="nd">@returns_json_or_response_or_problem_detail</span>
+<span class="nd">@requires_admin</span>
+<span class="nd">@requires_csrf_token</span>
+<span class="k">def</span> <span class="nf">search_service_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_search_service_self_tests_controller</span><span class="o">.</span><span class="n">process_search_service_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
+
 
 <div class="viewcode-block" id="storage_services"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.storage_services">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/storage_services&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>
@@ -561,10 +555,7 @@
 <span class="nd">@requires_admin</span>
 <span class="nd">@requires_csrf_token</span>
 <span class="k">def</span> <span class="nf">sitewide_settings</span><span class="p">():</span>
-    <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_configuration_settings_controller</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_configuration_settings_controller</span><span class="o">.</span><span class="n">process_post</span><span class="p">()</span></div>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_sitewide_configuration_settings_controller</span><span class="o">.</span><span class="n">process_services</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="sitewide_setting"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.sitewide_setting">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/sitewide_setting/&lt;key&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DELETE&quot;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>

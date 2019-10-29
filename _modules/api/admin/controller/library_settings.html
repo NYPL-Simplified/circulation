@@ -69,6 +69,12 @@
 
 <div class="viewcode-block" id="LibrarySettingsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.library_settings.LibrarySettingsController">[docs]</a><span class="k">class</span> <span class="nc">LibrarySettingsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
 
+<div class="viewcode-block" id="LibrarySettingsController.process_libraries"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.library_settings.LibrarySettingsController.process_libraries">[docs]</a>    <span class="k">def</span> <span class="nf">process_libraries</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;GET&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_post</span><span class="p">()</span></div>
+
 <div class="viewcode-block" id="LibrarySettingsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.library_settings.LibrarySettingsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">libraries</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">library</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Library</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Library</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
