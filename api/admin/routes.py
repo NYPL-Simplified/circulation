@@ -70,7 +70,6 @@ def requires_admin(f):
                 setting_up = kwargs.pop('setting_up')
         else:
             setting_up = False
-
         if not setting_up:
             admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
             if isinstance(admin, ProblemDetail):
@@ -307,10 +306,7 @@ def stats():
 @requires_admin
 @requires_csrf_token
 def libraries():
-    if flask.request.method == 'GET':
-        return app.manager.admin_library_settings_controller.process_get()
-    else:
-        return app.manager.admin_library_settings_controller.process_post()
+    return app.manager.admin_library_settings_controller.process_libraries()
 
 @app.route("/admin/library/<library_uuid>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
@@ -326,19 +322,19 @@ def library(library_uuid):
 def collections():
     return app.manager.admin_collection_settings_controller.process_collections()
 
-@app.route("/admin/collection_self_tests/<identifier>", methods=["GET", "POST"])
-@returns_json_or_response_or_problem_detail
-@requires_admin
-@requires_csrf_token
-def collection_self_tests(identifier):
-    return app.manager.admin_collection_self_tests_controller.process_collection_self_tests(identifier)
-
 @app.route("/admin/collection/<collection_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def collection(collection_id):
     return app.manager.admin_collection_settings_controller.process_delete(collection_id)
+
+@app.route("/admin/collection_self_tests/<identifier>", methods=["GET", "POST"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def collection_self_tests(identifier):
+    return app.manager.admin_collection_self_tests_controller.process_collection_self_tests(identifier)
 
 @app.route("/admin/collection_library_registrations", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
@@ -367,10 +363,7 @@ def admin_auth_service(protocol):
 @requires_admin
 @requires_csrf_token
 def individual_admins():
-    if flask.request.method == 'GET':
-        return app.manager.admin_individual_admin_settings_controller.process_get()
-    else:
-        return app.manager.admin_individual_admin_settings_controller.process_post()
+    return app.manager.admin_individual_admin_settings_controller.process_individual_admins()
 
 @app.route("/admin/individual_admin/<email>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
@@ -451,13 +444,6 @@ def analytics_service(service_id):
 def cdn_services():
     return app.manager.admin_cdn_services_controller.process_cdn_services()
 
-@app.route("/admin/search_service_self_tests/<identifier>", methods=["GET", "POST"])
-@returns_json_or_response_or_problem_detail
-@requires_admin
-@requires_csrf_token
-def search_service_self_tests(identifier):
-    return app.manager.admin_search_service_self_tests_controller.process_search_service_self_tests(identifier)
-
 @app.route("/admin/cdn_service/<service_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
@@ -478,6 +464,14 @@ def search_services():
 @requires_csrf_token
 def search_service(service_id):
     return app.manager.admin_search_services_controller.process_delete(service_id)
+
+@app.route("/admin/search_service_self_tests/<identifier>", methods=["GET", "POST"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def search_service_self_tests(identifier):
+    return app.manager.admin_search_service_self_tests_controller.process_search_service_self_tests(identifier)
+
 
 @app.route("/admin/storage_services", methods=["GET", "POST"])
 @returns_json_or_response_or_problem_detail
@@ -526,10 +520,7 @@ def discovery_service(service_id):
 @requires_admin
 @requires_csrf_token
 def sitewide_settings():
-    if flask.request.method == 'GET':
-        return app.manager.admin_sitewide_configuration_settings_controller.process_get()
-    else:
-        return app.manager.admin_sitewide_configuration_settings_controller.process_post()
+    return app.manager.admin_sitewide_configuration_settings_controller.process_services()
 
 @app.route("/admin/sitewide_setting/<key>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
