@@ -96,10 +96,11 @@ class AdminRouteTest(RouteTest):
         app = MockAdminApp()
         # Also mock the api app in order to use functions from api/routes
         api_app = MockApp()
-        api_routes.app = api_app
         self.routes = routes
+        self.api_routes = api_routes
         self.manager = app.manager
         self.original_app = self.routes.app
+        self.original_api_app = self.api_routes.app
         self.resolver = self.original_app.url_map.bind('', '/')
 
         # For convenience, set self.controller to a specific controller
@@ -117,6 +118,12 @@ class AdminRouteTest(RouteTest):
             self.real_controller = None
 
         self.routes.app = app
+        # Need to also mock the route app from /api/routes.
+        self.api_routes.app = api_app
+
+    def teardown(self):
+        super(AdminRouteTest, self).teardown()
+        self.api_routes.app = self.original_api_app
 
     def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
         """First verify that an unauthenticated request fails. Then make an
@@ -814,8 +821,15 @@ class TestAdminStatic(AdminRouteTest):
     def test_static_file(self):
         url = "/admin/static/circulation-web.js"
 
-        local_path = os.path.abspath(os.path.dirname(__file__))
-        local_path = local_path.split('/tests')[0] + "/api/admin/node_modules/simplified-circulation-web/dist"
+        # Go to the back to the root folder to get the right
+        # path for the static files.
+        local_path = os.path.abspath(
+            os.path.join(
+                os.path.abspath(os.path.dirname(__file__)),
+                "../..",
+                "api/admin/node_modules/simplified-circulation-web/dist"
+            )
+        )
 
         self.assert_request_calls(
             url, self.controller.static_file, local_path, "circulation-web.js"
