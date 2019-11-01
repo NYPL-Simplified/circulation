@@ -15,6 +15,7 @@ from ..model import (
     ExternalIntegration,
     Library,
     create,
+    get_one
 )
 import json
 
@@ -168,3 +169,34 @@ class TestAnalytics(DatabaseTest):
         # It's counted as a sitewide event, but not as a library event.
         eq_(3, sitewide_provider.count)
         eq_(1, library_provider.count)
+
+    def test_initialize(self):
+
+        local_analytics = get_one(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL
+        )
+
+        # There shouldn't exist a local analytics service.
+        eq_(None, local_analytics)
+
+        # So when the Local Analytics provider is initialized, it will
+        # create one with the default name of "Local Analytics".
+        local_analytics = LocalAnalyticsProvider.initialize(self._db)
+
+        assert isinstance(local_analytics, ExternalIntegration)
+        eq_(local_analytics.name, LocalAnalyticsProvider.NAME)
+
+        # When an analytics provider is initialized, retrieving a
+        # local analytics service should return the same one.
+        local_analytics = LocalAnalyticsProvider.initialize(self._db)
+
+        local_analytics_2 = get_one(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL
+        )
+
+        eq_(local_analytics_2.id, local_analytics.id)
+        eq_(local_analytics_2.name, local_analytics.name)
