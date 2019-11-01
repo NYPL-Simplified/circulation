@@ -194,14 +194,13 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
           PatronData class in authenticator.py and the Patron class in
           core/model/patron.py.
 
-          Upon login, the patron's personal name is sent via HTTP to the
-          authorized client, running on a device being operated by the
-          patron. (See the OAuthController.oauth_authentication_callback()
-          method for this.) The Open eBooks client displays the patron's
-          personal name to show who is logged in. This is important in
-          an environment where devices are shared across a
-          classroom. When the patron logs out, the Open eBooks client
-          destroys this information.
+          Upon login, the patron's personal name is sent via HTTP to
+          the authorized client, running on a device being operated by
+          the patron. (See the OAuthController.oauth_authentication_callback()
+          method for this.) Access to this information is important in an
+          environment where devices are shared across a classroom. When
+          the patron logs out, the Open eBooks client destroys this
+          information.
 
         * If the patron is a student, their grade level
           ("Kindergarten" through "12") is converted into an Open
@@ -224,7 +223,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
           validate the school's Title I status. The school ID and NCES
           ID are not stored in the PatronData object or persisted to
           the database. Any patron who ends up in the database is
-          presumed to have passed this test.
+          presumed to have passed this check.
 
         To summarize, an opaque ID associated with the patron is
         persisted to the database, as is a coarse-grained indicator of
