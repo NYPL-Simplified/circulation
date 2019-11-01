@@ -188,13 +188,20 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
           personal information about them.
 
         * The patron's personal name is passed out of this method
-          through the PatronData object. This information is available
-          for the duration of the active HTTP request (e.g. it could
-          be used to display a welcome message) but it cannot be
-          persisted to the database, because there's no place to store
-          it. You can verify this by looking at the PatronData class
-          in authenticator.py and the Patron class in
+          through the PatronData object. This information cannot be
+          persisted to the server-side database, because there's no
+          place to store it. You can verify this by looking at the
+          PatronData class in authenticator.py and the Patron class in
           core/model/patron.py.
+
+          Upon login, the patron's personal name is sent via HTTP to the
+          authorized client, running on a device being operated by the
+          patron. (See the OAuthController.oauth_authentication_callback()
+          method for this.) The Open eBooks client displays the patron's
+          personal name to show who is logged in. This is important in
+          an environment where devices are shared across a
+          classroom. When the patron logs out, the Open eBooks client
+          destroys this information.
 
         * If the patron is a student, their grade level
           ("Kindergarten" through "12") is converted into an Open
@@ -221,14 +228,15 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         To summarize, an opaque ID associated with the patron is
         persisted to the database, as is a coarse-grained indicator of
-        the patron's age. The patron's personal name is available for
-        the duration of the current request, but cannot be persisted
-        to the database. No other information about the patron makes
-        it out of this method.
+        the patron's age. The patron's personal name is available to
+        the server for the duration of the current request, but cannot
+        be persisted to the database. The patron's personal name is
+        made available to the authorized client, which destroys that
+        information on logout. No other information about the patron
+        makes it out of this method.
 
         :return: A ProblemDetail if there's a problem. Otherwise, a PatronData
             with the data listed above.
-
         """
         bearer_headers = {
             'Authorization': 'Bearer %s' % token
