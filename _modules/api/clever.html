@@ -206,9 +206,71 @@
         <span class="p">)</span>
 
 <div class="viewcode-block" id="CleverAuthenticationAPI.remote_patron_lookup"><a class="viewcode-back" href="../../api.clever.html#api.clever.CleverAuthenticationAPI.remote_patron_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">remote_patron_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Use a bearer token to look up detailed patron information.</span>
+        <span class="sd">&quot;&quot;&quot;Use a bearer token for a patron to look up that patron&#39;s Clever</span>
+<span class="sd">        record through the Clever API.</span>
 
-<span class="sd">        :return: A ProblemDetail if there&#39;s a problem. Otherwise, a PatronData.</span>
+<span class="sd">        This is the only method that has access to a patron&#39;s personal</span>
+<span class="sd">        information as provided by Clever. Here&#39;s an inventory of the</span>
+<span class="sd">        information we process and what happens to it:</span>
+
+<span class="sd">        * The Clever &#39;id&#39; associated with this patron is passed out of</span>
+<span class="sd">          this method through the PatronData object, and persisted to</span>
+<span class="sd">          two database fields: &#39;patrons.external_identifier&#39; and</span>
+<span class="sd">          &#39;patrons.authorization_identifier&#39;.</span>
+
+<span class="sd">          As far as we know, the Clever ID is an opaque reference</span>
+<span class="sd">          which uniquely identifies a given patron but contains no</span>
+<span class="sd">          personal information about them.</span>
+
+<span class="sd">        * The patron&#39;s personal name is passed out of this method</span>
+<span class="sd">          through the PatronData object. This information cannot be</span>
+<span class="sd">          persisted to the server-side database, because there&#39;s no</span>
+<span class="sd">          place to store it. You can verify this by looking at the</span>
+<span class="sd">          PatronData class in authenticator.py and the Patron class in</span>
+<span class="sd">          core/model/patron.py.</span>
+
+<span class="sd">          Upon login, the patron&#39;s personal name is sent via HTTP to</span>
+<span class="sd">          the authorized client, running on a device being operated by</span>
+<span class="sd">          the patron. (See the OAuthController.oauth_authentication_callback()</span>
+<span class="sd">          method for this.) Access to this information is important in an</span>
+<span class="sd">          environment where devices are shared across a classroom. When</span>
+<span class="sd">          the patron logs out, the Open eBooks client destroys this</span>
+<span class="sd">          information.</span>
+
+<span class="sd">        * If the patron is a student, their grade level</span>
+<span class="sd">          (&quot;Kindergarten&quot; through &quot;12&quot;) is converted into an Open</span>
+<span class="sd">          eBooks patron type (&quot;E&quot; for &quot;Early Grades&quot;, &quot;M&quot; for &quot;Middle</span>
+<span class="sd">          Grades&quot;, or &quot;H&quot; for &quot;High School&quot;). This is stored in the</span>
+<span class="sd">          PatronData object returned from this method, and persisted</span>
+<span class="sd">          to the database field &#39;patrons.external_type&#39;. If the patron</span>
+<span class="sd">          is not a student, their Open eBooks patron type is set to</span>
+<span class="sd">          &quot;A&quot; for &quot;All Access&quot;).</span>
+
+<span class="sd">          This system does not track a patron&#39;s grade level or store</span>
+<span class="sd">          it in the database. Only the coarser-grained Open eBooks</span>
+<span class="sd">          patron type is tracked. This is used to show age-appropriate</span>
+<span class="sd">          books to the patron.</span>
+
+<span class="sd">        * The internal Clever ID of the patron&#39;s school is used to</span>
+<span class="sd">          make a _second_ Clever API request to get information about</span>
+<span class="sd">          the school. From that, we get the school&#39;s NCES ID, which we</span>
+<span class="sd">          cross-check against data we&#39;ve gathered separately to</span>
+<span class="sd">          validate the school&#39;s Title I status. The school ID and NCES</span>
+<span class="sd">          ID are not stored in the PatronData object or persisted to</span>
+<span class="sd">          the database. Any patron who ends up in the database is</span>
+<span class="sd">          presumed to have passed this check.</span>
+
+<span class="sd">        To summarize, an opaque ID associated with the patron is</span>
+<span class="sd">        persisted to the database, as is a coarse-grained indicator of</span>
+<span class="sd">        the patron&#39;s age. The patron&#39;s personal name is available to</span>
+<span class="sd">        the server for the duration of the current request, but cannot</span>
+<span class="sd">        be persisted to the database. The patron&#39;s personal name is</span>
+<span class="sd">        made available to the authorized client, which destroys that</span>
+<span class="sd">        information on logout. No other information about the patron</span>
+<span class="sd">        makes it out of this method.</span>
+
+<span class="sd">        :return: A ProblemDetail if there&#39;s a problem. Otherwise, a PatronData</span>
+<span class="sd">            with the data listed above.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">bearer_headers</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="s1">&#39;Bearer </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">token</span>
