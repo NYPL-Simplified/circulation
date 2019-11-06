@@ -219,15 +219,12 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         To summarize, an opaque ID associated with the patron is
         persisted to the database, as is a coarse-grained indicator of
-        the patron's age. The patron's personal name is available to
-        the server for the duration of the current request, but cannot
-        be persisted to the database. The patron's personal name is
-        made available to the authorized client, which destroys that
-        information on logout. No other information about the patron
-        makes it out of this method.
+        the patron's age. No other information about the patron makes
+        it out of this method.
 
         :return: A ProblemDetail if there's a problem. Otherwise, a PatronData
             with the data listed above.
+
         """
         bearer_headers = {
             'Authorization': 'Bearer %s' % token
