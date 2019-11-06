@@ -40,6 +40,13 @@ CLEVER_NOT_ELIGIBLE = pd(
     _("Your Clever account is not eligible to access this application."),
 )
 
+CLEVER_UNKNOWN_SCHOOL = pd(
+    "http://librarysimplified.org/terms/problem/clever-unknown-school",
+    401,
+    _("Clever did not provide the necessary information about your school to verify eligibility."),
+    _("Clever did not provide the necessary information about your school to verify eligibility."),
+)
+
 
 # Load Title I NCES ID data from json.
 TITLE_I_NCES_IDS = None
@@ -269,8 +276,14 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         # TODO: check student free and reduced lunch status as well
 
+        if school_nces_id is None:
+            self.log.error(
+                "No NCES ID found in Clever school data: %s", repr(school)
+            )
+            return CLEVER_UNKNOWN_SCHOOL
+
         if school_nces_id not in TITLE_I_NCES_IDS:
-            self.log.info("%s didn't match a Title I NCES ID" % school_nces_id)
+            self.log.info("%s didn't match a Title I NCES ID", school_nces_id)
             return CLEVER_NOT_ELIGIBLE
 
         if result['type'] == 'student':
@@ -289,7 +302,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             permanent_id=identifier,
             authorization_identifier=identifier,
             external_type=external_type,
-            personal_name = user_data.get('name'),
             complete=True
         )
         return patrondata
