@@ -1441,7 +1441,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     # we can infer that the client _also_ supports that media type via
     # bearer token exchange.
     for media_type, drm in list(default_client_can_fulfill_lookup):
-        if drm == NO_DRM:
+        if media_type is not None and drm == NO_DRM:
             default_client_can_fulfill_lookup.add(
                 (media_type, BEARER_TOKEN)
             )
