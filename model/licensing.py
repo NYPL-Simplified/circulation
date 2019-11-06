@@ -1421,13 +1421,30 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     # These are the media type/DRM scheme combos known to be supported
     # by the default Library Simplified client.
+    #
+    # This is primarily used when deciding which books can be imported
+    # from an OPDS For Distributors collection.
     default_client_can_fulfill_lookup = set([
+        # EPUB books
         (MediaTypes.EPUB_MEDIA_TYPE, NO_DRM),
         (MediaTypes.EPUB_MEDIA_TYPE, ADOBE_DRM),
-        (MediaTypes.EPUB_MEDIA_TYPE, BEARER_TOKEN),
+
+        # PDF books
+        (MediaTypes.PDF_MEDIA_TYPE, NO_DRM),
+
+        # Various audiobook formats
         (None, FINDAWAY_DRM),
-        (MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE, None),
+        (MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE, NO_DRM),
     ])
+
+    # If the default client supports a given media type with no DRM,
+    # we can infer that the client _also_ supports that media type via
+    # bearer token exchange.
+    for media_type, drm in list(default_client_can_fulfill_lookup):
+        if drm == NO_DRM:
+            default_client_can_fulfill_lookup.add(
+                (media_type, BEARER_TOKEN)
+            )
 
     license_pool_delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism",
