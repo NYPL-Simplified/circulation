@@ -194,21 +194,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
           which uniquely identifies a given patron but contains no
           personal information about them.
 
-        * The patron's personal name is passed out of this method
-          through the PatronData object. This information cannot be
-          persisted to the server-side database, because there's no
-          place to store it. You can verify this by looking at the
-          PatronData class in authenticator.py and the Patron class in
-          core/model/patron.py.
-
-          Upon login, the patron's personal name is sent via HTTP to
-          the authorized client, running on a device being operated by
-          the patron. (See the OAuthController.oauth_authentication_callback()
-          method for this.) Access to this information is important in an
-          environment where devices are shared across a classroom. When
-          the patron logs out, the Open eBooks client destroys this
-          information.
-
         * If the patron is a student, their grade level
           ("Kindergarten" through "12") is converted into an Open
           eBooks patron type ("E" for "Early Grades", "M" for "Middle
