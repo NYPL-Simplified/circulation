@@ -60,10 +60,23 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
         }
     ]
 
-    SUPPORTED_MEDIA_TYPES = [Representation.EPUB_MEDIA_TYPE]
+    # In OPDS For Distributors, all items are gated through the
+    # BEARER_TOKEN access control scheme.
+    #
+    # If the default client supports a given media type when
+    # combined with the BEARER_TOKEN scheme, then we should import
+    # titles with that media type...
+    SUPPORTED_MEDIA_TYPES = [
+        format for (format, drm) in
+        DeliveryMechanism.default_client_can_fulfill_lookup
+        if drm == (DeliveryMechanism.BEARER_TOKEN) and format is not None
+    ]
 
+    # ...and we should map requests for delivery of that media type to
+    # the (type, BEARER_TOKEN) DeliveryMechanism.
     delivery_mechanism_to_internal_format = {
-        (type, DeliveryMechanism.BEARER_TOKEN): type for type in SUPPORTED_MEDIA_TYPES
+        (type, DeliveryMechanism.BEARER_TOKEN): type
+        for type in SUPPORTED_MEDIA_TYPES
     }
 
     def __init__(self, _db, collection):
@@ -283,7 +296,9 @@ class OPDSForDistributorsImporter(OPDSImporter):
     @classmethod
     def _add_format_data(cls, circulation):
         for link in circulation.links:
-            if link.rel == Hyperlink.GENERIC_OPDS_ACQUISITION and link.media_type in OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES:
+            if (link.rel == Hyperlink.GENERIC_OPDS_ACQUISITION
+                and link.media_type in
+                OPDSForDistributorsAPI.SUPPORTED_MEDIA_TYPES):
                 circulation.formats.append(
                     FormatData(
                         content_type=link.media_type,
