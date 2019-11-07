@@ -10,6 +10,7 @@ from api.clever import (
     CleverAuthenticationAPI,
     UNSUPPORTED_CLEVER_USER_TYPE,
     CLEVER_NOT_ELIGIBLE,
+    CLEVER_UNKNOWN_SCHOOL,
 )
 from api.problem_details import *
 from core.model import (
@@ -128,13 +129,21 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         token = self.api.remote_patron_lookup("")
         eq_(CLEVER_NOT_ELIGIBLE, token)
 
+    def test_remote_patron_lookup_missing_nces_id(self):
+        self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234')))
+        self.api.queue_response(dict(data=dict()))
+
+        token = self.api.remote_patron_lookup("")
+        eq_(CLEVER_UNKNOWN_SCHOOL, token)
+
     def test_remote_patron_lookup_title_i(self):
         self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
-        eq_('Abcd', patrondata.personal_name)
+        eq_(None, patrondata.personal_name)
         eq_("5678", patrondata.permanent_id)
         eq_("5678", patrondata.authorization_identifier)
 
@@ -190,9 +199,9 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # was set to 'A'.
         eq_("A", patron.external_type)
 
-        # The PatronData includes information that can't be stored
-        # in the Patron record.
-        eq_("Abcd", patrondata.personal_name)
+        # Clever provided personal name information, but we don't
+        # include it in the PatronData.
+        eq_(None, patrondata.personal_name)
 
     def test_oauth_callback_problem_detail_if_bad_token(self):
         self.api.queue_response(dict(something_else="not a token"))
