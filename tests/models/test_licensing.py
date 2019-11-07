@@ -14,6 +14,7 @@ from ...model import create
 from ...model.circulationevent import CirculationEvent
 from ...model.collection import CollectionMissing
 from ...model.complaint import Complaint
+from ...model.constants import MediaTypes
 from ...model.contributor import Contributor
 from ...model.coverage import WorkCoverageRecord
 from ...model.datasource import DataSource
@@ -76,15 +77,35 @@ class TestDeliveryMechanism(DatabaseTest):
             self.audiobook_drm_scheme.content_type_media_type)
 
     def test_default_fulfillable(self):
+        # Try some well-known media type/DRM combinations known to be
+        # fulfillable by the default client.
+        for media, drm in (
+            (MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+            (MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM),
+            (MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.BEARER_TOKEN),
+            (MediaTypes.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM),
+            (MediaTypes.PDF_MEDIA_TYPE, DeliveryMechanism.BEARER_TOKEN),
+            (None, DeliveryMechanism.FINDAWAY_DRM),
+            (MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE, DeliveryMechanism.NO_DRM),
+            (MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE, DeliveryMechanism.BEARER_TOKEN),
+        ):
+            # All of these DeliveryMechanisms were created when the
+            # database was initialized.
+            mechanism, is_new = DeliveryMechanism.lookup(self._db, media, drm)
+            eq_(False, is_new)
+            eq_(True, mechanism.default_client_can_fulfill)
+
+        # It's possible to create new DeliveryMechanisms at runtime,
+        # but their .default_client_can_fulfill will be False.
         mechanism, is_new = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE,
+            self._db, MediaTypes.EPUB_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
         eq_(False, is_new)
         eq_(True, mechanism.default_client_can_fulfill)
 
         mechanism, is_new = DeliveryMechanism.lookup(
-            self._db, Representation.PDF_MEDIA_TYPE,
+            self._db, MediaTypes.PDF_MEDIA_TYPE,
             DeliveryMechanism.STREAMING_DRM
         )
         eq_(True, is_new)
@@ -95,7 +116,7 @@ class TestDeliveryMechanism(DatabaseTest):
         [lpmech] = with_download.delivery_mechanisms
         eq_(b"Dummy content", lpmech.resource.representation.content)
         mech = lpmech.delivery_mechanism
-        eq_(Representation.EPUB_MEDIA_TYPE, mech.content_type)
+        eq_(MediaTypes.EPUB_MEDIA_TYPE, mech.content_type)
         eq_(mech.NO_DRM, mech.drm_scheme)
 
     def test_compatible_with(self):
@@ -103,22 +124,22 @@ class TestDeliveryMechanism(DatabaseTest):
         mutually compatible and which are mutually exclusive.
         """
         epub_adobe, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE,
+            self._db, MediaTypes.EPUB_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
 
         pdf_adobe, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.PDF_MEDIA_TYPE,
+            self._db, MediaTypes.PDF_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
 
         epub_no_drm, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE,
+            self._db, MediaTypes.EPUB_MEDIA_TYPE,
             DeliveryMechanism.NO_DRM
         )
 
         pdf_no_drm, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.PDF_MEDIA_TYPE,
+            self._db, MediaTypes.PDF_MEDIA_TYPE,
             DeliveryMechanism.NO_DRM
         )
 
@@ -510,7 +531,7 @@ class TestLicensePool(DatabaseTest):
         # We have one open-access download, let's
         # add another.
         url = self._url
-        media_type = Representation.EPUB_MEDIA_TYPE
+        media_type = MediaTypes.EPUB_MEDIA_TYPE
         link2, new = pool.identifier.add_link(
             Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
             source, media_type
@@ -520,7 +541,7 @@ class TestLicensePool(DatabaseTest):
         # And let's add a link that's not an open-access download.
         url = self._url
         image, new = pool.identifier.add_link(
-            Hyperlink.IMAGE, url, source, Representation.JPEG_MEDIA_TYPE
+            Hyperlink.IMAGE, url, source, MediaTypes.JPEG_MEDIA_TYPE
         )
         self._db.commit()
 
@@ -996,7 +1017,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # to give it a non-open-access LPDM.
         data_source = pool.data_source
         identifier = pool.identifier
-        content_type = Representation.EPUB_MEDIA_TYPE
+        content_type = MediaTypes.EPUB_MEDIA_TYPE
         drm_scheme = DeliveryMechanism.NO_DRM
         LicensePoolDeliveryMechanism.set(
             data_source, identifier, content_type, drm_scheme,
@@ -1065,7 +1086,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # Now add a second delivery mechanism, so the pool has one
         # open-access and one commercial delivery mechanism.
         lpdm2 = pool.set_delivery_mechanism(
-            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
         eq_(2, len(pool.delivery_mechanisms))
 
@@ -1160,7 +1181,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # The underlying delivery mechanisms don't have to be exactly
         # the same, but they must be compatible.
         pdf_adobe, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.PDF_MEDIA_TYPE,
+            self._db, MediaTypes.PDF_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
         mech1.delivery_mechanism = pdf_adobe
@@ -1183,7 +1204,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         [mech1] = pool.delivery_mechanisms
         mech2 = self._add_generic_delivery_mechanism(pool)
         mech2.delivery_mechanism, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+            self._db, MediaTypes.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM
         )
         self._db.commit()
 
