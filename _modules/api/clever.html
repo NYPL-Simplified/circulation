@@ -75,6 +75,13 @@
     <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Your Clever account is not eligible to access this application.&quot;</span><span class="p">),</span>
 <span class="p">)</span>
 
+<span class="n">CLEVER_UNKNOWN_SCHOOL</span> <span class="o">=</span> <span class="n">pd</span><span class="p">(</span>
+    <span class="s2">&quot;http://librarysimplified.org/terms/problem/clever-unknown-school&quot;</span><span class="p">,</span>
+    <span class="mi">401</span><span class="p">,</span>
+    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Clever did not provide the necessary information about your school to verify eligibility.&quot;</span><span class="p">),</span>
+    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Clever did not provide the necessary information about your school to verify eligibility.&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
 
 <span class="c1"># Load Title I NCES ID data from json.</span>
 <span class="n">TITLE_I_NCES_IDS</span> <span class="o">=</span> <span class="kc">None</span>
@@ -222,21 +229,6 @@
 <span class="sd">          which uniquely identifies a given patron but contains no</span>
 <span class="sd">          personal information about them.</span>
 
-<span class="sd">        * The patron&#39;s personal name is passed out of this method</span>
-<span class="sd">          through the PatronData object. This information cannot be</span>
-<span class="sd">          persisted to the server-side database, because there&#39;s no</span>
-<span class="sd">          place to store it. You can verify this by looking at the</span>
-<span class="sd">          PatronData class in authenticator.py and the Patron class in</span>
-<span class="sd">          core/model/patron.py.</span>
-
-<span class="sd">          Upon login, the patron&#39;s personal name is sent via HTTP to</span>
-<span class="sd">          the authorized client, running on a device being operated by</span>
-<span class="sd">          the patron. (See the OAuthController.oauth_authentication_callback()</span>
-<span class="sd">          method for this.) Access to this information is important in an</span>
-<span class="sd">          environment where devices are shared across a classroom. When</span>
-<span class="sd">          the patron logs out, the Open eBooks client destroys this</span>
-<span class="sd">          information.</span>
-
 <span class="sd">        * If the patron is a student, their grade level</span>
 <span class="sd">          (&quot;Kindergarten&quot; through &quot;12&quot;) is converted into an Open</span>
 <span class="sd">          eBooks patron type (&quot;E&quot; for &quot;Early Grades&quot;, &quot;M&quot; for &quot;Middle</span>
@@ -262,15 +254,12 @@
 
 <span class="sd">        To summarize, an opaque ID associated with the patron is</span>
 <span class="sd">        persisted to the database, as is a coarse-grained indicator of</span>
-<span class="sd">        the patron&#39;s age. The patron&#39;s personal name is available to</span>
-<span class="sd">        the server for the duration of the current request, but cannot</span>
-<span class="sd">        be persisted to the database. The patron&#39;s personal name is</span>
-<span class="sd">        made available to the authorized client, which destroys that</span>
-<span class="sd">        information on logout. No other information about the patron</span>
-<span class="sd">        makes it out of this method.</span>
+<span class="sd">        the patron&#39;s age. No other information about the patron makes</span>
+<span class="sd">        it out of this method.</span>
 
 <span class="sd">        :return: A ProblemDetail if there&#39;s a problem. Otherwise, a PatronData</span>
 <span class="sd">            with the data listed above.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">bearer_headers</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="s1">&#39;Bearer </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">token</span>
@@ -304,8 +293,14 @@
 
         <span class="c1"># TODO: check student free and reduced lunch status as well</span>
 
+        <span class="k">if</span> <span class="n">school_nces_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;No NCES ID found in Clever school data: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">school</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">CLEVER_UNKNOWN_SCHOOL</span>
+
         <span class="k">if</span> <span class="n">school_nces_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">TITLE_I_NCES_IDS</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> didn&#39;t match a Title I NCES ID&quot;</span> <span class="o">%</span> <span class="n">school_nces_id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> didn&#39;t match a Title I NCES ID&quot;</span><span class="p">,</span> <span class="n">school_nces_id</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">CLEVER_NOT_ELIGIBLE</span>
 
         <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;student&#39;</span><span class="p">:</span>
@@ -324,7 +319,6 @@
             <span class="n">permanent_id</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
             <span class="n">authorization_identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span>
             <span class="n">external_type</span><span class="o">=</span><span class="n">external_type</span><span class="p">,</span>
-            <span class="n">personal_name</span> <span class="o">=</span> <span class="n">user_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">),</span>
             <span class="n">complete</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">patrondata</span></div>

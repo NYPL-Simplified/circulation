@@ -95,10 +95,23 @@
         <span class="p">}</span>
     <span class="p">]</span>
 
-    <span class="n">SUPPORTED_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">Representation</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">]</span>
+    <span class="c1"># In OPDS For Distributors, all items are gated through the</span>
+    <span class="c1"># BEARER_TOKEN access control scheme.</span>
+    <span class="c1">#</span>
+    <span class="c1"># If the default client supports a given media type when</span>
+    <span class="c1"># combined with the BEARER_TOKEN scheme, then we should import</span>
+    <span class="c1"># titles with that media type...</span>
+    <span class="n">SUPPORTED_MEDIA_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="nb">format</span> <span class="k">for</span> <span class="p">(</span><span class="nb">format</span><span class="p">,</span> <span class="n">drm</span><span class="p">)</span> <span class="ow">in</span>
+        <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">default_client_can_fulfill_lookup</span>
+        <span class="k">if</span> <span class="n">drm</span> <span class="o">==</span> <span class="p">(</span><span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">BEARER_TOKEN</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">format</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="p">]</span>
 
+    <span class="c1"># ...and we should map requests for delivery of that media type to</span>
+    <span class="c1"># the (type, BEARER_TOKEN) DeliveryMechanism.</span>
     <span class="n">delivery_mechanism_to_internal_format</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">BEARER_TOKEN</span><span class="p">):</span> <span class="nb">type</span> <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">SUPPORTED_MEDIA_TYPES</span>
+        <span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">BEARER_TOKEN</span><span class="p">):</span> <span class="nb">type</span>
+        <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">SUPPORTED_MEDIA_TYPES</span>
     <span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
@@ -318,7 +331,9 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_add_format_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">circulation</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">circulation</span><span class="o">.</span><span class="n">links</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">GENERIC_OPDS_ACQUISITION</span> <span class="ow">and</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span> <span class="n">OPDSForDistributorsAPI</span><span class="o">.</span><span class="n">SUPPORTED_MEDIA_TYPES</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">rel</span> <span class="o">==</span> <span class="n">Hyperlink</span><span class="o">.</span><span class="n">GENERIC_OPDS_ACQUISITION</span>
+                <span class="ow">and</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="ow">in</span>
+                <span class="n">OPDSForDistributorsAPI</span><span class="o">.</span><span class="n">SUPPORTED_MEDIA_TYPES</span><span class="p">):</span>
                 <span class="n">circulation</span><span class="o">.</span><span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">FormatData</span><span class="p">(</span>
                         <span class="n">content_type</span><span class="o">=</span><span class="n">link</span><span class="o">.</span><span class="n">media_type</span><span class="p">,</span>

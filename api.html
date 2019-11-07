@@ -3266,12 +3266,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3a2bd00&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x511c650&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3633740&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x511fe30&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3286,7 +3286,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3a97ed0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x51199f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8121,7 +8121,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 11, 16, 21, 26, 25, 986131)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 11, 17, 14, 56, 21, 456633)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10533,6 +10533,11 @@ token’, since other DRM schemes require identifying a patron.</p>
 <code class="descname">delivery_mechanism_to_internal_format</code><em class="property"> = {(u'application/epub+zip', u'application/vnd.librarysimplified.bearer-token+json'): u'application/epub+zip'}</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.delivery_mechanism_to_internal_format" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="api.opds_for_distributors.OPDSForDistributorsAPI.drm">
+<code class="descname">drm</code><em class="property"> = u'application/vnd.librarysimplified.bearer-token+json'</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.drm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.external_integration">
 <code class="descname">external_integration</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds_for_distributors.html#OPDSForDistributorsAPI.external_integration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.external_integration" title="Permalink to this definition">¶</a></dt>
@@ -10542,6 +10547,11 @@ on this ExternalIntegration.</p>
 <p>By default, there is no way to get from an object to its
 ExternalIntegration, and self-test status will not be stored.</p>
 </dd></dl>
+
+<dl class="attribute">
+<dt id="api.opds_for_distributors.OPDSForDistributorsAPI.format">
+<code class="descname">format</code><em class="property"> = u'application/epub+zip'</em><a class="headerlink" href="#api.opds_for_distributors.OPDSForDistributorsAPI.format" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="api.opds_for_distributors.OPDSForDistributorsAPI.fulfill">
