@@ -867,16 +867,17 @@ class CirculationAPI(object):
             self.log.warn("LicensePoolDeliveryMechanism passed into fulfill_open_access, should be DeliveryMechanism.")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
         fulfillment = None
-        self.log.error("Trying to fulfill open access with %r", delivery_mechanism)
+        self.log.error("Trying to fulfill open access with %s %r", delivery_mechanism.id, delivery_mechanism)
         for lpdm in licensepool.delivery_mechanisms:
-            self.log.error("considering %r", lpdm)   
+            self.log.error("considering %s %r", lpdm.delivery_mechanism.id, lpdm.delivery_mechanism)
             if not (lpdm.resource and lpdm.resource.representation
                     and lpdm.resource.representation.url):
                 # This LicensePoolDeliveryMechanism can't actually
                 # be used for fulfillment.
                 self.log.error("nope")
                 continue
-            if lpdm.delivery_mechanism == delivery_mechanism:
+            if (lpdm.delivery_mechanism.media_type == delivery_mechanism.media_type
+                and lpdm.delivery_mechanism.drm_scheme == delivery_mechanism.drm_scheme):
                 # We found it! This is how the patron wants
                 # the book to be delivered.
                 fulfillment = lpdm
