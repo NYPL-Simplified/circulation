@@ -1318,8 +1318,9 @@ class TestLoanController(CirculationControllerTest):
             response = self.manager.loans.fulfill(
                 self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
             )
-            if response.status_code != 302:
-                raise Exception(response.data)
+            if isinstance(response, ProblemDetail):
+                j, status, headers = response.response
+                raise Exception(repr(j))
             eq_(302, response.status_code)
             eq_(fulfillable_mechanism.resource.representation.public_url, response.headers.get("Location"))
 
