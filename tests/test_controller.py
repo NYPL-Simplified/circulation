@@ -1364,7 +1364,7 @@ class TestLoanController(CirculationControllerTest):
             )
 
             eq_(409, response.status_code)
-            assert "You already fulfilled this loan as application/epub+zip (DRM Scheme 1), you can't also do it as application/pdf (DRM Scheme 2)" in response.detail
+            assert "You already fulfilled this loan as application/epub+zip (DRM Scheme 2), you can't also do it as application/pdf (DRM Scheme 1)" in response.detail
 
             # If the remote server fails, we get a problem detail.
             def doomed_get(url, headers, **kwargs):
