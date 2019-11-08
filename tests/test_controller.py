@@ -1303,9 +1303,10 @@ class TestLoanController(CirculationControllerTest):
             )
 
             # Make sure the two delivery mechanisms are incompatible.
-            mech1.delivery_mechanism.drm_scheme = "DRM type 1"
-            mech2.delivery_mechanism.drm_scheme = "DRM type 2"
+            mech1.delivery_mechanism.drm_scheme = DeliveryMechanism.ADOBE_DRM
+            mech2.delivery_mechanism.drm_scheme = DeliveryMechanism.NO_DRM
             fulfillable_mechanism = mech2
+            self._db.commit()
 
             expects = [url_for('fulfill',
                                license_pool_id=self.pool.id,
@@ -1363,7 +1364,7 @@ class TestLoanController(CirculationControllerTest):
             )
 
             eq_(409, response.status_code)
-            assert "You already fulfilled this loan as application/epub+zip (DRM type 2), you can't also do it as application/pdf (DRM type 1)" in response.detail
+            assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (application/vnd.adobe.adept+xml)" in response.detail
 
             # If the remote server fails, we get a problem detail.
             def doomed_get(url, headers, **kwargs):
