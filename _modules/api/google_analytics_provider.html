@@ -72,6 +72,8 @@
                     <span class="s2">&quot;&lt;li&gt;language&lt;/li&gt;&quot;</span> <span class="o">+</span>
                     <span class="s2">&quot;&lt;li&gt;genre&lt;/li&gt;&quot;</span> <span class="o">+</span>
                     <span class="s2">&quot;&lt;li&gt;open_access&lt;/li&gt;&quot;</span> <span class="o">+</span>
+                    <span class="s2">&quot;&lt;li&gt;distributor&lt;/li&gt;&quot;</span> <span class="o">+</span>
+                    <span class="s2">&quot;&lt;li&gt;medium&lt;/li&gt;&quot;</span> <span class="o">+</span>
                     <span class="s2">&quot;&lt;/ol&gt;&lt;/p&gt;&quot;</span> <span class="o">+</span>
                     <span class="s2">&quot;&lt;p&gt;Each dimension should have the scope set to &#39;Hit&#39; and the &#39;Active&#39; box checked.&lt;/p&gt;&quot;</span> <span class="o">+</span>
                     <span class="s2">&quot;&lt;p&gt;Then go to Tracking Info and get the tracking id for the property.  Select your &quot;</span> <span class="o">+</span>
@@ -140,6 +142,16 @@
                     <span class="s1">&#39;cd11&#39;</span><span class="p">:</span> <span class="n">work</span><span class="o">.</span><span class="n">top_genre</span><span class="p">(),</span>
                     <span class="s1">&#39;cd12&#39;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span> <span class="k">if</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="k">else</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span>
                 <span class="p">})</span>
+
+            <span class="c1"># Backwards compatibility requires that new dimensions be</span>
+            <span class="c1"># added to the end of the list. For the sake of</span>
+            <span class="c1"># consistency, this code that sets values for those new</span>
+            <span class="c1"># dimensions runs after the original implementation.</span>
+            <span class="n">fields</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;cd13&#39;</span> <span class="p">:</span> <span class="n">license_pool</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+            <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="n">edition</span><span class="p">:</span>
+                <span class="n">fields</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;cd14&#39;</span> <span class="p">:</span> <span class="n">edition</span><span class="o">.</span><span class="n">medium</span><span class="p">})</span>
+
+
         <span class="c1"># urlencode doesn&#39;t like unicode strings so we convert them to utf8</span>
         <span class="n">fields</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKD&quot;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fields</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()}</span>
 
