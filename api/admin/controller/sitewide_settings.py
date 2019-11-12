@@ -9,6 +9,12 @@ from flask_babel import lazy_gettext as _
 
 class SitewideConfigurationSettingsController(SettingsController):
 
+    def process_services(self):
+        if flask.request.method == 'GET':
+            return self.process_get()
+        else:
+            return self.process_post()
+
     def process_get(self):
         self.require_system_admin()
         sitewide_settings = Configuration.SITEWIDE_SETTINGS

@@ -94,6 +94,8 @@ class MockController(MockControllerMethod):
 
         self._cache = {}
         self.authenticated = False
+        self.csrf_token = False
+        self.authenticated_problem_detail = False
 
     def authenticated_patron_from_request(self):
         if self.authenticated:
@@ -145,8 +147,9 @@ class RouteTest(ControllerTest):
             manager = CirculationManager(self._db, testing=True)
             RouteTest.REAL_CIRCULATION_MANAGER = manager
         app = MockApp()
+        self.routes = routes
         self.manager = app.manager
-        self.original_app = routes.app
+        self.original_app = self.routes.app
         self.resolver = self.original_app.url_map.bind('', '/')
 
         # For convenience, set self.controller to a specific controller
@@ -163,11 +166,11 @@ class RouteTest(ControllerTest):
         else:
             self.real_controller = None
 
-        routes.app = app
+        self.routes.app = app
 
     def teardown(self):
         super(RouteTest, self).teardown()
-        routes.app = self.original_app
+        self.routes.app = self.original_app
 
     def request(self, url, method='GET'):
         """Simulate a request to a URL without triggering any code outside
@@ -176,9 +179,8 @@ class RouteTest(ControllerTest):
         # Map an incoming URL to the name of a function within routes.py
         # and a set of arguments to the function.
         function_name, kwargs = self.resolver.match(url, method)
-
         # Locate the corresponding function in our mock app.
-        mock_function = getattr(routes, function_name)
+        mock_function = getattr(self.routes, function_name)
 
         # Call it in the context of the mock app.
         with self.app.test_request_context():
@@ -242,7 +244,6 @@ class RouteTest(ControllerTest):
         # other potential methods and verify that MethodNotAllowed is
         # raised each time.
         check = set(['GET', 'POST', 'PUT', 'DELETE']) - set(methods)
-
         # Treat HEAD specially. Any controller that supports GET
         # automatically supports HEAD. So we only assert that HEAD
         # fails if the method supports neither GET nor HEAD.
