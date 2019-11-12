@@ -4,7 +4,7 @@ elasticsearch>6.0.0,<7.0.0
 elasticsearch-dsl>6.0.0,<7.0.0
 pillow
 psycopg2
-requests==2.18.4
+requests==2.20.0
 urllib3<1.24 # Travis problem introduced 20181016 - check to see when we can remove
 sqlalchemy==1.2.0
 flask-sqlalchemy-session
