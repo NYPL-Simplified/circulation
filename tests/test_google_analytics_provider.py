@@ -15,6 +15,7 @@ from core.model import (
     CirculationEvent,
     ConfigurationSetting,
     DataSource,
+    EditionConstants,
     ExternalIntegration,
     LicensePool
 )
@@ -117,6 +118,8 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_("lang", params['cd10'][0])
         eq_("Folklore", params['cd11'][0])
         eq_("true", params['cd12'][0])
+        eq_(DataSource.GUTENBERG, params['cd13'][0])
+        eq_(EditionConstants.BOOK_MEDIUM, params['cd14'][0])
 
     def test_collect_event_without_work(self):
         integration, ignore = create(

@@ -1490,6 +1490,10 @@ class TestLibraryAnnotator(VendorIDTest):
         )
         eq_(2, len(links))
         indirects = []
+
+        # This sorts the links so that the first link corresponds
+        # to the delivery mechanism for the first link.
+        links = sorted(links, key=lambda x: x.attrib['href'], reverse=True)
         for link in links:
             # Both links should have the same subtags.
             [availability, copies, holds, indirect] = sorted(
