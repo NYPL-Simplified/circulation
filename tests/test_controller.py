@@ -1188,6 +1188,7 @@ class TestLoanController(CirculationControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
         self.pool = self.english_1.license_pools[0]
+        [self.mech1] = self.pool.delivery_mechanisms
         self.mech2 = self.pool.set_delivery_mechanism(
             Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None
@@ -1297,27 +1298,35 @@ class TestLoanController(CirculationControllerTest):
             [entry] = feed['entries']
             fulfillment_links = [x['href'] for x in entry['links']
                                 if x['rel'] == OPDSFeed.ACQUISITION_REL]
-            [mech1, mech2] = sorted(
-                self.pool.delivery_mechanisms,
-                key=lambda x: x.delivery_mechanism.default_client_can_fulfill
-            )
+
+            assert self.mech1.resource is not None
 
             # Make sure the two delivery mechanisms are incompatible.
-            mech1.delivery_mechanism.drm_scheme = "DRM type 1"
-            mech2.delivery_mechanism.drm_scheme = "DRM type 2"
-            fulfillable_mechanism = mech2
+            self.mech1.delivery_mechanism.drm_scheme = "DRM Scheme 1"
+            self.mech2.delivery_mechanism.drm_scheme = "DRM Scheme 2"
+            fulfillable_mechanism = self.mech1
+            self._db.commit()
 
             expects = [url_for('fulfill',
                                license_pool_id=self.pool.id,
                                mechanism_id=mech.delivery_mechanism.id,
                                library_short_name=self.library.short_name,
-                               _external=True) for mech in [mech1, mech2]]
+                               _external=True) for mech in [self.mech1, self.mech2]]
             eq_(set(expects), set(fulfillment_links))
 
-            # Now let's try to fulfill the loan.
+            # Make sure the first delivery mechanism has the data necessary
+            # to carry out an open source fulfillment.
+            assert self.mech1.resource is not None
+            assert self.mech1.resource.representation is not None
+            assert self.mech1.resource.representation.url is not None
+
+            # Now let's try to fulfill the loan using the first delivery mechanism.
             response = self.manager.loans.fulfill(
                 self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
             )
+            if isinstance(response, ProblemDetail):
+                j, status, headers = response.response
+                raise Exception(repr(j))
             eq_(302, response.status_code)
             eq_(fulfillable_mechanism.resource.representation.public_url, response.headers.get("Location"))
 
@@ -1356,11 +1365,11 @@ class TestLoanController(CirculationControllerTest):
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
             response = self.manager.loans.fulfill(
-                self.pool.id, mech1.delivery_mechanism.id
+                self.pool.id, self.mech2.delivery_mechanism.id
             )
 
             eq_(409, response.status_code)
-            assert "You already fulfilled this loan as application/epub+zip (DRM type 2), you can't also do it as application/pdf (DRM type 1)" in response.detail
+            assert "You already fulfilled this loan as application/epub+zip (DRM Scheme 1), you can't also do it as application/pdf (DRM Scheme 2)" in response.detail
 
             # If the remote server fails, we get a problem detail.
             def doomed_get(url, headers, **kwargs):

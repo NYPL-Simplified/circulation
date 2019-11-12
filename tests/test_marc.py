@@ -17,7 +17,7 @@ from api.registry import Registration
 class TestLibraryAnnotator(DatabaseTest):
 
     def test_annotate_work_record(self):
-        # Mock class to verify that the correct metnods
+        # Mock class to verify that the correct methods
         # are called by annotate_work_record.
         class MockAnnotator(LibraryAnnotator):
             called_with = dict()

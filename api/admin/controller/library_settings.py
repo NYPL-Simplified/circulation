@@ -34,6 +34,12 @@ from api.registry import RemoteRegistry
 
 class LibrarySettingsController(SettingsController):
 
+    def process_libraries(self):
+        if flask.request.method == 'GET':
+            return self.process_get()
+        else:
+            return self.process_post()
+
     def process_get(self):
         libraries = []
         for library in self._db.query(Library).order_by(Library.name):
