@@ -40,6 +40,13 @@ CLEVER_NOT_ELIGIBLE = pd(
     _("Your Clever account is not eligible to access this application."),
 )
 
+CLEVER_UNKNOWN_SCHOOL = pd(
+    "http://librarysimplified.org/terms/problem/clever-unknown-school",
+    401,
+    _("Clever did not provide the necessary information about your school to verify eligibility."),
+    _("Clever did not provide the necessary information about your school to verify eligibility."),
+)
+
 
 # Load Title I NCES ID data from json.
 TITLE_I_NCES_IDS = None
@@ -171,9 +178,53 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         )
 
     def remote_patron_lookup(self, token):
-        """Use a bearer token to look up detailed patron information.
+        """Use a bearer token for a patron to look up that patron's Clever
+        record through the Clever API.
 
-        :return: A ProblemDetail if there's a problem. Otherwise, a PatronData.
+        This is the only method that has access to a patron's personal
+        information as provided by Clever. Here's an inventory of the
+        information we process and what happens to it:
+
+        * The Clever 'id' associated with this patron is passed out of
+          this method through the PatronData object, and persisted to
+          two database fields: 'patrons.external_identifier' and
+          'patrons.authorization_identifier'.
+
+          As far as we know, the Clever ID is an opaque reference
+          which uniquely identifies a given patron but contains no
+          personal information about them.
+
+        * If the patron is a student, their grade level
+          ("Kindergarten" through "12") is converted into an Open
+          eBooks patron type ("E" for "Early Grades", "M" for "Middle
+          Grades", or "H" for "High School"). This is stored in the
+          PatronData object returned from this method, and persisted
+          to the database field 'patrons.external_type'. If the patron
+          is not a student, their Open eBooks patron type is set to
+          "A" for "All Access").
+
+          This system does not track a patron's grade level or store
+          it in the database. Only the coarser-grained Open eBooks
+          patron type is tracked. This is used to show age-appropriate
+          books to the patron.
+
+        * The internal Clever ID of the patron's school is used to
+          make a _second_ Clever API request to get information about
+          the school. From that, we get the school's NCES ID, which we
+          cross-check against data we've gathered separately to
+          validate the school's Title I status. The school ID and NCES
+          ID are not stored in the PatronData object or persisted to
+          the database. Any patron who ends up in the database is
+          presumed to have passed this check.
+
+        To summarize, an opaque ID associated with the patron is
+        persisted to the database, as is a coarse-grained indicator of
+        the patron's age. No other information about the patron makes
+        it out of this method.
+
+        :return: A ProblemDetail if there's a problem. Otherwise, a PatronData
+            with the data listed above.
+
         """
         bearer_headers = {
             'Authorization': 'Bearer %s' % token
@@ -207,8 +258,14 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         # TODO: check student free and reduced lunch status as well
 
+        if school_nces_id is None:
+            self.log.error(
+                "No NCES ID found in Clever school data: %s", repr(school)
+            )
+            return CLEVER_UNKNOWN_SCHOOL
+
         if school_nces_id not in TITLE_I_NCES_IDS:
-            self.log.info("%s didn't match a Title I NCES ID" % school_nces_id)
+            self.log.info("%s didn't match a Title I NCES ID", school_nces_id)
             return CLEVER_NOT_ELIGIBLE
 
         if result['type'] == 'student':
@@ -227,7 +284,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             permanent_id=identifier,
             authorization_identifier=identifier,
             external_type=external_type,
-            personal_name = user_data.get('name'),
             complete=True
         )
         return patrondata
