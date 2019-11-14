@@ -288,7 +288,7 @@ class TimelineMonitor(Monitor):
 
     @classmethod
     def slice_timespan(cls, start, cutoff, increment):
-        """Slice a span of time into segements no large than [increment].
+        """Slice a span of time into segments no large than [increment].
 
         This lets you divide up a task like "gather the entire
         circulation history for a collection" into chunks of one day.
