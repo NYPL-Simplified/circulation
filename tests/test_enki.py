@@ -246,21 +246,22 @@ class TestEnkiAPI(BaseEnkiTest):
         )
         eq_(60, EnkiAPI._minutes_since(an_hour_ago))
 
-    def test__recent_activity(self):
-        one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(
-            minutes=1
-        )
+    def test_recent_activity(self):
+        now = datetime.datetime.utcnow()
+        epoch = datetime.datetime(1970, 1, 1)
+        epoch_plus_one_hour = epoch + datetime.timedelta(hours=1)
         data = self.get_data("get_recent_activity.json")
         self.api.queue_response(200, content=data)
-        activity = list(self.api.recent_activity(one_minute_ago))
+        activity = list(self.api.recent_activity(epoch, epoch_plus_one_hour))
         eq_(43, len(activity))
         for i in activity:
             assert isinstance(i, CirculationData)
         [method, url, headers, data, params, kwargs] = self.api.requests.pop()
         eq_("get", method)
         eq_("https://enkilibrary.org/API/ItemAPI", url)
-        eq_("getRecentActivity", params['method'])
-        eq_(1, params['minutes'])
+        eq_("getRecentActivityTime", params['method'])
+        eq_('0', params['stime'])
+        eq_('3600', params['etime'])
 
         # Unlike some API calls, it's not necessary to pass 'lib' in here.
         assert 'lib' not in params

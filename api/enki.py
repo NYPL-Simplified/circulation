@@ -206,7 +206,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
         # Look for the error indicator and raise
         # RemoteIntegrationException if it appears.
-        if self.ERROR_INDICATOR in response.content:
+        if response.content and self.ERROR_INDICATOR in response.content:
             raise RemoteIntegrationException(url, "An unknown error occured")
         return response
 
@@ -749,7 +749,6 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
 
         :param start: Find all books that changed since this date.
         """
-        start = datetime.datetime(2019, 11, 11)
         if start is None:
             # This is the first time the monitor has run, so it's
             # important that we get the entire collection, even though that
