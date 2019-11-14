@@ -997,9 +997,12 @@ class Pagination(object):
         return qu.offset(self.offset).limit(self.size)
 
     def modify_search_query(self, search):
-        # Do nothing -- all necessary pagination information is kept in
-        # offset and size, which external_search knows how to apply.
-        return search
+        """Modify a Search object so that it retrieves only a single 'page'
+        of results.
+
+        :return: A Search object.
+        """
+        return search[self.offset:self.offset+self.size]
 
     def page_loaded(self, page):
         """An actual page of results has been fetched. Keep any internal state
