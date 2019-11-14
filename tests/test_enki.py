@@ -50,6 +50,7 @@ from core.metadata_layer import (
 from core.scripts import RunCollectionCoverageProviderScript
 from core.util.http import (
     BadResponseException,
+    RemoteIntegrationException,
     RequestTimedOut,
 )
 from core.testing import MockRequestsResponse
@@ -217,6 +218,26 @@ class TestEnkiAPI(BaseEnkiTest):
 
         # Only two requests were made.
         eq_(2, api.calls)
+
+    def test_request_error_indicator(self):
+        # A response that looks like Enki's HTML error message is
+        # turned into a RemoteIntegrationException.
+        class Oops(EnkiAPI):
+            timeout = True
+            called_with = []
+            def _request(self, *args, **kwargs):
+                self.called_with.append((args, kwargs))
+                return MockRequestsResponse(
+                    200,
+                    content="<html><title>oh no</title><body>%s</body>" % (
+                        EnkiAPI.ERROR_INDICATOR
+                    )
+                )
+        api = Oops(self._db, self.collection)
+        assert_raises_regexp(
+            RemoteIntegrationException, "An unknown error occured",
+            api.request, "url"
+        )
 
     def test__minutes_since(self):
         """Test the _minutes_since helper method."""
