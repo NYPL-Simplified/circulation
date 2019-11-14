@@ -532,20 +532,14 @@ class ExternalSearchIndex(HasSelfTests):
                         result.meta['score'] or 0, result.meta['shard']
                     )
 
-        # Process each item in the resultset according to the
-        # Pagination object that was used to create it.
         for i, results in enumerate(resultset):
-            # Use the Pagination object to slice up the results if
-            # necessary.
-            query_string, filter, pagination = queries[i]
-            start = pagination.offset
-            stop = start + pagination.size
-            page = results[start:stop]
-
             # Tell the Pagination object about the page that was just
             # 'loaded' so that Pagination.next_page will work.
-            pagination.page_loaded(page)
-            yield page
+            #
+            # The pagination itself happened inside the Elasticsearch
+            # server when the query ran.
+            pagination.page_loaded(results)
+            yield results
 
     def count_works(self, filter):
         """Instead of retrieving works that match `filter`, count the total."""
@@ -1478,6 +1472,9 @@ class Query(SearchBase):
         :param elasticsearch: An Elasticsearch-DSL Search object. This
             object is ready to run a search against an Elasticsearch server,
             but it doesn't represent any particular Elasticsearch query.
+
+        :param pagination: A Pagination object indicating a slice of
+            results to pull from the search index.
 
         :return: An Elasticsearch-DSL Search object that's prepared
             to run this specific query.
@@ -2990,7 +2987,7 @@ class SortKeyPagination(Pagination):
             search = search.update_from_dict(
                 dict(search_after=self.last_item_on_previous_page)
             )
-        return search
+        return super(SortKeyPagination, self).modify_search_query(search)
 
     @property
     def previous_page(self):

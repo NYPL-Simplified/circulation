@@ -1321,35 +1321,42 @@ class TestSearchOrder(EndToEndSearchTest):
             facets.order_ascending = False
             expect(list(reversed(order)), None, Filter(facets=facets, **filter_kwargs))
 
-            # Get each item in the list as a separate page. This proves
-            # that pagination based on SortKeyPagination works for this
-            # sort order.
+            # Get each item in the list as a separate page. This
+            # proves that pagination works for this sort order for
+            # both Pagination and SortKeyPagination.
             facets.order_ascending = True
-            to_process = list(order) + [[]]
-            results = []
-            pagination = SortKeyPagination(size=1)
-            while to_process:
-                filter = Filter(facets=facets, **filter_kwargs)
-                expect_result = to_process.pop(0)
-                expect(expect_result, None, filter, pagination=pagination)
-                pagination = pagination.next_page
-            # We are now off the edge of the list -- we got an empty page
-            # of results and there is no next page.
-            eq_(None, pagination)
+            for pagination_class in (
+                Pagination, SortKeyPagination
+            ):
+                pagination = pagination_class(size=1)
+                to_process = list(order) + [[]]
+                while to_process:
+                    filter = Filter(facets=facets, **filter_kwargs)
+                    expect_result = to_process.pop(0)
+                    expect(expect_result, None, filter, pagination=pagination)
+                    pagination = pagination.next_page
 
-            # Now try the same test in reverse order.
+                # We are now off the edge of the list -- we got an
+                # empty page of results and there is no next page.
+                eq_(None, pagination)
+
+            # Now try the same tests but in reverse order.
             facets.order_ascending = False
-            to_process = list(reversed(order)) + [[]]
-            results = []
-            pagination = SortKeyPagination(size=1)
-            while to_process:
-                filter = Filter(facets=facets, **filter_kwargs)
-                expect_result = to_process.pop(0)
-                expect(expect_result, None, filter, pagination=pagination)
-                pagination = pagination.next_page
-            # We are now off the edge of the list -- we got an empty page
-            # of results and there is no next page.
-            eq_(None, pagination)
+            for pagination_class in (
+                Pagination, SortKeyPagination
+            ):
+                pagination = pagination_class(size=1)
+                to_process = list(reversed(order)) + [[]]
+                results = []
+                pagination = SortKeyPagination(size=1)
+                while to_process:
+                    filter = Filter(facets=facets, **filter_kwargs)
+                    expect_result = to_process.pop(0)
+                    expect(expect_result, None, filter, pagination=pagination)
+                    pagination = pagination.next_page
+                # We are now off the edge of the list -- we got an
+                # empty page of results and there is no next page.
+                eq_(None, pagination)
 
         # We can sort by title.
         assert_order(
@@ -4120,9 +4127,14 @@ class TestSortKeyPagination(DatabaseTest):
 
     def test_modify_search_query(self):
         class MockSearch(object):
-            called_with = "not called"
+            update_from_dict_called_with = "not called"
+            getitem_called_with = "not called"
             def update_from_dict(self, dict):
-                self.called_with = dict
+                self.update_from_dict_called_with = dict
+                return self
+
+            def __getitem__(self, slice):
+                self.getitem_called_with = slice
                 return "modified search object"
 
         search = MockSearch()
@@ -4131,26 +4143,40 @@ class TestSortKeyPagination(DatabaseTest):
         # previous page.
         pagination = SortKeyPagination()
 
-        # In this case, modify_search_query does nothing but return
-        # the object it was passed.
-        eq_(search, pagination.modify_search_query(search))
-        eq_("not called", search.called_with)
+        # In this case, modify_search_query slices out the first
+        # 'page' of results and returns a modified search object.
+        eq_("modified search object", pagination.modify_search_query(search))
+        eq_(slice(0, 50), search.getitem_called_with)
 
-        # Now we find out the last item on the previous page -- in
-        # real life, this is because we call page_loaded() and then
-        # next_page().
+        # update_from_dict was not called. We don't know where to
+        # start our search, so we start at the beginning.
+        eq_("not called", search.update_from_dict_called_with)
+
+        # Now let's say we find out the last item on the previous page
+        # -- in real life, this would be because we call page_loaded()
+        # and then next_page().
         last_item = object()
         pagination.last_item_on_previous_page = last_item
 
-        # Now, modify_search_query() calls update_from_dict() on our
-        # mock ElasticSearch `Search` object, passing in the last item
-        # on the previous page. The return value of
-        # modify_search_query() becomes the active Search object.
+        # Reset the object so we can verify __getitem__ gets called
+        # again.
+        search.getitem_called_with = "not called"
+
+        # With .last_item_on_previous_page set, modify_search_query()
+        # calls update_from_dict() on our mock ElasticSearch `Search`
+        # object, passing in the last item on the previous page.
+
+        # The return value of modify_search_query() becomes the active
+        # Search object.
         eq_("modified search object", pagination.modify_search_query(search))
 
-        # The Elasticsearch object was modified to use the
-        # 'search_after' feature.
-        eq_(dict(search_after=last_item), search.called_with)
+        # Now we can see that the Elasticsearch object was modified to
+        # use the 'search_after' feature.
+        eq_(dict(search_after=last_item), search.update_from_dict_called_with)
+
+        # And the resulting object was modified _again_ to get the
+        # first 'page' of results following last_item.
+        eq_(slice(0, 50), search.getitem_called_with)
 
     def test_page_loaded(self):
         # Test what happens to a SortKeyPagination object when a page of

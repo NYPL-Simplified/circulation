@@ -1347,10 +1347,11 @@ class TestPagination(DatabaseTest):
         eq_(True, pagination.page_has_loaded)
 
     def test_modify_search_query(self):
-        # The default implementation of modify_search_query is a no-op.
-        pagination = Pagination()
-        o = object()
-        eq_(o, pagination.modify_search_query(o))
+        # The default implementation of modify_search_query is to slice
+        # a set of search results like a list.
+        pagination = Pagination(offset=2, size=3)
+        o = [1,2,3,4,5,6]
+        eq_(o[2:2+3], pagination.modify_search_query(o))
 
 
 class MockWork(object):
