@@ -425,6 +425,32 @@ class TestTimelineMonitor(DatabaseTest):
         eq_(m.DEFAULT_START_TIME, progress.start)
         eq_(None, progress.finish)
 
+    def test_slice_timespan(self):
+        # Test the slice_timespan utility method.
+
+        # Slicing up the time between 121 minutes ago and now in increments
+        # of one hour will yield three slices:
+        #
+        # 121 minutes ago -> 61 minutes ago
+        # 61 minutes ago -> 1 minute ago
+        # 1 minute ago -> now
+        now = datetime.datetime.utcnow()
+        one_hour = datetime.timedelta(minutes=60)
+        ago_1 = now - datetime.timedelta(minutes=1)
+        ago_61 = ago_1 - one_hour
+        ago_121 = ago_61 - one_hour
+
+        slice1, slice2, slice3 = list(
+            TimelineMonitor.slice_timespan(ago_121, now, one_hour)
+        )
+        eq_(slice1, (ago_121, ago_61, True))
+        eq_(slice2, (ago_61, ago_1, True))
+        eq_(slice3, (ago_1, now, False))
+
+        # The True/True/False indicates that the first two slices are
+        # complete -- they cover a span of an entire hour. The final
+        # slice is incomplete -- it covers only one minute.
+
 
 class MockSweepMonitor(SweepMonitor):
     """A SweepMonitor that does nothing."""

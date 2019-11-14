@@ -286,6 +286,27 @@ class TimelineMonitor(Monitor):
         """
         raise NotImplementedError()
 
+    @classmethod
+    def slice_timespan(cls, start, cutoff, increment):
+        """Slice a span of time into segements no large than [increment].
+
+        This lets you divide up a task like "gather the entire
+        circulation history for a collection" into chunks of one day.
+
+        :param start: A datetime.
+        :param cutoff: A datetime.
+        :param increment: A timedelta.
+        """
+        slice_start = start
+        while slice_start < cutoff:
+            full_slice = True
+            slice_cutoff = slice_start + increment
+            if slice_cutoff > cutoff:
+                slice_cutoff = cutoff
+                full_slice = False
+            yield slice_start, slice_cutoff, full_slice
+            slice_start = slice_start + increment
+
 
 class CollectionMonitor(Monitor):
     """A Monitor that does something for all Collections that come
