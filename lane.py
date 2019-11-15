@@ -1465,7 +1465,12 @@ class WorkList(object):
         """
         from external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
-        return self.modify_search_filter_hook(filter)
+        modified = self.modify_search_filter_hook(filter)
+        if modified is None:
+            # The Filter was modified in place, rather than a new
+            # Filter being returned.
+            modified = filter
+        return modified
 
     def modify_search_filter_hook(self, filter):
         """A hook method allowing subclasses to modify a Filter
