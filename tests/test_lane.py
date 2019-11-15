@@ -1629,6 +1629,34 @@ class TestWorkList(DatabaseTest):
         wl.list_datasource_id = object()
         eq_(True, wl.uses_customlists)
 
+    def test_filter(self):
+        # Verify that filter() calls modify_search_filter_hook()
+        # and can handle either a new Filter being returned or a Filter
+        # modified in place.
+
+        class ModifyInPlace(WorkList):
+            # A WorkList that modifies its search filter in place.
+            def modify_search_filter_hook(self, filter):
+                filter.hook_called = True
+
+        wl = ModifyInPlace()
+        wl.initialize(self._default_library)
+        facets = SearchFacets()
+        filter = wl.filter(self._db, facets)
+        assert isinstance(filter, Filter)
+        eq_(True, filter.hook_called)
+
+        class NewFilter(WorkList):
+            # A WorkList that returns a brand new Filter
+            def modify_search_filter_hook(self, filter):
+                return "A brand new Filter"
+
+        wl = NewFilter()
+        wl.initialize(self._default_library)
+        facets = SearchFacets()
+        filter = wl.filter(self._db, facets)
+        eq_("A brand new Filter", filter)
+
     def test_groups(self):
         w1 = MockWork(1)
         w2 = MockWork(2)

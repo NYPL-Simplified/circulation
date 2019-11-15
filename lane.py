@@ -1467,9 +1467,8 @@ class WorkList(object):
         filter = Filter.from_worklist(_db, self, facets)
         modified = self.modify_search_filter_hook(filter)
         if modified is None:
-            # This doesn't make sense; there needs to be a Filter
-            # object even if no filtering is being done. Assume
-            # the Filter passed in was modified in place.
+            # The Filter was modified in place, rather than a new
+            # Filter being returned.
             modified = filter
         return modified
 
