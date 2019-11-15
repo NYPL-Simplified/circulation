@@ -1032,9 +1032,12 @@
         <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">offset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Pagination.modify_search_query"><a class="viewcode-back" href="../../core.html#core.lane.Pagination.modify_search_query">[docs]</a>    <span class="k">def</span> <span class="nf">modify_search_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search</span><span class="p">):</span>
-        <span class="c1"># Do nothing -- all necessary pagination information is kept in</span>
-        <span class="c1"># offset and size, which external_search knows how to apply.</span>
-        <span class="k">return</span> <span class="n">search</span></div>
+        <span class="sd">&quot;&quot;&quot;Modify a Search object so that it retrieves only a single &#39;page&#39;</span>
+<span class="sd">        of results.</span>
+
+<span class="sd">        :return: A Search object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">search</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">offset</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="Pagination.page_loaded"><a class="viewcode-back" href="../../core.html#core.lane.Pagination.page_loaded">[docs]</a>    <span class="k">def</span> <span class="nf">page_loaded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">page</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;An actual page of results has been fetched. Keep any internal state</span>
@@ -1497,7 +1500,12 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="n">Filter</span>
         <span class="nb">filter</span> <span class="o">=</span> <span class="n">Filter</span><span class="o">.</span><span class="n">from_worklist</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">modify_search_filter_hook</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span></div>
+        <span class="n">modified</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">modify_search_filter_hook</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">modified</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># The Filter was modified in place, rather than a new</span>
+            <span class="c1"># Filter being returned.</span>
+            <span class="n">modified</span> <span class="o">=</span> <span class="nb">filter</span>
+        <span class="k">return</span> <span class="n">modified</span></div>
 
 <div class="viewcode-block" id="WorkList.modify_search_filter_hook"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.modify_search_filter_hook">[docs]</a>    <span class="k">def</span> <span class="nf">modify_search_filter_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;A hook method allowing subclasses to modify a Filter</span>

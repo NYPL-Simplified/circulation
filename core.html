@@ -2899,12 +2899,18 @@ MockExternalSearchIndex.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>elasticsearch</strong> – An Elasticsearch-DSL Search object. This
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>elasticsearch</strong> – An Elasticsearch-DSL Search object. This
 object is ready to run a search against an Elasticsearch server,
-but it doesn’t represent any particular Elasticsearch query.</td>
+but it doesn’t represent any particular Elasticsearch query.</li>
+<li><strong>pagination</strong> – A Pagination object indicating a slice of
+results to pull from the search index.</li>
+</ul>
+</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">An Elasticsearch-DSL Search object that’s prepared
-to run this specific query.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An Elasticsearch-DSL Search object that’s prepared
+to run this specific query.</p>
+</td>
 </tr>
 </tbody>
 </table>
@@ -4312,7 +4318,17 @@ method to be accurate.</p>
 <dl class="method">
 <dt id="core.lane.Pagination.modify_search_query">
 <code class="descname">modify_search_query</code><span class="sig-paren">(</span><em>search</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Pagination.modify_search_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Pagination.modify_search_query" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Modify a Search object so that it retrieves only a single ‘page’
+of results.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A Search object.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.lane.Pagination.next_page">
@@ -4963,7 +4979,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-af1976aa-f307-443c-a47f-e863bf5cf4d3'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-a5369438-9906-4b8f-8540-219023f585b1'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7049,6 +7065,27 @@ from this point on.  NOTE: Modifying the incoming
 because the incoming <cite>progress</cite> is full of old
 data. Instead, return a new TimestampData containing data
 for only the fields you want to set.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="core.monitor.TimelineMonitor.slice_timespan">
+<em class="property">classmethod </em><code class="descname">slice_timespan</code><span class="sig-paren">(</span><em>start</em>, <em>cutoff</em>, <em>increment</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#TimelineMonitor.slice_timespan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.TimelineMonitor.slice_timespan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Slice a span of time into segments no large than [increment].</p>
+<p>This lets you divide up a task like “gather the entire
+circulation history for a collection” into chunks of one day.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>start</strong> – A datetime.</li>
+<li><strong>cutoff</strong> – A datetime.</li>
+<li><strong>increment</strong> – A timedelta.</li>
+</ul>
+</td>
 </tr>
 </tbody>
 </table>

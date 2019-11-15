@@ -319,7 +319,28 @@
 <span class="sd">            However, you cannot change .start and .finish -- any</span>
 <span class="sd">            changes will be overwritten by run_once().</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TimelineMonitor.slice_timespan"><a class="viewcode-back" href="../../core.html#core.monitor.TimelineMonitor.slice_timespan">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">slice_timespan</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">increment</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Slice a span of time into segments no large than [increment].</span>
+
+<span class="sd">        This lets you divide up a task like &quot;gather the entire</span>
+<span class="sd">        circulation history for a collection&quot; into chunks of one day.</span>
+
+<span class="sd">        :param start: A datetime.</span>
+<span class="sd">        :param cutoff: A datetime.</span>
+<span class="sd">        :param increment: A timedelta.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">slice_start</span> <span class="o">=</span> <span class="n">start</span>
+        <span class="k">while</span> <span class="n">slice_start</span> <span class="o">&lt;</span> <span class="n">cutoff</span><span class="p">:</span>
+            <span class="n">full_slice</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">slice_cutoff</span> <span class="o">=</span> <span class="n">slice_start</span> <span class="o">+</span> <span class="n">increment</span>
+            <span class="k">if</span> <span class="n">slice_cutoff</span> <span class="o">&gt;</span> <span class="n">cutoff</span><span class="p">:</span>
+                <span class="n">slice_cutoff</span> <span class="o">=</span> <span class="n">cutoff</span>
+                <span class="n">full_slice</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">yield</span> <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span>
+            <span class="n">slice_start</span> <span class="o">=</span> <span class="n">slice_start</span> <span class="o">+</span> <span class="n">increment</span></div></div>
 
 
 <div class="viewcode-block" id="CollectionMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.CollectionMonitor">[docs]</a><span class="k">class</span> <span class="nc">CollectionMonitor</span><span class="p">(</span><span class="n">Monitor</span><span class="p">):</span>
