@@ -533,7 +533,8 @@ class TestRecommendationLane(LaneTest):
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         filter = Filter()
         eq_(False, filter.match_nothing)
-        lane.modify_search_filter_hook(filter)
+        modified = lane.modify_search_filter_hook(filter)
+        eq_(modified, filter)
         eq_(True, filter.match_nothing)
 
         # When there are recommendations, the Filter is modified to
@@ -543,7 +544,8 @@ class TestRecommendationLane(LaneTest):
         lane.recommendations = [i1, i2]
         filter = Filter()
         eq_([], filter.identifiers)
-        lane.modify_search_filter_hook(filter)
+        modified = lane.modify_search_filter_hook(filter)
+        eq_(modified, filter)
         eq_([i1, i2], filter.identifiers)
         eq_(False, filter.match_nothing)
 

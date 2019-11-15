@@ -912,6 +912,7 @@ class RecommendationLane(WorkBasedLane):
             filter.match_nothing = True
         else:
             filter.identifiers = self.recommendations
+        return filter
 
 
 class SeriesFacets(DefaultSortOrderFacets):
