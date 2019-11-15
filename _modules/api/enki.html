@@ -60,6 +60,7 @@
 
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
+    <span class="n">RemoteIntegrationException</span><span class="p">,</span>
     <span class="n">RequestTimedOut</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -135,6 +136,12 @@
         <span class="p">(</span><span class="n">epub</span><span class="p">,</span> <span class="n">no_drm</span><span class="p">):</span> <span class="s1">&#39;free&#39;</span><span class="p">,</span>
         <span class="p">(</span><span class="n">epub</span><span class="p">,</span> <span class="n">adobe_drm</span><span class="p">):</span> <span class="s1">&#39;acs&#39;</span><span class="p">,</span>
     <span class="p">}</span>
+
+    <span class="c1"># Enki API serves all responses with a 200 error code and a</span>
+    <span class="c1"># text/html Content-Type. However, there&#39;s a string that</span>
+    <span class="c1"># reliably shows up in error pages which is unlikely to show up</span>
+    <span class="c1"># in normal API operation.</span>
+    <span class="n">ERROR_INDICATOR</span> <span class="o">=</span> <span class="s1">&#39;&lt;h1&gt;Oops, an error occurred&lt;/h1&gt;&#39;</span>
 
     <span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">BaseCirculationAPI</span><span class="o">.</span><span class="n">FULFILL_STEP</span>
     <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Enki&quot;</span>
@@ -213,8 +220,9 @@
                 <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">retry_on_timeout</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make an HTTP request to the Enki API.&quot;&quot;&quot;</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">extra_headers</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span>
                 <span class="n">method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
                 <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
                 <span class="o">**</span><span class="n">kwargs</span>
@@ -229,7 +237,13 @@
                 <span class="n">url</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">extra_headers</span><span class="p">,</span>
                 <span class="n">data</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">retry_on_timeout</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="o">**</span><span class="n">kwargs</span>
-            <span class="p">)</span></div>
+            <span class="p">)</span>
+
+        <span class="c1"># Look for the error indicator and raise</span>
+        <span class="c1"># RemoteIntegrationException if it appears.</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_INDICATOR</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RemoteIntegrationException</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="s2">&quot;An unknown error occured&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span></div>
 
     <span class="k">def</span> <span class="nf">_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Actually make an HTTP request.</span>
@@ -252,17 +266,22 @@
         <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">((</span><span class="n">now</span> <span class="o">-</span> <span class="n">since</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">60</span><span class="p">)</span>
 
-<div class="viewcode-block" id="EnkiAPI.recent_activity"><a class="viewcode-back" href="../../api.html#api.enki.EnkiAPI.recent_activity">[docs]</a>    <span class="k">def</span> <span class="nf">recent_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">since</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Find recent circulation events that affected loans or holds.</span>
+<div class="viewcode-block" id="EnkiAPI.recent_activity"><a class="viewcode-back" href="../../api.html#api.enki.EnkiAPI.recent_activity">[docs]</a>    <span class="k">def</span> <span class="nf">recent_activity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find circulation events from a certain timeframe that affected</span>
+<span class="sd">        loans or holds.</span>
 
-<span class="sd">        :param since: A DateTime</span>
+<span class="sd">        :param start: A DateTime</span>
 <span class="sd">        :yield: A sequence of CirculationData objects.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">minutes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_minutes_since</span><span class="p">(</span><span class="n">since</span><span class="p">)</span>
+        <span class="n">epoch</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">start</span> <span class="o">-</span> <span class="n">epoch</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">end</span> <span class="o">-</span> <span class="n">epoch</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
+
         <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">item_endpoint</span>
         <span class="n">args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-            <span class="n">method</span><span class="o">=</span><span class="s1">&#39;getRecentActivity&#39;</span><span class="p">,</span>
-            <span class="n">minutes</span><span class="o">=</span><span class="n">minutes</span><span class="p">,</span>
+            <span class="n">method</span><span class="o">=</span><span class="s1">&#39;getRecentActivityTime&#39;</span><span class="p">,</span>
+            <span class="n">stime</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">start</span><span class="p">),</span>
+            <span class="n">etime</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">args</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
@@ -819,9 +838,31 @@
         <span class="k">return</span> <span class="n">new_titles</span><span class="p">,</span> <span class="n">circulation_changes</span></div>
 
 <div class="viewcode-block" id="EnkiImport.update_circulation"><a class="viewcode-back" href="../../api.html#api.enki.EnkiImport.update_circulation">[docs]</a>    <span class="k">def</span> <span class="nf">update_circulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">since</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Process circulation events that happened since `since`.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Process circulation events that happened since `since`.</span>
+
+<span class="sd">        :return: The total number of circulation events.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">circulation_changes</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">circulation</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">recent_activity</span><span class="p">(</span><span class="n">since</span><span class="p">):</span>
+        <span class="c1"># Slice the time since `since` into two-hour increments.</span>
+        <span class="c1"># Experimentation shows that the Enki API can grab about 60</span>
+        <span class="c1"># hours of activity at once before timing out, so this puts us</span>
+        <span class="c1"># well below that threshold.</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">full_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">slice_timespan</span><span class="p">(</span>
+            <span class="n">since</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">circulation_changes</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_circulation</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">circulation_changes</span></div>
+
+    <span class="k">def</span> <span class="nf">_update_circulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Process circulation events that happened between</span>
+<span class="sd">        `start` and `end`.</span>
+
+<span class="sd">        :return: The number of circulation events between `start`</span>
+<span class="sd">        and `end`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">circulation_changes</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">circulation</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">recent_activity</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
             <span class="n">circulation_changes</span> <span class="o">+=</span> <span class="mi">1</span>
             <span class="n">license_pool</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">circulation</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
@@ -839,7 +880,7 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
                 <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">circulation_changes</span></div>
+        <span class="k">return</span> <span class="n">circulation_changes</span>
 
 <div class="viewcode-block" id="EnkiImport.process_book"><a class="viewcode-back" href="../../api.html#api.enki.EnkiImport.process_book">[docs]</a>    <span class="k">def</span> <span class="nf">process_book</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bibliographic</span><span class="p">):</span>
 

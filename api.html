@@ -3170,14 +3170,6 @@ changes will be overwritten by run_once().</li>
 <code class="descname">handle_event</code><span class="sig-paren">(</span><em>bibliotheca_id</em>, <em>isbn</em>, <em>foreign_patron_id</em>, <em>start_time</em>, <em>end_time</em>, <em>internal_event_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaEventMonitor.handle_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.handle_event" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="method">
-<dt id="api.bibliotheca.BibliothecaEventMonitor.slice_timespan">
-<code class="descname">slice_timespan</code><span class="sig-paren">(</span><em>start</em>, <em>cutoff</em>, <em>increment</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/bibliotheca.html#BibliothecaEventMonitor.slice_timespan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.bibliotheca.BibliothecaEventMonitor.slice_timespan" title="Permalink to this definition">¶</a></dt>
-<dd><p>Slice a span of time into segements no large than [increment].</p>
-<p>This lets you divide up a task like “gather the entire
-circulation history for a collection” into chunks of one day.</p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="exception">
@@ -3266,12 +3258,12 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x48a7220&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4f036f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4814920&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4df5c60&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3286,7 +3278,7 @@ circulation history for a collection” into chunks of one day.</p>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x481a8e0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4ec84f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -6155,6 +6147,11 @@ a CirculationData.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.enki.EnkiAPI.ERROR_INDICATOR">
+<code class="descname">ERROR_INDICATOR</code><em class="property"> = '&lt;h1&gt;Oops, an error occurred&lt;/h1&gt;'</em><a class="headerlink" href="#api.enki.EnkiAPI.ERROR_INDICATOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.enki.EnkiAPI.LIBRARY_SETTINGS">
 <code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'required': True, 'key': u'enki_library_id', 'label': l'Library ID'}]</em><a class="headerlink" href="#api.enki.EnkiAPI.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -6362,13 +6359,14 @@ Metadata object with attached CirculationData. Otherwise, None.</td>
 
 <dl class="method">
 <dt id="api.enki.EnkiAPI.recent_activity">
-<code class="descname">recent_activity</code><span class="sig-paren">(</span><em>since</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/enki.html#EnkiAPI.recent_activity"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.enki.EnkiAPI.recent_activity" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find recent circulation events that affected loans or holds.</p>
+<code class="descname">recent_activity</code><span class="sig-paren">(</span><em>start</em>, <em>end</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/enki.html#EnkiAPI.recent_activity"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.enki.EnkiAPI.recent_activity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find circulation events from a certain timeframe that affected
+loans or holds.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>since</strong> – A DateTime</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>start</strong> – A DateTime</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Yield:</th><td class="field-body">A sequence of CirculationData objects.</td>
 </tr>
@@ -6540,6 +6538,14 @@ presentation-ready Work will be created for the LicensePool.</td>
 <dt id="api.enki.EnkiImport.update_circulation">
 <code class="descname">update_circulation</code><span class="sig-paren">(</span><em>since</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/enki.html#EnkiImport.update_circulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.enki.EnkiImport.update_circulation" title="Permalink to this definition">¶</a></dt>
 <dd><p>Process circulation events that happened since <cite>since</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">The total number of circulation events.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>
@@ -8121,7 +8127,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 11, 25, 16, 42, 15, 323227)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 11, 25, 17, 20, 14, 639566)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

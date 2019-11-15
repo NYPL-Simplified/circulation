@@ -1365,22 +1365,6 @@
             <span class="k">return</span> <span class="n">default_start_time</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
-<div class="viewcode-block" id="BibliothecaEventMonitor.slice_timespan"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.slice_timespan">[docs]</a>    <span class="k">def</span> <span class="nf">slice_timespan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">increment</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Slice a span of time into segements no large than [increment].</span>
-
-<span class="sd">        This lets you divide up a task like &quot;gather the entire</span>
-<span class="sd">        circulation history for a collection&quot; into chunks of one day.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">slice_start</span> <span class="o">=</span> <span class="n">start</span>
-        <span class="k">while</span> <span class="n">slice_start</span> <span class="o">&lt;</span> <span class="n">cutoff</span><span class="p">:</span>
-            <span class="n">full_slice</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">slice_cutoff</span> <span class="o">=</span> <span class="n">slice_start</span> <span class="o">+</span> <span class="n">increment</span>
-            <span class="k">if</span> <span class="n">slice_cutoff</span> <span class="o">&gt;</span> <span class="n">cutoff</span><span class="p">:</span>
-                <span class="n">slice_cutoff</span> <span class="o">=</span> <span class="n">cutoff</span>
-                <span class="n">full_slice</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">yield</span> <span class="n">slice_start</span><span class="p">,</span> <span class="n">slice_cutoff</span><span class="p">,</span> <span class="n">full_slice</span>
-            <span class="n">slice_start</span> <span class="o">=</span> <span class="n">slice_start</span> <span class="o">+</span> <span class="n">increment</span></div>
-
 <div class="viewcode-block" id="BibliothecaEventMonitor.catch_up_from"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaEventMonitor.catch_up_from">[docs]</a>    <span class="k">def</span> <span class="nf">catch_up_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">progress</span><span class="p">):</span>
         <span class="n">added_books</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
