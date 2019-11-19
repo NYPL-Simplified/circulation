@@ -107,6 +107,17 @@ class VendorIDTest(DatabaseTest):
         )
 
 
+class MonitorTest(DatabaseTest):
+
+    @property
+    def ts(self):
+        """Make the timestamp used by run() when calling run_once().
+
+        This makes it easier to test run_once() in isolation.
+        """
+        return self.monitor.timestamp().to_data()
+
+
 class MockRemoteAPI(BaseCirculationAPI):
     def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved):
         self.SET_DELIVERY_MECHANISM_AT = set_delivery_mechanism_at
