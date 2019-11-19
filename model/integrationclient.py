@@ -41,6 +41,10 @@ class IntegrationClient(Base):
     # Shared secret
     shared_secret = Column(Unicode, unique=True, index=True)
 
+    # It may be necessary to disable an integration client until it
+    # upgrades to fix a known bug.
+    enabled = Column(Boolean, default=True)
+
     created = Column(DateTime)
     last_accessed = Column(DateTime)
 
