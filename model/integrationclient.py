@@ -12,6 +12,7 @@ import datetime
 import os
 import re
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Integer,
