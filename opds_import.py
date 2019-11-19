@@ -69,7 +69,10 @@ from util.opds_writer import (
 )
 from util.string_helpers import base64
 from mirror import MirrorUploader
-from selftest import HasSelfTests
+from selftest import (
+    HasSelfTests,
+    TestResult,
+)
 
 
 class AccessNotAuthenticated(Exception):
@@ -130,7 +133,7 @@ class SimplifiedOPDSLookup(object):
         return self._get(url)
 
 
-class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
+class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
 
     PROTOCOL = ExternalIntegration.METADATA_WRANGLER
     NAME = _("Library Simplified Metadata Wrangler")
@@ -172,6 +175,76 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
             integration.url, shared_secret=integration.password,
             collection=collection
         )
+
+    def _run_self_tests(self, _db):
+        if not self.collection:
+            # This MetadataWranglerOPDSLookup was instantiated with no
+            # Collection by the run_self_tests class method.
+            #
+            # We want to find all the Collections on the system, instantiate
+            # a _new_ MetadataWranglerOPDSLookup for each, and call
+            # _run_self_tests on each.
+            for c in _db.query(Collection):
+                lookup = MetadataWranglerOPDSLookup.from_config(_db, c)
+                for result in lookup._run_self_tests(_db):
+                    yield result
+            return
+
+        # If we've reached this point, we have an associated Collection.
+        # See what the metadata wrangler says about it.
+        
+        # The first "test result" acts as a spacer, since we're
+        # running the same tests for every collection.
+        spacer = TestResult(
+            'Testing collection "%s" (metadata identifier: "%s")' % (
+                self.collection.name, self.collection.metadata_identifiers
+            )
+        )
+        spacer.success = True
+        yield spacer
+
+        # Check various endpoints the yield OPDS feeds.
+        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        prefix = '"%s" - ' % self.collection.name
+        for title, m, args in (
+            (
+                "Metadata updates in last 24 hours", 
+                self.updates, [one_day_ago]
+            ),
+            (
+                "Titles where we could (but haven't) provide information to the metadata wrangler",
+                self.metadata_needed, []
+            )
+        ):
+            yield self._feed_self_test(title, m, args)
+
+    def _feed_self_test(self, title, method, args):
+        """Retrieve a feed from the metadata wrangler and 
+        turn it into a TestResult.
+        """
+        result = TestResult(name)
+        response = m(*args)
+        self.annotate_test_result_with_feed_data(result, response)
+
+        # Once we parse the OPDS feed we can call this a success.
+        result.success = True
+        result.end = datetime.datetime.utcnow()
+        return result
+
+    def annotate_test_result_with_feed_data(self, result, response):
+        """Parse an OPDS feed and annotate a TestResult with information
+        about it:
+
+        * The URL that was requested.
+        * The number of items on the first page.
+        * The title of the first item on the page, if any.
+        * The total number of items in the feed, if available.
+
+        :param result: A TestResult for an in-progress test.
+        :param response: A requests Response object.
+        """
+        set_trace()
+        pass
 
     def __init__(self, url, shared_secret=None, collection=None):
         super(MetadataWranglerOPDSLookup, self).__init__(url)
