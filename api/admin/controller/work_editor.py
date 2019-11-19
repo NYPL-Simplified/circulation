@@ -11,7 +11,7 @@ from api.config import (
     Configuration,
     CannotLoadConfiguration
 )
-from api.coverage import MetadataWranglerCollectionRegistrar
+from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
 from api.admin.validator import Validator
 from core.app_server import (
     entry_response,

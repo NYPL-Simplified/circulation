@@ -14,7 +14,7 @@ from core.model.configuration import ExternalIntegrationLink
 from core.opds import AcquisitionFeed
 from core.util.opds_writer import AtomFeed
 from core.mirror import MirrorUploader
-from api.coverage import MetadataWranglerCollectionRegistrar
+from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
 from api.config import CannotLoadConfiguration
 
 class AdminAnnotator(LibraryAnnotator):

@@ -85,7 +85,7 @@ from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdmi
 from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
-from api.coverage import MetadataWranglerCollectionRegistrar
+from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
 from core.app_server import (
     entry_response,
     feed_response,
