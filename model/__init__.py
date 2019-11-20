@@ -506,6 +506,7 @@ from collection import (
 from configuration import (
     ConfigurationSetting,
     ExternalIntegration,
+    ExternalIntegrationLink,
 )
 from complaint import Complaint
 from contributor import (

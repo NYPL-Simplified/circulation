@@ -98,14 +98,14 @@ class ReplacementPolicy(object):
         )
 
     @classmethod
-    def from_license_source(self, _db, **args):
+    def from_license_source(cls, _db, **args):
         """When gathering data from the license source, overwrite all old data
         from this source with new data from the same source. Also
         overwrite an old rights status with an updated status and update
         the list of available formats. Log availability changes to the
         configured analytics services.
         """
-        return ReplacementPolicy(
+        return cls(
             identifiers=True,
             subjects=True,
             contributions=True,
@@ -117,13 +117,13 @@ class ReplacementPolicy(object):
         )
 
     @classmethod
-    def from_metadata_source(self, **args):
+    def from_metadata_source(cls, **args):
         """When gathering data from a metadata source, overwrite all old data
         from this source, but do not overwrite the rights status or
         the available formats. License sources are the authority on rights
         and formats, and metadata sources have no say in the matter.
         """
-        return ReplacementPolicy(
+        return cls(
             identifiers=True,
             subjects=True,
             contributions=True,
@@ -134,12 +134,12 @@ class ReplacementPolicy(object):
         )
 
     @classmethod
-    def append_only(self, **args):
+    def append_only(cls, **args):
         """Don't overwrite any information, just append it.
 
         This should probably never be used.
         """
-        return ReplacementPolicy(
+        return cls(
             identifiers=False,
             subjects=False,
             contributions=False,
