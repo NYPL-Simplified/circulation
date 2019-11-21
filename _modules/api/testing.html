@@ -142,6 +142,17 @@
         <span class="p">)</span></div></div>
 
 
+<div class="viewcode-block" id="MonitorTest"><a class="viewcode-back" href="../../api.html#api.testing.MonitorTest">[docs]</a><span class="k">class</span> <span class="nc">MonitorTest</span><span class="p">(</span><span class="n">DatabaseTest</span><span class="p">):</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make the timestamp used by run() when calling run_once().</span>
+
+<span class="sd">        This makes it easier to test run_once() in isolation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span><span class="o">.</span><span class="n">to_data</span><span class="p">()</span></div>
+
+
 <div class="viewcode-block" id="MockRemoteAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI">[docs]</a><span class="k">class</span> <span class="nc">MockRemoteAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">set_delivery_mechanism_at</span><span class="p">,</span> <span class="n">can_revoke_hold_when_reserved</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">set_delivery_mechanism_at</span>

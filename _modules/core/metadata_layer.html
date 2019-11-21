@@ -133,14 +133,14 @@
         <span class="p">)</span>
 
 <div class="viewcode-block" id="ReplacementPolicy.from_license_source"><a class="viewcode-back" href="../../core.html#core.metadata_layer.ReplacementPolicy.from_license_source">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_license_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">from_license_source</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;When gathering data from the license source, overwrite all old data</span>
 <span class="sd">        from this source with new data from the same source. Also</span>
 <span class="sd">        overwrite an old rights status with an updated status and update</span>
 <span class="sd">        the list of available formats. Log availability changes to the</span>
 <span class="sd">        configured analytics services.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">ReplacementPolicy</span><span class="p">(</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">identifiers</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">subjects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">contributions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -152,13 +152,13 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="ReplacementPolicy.from_metadata_source"><a class="viewcode-back" href="../../core.html#core.metadata_layer.ReplacementPolicy.from_metadata_source">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_metadata_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">from_metadata_source</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;When gathering data from a metadata source, overwrite all old data</span>
 <span class="sd">        from this source, but do not overwrite the rights status or</span>
 <span class="sd">        the available formats. License sources are the authority on rights</span>
 <span class="sd">        and formats, and metadata sources have no say in the matter.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">ReplacementPolicy</span><span class="p">(</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">identifiers</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">subjects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">contributions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -169,12 +169,12 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="ReplacementPolicy.append_only"><a class="viewcode-back" href="../../core.html#core.metadata_layer.ReplacementPolicy.append_only">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">append_only</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">append_only</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Don&#39;t overwrite any information, just append it.</span>
 
 <span class="sd">        This should probably never be used.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">ReplacementPolicy</span><span class="p">(</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">identifiers</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">subjects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">contributions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>

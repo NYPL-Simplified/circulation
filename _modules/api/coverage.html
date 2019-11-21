@@ -33,23 +33,20 @@
           <div class="body" role="main">
             
   <h1>Source code for api.coverage</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span></span><span class="sd">&quot;&quot;&quot;Base classes for CoverageProviders.</span>
+
+<span class="sd">The CoverageProviders themselves are in the file corresponding to the</span>
+<span class="sd">service that needs coverage -- overdrive.py, metadata_wrangler.py, and</span>
+<span class="sd">so on.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
 <span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
-    <span class="n">Configuration</span><span class="p">,</span>
-    <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
 <span class="kn">from</span> <span class="nn">core.coverage</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">CoverageFailure</span><span class="p">,</span>
     <span class="n">CollectionCoverageProvider</span><span class="p">,</span>
     <span class="n">WorkCoverageProvider</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">or_</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
-    <span class="n">aliased</span><span class="p">,</span>
-    <span class="n">contains_eager</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -60,7 +57,6 @@
     <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
-    <span class="n">Session</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="k">import</span> <span class="p">(</span>
@@ -73,7 +69,6 @@
     <span class="n">OPDSXMLParser</span><span class="p">,</span>
     <span class="n">SimplifiedOPDSLookup</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.opds</span> <span class="k">import</span> <span class="n">AcquisitionFeed</span>
 <span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">RemoteIntegrationException</span><span class="p">,</span>
 <span class="p">)</span>
@@ -204,236 +199,6 @@
             <span class="n">data_source_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">name</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">importer</span><span class="o">.</span><span class="n">import_from_feed</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span></div></div>
-
-
-<div class="viewcode-block" id="BaseMetadataWranglerCoverageProvider"><a class="viewcode-back" href="../../api.html#api.coverage.BaseMetadataWranglerCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">BaseMetadataWranglerCoverageProvider</span><span class="p">(</span><span class="n">OPDSImportCoverageProvider</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Makes sure the metadata wrangler knows about all Identifiers</span>
-<span class="sd">    licensed to a Collection.</span>
-
-<span class="sd">    This has two subclasses: MetadataWranglerCollectionRegistrar</span>
-<span class="sd">    (which adds Identifiers from a circulation manager&#39;s catalog to</span>
-<span class="sd">    the corresponding catalog on the metadata wrangler) and</span>
-<span class="sd">    MetadataWranglerCollectionReaper (which removes Identifiers from</span>
-<span class="sd">    the metadata wrangler catalog once they no longer exist in the</span>
-<span class="sd">    circulation manager&#39;s catalog).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">METADATA_WRANGLER</span>
-
-    <span class="c1"># We want to register a given identifier once for every</span>
-    <span class="c1"># collection it&#39;s catalogued under.</span>
-    <span class="n">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</span> <span class="o">=</span> <span class="kc">False</span>
-
-    <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span>
-        <span class="n">Identifier</span><span class="o">.</span><span class="n">BIBLIOTHECA_ID</span><span class="p">,</span>
-        <span class="n">Identifier</span><span class="o">.</span><span class="n">AXIS_360_ID</span><span class="p">,</span>
-        <span class="n">Identifier</span><span class="o">.</span><span class="n">RB_DIGITAL_ID</span><span class="p">,</span>
-        <span class="n">Identifier</span><span class="o">.</span><span class="n">URI</span><span class="p">,</span>
-    <span class="p">]</span>
-
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Since we are processing a specific collection, we must be able to</span>
-<span class="sd">        get an _authenticated_ metadata wrangler lookup client for the</span>
-<span class="sd">        collection.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
-        <span class="n">lookup_client</span> <span class="o">=</span> <span class="n">lookup_client</span> <span class="ow">or</span> <span class="n">MetadataWranglerOPDSLookup</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span>
-            <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span>
-        <span class="p">)</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">BaseMetadataWranglerCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="n">collection</span><span class="p">,</span> <span class="n">lookup_client</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_client</span><span class="o">.</span><span class="n">authenticated</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
-                <span class="s2">&quot;Authentication for the Library Simplified Metadata Wrangler &quot;</span>
-                <span class="s2">&quot;is not set up. Without this, there is no way to register &quot;</span>
-                <span class="s2">&quot;your identifiers with the metadata wrangler.&quot;</span>
-            <span class="p">)</span>
-
-<div class="viewcode-block" id="BaseMetadataWranglerCoverageProvider.create_identifier_mapping"><a class="viewcode-back" href="../../api.html#api.coverage.BaseMetadataWranglerCoverageProvider.create_identifier_mapping">[docs]</a>    <span class="k">def</span> <span class="nf">create_identifier_mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;The metadata wrangler can look up ISBNs and Overdrive</span>
-<span class="sd">        identifiers. All other identifier types need to be mapped to</span>
-<span class="sd">        ISBNs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">[</span>
-                    <span class="n">Identifier</span><span class="o">.</span><span class="n">AXIS_360_ID</span><span class="p">,</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">BIBLIOTHECA_ID</span><span class="p">,</span>
-                    <span class="n">Identifier</span><span class="o">.</span><span class="n">RB_DIGITAL_ID</span>
-            <span class="p">]:</span>
-                <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">identifier</span><span class="o">.</span><span class="n">equivalencies</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">ISBN</span><span class="p">:</span>
-                        <span class="n">mapping</span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">output</span><span class="p">]</span> <span class="o">=</span> <span class="n">identifier</span>
-                        <span class="k">break</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">mapping</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="n">identifier</span>
-        <span class="k">return</span> <span class="n">mapping</span></div></div>
-
-
-<div class="viewcode-block" id="MetadataWranglerCollectionRegistrar"><a class="viewcode-back" href="../../api.html#api.coverage.MetadataWranglerCollectionRegistrar">[docs]</a><span class="k">class</span> <span class="nc">MetadataWranglerCollectionRegistrar</span><span class="p">(</span><span class="n">BaseMetadataWranglerCoverageProvider</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Register all Identifiers licensed to a Collection with the</span>
-<span class="sd">    metadata wrangler.</span>
-
-<span class="sd">    If OPDS metadata is immediately returned, make use of it. Even if</span>
-<span class="sd">    no metadata is returned for an Identifier, mark it as covered.</span>
-
-<span class="sd">    Once it&#39;s registered, any future updates to the available metadata</span>
-<span class="sd">    for a given Identifier will be detected by the</span>
-<span class="sd">    MWCollectionUpdateMonitor.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Metadata Wrangler Collection Registrar&quot;</span>
-    <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">IMPORT_OPERATION</span>
-    <span class="n">OPDS_IMPORTER_CLASS</span> <span class="o">=</span> <span class="n">RegistrarImporter</span>
-
-<div class="viewcode-block" id="MetadataWranglerCollectionRegistrar.items_that_need_coverage"><a class="viewcode-back" href="../../api.html#api.coverage.MetadataWranglerCollectionRegistrar.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Retrieves items from the Collection that are not registered with</span>
-<span class="sd">        the Metadata Wrangler.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># Start with all items in this Collection that have not been</span>
-        <span class="c1"># registered.</span>
-        <span class="n">uncovered</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">MetadataWranglerCollectionRegistrar</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>\
-            <span class="o">.</span><span class="n">items_that_need_coverage</span><span class="p">(</span><span class="n">identifiers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="c1"># Make sure they&#39;re actually available through this</span>
-        <span class="c1"># collection.</span>
-        <span class="n">uncovered</span> <span class="o">=</span> <span class="n">uncovered</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Exclude items that have been reaped because we stopped</span>
-        <span class="c1"># having a license.</span>
-        <span class="n">reaper_covered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>\
-            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">)</span>\
-            <span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-                <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">,</span>
-                <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">REAP_OPERATION</span>
-            <span class="p">)</span>
-
-        <span class="c1"># If any items were reaped earlier but have since been</span>
-        <span class="c1"># relicensed or otherwise added back to the collection, remove</span>
-        <span class="c1"># their reaper CoverageRecords. This ensures we get Metadata</span>
-        <span class="c1"># Wrangler coverage for books that have had their licenses</span>
-        <span class="c1"># repurchased or extended.</span>
-        <span class="n">relicensed</span> <span class="o">=</span> <span class="n">reaper_covered</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">licensed_through</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">,</span>
-                <span class="n">or_</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="p">)</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">contains_eager</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">))</span>
-
-        <span class="n">needs_commit</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">relicensed</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">identifier</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">:</span>
-                <span class="k">if</span> <span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">id</span> <span class="ow">and</span>
-                    <span class="n">record</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="ow">and</span>
-                    <span class="n">record</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">REAP_OPERATION</span><span class="p">):</span>
-                    <span class="c1"># Delete any reaper CoverageRecord for this Identifier</span>
-                    <span class="c1"># in this Collection.</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-                    <span class="n">needs_commit</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="n">needs_commit</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-
-        <span class="c1"># We want all items that don&#39;t have a IMPORT coverage record, so</span>
-        <span class="c1"># long as they&#39;re also missing a REAP coverage record (uncovered).</span>
-        <span class="c1"># If they were relicensed, we just removed the REAP coverage</span>
-        <span class="c1"># record.</span>
-        <span class="k">return</span> <span class="n">uncovered</span><span class="o">.</span><span class="n">except_</span><span class="p">(</span><span class="n">reaper_covered</span><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div></div>
-
-
-<div class="viewcode-block" id="MetadataWranglerCollectionReaper"><a class="viewcode-back" href="../../api.html#api.coverage.MetadataWranglerCollectionReaper">[docs]</a><span class="k">class</span> <span class="nc">MetadataWranglerCollectionReaper</span><span class="p">(</span><span class="n">BaseMetadataWranglerCoverageProvider</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Removes unlicensed identifiers from the remote Metadata Wrangler</span>
-<span class="sd">    Collection</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Metadata Wrangler Reaper&quot;</span>
-    <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">REAP_OPERATION</span>
-    <span class="n">OPDS_IMPORTER_CLASS</span> <span class="o">=</span> <span class="n">ReaperImporter</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">api_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_client</span><span class="o">.</span><span class="n">remove</span>
-
-<div class="viewcode-block" id="MetadataWranglerCollectionReaper.items_that_need_coverage"><a class="viewcode-back" href="../../api.html#api.coverage.MetadataWranglerCollectionReaper.items_that_need_coverage">[docs]</a>    <span class="k">def</span> <span class="nf">items_that_need_coverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Retrieves Identifiers that were imported but are no longer licensed.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span>\
-            <span class="n">join</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="p">)</span><span class="o">.</span>\
-            <span class="nb">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span><span class="p">)</span><span class="o">.</span>\
-            <span class="nb">filter</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">!=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span>\
-            <span class="nb">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span>\
-            <span class="nb">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">IMPORT_OPERATION</span><span class="p">)</span><span class="o">.</span>\
-            <span class="nb">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">status</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">)</span><span class="o">.</span>\
-            <span class="nb">filter</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">collection</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">identifiers</span><span class="p">:</span>
-            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]))</span>
-        <span class="k">return</span> <span class="n">qu</span></div>
-
-<div class="viewcode-block" id="MetadataWranglerCollectionReaper.finalize_batch"><a class="viewcode-back" href="../../api.html#api.coverage.MetadataWranglerCollectionReaper.finalize_batch">[docs]</a>    <span class="k">def</span> <span class="nf">finalize_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Deletes Metadata Wrangler coverage records of reaped Identifiers</span>
-
-<span class="sd">        This allows Identifiers to be added to the collection again via</span>
-<span class="sd">        MetadataWranglerCoverageProvider lookup if a license is repurchased.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Join CoverageRecord against an alias of itself to find all</span>
-        <span class="c1"># &#39;import&#39; CoverageRecords that have been obviated by a</span>
-        <span class="c1"># &#39;reaper&#39; coverage record for the same Identifier.</span>
-        <span class="n">reaper_coverage</span> <span class="o">=</span> <span class="n">aliased</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="p">)</span>
-        <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">CoverageRecord</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">reaper_coverage</span><span class="p">,</span>
-            <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">reaper_coverage</span><span class="o">.</span><span class="n">identifier_id</span>
-
-        <span class="c1"># The CoverageRecords were selecting are &#39;import&#39; records.</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">id</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">IMPORT_OPERATION</span>
-
-        <span class="c1"># And we&#39;re only selecting them if there&#39;s also a &#39;reaper&#39;</span>
-        <span class="c1"># coverage record.</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">reaper_coverage</span><span class="o">.</span><span class="n">data_source_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">id</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">reaper_coverage</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">CoverageRecord</span><span class="o">.</span><span class="n">REAP_OPERATION</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Delete all &#39;import&#39; CoverageRecords that have been reaped.</span>
-        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">qu</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">MetadataWranglerCollectionReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">finalize_batch</span><span class="p">()</span></div></div>
-
-
-<div class="viewcode-block" id="MetadataUploadCoverageProvider"><a class="viewcode-back" href="../../api.html#api.coverage.MetadataUploadCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">MetadataUploadCoverageProvider</span><span class="p">(</span><span class="n">BaseMetadataWranglerCoverageProvider</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Provide coverage for identifiers by uploading OPDS metadata to</span>
-<span class="sd">    the metadata wrangler.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">25</span>
-    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Metadata Upload Coverage Provider&quot;</span>
-    <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">METADATA_UPLOAD_OPERATION</span>
-    <span class="n">DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">INTERNAL_PROCESSING</span>
-
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;registered_only&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;registered_only&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">MetadataUploadCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-
-<div class="viewcode-block" id="MetadataUploadCoverageProvider.process_batch"><a class="viewcode-back" href="../../api.html#api.coverage.MetadataUploadCoverageProvider.process_batch">[docs]</a>    <span class="k">def</span> <span class="nf">process_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create an OPDS feed from a batch and upload it to the metadata client.&quot;&quot;&quot;</span>
-        <span class="n">works</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">:</span>
-            <span class="n">work</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">CoverageFailure</span><span class="p">):</span>
-                <span class="n">works</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
-                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">AcquisitionFeed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="s2">&quot;Metadata Upload Feed&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_client</span><span class="o">.</span><span class="n">add_with_metadata</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
-
-        <span class="c1"># We grant coverage for all identifiers if the upload doesn&#39;t raise an exception.</span>
-        <span class="k">return</span> <span class="n">results</span></div></div>
 
 
 <div class="viewcode-block" id="MockOPDSImportCoverageProvider"><a class="viewcode-back" href="../../api.html#api.coverage.MockOPDSImportCoverageProvider">[docs]</a><span class="k">class</span> <span class="nc">MockOPDSImportCoverageProvider</span><span class="p">(</span><span class="n">OPDSImportCoverageProvider</span><span class="p">):</span>

@@ -738,10 +738,10 @@
 </li>
       <li><a href="api.html#module-api.controller">api.controller (module)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.coverage">api.coverage (module)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.custom_index">api.custom_index (module)</a>
 </li>
       <li><a href="api.html#module-api.custom_patron_catalog">api.custom_patron_catalog (module)</a>
@@ -763,6 +763,8 @@
       <li><a href="api.html#module-api.local_analytics_exporter">api.local_analytics_exporter (module)</a>
 </li>
       <li><a href="api.html#module-api.marc">api.marc (module)</a>
+</li>
+      <li><a href="api.html#module-api.metadata_wrangler">api.metadata_wrangler (module)</a>
 </li>
       <li><a href="api.html#module-api.millenium_patron">api.millenium_patron (module)</a>
 </li>
@@ -820,10 +822,10 @@
       </ul></li>
       <li><a href="api.html#api.shared_collection.SharedCollectionAPI.api_for_licensepool">api_for_licensepool() (api.shared_collection.SharedCollectionAPI method)</a>
 </li>
-      <li><a href="api.html#api.coverage.MetadataWranglerCollectionReaper.api_method">api_method (api.coverage.MetadataWranglerCollectionReaper attribute)</a>
+      <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.api_method">api_method (api.coverage.OPDSImportCoverageProvider attribute)</a>
 
       <ul>
-        <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.api_method">(api.coverage.OPDSImportCoverageProvider attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper.api_method">(api.metadata_wrangler.MetadataWranglerCollectionReaper attribute)</a>
 </li>
       </ul></li>
       <li><a href="api.html#api.rbdigital.RBDigitalAPI.API_VERSION">API_VERSION (api.rbdigital.RBDigitalAPI attribute)</a>
@@ -1016,7 +1018,7 @@
 </li>
       <li><a href="api.admin.html#api.admin.geographic_validator.GeographicValidator.ask_registry">ask_registry() (api.admin.geographic_validator.GeographicValidator method)</a>
 </li>
-      <li><a href="api.html#api.monitor.MetadataWranglerCollectionMonitor.assert_authenticated">assert_authenticated() (api.monitor.MetadataWranglerCollectionMonitor method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionMonitor.assert_authenticated">assert_authenticated() (api.metadata_wrangler.MetadataWranglerCollectionMonitor method)</a>
 </li>
       <li><a href="api.util.html#api.util.patron.PatronUtility.assert_borrowing_privileges">assert_borrowing_privileges() (api.util.patron.PatronUtility class method)</a>
 </li>
@@ -1470,7 +1472,7 @@
 </li>
       <li><a href="core.html#core.external_search.Query.BASELINE_COEFFICIENT">BASELINE_COEFFICIENT (core.external_search.Query attribute)</a>
 </li>
-      <li><a href="api.html#api.coverage.BaseMetadataWranglerCoverageProvider">BaseMetadataWranglerCoverageProvider (class in api.coverage)</a>
+      <li><a href="api.html#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider">BaseMetadataWranglerCoverageProvider (class in api.metadata_wrangler)</a>
 </li>
       <li><a href="api.html#api.shared_collection.BaseSharedCollectionAPI">BaseSharedCollectionAPI (class in api.shared_collection)</a>
 </li>
@@ -2888,7 +2890,7 @@
         <li><a href="core.model.html#core.model.work.Work.cover_thumbnail_url">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.coverage.BaseMetadataWranglerCoverageProvider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION">COVERAGE_COUNTS_FOR_EVERY_COLLECTION (api.coverage.BaseMetadataWranglerCoverageProvider attribute)</a>
+      <li><a href="api.html#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION">COVERAGE_COUNTS_FOR_EVERY_COLLECTION (api.metadata_wrangler.BaseMetadataWranglerCoverageProvider attribute)</a>
 
       <ul>
         <li><a href="core.html#core.coverage.IdentifierCoverageProvider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION">(core.coverage.IdentifierCoverageProvider attribute)</a>
@@ -2994,10 +2996,10 @@
 </li>
       <li><a href="core.html#core.log.CloudwatchLogs.CREATE_GROUP">CREATE_GROUP (core.log.CloudwatchLogs attribute)</a>
 </li>
-      <li><a href="api.html#api.coverage.BaseMetadataWranglerCoverageProvider.create_identifier_mapping">create_identifier_mapping() (api.coverage.BaseMetadataWranglerCoverageProvider method)</a>
+      <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.create_identifier_mapping">create_identifier_mapping() (api.coverage.OPDSImportCoverageProvider method)</a>
 
       <ul>
-        <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.create_identifier_mapping">(api.coverage.OPDSImportCoverageProvider method)</a>
+        <li><a href="api.html#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.create_identifier_mapping">(api.metadata_wrangler.BaseMetadataWranglerCoverageProvider method)</a>
 </li>
       </ul></li>
       <li><a href="api.html#api.axis.Axis360API.create_identifier_strings">create_identifier_strings() (api.axis.Axis360API class method)</a>
@@ -3235,11 +3237,11 @@
       <ul>
         <li><a href="api.html#api.bibliotheca.BibliothecaBibliographicCoverageProvider.DATA_SOURCE_NAME">(api.bibliotheca.BibliothecaBibliographicCoverageProvider attribute)</a>
 </li>
-        <li><a href="api.html#api.coverage.BaseMetadataWranglerCoverageProvider.DATA_SOURCE_NAME">(api.coverage.BaseMetadataWranglerCoverageProvider attribute)</a>
-</li>
-        <li><a href="api.html#api.coverage.MetadataUploadCoverageProvider.DATA_SOURCE_NAME">(api.coverage.MetadataUploadCoverageProvider attribute)</a>
-</li>
         <li><a href="api.html#api.coverage.MockOPDSImportCoverageProvider.DATA_SOURCE_NAME">(api.coverage.MockOPDSImportCoverageProvider attribute)</a>
+</li>
+        <li><a href="api.html#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.DATA_SOURCE_NAME">(api.metadata_wrangler.BaseMetadataWranglerCoverageProvider attribute)</a>
+</li>
+        <li><a href="api.html#api.metadata_wrangler.MetadataUploadCoverageProvider.DATA_SOURCE_NAME">(api.metadata_wrangler.MetadataUploadCoverageProvider attribute)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloBibliographicCoverageProvider.DATA_SOURCE_NAME">(api.odilo.OdiloBibliographicCoverageProvider attribute)</a>
 </li>
@@ -3413,11 +3415,11 @@
 </li>
         <li><a href="api.html#api.bibliotheca.BibliothecaCirculationSweep.DEFAULT_BATCH_SIZE">(api.bibliotheca.BibliothecaCirculationSweep attribute)</a>
 </li>
-        <li><a href="api.html#api.coverage.MetadataUploadCoverageProvider.DEFAULT_BATCH_SIZE">(api.coverage.MetadataUploadCoverageProvider attribute)</a>
-</li>
         <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.DEFAULT_BATCH_SIZE">(api.coverage.OPDSImportCoverageProvider attribute)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiImport.DEFAULT_BATCH_SIZE">(api.enki.EnkiImport attribute)</a>
+</li>
+        <li><a href="api.html#api.metadata_wrangler.MetadataUploadCoverageProvider.DEFAULT_BATCH_SIZE">(api.metadata_wrangler.MetadataUploadCoverageProvider attribute)</a>
 </li>
         <li><a href="api.html#api.overdrive.OverdriveFormatSweep.DEFAULT_BATCH_SIZE">(api.overdrive.OverdriveFormatSweep attribute)</a>
 </li>
@@ -3633,9 +3635,9 @@
 </li>
         <li><a href="api.html#api.enki.EnkiImport.DEFAULT_START_TIME">(api.enki.EnkiImport attribute)</a>
 </li>
-        <li><a href="api.html#api.monitor.MWAuxiliaryMetadataMonitor.DEFAULT_START_TIME">(api.monitor.MWAuxiliaryMetadataMonitor attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.DEFAULT_START_TIME">(api.metadata_wrangler.MWAuxiliaryMetadataMonitor attribute)</a>
 </li>
-        <li><a href="api.html#api.monitor.MWCollectionUpdateMonitor.DEFAULT_START_TIME">(api.monitor.MWCollectionUpdateMonitor attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MWCollectionUpdateMonitor.DEFAULT_START_TIME">(api.metadata_wrangler.MWCollectionUpdateMonitor attribute)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloCirculationMonitor.DEFAULT_START_TIME">(api.odilo.OdiloCirculationMonitor attribute)</a>
 </li>
@@ -4233,7 +4235,11 @@
       <li><a href="core.html#core.facets.FacetConfig.enable_facet">enable_facet() (core.facets.FacetConfig method)</a>
 </li>
       <li><a href="core.model.html#core.model.identifier.Equivalency.enabled">enabled (core.model.identifier.Equivalency attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.integrationclient.IntegrationClient.enabled">(core.model.integrationclient.IntegrationClient attribute)</a>
 </li>
+      </ul></li>
       <li><a href="core.html#core.lane.Facets.enabled_facets">enabled_facets (core.lane.Facets attribute)</a>
 </li>
       <li><a href="core.html#core.facets.FacetConfig.enabled_facets">enabled_facets() (core.facets.FacetConfig method)</a>
@@ -4278,12 +4284,12 @@
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedMARCFile.end_time">end_time (core.model.cachedfeed.CachedMARCFile attribute)</a>
 </li>
-      <li><a href="api.html#api.monitor.MetadataWranglerCollectionMonitor.endpoint">endpoint() (api.monitor.MetadataWranglerCollectionMonitor method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionMonitor.endpoint">endpoint() (api.metadata_wrangler.MetadataWranglerCollectionMonitor method)</a>
 
       <ul>
-        <li><a href="api.html#api.monitor.MWAuxiliaryMetadataMonitor.endpoint">(api.monitor.MWAuxiliaryMetadataMonitor method)</a>
+        <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.endpoint">(api.metadata_wrangler.MWAuxiliaryMetadataMonitor method)</a>
 </li>
-        <li><a href="api.html#api.monitor.MWCollectionUpdateMonitor.endpoint">(api.monitor.MWCollectionUpdateMonitor method)</a>
+        <li><a href="api.html#api.metadata_wrangler.MWCollectionUpdateMonitor.endpoint">(api.metadata_wrangler.MWCollectionUpdateMonitor method)</a>
 </li>
       </ul></li>
       <li><a href="core.html#core.testing.EndToEndSearchTest">EndToEndSearchTest (class in core.testing)</a>
@@ -4960,7 +4966,7 @@
         <li><a href="core.util.html#core.util.worker_pools.Job.finalize">(core.util.worker_pools.Job method)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.coverage.MetadataWranglerCollectionReaper.finalize_batch">finalize_batch() (api.coverage.MetadataWranglerCollectionReaper method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper.finalize_batch">finalize_batch() (api.metadata_wrangler.MetadataWranglerCollectionReaper method)</a>
 
       <ul>
         <li><a href="core.html#core.coverage.BaseCoverageProvider.finalize_batch">(core.coverage.BaseCoverageProvider method)</a>
@@ -5528,7 +5534,7 @@
         <li><a href="api.html#api.overdrive.OverdriveAPI.get_hold">(api.overdrive.OverdriveAPI method)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.monitor.MWAuxiliaryMetadataMonitor.get_identifiers">get_identifiers() (api.monitor.MWAuxiliaryMetadataMonitor method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.get_identifiers">get_identifiers() (api.metadata_wrangler.MWAuxiliaryMetadataMonitor method)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.collection_self_tests.CollectionSelfTestsController.get_info">get_info() (api.admin.controller.collection_self_tests.CollectionSelfTestsController method)</a>
 
@@ -5634,7 +5640,7 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.SitewideRegistrationController.get_registration_link">get_registration_link() (api.admin.controller.SitewideRegistrationController method)</a>
 </li>
-      <li><a href="api.html#api.monitor.MetadataWranglerCollectionMonitor.get_response">get_response() (api.monitor.MetadataWranglerCollectionMonitor method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionMonitor.get_response">get_response() (api.metadata_wrangler.MetadataWranglerCollectionMonitor method)</a>
 </li>
       <li><a href="api.html#api.novelist.NoveListAPI.get_series_information">get_series_information() (api.novelist.NoveListAPI method)</a>
 </li>
@@ -6176,7 +6182,7 @@
 </li>
       <li><a href="api.html#api.rbdigital.AudiobookManifest.import_metadata">import_metadata() (api.rbdigital.AudiobookManifest method)</a>
 </li>
-      <li><a href="api.html#api.monitor.MWCollectionUpdateMonitor.import_one_feed">import_one_feed() (api.monitor.MWCollectionUpdateMonitor method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MWCollectionUpdateMonitor.import_one_feed">import_one_feed() (api.metadata_wrangler.MWCollectionUpdateMonitor method)</a>
 
       <ul>
         <li><a href="api.html#api.opds_for_distributors.OPDSForDistributorsReaperMonitor.import_one_feed">(api.opds_for_distributors.OPDSForDistributorsReaperMonitor method)</a>
@@ -6303,7 +6309,7 @@
       <ul>
         <li><a href="api.html#api.bibliotheca.BibliothecaBibliographicCoverageProvider.INPUT_IDENTIFIER_TYPES">(api.bibliotheca.BibliothecaBibliographicCoverageProvider attribute)</a>
 </li>
-        <li><a href="api.html#api.coverage.BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES">(api.coverage.BaseMetadataWranglerCoverageProvider attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES">(api.metadata_wrangler.BaseMetadataWranglerCoverageProvider attribute)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloBibliographicCoverageProvider.INPUT_IDENTIFIER_TYPES">(api.odilo.OdiloBibliographicCoverageProvider attribute)</a>
 </li>
@@ -6576,10 +6582,10 @@
         <li><a href="core.html#core.lane.SearchFacets.items">(core.lane.SearchFacets method)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.coverage.MetadataWranglerCollectionReaper.items_that_need_coverage">items_that_need_coverage() (api.coverage.MetadataWranglerCollectionReaper method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper.items_that_need_coverage">items_that_need_coverage() (api.metadata_wrangler.MetadataWranglerCollectionReaper method)</a>
 
       <ul>
-        <li><a href="api.html#api.coverage.MetadataWranglerCollectionRegistrar.items_that_need_coverage">(api.coverage.MetadataWranglerCollectionRegistrar method)</a>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.items_that_need_coverage">(api.metadata_wrangler.MetadataWranglerCollectionRegistrar method)</a>
 </li>
         <li><a href="core.html#core.coverage.BaseCoverageProvider.items_that_need_coverage">(core.coverage.BaseCoverageProvider method)</a>
 </li>
@@ -7926,13 +7932,13 @@
 </li>
       <li><a href="core.util.html#core.util.MetadataSimilarity">MetadataSimilarity (class in core.util)</a>
 </li>
-      <li><a href="api.html#api.coverage.MetadataUploadCoverageProvider">MetadataUploadCoverageProvider (class in api.coverage)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataUploadCoverageProvider">MetadataUploadCoverageProvider (class in api.metadata_wrangler)</a>
 </li>
-      <li><a href="api.html#api.monitor.MetadataWranglerCollectionMonitor">MetadataWranglerCollectionMonitor (class in api.monitor)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionMonitor">MetadataWranglerCollectionMonitor (class in api.metadata_wrangler)</a>
 </li>
-      <li><a href="api.html#api.coverage.MetadataWranglerCollectionReaper">MetadataWranglerCollectionReaper (class in api.coverage)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper">MetadataWranglerCollectionReaper (class in api.metadata_wrangler)</a>
 </li>
-      <li><a href="api.html#api.coverage.MetadataWranglerCollectionRegistrar">MetadataWranglerCollectionRegistrar (class in api.coverage)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar">MetadataWranglerCollectionRegistrar (class in api.metadata_wrangler)</a>
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup">MetadataWranglerOPDSLookup (class in core.opds_import)</a>
 </li>
@@ -7940,10 +7946,10 @@
 </li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.migratable_files">migratable_files() (core.scripts.DatabaseMigrationScript class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.adobe_vendor_id.AuthdataUtility.migrate_adobe_id">migrate_adobe_id() (api.adobe_vendor_id.AuthdataUtility method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.MIGRATION_WITH_COUNTER">MIGRATION_WITH_COUNTER (core.scripts.DatabaseMigrationScript attribute)</a>
 </li>
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI">MilleniumPatronAPI (class in api.millenium_patron)</a>
@@ -8228,6 +8234,8 @@
         <li><a href="core.html#core.scripts.RunReaperMonitorsScript.monitors">(core.scripts.RunReaperMonitorsScript method)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.testing.MonitorTest">MonitorTest (class in api.testing)</a>
+</li>
       <li><a href="core.util.html#core.util.MetadataSimilarity.most_common">most_common() (core.util.MetadataSimilarity class method)</a>
 </li>
       <li><a href="core.model.html#core.model.customlist.CustomListEntry.most_recent_appearance">most_recent_appearance (core.model.customlist.CustomListEntry attribute)</a>
@@ -8258,9 +8266,9 @@
 </li>
       <li><a href="core.model.html#core.model.contributor.Contributor.MUSICIAN_ROLE">MUSICIAN_ROLE (core.model.contributor.Contributor attribute)</a>
 </li>
-      <li><a href="api.html#api.monitor.MWAuxiliaryMetadataMonitor">MWAuxiliaryMetadataMonitor (class in api.monitor)</a>
+      <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor">MWAuxiliaryMetadataMonitor (class in api.metadata_wrangler)</a>
 </li>
-      <li><a href="api.html#api.monitor.MWCollectionUpdateMonitor">MWCollectionUpdateMonitor (class in api.monitor)</a>
+      <li><a href="api.html#api.metadata_wrangler.MWCollectionUpdateMonitor">MWCollectionUpdateMonitor (class in api.metadata_wrangler)</a>
 </li>
       <li><a href="api.html#api.rbdigital.RBDigitalAPI.my_audiobook_setting">my_audiobook_setting (api.rbdigital.RBDigitalAPI attribute)</a>
 </li>
@@ -8882,12 +8890,12 @@
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.OPDS_IMPORT">OPDS_IMPORT (core.model.configuration.ExternalIntegration attribute)</a>
 </li>
-      <li><a href="api.html#api.coverage.MetadataWranglerCollectionReaper.OPDS_IMPORTER_CLASS">OPDS_IMPORTER_CLASS (api.coverage.MetadataWranglerCollectionReaper attribute)</a>
+      <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.OPDS_IMPORTER_CLASS">OPDS_IMPORTER_CLASS (api.coverage.OPDSImportCoverageProvider attribute)</a>
 
       <ul>
-        <li><a href="api.html#api.coverage.MetadataWranglerCollectionRegistrar.OPDS_IMPORTER_CLASS">(api.coverage.MetadataWranglerCollectionRegistrar attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper.OPDS_IMPORTER_CLASS">(api.metadata_wrangler.MetadataWranglerCollectionReaper attribute)</a>
 </li>
-        <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.OPDS_IMPORTER_CLASS">(api.coverage.OPDSImportCoverageProvider attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.OPDS_IMPORTER_CLASS">(api.metadata_wrangler.MetadataWranglerCollectionRegistrar attribute)</a>
 </li>
       </ul></li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.OPDS_NS">OPDS_NS (core.util.opds_writer.AtomFeed attribute)</a>
@@ -8978,12 +8986,12 @@
 </li>
       <li><a href="core.html#core.opensearch.OpenSearchDocument">OpenSearchDocument (class in core.opensearch)</a>
 </li>
-      <li><a href="api.html#api.coverage.MetadataUploadCoverageProvider.OPERATION">OPERATION (api.coverage.MetadataUploadCoverageProvider attribute)</a>
+      <li><a href="api.html#api.metadata_wrangler.MetadataUploadCoverageProvider.OPERATION">OPERATION (api.metadata_wrangler.MetadataUploadCoverageProvider attribute)</a>
 
       <ul>
-        <li><a href="api.html#api.coverage.MetadataWranglerCollectionReaper.OPERATION">(api.coverage.MetadataWranglerCollectionReaper attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper.OPERATION">(api.metadata_wrangler.MetadataWranglerCollectionReaper attribute)</a>
 </li>
-        <li><a href="api.html#api.coverage.MetadataWranglerCollectionRegistrar.OPERATION">(api.coverage.MetadataWranglerCollectionRegistrar attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.OPERATION">(api.metadata_wrangler.MetadataWranglerCollectionRegistrar attribute)</a>
 </li>
         <li><a href="core.html#core.coverage.BaseCoverageProvider.OPERATION">(core.coverage.BaseCoverageProvider attribute)</a>
 </li>
@@ -9771,9 +9779,9 @@
       <li><a href="api.html#api.axis.Axis360BibliographicCoverageProvider.process_batch">process_batch() (api.axis.Axis360BibliographicCoverageProvider method)</a>
 
       <ul>
-        <li><a href="api.html#api.coverage.MetadataUploadCoverageProvider.process_batch">(api.coverage.MetadataUploadCoverageProvider method)</a>
-</li>
         <li><a href="api.html#api.coverage.OPDSImportCoverageProvider.process_batch">(api.coverage.OPDSImportCoverageProvider method)</a>
+</li>
+        <li><a href="api.html#api.metadata_wrangler.MetadataUploadCoverageProvider.process_batch">(api.metadata_wrangler.MetadataUploadCoverageProvider method)</a>
 </li>
         <li><a href="core.html#core.coverage.BaseCoverageProvider.process_batch">(core.coverage.BaseCoverageProvider method)</a>
 </li>
@@ -11234,10 +11242,10 @@
 </li>
       <li><a href="core.html#core.coverage.IdentifierCoverageProvider.run_on_specific_identifiers">run_on_specific_identifiers() (core.coverage.IdentifierCoverageProvider method)</a>
 </li>
-      <li><a href="api.html#api.monitor.MWAuxiliaryMetadataMonitor.run_once">run_once() (api.monitor.MWAuxiliaryMetadataMonitor method)</a>
+      <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.run_once">run_once() (api.metadata_wrangler.MWAuxiliaryMetadataMonitor method)</a>
 
       <ul>
-        <li><a href="api.html#api.monitor.MWCollectionUpdateMonitor.run_once">(api.monitor.MWCollectionUpdateMonitor method)</a>
+        <li><a href="api.html#api.metadata_wrangler.MWCollectionUpdateMonitor.run_once">(api.metadata_wrangler.MWCollectionUpdateMonitor method)</a>
 </li>
         <li><a href="api.html#api.odl.ODLHoldReaper.run_once">(api.odl.ODLHoldReaper method)</a>
 </li>
@@ -11579,12 +11587,6 @@
 </li>
         <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor.SERVICE_NAME">(api.bibliotheca.BibliothecaEventMonitor attribute)</a>
 </li>
-        <li><a href="api.html#api.coverage.MetadataUploadCoverageProvider.SERVICE_NAME">(api.coverage.MetadataUploadCoverageProvider attribute)</a>
-</li>
-        <li><a href="api.html#api.coverage.MetadataWranglerCollectionReaper.SERVICE_NAME">(api.coverage.MetadataWranglerCollectionReaper attribute)</a>
-</li>
-        <li><a href="api.html#api.coverage.MetadataWranglerCollectionRegistrar.SERVICE_NAME">(api.coverage.MetadataWranglerCollectionRegistrar attribute)</a>
-</li>
         <li><a href="api.html#api.coverage.MockOPDSImportCoverageProvider.SERVICE_NAME">(api.coverage.MockOPDSImportCoverageProvider attribute)</a>
 </li>
         <li><a href="api.html#api.enki.EnkiAPI.SERVICE_NAME">(api.enki.EnkiAPI attribute)</a>
@@ -11593,9 +11595,15 @@
 </li>
         <li><a href="api.html#api.enki.EnkiImport.SERVICE_NAME">(api.enki.EnkiImport attribute)</a>
 </li>
-        <li><a href="api.html#api.monitor.MWAuxiliaryMetadataMonitor.SERVICE_NAME">(api.monitor.MWAuxiliaryMetadataMonitor attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.SERVICE_NAME">(api.metadata_wrangler.MWAuxiliaryMetadataMonitor attribute)</a>
 </li>
-        <li><a href="api.html#api.monitor.MWCollectionUpdateMonitor.SERVICE_NAME">(api.monitor.MWCollectionUpdateMonitor attribute)</a>
+        <li><a href="api.html#api.metadata_wrangler.MWCollectionUpdateMonitor.SERVICE_NAME">(api.metadata_wrangler.MWCollectionUpdateMonitor attribute)</a>
+</li>
+        <li><a href="api.html#api.metadata_wrangler.MetadataUploadCoverageProvider.SERVICE_NAME">(api.metadata_wrangler.MetadataUploadCoverageProvider attribute)</a>
+</li>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper.SERVICE_NAME">(api.metadata_wrangler.MetadataWranglerCollectionReaper attribute)</a>
+</li>
+        <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.SERVICE_NAME">(api.metadata_wrangler.MetadataWranglerCollectionRegistrar attribute)</a>
 </li>
         <li><a href="api.html#api.odilo.OdiloBibliographicCoverageProvider.SERVICE_NAME">(api.odilo.OdiloBibliographicCoverageProvider attribute)</a>
 </li>
@@ -12872,10 +12880,10 @@
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.TimestampsController">TimestampsController (class in api.admin.controller)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.scripts.TimestampScript">TimestampScript (class in core.scripts)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.TINY_COLLECTION_LANGUAGES">TINY_COLLECTION_LANGUAGES (api.config.Configuration attribute)</a>
 </li>
       <li><a href="api.html#api.config.Configuration.tiny_collection_languages">tiny_collection_languages() (api.config.Configuration class method)</a>
@@ -13083,6 +13091,8 @@
       <li><a href="core.model.html#core.model.contributor.Contributor.TRANSLATOR_ROLE">TRANSLATOR_ROLE (core.model.contributor.Contributor attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.classification.Classification.TRUSTED_DISTRIBUTOR_WEIGHT">TRUSTED_DISTRIBUTOR_WEIGHT (core.model.classification.Classification attribute)</a>
+</li>
+      <li><a href="api.html#api.testing.MonitorTest.ts">ts (api.testing.MonitorTest attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.tuple_to_numericrange">tuple_to_numericrange() (in module core.model)</a>
 </li>

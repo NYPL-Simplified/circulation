@@ -198,6 +198,14 @@ api.marc module
     :undoc-members:
     :show-inheritance:
 
+api.metadata\_wrangler module
+-----------------------------
+
+.. automodule:: api.metadata_wrangler
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 api.millenium\_patron module
 ----------------------------
 

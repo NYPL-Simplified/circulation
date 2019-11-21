@@ -3258,12 +3258,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4f036f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x46d3b60&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4df5c60&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x447d390&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3278,7 +3278,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4ec84f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x468bf90&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5502,156 +5502,10 @@ feed containing any number of entries.</p>
 </div>
 <div class="section" id="module-api.coverage">
 <span id="api-coverage-module"></span><h2>api.coverage module<a class="headerlink" href="#module-api.coverage" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="api.coverage.BaseMetadataWranglerCoverageProvider">
-<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">BaseMetadataWranglerCoverageProvider</code><span class="sig-paren">(</span><em>collection</em>, <em>lookup_client=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#BaseMetadataWranglerCoverageProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.BaseMetadataWranglerCoverageProvider" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.coverage.OPDSImportCoverageProvider" title="api.coverage.OPDSImportCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.coverage.OPDSImportCoverageProvider</span></code></a></p>
-<p>Makes sure the metadata wrangler knows about all Identifiers
-licensed to a Collection.</p>
-<p>This has two subclasses: MetadataWranglerCollectionRegistrar
-(which adds Identifiers from a circulation manager’s catalog to
-the corresponding catalog on the metadata wrangler) and
-MetadataWranglerCollectionReaper (which removes Identifiers from
-the metadata wrangler catalog once they no longer exist in the
-circulation manager’s catalog).</p>
-<dl class="attribute">
-<dt id="api.coverage.BaseMetadataWranglerCoverageProvider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION">
-<code class="descname">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</code><em class="property"> = False</em><a class="headerlink" href="#api.coverage.BaseMetadataWranglerCoverageProvider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.BaseMetadataWranglerCoverageProvider.DATA_SOURCE_NAME">
-<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = u'Library Simplified metadata wrangler'</em><a class="headerlink" href="#api.coverage.BaseMetadataWranglerCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES">
-<code class="descname">INPUT_IDENTIFIER_TYPES</code><em class="property"> = [u'Overdrive ID', u'Bibliotheca ID', u'Axis 360 ID', u'RBdigital ID', u'URI']</em><a class="headerlink" href="#api.coverage.BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.coverage.BaseMetadataWranglerCoverageProvider.create_identifier_mapping">
-<code class="descname">create_identifier_mapping</code><span class="sig-paren">(</span><em>batch</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#BaseMetadataWranglerCoverageProvider.create_identifier_mapping"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.BaseMetadataWranglerCoverageProvider.create_identifier_mapping" title="Permalink to this definition">¶</a></dt>
-<dd><p>The metadata wrangler can look up ISBNs and Overdrive
-identifiers. All other identifier types need to be mapped to
-ISBNs.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.coverage.MetadataUploadCoverageProvider">
-<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">MetadataUploadCoverageProvider</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MetadataUploadCoverageProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MetadataUploadCoverageProvider" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.coverage.BaseMetadataWranglerCoverageProvider" title="api.coverage.BaseMetadataWranglerCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.coverage.BaseMetadataWranglerCoverageProvider</span></code></a></p>
-<p>Provide coverage for identifiers by uploading OPDS metadata to
-the metadata wrangler.</p>
-<dl class="attribute">
-<dt id="api.coverage.MetadataUploadCoverageProvider.DATA_SOURCE_NAME">
-<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = u'Library Simplified Internal Process'</em><a class="headerlink" href="#api.coverage.MetadataUploadCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataUploadCoverageProvider.DEFAULT_BATCH_SIZE">
-<code class="descname">DEFAULT_BATCH_SIZE</code><em class="property"> = 25</em><a class="headerlink" href="#api.coverage.MetadataUploadCoverageProvider.DEFAULT_BATCH_SIZE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataUploadCoverageProvider.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'metadata-upload'</em><a class="headerlink" href="#api.coverage.MetadataUploadCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataUploadCoverageProvider.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Upload Coverage Provider'</em><a class="headerlink" href="#api.coverage.MetadataUploadCoverageProvider.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.coverage.MetadataUploadCoverageProvider.process_batch">
-<code class="descname">process_batch</code><span class="sig-paren">(</span><em>batch</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MetadataUploadCoverageProvider.process_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MetadataUploadCoverageProvider.process_batch" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create an OPDS feed from a batch and upload it to the metadata client.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.coverage.MetadataWranglerCollectionReaper">
-<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">MetadataWranglerCollectionReaper</code><span class="sig-paren">(</span><em>collection</em>, <em>lookup_client=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MetadataWranglerCollectionReaper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionReaper" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.coverage.BaseMetadataWranglerCoverageProvider" title="api.coverage.BaseMetadataWranglerCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.coverage.BaseMetadataWranglerCoverageProvider</span></code></a></p>
-<p>Removes unlicensed identifiers from the remote Metadata Wrangler
-Collection</p>
-<dl class="attribute">
-<dt id="api.coverage.MetadataWranglerCollectionReaper.OPDS_IMPORTER_CLASS">
-<code class="descname">OPDS_IMPORTER_CLASS</code><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionReaper.OPDS_IMPORTER_CLASS" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#api.coverage.ReaperImporter" title="api.coverage.ReaperImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReaperImporter</span></code></a></p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataWranglerCollectionReaper.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'reap'</em><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionReaper.OPERATION" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataWranglerCollectionReaper.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Reaper'</em><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionReaper.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataWranglerCollectionReaper.api_method">
-<code class="descname">api_method</code><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionReaper.api_method" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.coverage.MetadataWranglerCollectionReaper.finalize_batch">
-<code class="descname">finalize_batch</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MetadataWranglerCollectionReaper.finalize_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionReaper.finalize_batch" title="Permalink to this definition">¶</a></dt>
-<dd><p>Deletes Metadata Wrangler coverage records of reaped Identifiers</p>
-<p>This allows Identifiers to be added to the collection again via
-MetadataWranglerCoverageProvider lookup if a license is repurchased.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.coverage.MetadataWranglerCollectionReaper.items_that_need_coverage">
-<code class="descname">items_that_need_coverage</code><span class="sig-paren">(</span><em>identifiers=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MetadataWranglerCollectionReaper.items_that_need_coverage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionReaper.items_that_need_coverage" title="Permalink to this definition">¶</a></dt>
-<dd><p>Retrieves Identifiers that were imported but are no longer licensed.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.coverage.MetadataWranglerCollectionRegistrar">
-<em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">MetadataWranglerCollectionRegistrar</code><span class="sig-paren">(</span><em>collection</em>, <em>lookup_client=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MetadataWranglerCollectionRegistrar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionRegistrar" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.coverage.BaseMetadataWranglerCoverageProvider" title="api.coverage.BaseMetadataWranglerCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.coverage.BaseMetadataWranglerCoverageProvider</span></code></a></p>
-<p>Register all Identifiers licensed to a Collection with the
-metadata wrangler.</p>
-<p>If OPDS metadata is immediately returned, make use of it. Even if
-no metadata is returned for an Identifier, mark it as covered.</p>
-<p>Once it’s registered, any future updates to the available metadata
-for a given Identifier will be detected by the
-MWCollectionUpdateMonitor.</p>
-<dl class="attribute">
-<dt id="api.coverage.MetadataWranglerCollectionRegistrar.OPDS_IMPORTER_CLASS">
-<code class="descname">OPDS_IMPORTER_CLASS</code><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionRegistrar.OPDS_IMPORTER_CLASS" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#api.coverage.RegistrarImporter" title="api.coverage.RegistrarImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">RegistrarImporter</span></code></a></p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataWranglerCollectionRegistrar.OPERATION">
-<code class="descname">OPERATION</code><em class="property"> = u'import'</em><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionRegistrar.OPERATION" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.coverage.MetadataWranglerCollectionRegistrar.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Collection Registrar'</em><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionRegistrar.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.coverage.MetadataWranglerCollectionRegistrar.items_that_need_coverage">
-<code class="descname">items_that_need_coverage</code><span class="sig-paren">(</span><em>identifiers=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MetadataWranglerCollectionRegistrar.items_that_need_coverage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MetadataWranglerCollectionRegistrar.items_that_need_coverage" title="Permalink to this definition">¶</a></dt>
-<dd><p>Retrieves items from the Collection that are not registered with
-the Metadata Wrangler.</p>
-</dd></dl>
-
-</dd></dl>
-
+<p>Base classes for CoverageProviders.</p>
+<p>The CoverageProviders themselves are in the file corresponding to the
+service that needs coverage – overdrive.py, metadata_wrangler.py, and
+so on.</p>
 <dl class="class">
 <dt id="api.coverage.MockOPDSImportCoverageProvider">
 <em class="property">class </em><code class="descclassname">api.coverage.</code><code class="descname">MockOPDSImportCoverageProvider</code><span class="sig-paren">(</span><em>collection</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/coverage.html#MockOPDSImportCoverageProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.coverage.MockOPDSImportCoverageProvider" title="Permalink to this definition">¶</a></dt>
@@ -7864,6 +7718,287 @@ Work, the client has expressed interest in this one.</td>
 </dd></dl>
 
 </div>
+<div class="section" id="module-api.metadata_wrangler">
+<span id="api-metadata-wrangler-module"></span><h2>api.metadata_wrangler module<a class="headerlink" href="#module-api.metadata_wrangler" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider">
+<em class="property">class </em><code class="descclassname">api.metadata_wrangler.</code><code class="descname">BaseMetadataWranglerCoverageProvider</code><span class="sig-paren">(</span><em>collection</em>, <em>lookup_client=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#BaseMetadataWranglerCoverageProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.coverage.OPDSImportCoverageProvider" title="api.coverage.OPDSImportCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.coverage.OPDSImportCoverageProvider</span></code></a></p>
+<p>Makes sure the metadata wrangler knows about all Identifiers
+licensed to a Collection.</p>
+<p>This has two subclasses: MetadataWranglerCollectionRegistrar
+(which adds Identifiers from a circulation manager’s catalog to
+the corresponding catalog on the metadata wrangler) and
+MetadataWranglerCollectionReaper (which removes Identifiers from
+the metadata wrangler catalog once they no longer exist in the
+circulation manager’s catalog).</p>
+<dl class="attribute">
+<dt id="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION">
+<code class="descname">COVERAGE_COUNTS_FOR_EVERY_COLLECTION</code><em class="property"> = False</em><a class="headerlink" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.DATA_SOURCE_NAME">
+<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = u'Library Simplified metadata wrangler'</em><a class="headerlink" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES">
+<code class="descname">INPUT_IDENTIFIER_TYPES</code><em class="property"> = [u'Overdrive ID', u'Bibliotheca ID', u'Axis 360 ID', u'RBdigital ID', u'URI']</em><a class="headerlink" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.create_identifier_mapping">
+<code class="descname">create_identifier_mapping</code><span class="sig-paren">(</span><em>batch</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#BaseMetadataWranglerCoverageProvider.create_identifier_mapping"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider.create_identifier_mapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>The metadata wrangler can look up ISBNs and Overdrive
+identifiers. All other identifier types need to be mapped to
+ISBNs.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.metadata_wrangler.MWAuxiliaryMetadataMonitor">
+<em class="property">class </em><code class="descclassname">api.metadata_wrangler.</code><code class="descname">MWAuxiliaryMetadataMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>lookup=None</em>, <em>provider=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWAuxiliaryMetadataMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWAuxiliaryMetadataMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.metadata_wrangler.MetadataWranglerCollectionMonitor" title="api.metadata_wrangler.MetadataWranglerCollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.metadata_wrangler.MetadataWranglerCollectionMonitor</span></code></a></p>
+<p>Retrieves and processes requests for needed third-party metadata
+from the Metadata Wrangler.</p>
+<p>The Wrangler will only request metadata if it can’t process an
+identifier from its own third-party resources. In these cases (e.g. ISBNs
+from Axis 360 or Bibliotheca), the wrangler will put out a call for metadata
+that it needs to process the identifier. This monitor answers that call.</p>
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MWAuxiliaryMetadataMonitor.DEFAULT_START_TIME">
+<code class="descname">DEFAULT_START_TIME</code><em class="property"> = &lt;object object&gt;</em><a class="headerlink" href="#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MWAuxiliaryMetadataMonitor.SERVICE_NAME">
+<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Auxiliary Metadata Delivery'</em><a class="headerlink" href="#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MWAuxiliaryMetadataMonitor.endpoint">
+<code class="descname">endpoint</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWAuxiliaryMetadataMonitor.endpoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.endpoint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MWAuxiliaryMetadataMonitor.get_identifiers">
+<code class="descname">get_identifiers</code><span class="sig-paren">(</span><em>url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWAuxiliaryMetadataMonitor.get_identifiers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.get_identifiers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pulls mapped identifiers from a feed of SimplifiedOPDSMessages.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MWAuxiliaryMetadataMonitor.run_once">
+<code class="descname">run_once</code><span class="sig-paren">(</span><em>progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWAuxiliaryMetadataMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWAuxiliaryMetadataMonitor.run_once" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do the actual work of the Monitor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the
+work done by the Monitor up to this point.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A TimestampData representing how you want the
+Monitor’s entry in the <cite>timestamps</cite> table to look like
+from this point on.  NOTE: Modifying the incoming
+<cite>progress</cite> and returning it is generally a bad idea,
+because the incoming <cite>progress</cite> is full of old
+data. Instead, return a new TimestampData containing data
+for only the fields you want to set.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.metadata_wrangler.MWCollectionUpdateMonitor">
+<em class="property">class </em><code class="descclassname">api.metadata_wrangler.</code><code class="descname">MWCollectionUpdateMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>lookup=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWCollectionUpdateMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWCollectionUpdateMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.metadata_wrangler.MetadataWranglerCollectionMonitor" title="api.metadata_wrangler.MetadataWranglerCollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.metadata_wrangler.MetadataWranglerCollectionMonitor</span></code></a></p>
+<p>Retrieves updated metadata from the Metadata Wrangler</p>
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MWCollectionUpdateMonitor.DEFAULT_START_TIME">
+<code class="descname">DEFAULT_START_TIME</code><em class="property"> = &lt;object object&gt;</em><a class="headerlink" href="#api.metadata_wrangler.MWCollectionUpdateMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MWCollectionUpdateMonitor.SERVICE_NAME">
+<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Collection Updates'</em><a class="headerlink" href="#api.metadata_wrangler.MWCollectionUpdateMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MWCollectionUpdateMonitor.endpoint">
+<code class="descname">endpoint</code><span class="sig-paren">(</span><em>timestamp</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWCollectionUpdateMonitor.endpoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWCollectionUpdateMonitor.endpoint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MWCollectionUpdateMonitor.import_one_feed">
+<code class="descname">import_one_feed</code><span class="sig-paren">(</span><em>timestamp</em>, <em>url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWCollectionUpdateMonitor.import_one_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWCollectionUpdateMonitor.import_one_feed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MWCollectionUpdateMonitor.run_once">
+<code class="descname">run_once</code><span class="sig-paren">(</span><em>progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MWCollectionUpdateMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MWCollectionUpdateMonitor.run_once" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ask the metadata wrangler about titles that have changed
+since the last time this monitor ran.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the span of time
+covered during the previous run of this monitor.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A modified TimestampData.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.metadata_wrangler.MetadataUploadCoverageProvider">
+<em class="property">class </em><code class="descclassname">api.metadata_wrangler.</code><code class="descname">MetadataUploadCoverageProvider</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataUploadCoverageProvider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataUploadCoverageProvider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider" title="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.metadata_wrangler.BaseMetadataWranglerCoverageProvider</span></code></a></p>
+<p>Provide coverage for identifiers by uploading OPDS metadata to
+the metadata wrangler.</p>
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataUploadCoverageProvider.DATA_SOURCE_NAME">
+<code class="descname">DATA_SOURCE_NAME</code><em class="property"> = u'Library Simplified Internal Process'</em><a class="headerlink" href="#api.metadata_wrangler.MetadataUploadCoverageProvider.DATA_SOURCE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataUploadCoverageProvider.DEFAULT_BATCH_SIZE">
+<code class="descname">DEFAULT_BATCH_SIZE</code><em class="property"> = 25</em><a class="headerlink" href="#api.metadata_wrangler.MetadataUploadCoverageProvider.DEFAULT_BATCH_SIZE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataUploadCoverageProvider.OPERATION">
+<code class="descname">OPERATION</code><em class="property"> = u'metadata-upload'</em><a class="headerlink" href="#api.metadata_wrangler.MetadataUploadCoverageProvider.OPERATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataUploadCoverageProvider.SERVICE_NAME">
+<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Upload Coverage Provider'</em><a class="headerlink" href="#api.metadata_wrangler.MetadataUploadCoverageProvider.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MetadataUploadCoverageProvider.process_batch">
+<code class="descname">process_batch</code><span class="sig-paren">(</span><em>batch</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataUploadCoverageProvider.process_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataUploadCoverageProvider.process_batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an OPDS feed from a batch and upload it to the metadata client.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionMonitor">
+<em class="property">class </em><code class="descclassname">api.metadata_wrangler.</code><code class="descname">MetadataWranglerCollectionMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>lookup=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionMonitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.CollectionMonitor" title="core.monitor.CollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.CollectionMonitor</span></code></a></p>
+<p>Abstract base CollectionMonitor with helper methods for interactions
+with the Metadata Wrangler.</p>
+<dl class="method">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionMonitor.assert_authenticated">
+<code class="descname">assert_authenticated</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionMonitor.assert_authenticated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionMonitor.assert_authenticated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Raise an exception unless the client has authentication
+credentials.</p>
+<p>Raising an exception will keep the Monitor timestamp from
+being updated.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionMonitor.endpoint">
+<code class="descname">endpoint</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionMonitor.endpoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionMonitor.endpoint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionMonitor.get_response">
+<code class="descname">get_response</code><span class="sig-paren">(</span><em>url=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionMonitor.get_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionMonitor.get_response" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionReaper">
+<em class="property">class </em><code class="descclassname">api.metadata_wrangler.</code><code class="descname">MetadataWranglerCollectionReaper</code><span class="sig-paren">(</span><em>collection</em>, <em>lookup_client=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionReaper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionReaper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider" title="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.metadata_wrangler.BaseMetadataWranglerCoverageProvider</span></code></a></p>
+<p>Removes unlicensed identifiers from the remote Metadata Wrangler
+Collection</p>
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionReaper.OPDS_IMPORTER_CLASS">
+<code class="descname">OPDS_IMPORTER_CLASS</code><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionReaper.OPDS_IMPORTER_CLASS" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#api.coverage.ReaperImporter" title="api.coverage.ReaperImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.coverage.ReaperImporter</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionReaper.OPERATION">
+<code class="descname">OPERATION</code><em class="property"> = u'reap'</em><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionReaper.OPERATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionReaper.SERVICE_NAME">
+<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Reaper'</em><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionReaper.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionReaper.api_method">
+<code class="descname">api_method</code><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionReaper.api_method" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionReaper.finalize_batch">
+<code class="descname">finalize_batch</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionReaper.finalize_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionReaper.finalize_batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deletes Metadata Wrangler coverage records of reaped Identifiers</p>
+<p>This allows Identifiers to be added to the collection again via
+MetadataWranglerCoverageProvider lookup if a license is repurchased.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionReaper.items_that_need_coverage">
+<code class="descname">items_that_need_coverage</code><span class="sig-paren">(</span><em>identifiers=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionReaper.items_that_need_coverage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionReaper.items_that_need_coverage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves Identifiers that were imported but are no longer licensed.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionRegistrar">
+<em class="property">class </em><code class="descclassname">api.metadata_wrangler.</code><code class="descname">MetadataWranglerCollectionRegistrar</code><span class="sig-paren">(</span><em>collection</em>, <em>lookup_client=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionRegistrar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionRegistrar" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.metadata_wrangler.BaseMetadataWranglerCoverageProvider" title="api.metadata_wrangler.BaseMetadataWranglerCoverageProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.metadata_wrangler.BaseMetadataWranglerCoverageProvider</span></code></a></p>
+<p>Register all Identifiers licensed to a Collection with the
+metadata wrangler.</p>
+<p>If OPDS metadata is immediately returned, make use of it. Even if
+no metadata is returned for an Identifier, mark it as covered.</p>
+<p>Once it’s registered, any future updates to the available metadata
+for a given Identifier will be detected by the
+MWCollectionUpdateMonitor.</p>
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionRegistrar.OPDS_IMPORTER_CLASS">
+<code class="descname">OPDS_IMPORTER_CLASS</code><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.OPDS_IMPORTER_CLASS" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#api.coverage.RegistrarImporter" title="api.coverage.RegistrarImporter"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.coverage.RegistrarImporter</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionRegistrar.OPERATION">
+<code class="descname">OPERATION</code><em class="property"> = u'import'</em><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.OPERATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionRegistrar.SERVICE_NAME">
+<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Collection Registrar'</em><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.metadata_wrangler.MetadataWranglerCollectionRegistrar.items_that_need_coverage">
+<code class="descname">items_that_need_coverage</code><span class="sig-paren">(</span><em>identifiers=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/metadata_wrangler.html#MetadataWranglerCollectionRegistrar.items_that_need_coverage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.metadata_wrangler.MetadataWranglerCollectionRegistrar.items_that_need_coverage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves items from the Collection that are not registered with
+the Metadata Wrangler.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-api.millenium_patron">
 <span id="api-millenium-patron-module"></span><h2>api.millenium_patron module<a class="headerlink" href="#module-api.millenium_patron" title="Permalink to this headline">¶</a></h2>
 <dl class="attribute">
@@ -8127,7 +8262,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 11, 25, 17, 20, 14, 639566)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2019, 12, 1, 16, 46, 27, 793516)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8255,134 +8390,6 @@ collections based on a protocol found in
 SOURCE_OF_TRUTH_PROTOCOLS.</p>
 <p>Subclasses will append extra clauses to this filter.</p>
 </dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.monitor.MWAuxiliaryMetadataMonitor">
-<em class="property">class </em><code class="descclassname">api.monitor.</code><code class="descname">MWAuxiliaryMetadataMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>lookup=None</em>, <em>provider=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWAuxiliaryMetadataMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWAuxiliaryMetadataMonitor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.monitor.MetadataWranglerCollectionMonitor" title="api.monitor.MetadataWranglerCollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.monitor.MetadataWranglerCollectionMonitor</span></code></a></p>
-<p>Retrieves and processes requests for needed third-party metadata
-from the Metadata Wrangler.</p>
-<p>The Wrangler will only request metadata if it can’t process an
-identifier from its own third-party resources. In these cases (e.g. ISBNs
-from Axis 360 or Bibliotheca), the wrangler will put out a call for metadata
-that it needs to process the identifier. This monitor answers that call.</p>
-<dl class="attribute">
-<dt id="api.monitor.MWAuxiliaryMetadataMonitor.DEFAULT_START_TIME">
-<code class="descname">DEFAULT_START_TIME</code><em class="property"> = &lt;object object&gt;</em><a class="headerlink" href="#api.monitor.MWAuxiliaryMetadataMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.monitor.MWAuxiliaryMetadataMonitor.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Auxiliary Metadata Delivery'</em><a class="headerlink" href="#api.monitor.MWAuxiliaryMetadataMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MWAuxiliaryMetadataMonitor.endpoint">
-<code class="descname">endpoint</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWAuxiliaryMetadataMonitor.endpoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWAuxiliaryMetadataMonitor.endpoint" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MWAuxiliaryMetadataMonitor.get_identifiers">
-<code class="descname">get_identifiers</code><span class="sig-paren">(</span><em>url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWAuxiliaryMetadataMonitor.get_identifiers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWAuxiliaryMetadataMonitor.get_identifiers" title="Permalink to this definition">¶</a></dt>
-<dd><p>Pulls mapped identifiers from a feed of SimplifiedOPDSMessages.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MWAuxiliaryMetadataMonitor.run_once">
-<code class="descname">run_once</code><span class="sig-paren">(</span><em>progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWAuxiliaryMetadataMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWAuxiliaryMetadataMonitor.run_once" title="Permalink to this definition">¶</a></dt>
-<dd><p>Do the actual work of the Monitor.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the
-work done by the Monitor up to this point.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A TimestampData representing how you want the
-Monitor’s entry in the <cite>timestamps</cite> table to look like
-from this point on.  NOTE: Modifying the incoming
-<cite>progress</cite> and returning it is generally a bad idea,
-because the incoming <cite>progress</cite> is full of old
-data. Instead, return a new TimestampData containing data
-for only the fields you want to set.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.monitor.MWCollectionUpdateMonitor">
-<em class="property">class </em><code class="descclassname">api.monitor.</code><code class="descname">MWCollectionUpdateMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>lookup=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWCollectionUpdateMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWCollectionUpdateMonitor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.monitor.MetadataWranglerCollectionMonitor" title="api.monitor.MetadataWranglerCollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.monitor.MetadataWranglerCollectionMonitor</span></code></a></p>
-<p>Retrieves updated metadata from the Metadata Wrangler</p>
-<dl class="attribute">
-<dt id="api.monitor.MWCollectionUpdateMonitor.DEFAULT_START_TIME">
-<code class="descname">DEFAULT_START_TIME</code><em class="property"> = &lt;object object&gt;</em><a class="headerlink" href="#api.monitor.MWCollectionUpdateMonitor.DEFAULT_START_TIME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="api.monitor.MWCollectionUpdateMonitor.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'Metadata Wrangler Collection Updates'</em><a class="headerlink" href="#api.monitor.MWCollectionUpdateMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MWCollectionUpdateMonitor.endpoint">
-<code class="descname">endpoint</code><span class="sig-paren">(</span><em>timestamp</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWCollectionUpdateMonitor.endpoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWCollectionUpdateMonitor.endpoint" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MWCollectionUpdateMonitor.import_one_feed">
-<code class="descname">import_one_feed</code><span class="sig-paren">(</span><em>timestamp</em>, <em>url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWCollectionUpdateMonitor.import_one_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWCollectionUpdateMonitor.import_one_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MWCollectionUpdateMonitor.run_once">
-<code class="descname">run_once</code><span class="sig-paren">(</span><em>progress</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MWCollectionUpdateMonitor.run_once"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MWCollectionUpdateMonitor.run_once" title="Permalink to this definition">¶</a></dt>
-<dd><p>Ask the metadata wrangler about titles that have changed
-since the last time this monitor ran.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>progress</strong> – A TimestampData representing the span of time
-covered during the previous run of this monitor.</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A modified TimestampData.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="api.monitor.MetadataWranglerCollectionMonitor">
-<em class="property">class </em><code class="descclassname">api.monitor.</code><code class="descname">MetadataWranglerCollectionMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection</em>, <em>lookup=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MetadataWranglerCollectionMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MetadataWranglerCollectionMonitor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#core.monitor.CollectionMonitor" title="core.monitor.CollectionMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.CollectionMonitor</span></code></a></p>
-<p>Abstract base CollectionMonitor with helper methods for interactions
-with the Metadata Wrangler.</p>
-<dl class="method">
-<dt id="api.monitor.MetadataWranglerCollectionMonitor.assert_authenticated">
-<code class="descname">assert_authenticated</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MetadataWranglerCollectionMonitor.assert_authenticated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MetadataWranglerCollectionMonitor.assert_authenticated" title="Permalink to this definition">¶</a></dt>
-<dd><p>Raise an exception unless the client has authentication
-credentials.</p>
-<p>Raising an exception will keep the Monitor timestamp from
-being updated.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MetadataWranglerCollectionMonitor.endpoint">
-<code class="descname">endpoint</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MetadataWranglerCollectionMonitor.endpoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MetadataWranglerCollectionMonitor.endpoint" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.monitor.MetadataWranglerCollectionMonitor.get_response">
-<code class="descname">get_response</code><span class="sig-paren">(</span><em>url=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/monitor.html#MetadataWranglerCollectionMonitor.get_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.monitor.MetadataWranglerCollectionMonitor.get_response" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 </dd></dl>
 
@@ -13289,6 +13296,19 @@ collection’s settings.</p>
 <dt id="api.testing.MockSharedCollectionAPI.revoke_loan">
 <code class="descname">revoke_loan</code><span class="sig-paren">(</span><em>collection</em>, <em>client</em>, <em>loan</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/testing.html#MockSharedCollectionAPI.revoke_loan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.testing.MockSharedCollectionAPI.revoke_loan" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.testing.MonitorTest">
+<em class="property">class </em><code class="descclassname">api.testing.</code><code class="descname">MonitorTest</code><a class="reference internal" href="_modules/api/testing.html#MonitorTest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.testing.MonitorTest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#core.testing.DatabaseTest" title="core.testing.DatabaseTest"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.testing.DatabaseTest</span></code></a></p>
+<dl class="attribute">
+<dt id="api.testing.MonitorTest.ts">
+<code class="descname">ts</code><a class="headerlink" href="#api.testing.MonitorTest.ts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make the timestamp used by run() when calling run_once().</p>
+<p>This makes it easier to test run_once() in isolation.</p>
+</dd></dl>
 
 </dd></dl>
 
