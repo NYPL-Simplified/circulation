@@ -235,11 +235,8 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # them to be run on the one Collection we could find that has
         # a metadata identifier.
 
-        # _run_self_tests returns a dictionary with that Collection as
-        # its only key.
-        result_dict = lookup._run_self_tests(self._db, lookup_class=Mock)
-        [result] = result_dict.pop(with_unique_id)
-        eq_({}, result_dict)
+        # _run_self_tests returns a single test result
+        [result] = lookup._run_self_tests(self._db, lookup_class=Mock)
 
         # That Collection is keyed to a list containing a single test
         # result, obtained by calling Mock._run_collection_self_tests().
@@ -316,46 +313,41 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         eq_((), args2)
 
     def test__feed_self_test(self):
-        # Test the _feed_self_test class helper method. It grabs a
+        # Test the _feed_self_test helper method. It grabs a
         # feed from the metadata wrangler, calls
         # _summarize_feed_response on the response object, and returns
         # a SelfTestResult explaining what happened.
         class Mock(MetadataWranglerOPDSLookup):
+            requests = []
             summarized_responses = []
             @classmethod
             def _summarize_feed_response(cls, response):
                 cls.summarized_responses.append(response)
                 return ["I summarized", "the response"]
 
-        class MockRequestor(object):
-            # In real life this is also a method of
-            # MetadataWranglerOPDSLookup, but one of the things we're
-            # testing is that _feed_self_test works as a class method,
-            # so we don't actually want to insantiate Mock.
-            def __init__(self):
-                self.called_with = []
-
             def make_some_request(self, *args, **kwargs):
-                self.called_with.append((args, kwargs))
+                self.requests.append((args, kwargs))
                 return "A fake response"
 
-        lookup = Mock("http://base-url/")
-        requestor = MockRequestor()
-        request_method = requestor.make_some_request
+        lookup = Mock("http://base-url/", collection=self._default_collection)
+        request_method = lookup.make_some_request
         result = lookup._feed_self_test("Some test", request_method, 1, 2)
 
-        # We got back a SelfTestResult that indicates some request was
-        # made and the response summarized using our mock
-        # _summarize_feed_response.
+        # We got back a SelfTestResult associated with the Mock
+        # object's collection.
         assert isinstance(result, SelfTestResult)
+        eq_(self._default_collection, result.collection)
+
+        # It indicates some request was made, and the response
+        # summarized using our mock _summarize_feed_response.
         eq_("Some test", result.name)
         assert result.duration < 1
         eq_(True, result.success)
-        eq_("I summarized\nthe response", result.result)
+        eq_(["I summarized", "the response"], result.result)
 
         # But what request was made, exactly?
 
-        # Here we see that MockRequestor.make_some_request was called
+        # Here we see that Mock.make_some_request was called
         # with the positional arguments passed into _feed_self_test,
         # and a keyword argument indicating that 5xx responses should
         # be processed normally and not used as a reason to raise an
@@ -364,7 +356,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             [((1, 2),
               {'allowed_response_codes': ['1xx', '2xx', '3xx', '4xx', '5xx']})
             ],
-            requestor.called_with
+            lookup.requests
         )
 
         # That method returned "A fake response", which was passed into

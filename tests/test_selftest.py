@@ -20,7 +20,7 @@ from ..selftest import (
 
 from ..util.http import IntegrationException
 
-class TestSelfTestResult(object):
+class TestSelfTestResult(DatabaseTest):
 
     now = datetime.datetime.utcnow()
     future = now + datetime.timedelta(seconds=5)
@@ -40,12 +40,21 @@ class TestSelfTestResult(object):
             repr(result)
         )
 
+        # A SelfTestResult may have an associated Collection.
+        self._default_collection.name = "CollectionA"
+        result.collection = self._default_collection
+        eq_(
+            "<SelfTestResult: name='success1' collection='CollectionA' duration=5.00sec success=True result='The result'>",
+            repr(result)
+        )
+
         d = result.to_dict
         eq_("success1", d['name'])
         eq_("The result", d['result'])
         eq_(5.0, d['duration'])
         eq_(True, d['success'])
         eq_(None, d['exception'])
+        eq_('CollectionA', d['collection'])
 
         # A test result can be either a string (which will be displayed
         # in a fixed-width font) or a list of strings (which will be hidden

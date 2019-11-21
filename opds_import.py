@@ -198,8 +198,8 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
                 continue
 
             lookup = lookup_class.from_config(_db, c)
-            results[c] = list(lookup._run_collection_self_tests())
-        return results
+            for i in lookup._run_collection_self_tests():
+                yield i
 
     def _run_collection_self_tests(self):
         """Run the self-test suite on the Collection associated with this
@@ -232,12 +232,12 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         ):
             yield self._feed_self_test(title, m, *args)
 
-    @classmethod
-    def _feed_self_test(cls, name, method, *args):
+    def _feed_self_test(self, name, method, *args):
         """Retrieve a feed from the metadata wrangler and 
         turn it into a SelfTestResult.
         """
         result = SelfTestResult(name)
+        result.collection = self.collection
 
         # If the server returns a 500 error we don't want to raise an
         # exception -- we want to record it as part of the test
@@ -245,9 +245,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         kwargs = dict(allowed_response_codes=['%sxx' % f for f in range(1,6)])
 
         response = method(*args, **kwargs)
-        result.result = "\n".join(
-            cls._summarize_feed_response(response)
-        )
+        result.result = self._summarize_feed_response(response)
 
         # Once we process the OPDS feed we can call this a success.
         result.success = True
