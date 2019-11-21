@@ -129,7 +129,6 @@ class HasSelfTests(object):
         from external_search import ExternalSearchIndex
 
         constructor_method = constructor_method or cls
-        set_trace()
         start = datetime.datetime.utcnow()
         result = SelfTestResult("Initial setup.")
         instance = None
