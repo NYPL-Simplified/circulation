@@ -219,7 +219,6 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
 
         # Check various endpoints that yield OPDS feeds.
         one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-        prefix = '"%s" - ' % self.collection.name
         for title, m, args in (
             (
                 "Metadata updates in last 24 hours", 
@@ -245,17 +244,16 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         kwargs = dict(allowed_response_codes=['%sxx' % f for f in range(1,6)])
 
         response = method(*args, **kwargs)
-        result.result = self._summarize_feed_response(response)
+        self._annotate_feed_response(result, response)
 
-        # Once we process the OPDS feed we can call this a success.
-        result.success = True
+        # We're all done.
         result.end = datetime.datetime.utcnow()
         return result
 
     @classmethod
-    def _summarize_feed_response(cls, response):
-        """Parse an OPDS feed and return some information
-        about it:
+    def _annotate_feed_response(cls, result, response):
+        """Parse an OPDS feed and annotate a SelfTestResult with some
+        information about it:
 
         * How the feed was requested.
         * What the response code was.
@@ -263,8 +261,8 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         * The title of each item on the page, if any.
         * The total number of items in the feed, if available.
 
+        :param result: A SelfTestResult object.
         :param response: A requests Response object.
-        :return: A list of strings summarizing the feed.
         """
         lines = []
         lines.append("Request URL: %s" % response.url)
@@ -273,7 +271,8 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             response.request.headers.get('Authorization')
         )
         lines.append("Status code: %d" % response.status_code)
-        if response.status_code == 200:
+        result.success = response.status_code == 200
+        if result.success:
             feed = feedparser.parse(response.content)
             total_results = feed['feed'].get('opensearch_totalresults')
             if total_results is not None:
@@ -285,7 +284,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             lines.append("Entries on this page: %d" % len(feed['entries']))
             for i in feed['entries']:
                 lines.append(" " + i['title'])
-        return lines
+        result.result = lines
 
     def __init__(self, url, shared_secret=None, collection=None):
         super(MetadataWranglerOPDSLookup, self).__init__(url)

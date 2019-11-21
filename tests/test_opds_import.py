@@ -319,11 +319,12 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # a SelfTestResult explaining what happened.
         class Mock(MetadataWranglerOPDSLookup):
             requests = []
-            summarized_responses = []
+            annotated_responses = []
             @classmethod
-            def _summarize_feed_response(cls, response):
-                cls.summarized_responses.append(response)
-                return ["I summarized", "the response"]
+            def _annotate_feed_response(cls, result, response):
+                cls.annotated_responses.append((result, response))
+                result.success = True
+                result.result = ["I summarized", "the response"]
 
             def make_some_request(self, *args, **kwargs):
                 self.requests.append((args, kwargs))
@@ -339,7 +340,7 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         eq_(self._default_collection, result.collection)
 
         # It indicates some request was made, and the response
-        # summarized using our mock _summarize_feed_response.
+        # annotated using our mock _annotate_feed_response.
         eq_("Some test", result.name)
         assert result.duration < 1
         eq_(True, result.success)
@@ -359,13 +360,16 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             lookup.requests
         )
 
-        # That method returned "A fake response", which was passed into
-        # _summarize_feed_response.
-        eq_(["A fake response"], lookup.summarized_responses)
+        # That method returned "A fake response", which was passed
+        # into _annotate_feed_response, along with the
+        # SelfTestResult in progress.
+        [(used_result, response)] = lookup.annotated_responses
+        eq_(result, used_result)
+        eq_("A fake response", response)
 
-    def test__summarize_feed_response(self):
-        # Test the _summarize_feed_response class helper method.
-        m = MetadataWranglerOPDSLookup._summarize_feed_response
+    def test__annotate_feed_response(self):
+        # Test the _annotate_feed_response class helper method.
+        m = MetadataWranglerOPDSLookup._annotate_feed_response
         def mock_response(url, authorization, response_code, content):
             request = MockRequestsRequest(
                 url, headers=dict(Authorization=authorization)
@@ -378,11 +382,12 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         # First, test success.
         url = "http://metadata-wrangler/",
         auth = "auth"
+        test_result = SelfTestResult("success")
         response = mock_response(
             url, auth, 200,
             self.sample_opds("metadata_wrangler_overdrive.opds")
         )
-        results = m(response)
+        results = m(test_result, response)
         eq_([
             'Request URL: %s' % url,
             'Request authorization: %s' % auth,
@@ -390,19 +395,22 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             'Total identifiers registered with this collection: 201',
             'Entries on this page: 1',
             ' The Green Mouse'
-        ], results)
+        ], test_result.result)
+        eq_(True, test_result.success)
 
         # Next, test failure.
         response = mock_response(
             url, auth, 401,
             "An error message."
         )
-        results = m(response)
+        test_result = SelfTestResult("failure")
+        eq_(False, test_result.success)
+        m(test_result, response)
         eq_([
             'Request URL: %s' % url,
             'Request authorization: %s' % auth,
             'Status code: 401',
-        ], results)
+        ], test_result.result)
 
 
 class OPDSImporterTest(DatabaseTest):
