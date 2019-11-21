@@ -413,18 +413,13 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
         ], test_result.result)
 
 
-class OPDSImporterTest(DatabaseTest):
+class OPDSImporterTest(OPDSTest):
 
     def setup(self):
         super(OPDSImporterTest, self).setup()
-        base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(base_path, "files", "opds")
-        self.content_server_feed = open(
-            os.path.join(self.resource_path, "content_server.opds")).read()
-        self.content_server_mini_feed = open(
-            os.path.join(self.resource_path, "content_server_mini.opds")).read()
-        self.audiobooks_opds = open(
-            os.path.join(self.resource_path, "audiobooks.opds")).read()
+        self.content_server_feed = self.sample_opds("content_server.opds")
+        self.content_server_mini_feed = self.sample_opds("content_server_mini.opds")
+        self.audiobooks_opds = self.sample_opds("audiobooks.opds")
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
@@ -724,9 +719,7 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
-        feed = open(
-            os.path.join(self.resource_path, "unrecognized_identifier.opds")
-        ).read()
+        feed = self.sample_opds("unrecognized_identifier.opds")
         values, failures = OPDSImporter.extract_metadata_from_elementtree(
             feed, data_source
         )
@@ -744,9 +737,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_messages(self):
         parser = OPDSXMLParser()
-        feed = open(
-            os.path.join(self.resource_path, "unrecognized_identifier.opds")
-        ).read()
+        feed = self.sample_opds("unrecognized_identifier.opds")
         root = etree.parse(StringIO(feed))
         [message] = OPDSImporter.extract_messages(parser, root)
         eq_('urn:librarysimplified.org/terms/id/Gutenberg ID/100', message.urn)
@@ -1143,8 +1134,7 @@ class TestOPDSImporter(OPDSImporterTest):
         that comes from a second previously unknown data source. The
         book is imported and both DataSources are created.
         """
-        feed = open(
-            os.path.join(self.resource_path, "unrecognized_distributor.opds")).read()
+        feed = self.sample_opds("unrecognized_distributor.opds")
         self._default_collection.external_integration.setting('data_source').value = (
             "some new source"
         )
@@ -1173,8 +1163,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_import_updates_metadata(self):
 
-        path = os.path.join(self.resource_path, "metadata_wrangler_overdrive.opds")
-        feed = open(path).read()
+        feed = self.sample_opds("metadata_wrangler_overdrive.opds")
 
         edition, is_new = self._edition(
             DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID,
@@ -1257,8 +1246,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.OA_CONTENT_SERVER, crow_pool.data_source.name)
 
     def test_import_from_feed_treats_message_as_failure(self):
-        path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
-        feed = open(path).read()
+        feed = self.sample_opds("unrecognized_identifier.opds")
         imported_editions, imported_pools, imported_works, failures = (
             OPDSImporter(
                 self._db, collection=self._default_collection
@@ -1365,8 +1353,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(None, i2.thumbnail)
 
     def test_import_book_that_offers_no_license(self):
-        path = os.path.join(self.resource_path, "book_without_license.opds")
-        feed = open(path).read()
+        feed = self.sample_opds("book_without_license.opds")
         importer = OPDSImporter(self._db, self._default_collection)
         imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)
