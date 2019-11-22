@@ -57,26 +57,15 @@
 <div class="viewcode-block" id="SearchServiceSelfTestsController.process_search_service_self_tests"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.search_service_self_tests.SearchServiceSelfTestsController.process_search_service_self_tests">[docs]</a>    <span class="k">def</span> <span class="nf">process_search_service_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_manage_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
 
+    <span class="k">def</span> <span class="nf">_find_protocol_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="c1"># There&#39;s only one possibility for search integrations.</span>
+        <span class="k">return</span> <span class="n">ExternalSearchIndex</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,)</span>
+
 <div class="viewcode-block" id="SearchServiceSelfTestsController.look_up_by_id"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.search_service_self_tests.SearchServiceSelfTestsController.look_up_by_id">[docs]</a>    <span class="k">def</span> <span class="nf">look_up_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_service_by_id</span><span class="p">(</span>
             <span class="n">identifier</span><span class="p">,</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">ELASTICSEARCH</span><span class="p">,</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">SEARCH_GOAL</span>
-        <span class="p">)</span></div>
-
-<div class="viewcode-block" id="SearchServiceSelfTestsController.get_info"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.search_service_self_tests.SearchServiceSelfTestsController.get_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_service</span><span class="p">):</span>
-        <span class="p">[</span><span class="n">protocol</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">([</span><span class="n">ExternalSearchIndex</span><span class="p">])</span>
-        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
-            <span class="nb">id</span><span class="o">=</span><span class="n">search_service</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-            <span class="n">name</span><span class="o">=</span><span class="n">search_service</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-            <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span>
-            <span class="n">settings</span><span class="o">=</span><span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">),</span>
-            <span class="n">goal</span><span class="o">=</span><span class="n">search_service</span><span class="o">.</span><span class="n">goal</span>
-        <span class="p">)</span></div>
-
-<div class="viewcode-block" id="SearchServiceSelfTestsController.run_tests"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.search_service_self_tests.SearchServiceSelfTestsController.run_tests">[docs]</a>    <span class="k">def</span> <span class="nf">run_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_service</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">run_self_tests</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="kc">None</span>
         <span class="p">)</span></div></div>
 </pre></div>
 

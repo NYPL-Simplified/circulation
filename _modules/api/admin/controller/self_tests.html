@@ -43,6 +43,7 @@
 
 <div class="viewcode-block" id="SelfTestsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController">[docs]</a><span class="k">class</span> <span class="nc">SelfTestsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">_manage_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generic request-processing method.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">MISSING_IDENTIFIER</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;GET&quot;</span><span class="p">:</span>
@@ -50,22 +51,54 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_post</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
 
+<div class="viewcode-block" id="SelfTestsController.find_protocol_class"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.find_protocol_class">[docs]</a>    <span class="k">def</span> <span class="nf">find_protocol_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Given an ExternalIntegration, find the class on which run_tests()</span>
+<span class="sd">        or prior_test_results() should be called, and any extra</span>
+<span class="sd">        arguments that should be passed into the call.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_find_protocol_class&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="n">protocol_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_protocol_class</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">protocol_class</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="n">protocol_class</span><span class="p">,</span> <span class="n">extra_arguments</span> <span class="o">=</span> <span class="n">protocol_class</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">extra_arguments</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="k">return</span> <span class="n">protocol_class</span><span class="p">,</span> <span class="n">extra_arguments</span></div>
+
+<div class="viewcode-block" id="SelfTestsController.get_info"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.get_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="n">protocol_class</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_protocol_class</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
+        <span class="p">[</span><span class="n">protocol</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">([</span><span class="n">protocol_class</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span>
+            <span class="n">settings</span><span class="o">=</span><span class="n">protocol</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">),</span>
+            <span class="n">goal</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">goal</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SelfTestsController.run_tests"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.run_tests">[docs]</a>    <span class="k">def</span> <span class="nf">run_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="n">protocol_class</span><span class="p">,</span> <span class="n">extra_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_protocol_class</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
+        <span class="n">value</span><span class="p">,</span> <span class="n">results</span> <span class="o">=</span> <span class="n">protocol_class</span><span class="o">.</span><span class="n">run_self_tests</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">extra_arguments</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
 <div class="viewcode-block" id="SelfTestsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
-        <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">item</span>
-        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-        <span class="n">protocol_class</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_find_protocol_class&quot;</span><span class="p">):</span>
-            <span class="n">protocol_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_protocol_class</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;self_test_results&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_prior_test_results</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">protocol_class</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integration</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">integration</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
+        <span class="n">protocol_class</span><span class="p">,</span> <span class="n">extra_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_protocol_class</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
+        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;self_test_results&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_prior_test_results</span><span class="p">(</span>
+            <span class="n">integration</span><span class="p">,</span> <span class="n">protocol_class</span><span class="p">,</span> <span class="o">*</span><span class="n">extra_arguments</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">self_test_results</span><span class="o">=</span><span class="n">info</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SelfTestsController.process_post"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.process_post">[docs]</a>    <span class="k">def</span> <span class="nf">process_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
-        <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span> <span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">item</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_tests</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span> <span class="p">(</span><span class="n">integration</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">integration</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_tests</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">value</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">value</span>
         <span class="k">elif</span> <span class="n">value</span><span class="p">:</span>

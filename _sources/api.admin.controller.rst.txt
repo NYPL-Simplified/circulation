@@ -92,6 +92,14 @@ api.admin.controller.library\_settings module
     :undoc-members:
     :show-inheritance:
 
+api.admin.controller.metadata\_service\_self\_tests module
+----------------------------------------------------------
+
+.. automodule:: api.admin.controller.metadata_service_self_tests
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 api.admin.controller.metadata\_services module
 ----------------------------------------------
 

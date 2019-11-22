@@ -458,6 +458,13 @@
 <span class="k">def</span> <span class="nf">metadata_service</span><span class="p">(</span><span class="n">service_id</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_services_controller</span><span class="o">.</span><span class="n">process_delete</span><span class="p">(</span><span class="n">service_id</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="metadata_service_self_tests"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.metadata_service_self_tests">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/metadata_service_self_tests/&lt;identifier&gt;&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="nd">@returns_json_or_response_or_problem_detail</span>
+<span class="nd">@requires_admin</span>
+<span class="nd">@requires_csrf_token</span>
+<span class="k">def</span> <span class="nf">metadata_service_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_service_self_tests_controller</span><span class="o">.</span><span class="n">process_metadata_service_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="analytics_services"><a class="viewcode-back" href="../../../api.admin.html#api.admin.routes.analytics_services">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/admin/analytics_services&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;POST&#39;</span><span class="p">])</span>
 <span class="nd">@returns_json_or_response_or_problem_detail</span>
 <span class="nd">@requires_admin</span>

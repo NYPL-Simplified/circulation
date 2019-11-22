@@ -194,6 +194,8 @@
     <span class="kn">from</span> <span class="nn">api.admin.controller.metadata_services</span> <span class="k">import</span> <span class="n">MetadataServicesController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_services_controller</span> <span class="o">=</span> <span class="n">MetadataServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.patron_auth_services</span> <span class="k">import</span> <span class="n">PatronAuthServicesController</span>
+    <span class="kn">from</span> <span class="nn">api.admin.controller.metadata_service_self_tests</span> <span class="k">import</span> <span class="n">MetadataServiceSelfTestsController</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">admin_metadata_service_self_tests_controller</span> <span class="o">=</span> <span class="n">MetadataServiceSelfTestsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_patron_auth_services_controller</span> <span class="o">=</span> <span class="n">PatronAuthServicesController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
     <span class="kn">from</span> <span class="nn">api.admin.controller.patron_auth_service_self_tests</span> <span class="k">import</span> <span class="n">PatronAuthServiceSelfTestsController</span>
     <span class="n">manager</span><span class="o">.</span><span class="n">admin_patron_auth_service_self_tests_controller</span> <span class="o">=</span> <span class="n">PatronAuthServiceSelfTestsController</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
@@ -1562,7 +1564,7 @@
 
         <span class="k">return</span> <span class="n">protocols</span>
 
-    <span class="k">def</span> <span class="nf">_get_prior_test_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">protocol_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_prior_test_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">protocol_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">extra_args</span><span class="p">):</span>
         <span class="c1"># :param item: An ExternalSearchIndex, an ExternalIntegration for patron authentication, or a Collection</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">protocol_class</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;protocol_class&quot;</span><span class="p">):</span>
             <span class="n">protocol_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol_class</span>
@@ -1596,7 +1598,10 @@
                 <span class="n">self_test_results</span> <span class="o">=</span> <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">prior_test_results</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">item</span>
                 <span class="p">)</span>
-
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;metadata service&quot;</span><span class="p">:</span>
+                <span class="n">self_test_results</span> <span class="o">=</span> <span class="n">protocol_class</span><span class="o">.</span><span class="n">prior_test_results</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">extra_args</span>
+                <span class="p">)</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;patron authentication service&quot;</span><span class="p">:</span>
                 <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">libraries</span><span class="p">):</span>
