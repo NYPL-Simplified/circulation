@@ -65,7 +65,12 @@ from ..s3 import (
     S3Uploader,
     MockS3Uploader,
 )
-from ..testing import DummyHTTPClient
+from ..selftest import SelfTestResult
+from ..testing import (
+    DummyHTTPClient,
+    MockRequestsRequest,
+    MockRequestsResponse,
+)
 from ..util.http import BadResponseException
 
 
@@ -89,7 +94,16 @@ class DoomedWorkOPDSImporter(OPDSImporter):
             raise Exception("Utter work failure!")
 
 
-class TestMetadataWranglerOPDSLookup(DatabaseTest):
+class OPDSTest(DatabaseTest):
+    """A unit test that knows how to find OPDS files for use in tests."""
+
+    def sample_opds(self, filename):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files", "opds")
+        return open(os.path.join(resource_path, filename)).read()
+
+
+class TestMetadataWranglerOPDSLookup(OPDSTest):
 
     def setup(self):
         super(TestMetadataWranglerOPDSLookup, self).setup()
@@ -183,19 +197,229 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         expected = '%s/lookup' % self.collection.metadata_identifier
         eq_(expected, lookup.lookup_endpoint)
 
+    # Tests of the self-test framework.
 
-class OPDSImporterTest(DatabaseTest):
+    def test__run_self_tests(self):
+        # MetadataWranglerOPDSLookup.run_self_tests() finds all the
+        # collections with a metadata identifier, recursively
+        # instantates a MetadataWranglerOPDSLookup for each, and calls
+        # _run_self_tests_on_one_collection() on each.
+
+        # Ensure there are two collections: one with a metadata
+        # identifier and one without.
+        no_unique_id = self._default_collection
+        with_unique_id = self.collection
+        with_unique_id.external_account_id = "unique id"
+
+        # Here, we'll define a Mock class to take the place of the
+        # recursively-instantiated MetadataWranglerOPDSLookup.
+        class Mock(MetadataWranglerOPDSLookup):
+            instances = []
+
+            @classmethod
+            def from_config(cls, _db, collection):
+                lookup = Mock("http://mock-url/")
+                cls.instances.append(lookup)
+                lookup._db = _db
+                lookup.collection = collection
+                lookup.called = False
+                return lookup
+
+            def _run_collection_self_tests(self):
+                self.called = True
+                yield "Some self-test results for %s" % self.collection.name
+
+        lookup = MetadataWranglerOPDSLookup("http://url/")
+
+        # Running the self tests with no specific collection caused
+        # them to be run on the one Collection we could find that has
+        # a metadata identifier.
+
+        # _run_self_tests returns a single test result
+        [result] = lookup._run_self_tests(self._db, lookup_class=Mock)
+
+        # That Collection is keyed to a list containing a single test
+        # result, obtained by calling Mock._run_collection_self_tests().
+        eq_("Some self-test results for %s" % with_unique_id.name, result)
+
+        # Here's the Mock object whose _run_collection_self_tests()
+        # was called. Let's make sure it was instantiated properly.
+        [mock_lookup] = Mock.instances
+        eq_(self._db, mock_lookup._db)
+        eq_(with_unique_id, mock_lookup.collection)
+        eq_(True, mock_lookup.called)
+
+    def test__run_collection_self_tests(self):
+        # Verify that calling _run_collection_self_tests calls
+        # _feed_self_test a couple of times, and yields a
+        # SelfTestResult for each call.
+
+        class Mock(MetadataWranglerOPDSLookup):
+            feed_self_tests = []
+
+            def _feed_self_test(self, title, method, *args):
+                self.feed_self_tests.append((title, method, args))
+                return "A feed self-test for %s: %s" % (
+                    self.collection.unique_account_id, title
+                )
+
+        # If there is no associated collection, _run_collection_self_tests()
+        # does nothing.
+        no_collection = Mock("http://url/")
+        eq_([], list(no_collection._run_collection_self_tests()))
+
+        # Same if there is an associated collection but it has no
+        # metadata identifier.
+        with_collection = Mock(
+            "http://url/", collection=self._default_collection
+        )
+        eq_([], list(with_collection._run_collection_self_tests()))
+
+        # If there is a metadata identifier, our mocked
+        # _feed_self_test is called twice. Here are the results.
+        self._default_collection.external_account_id = "unique-id"
+        [r1, r2] = with_collection._run_collection_self_tests()
+
+        eq_(
+            'A feed self-test for unique-id: Metadata updates in last 24 hours',
+            r1
+        )
+        eq_(
+            "A feed self-test for unique-id: Titles where we could (but haven't) provide information to the metadata wrangler",
+            r2
+        )
+
+        # Let's make sure _feed_self_test() was called with the right
+        # arguments.
+        call1, call2 = with_collection.feed_self_tests
+
+        # The first self-test wants to count updates for the last 24
+        # hours.
+        title1, method1, args1 = call1
+        eq_('Metadata updates in last 24 hours', title1)
+        eq_(with_collection.updates, method1)
+        [timestamp] = args1
+        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
+        assert (one_day_ago - timestamp).total_seconds() < 1
+
+        # The second self-test wants to count work that the metadata
+        # wrangler needs done but hasn't been done yet.
+        title2, method2, args2 = call2
+        eq_(
+            "Titles where we could (but haven't) provide information to the metadata wrangler",
+            title2
+        )
+        eq_(with_collection.metadata_needed, method2)
+        eq_((), args2)
+
+    def test__feed_self_test(self):
+        # Test the _feed_self_test helper method. It grabs a
+        # feed from the metadata wrangler, calls
+        # _summarize_feed_response on the response object, and returns
+        # a SelfTestResult explaining what happened.
+        class Mock(MetadataWranglerOPDSLookup):
+            requests = []
+            annotated_responses = []
+            @classmethod
+            def _annotate_feed_response(cls, result, response):
+                cls.annotated_responses.append((result, response))
+                result.success = True
+                result.result = ["I summarized", "the response"]
+
+            def make_some_request(self, *args, **kwargs):
+                self.requests.append((args, kwargs))
+                return "A fake response"
+
+        lookup = Mock("http://base-url/", collection=self._default_collection)
+        request_method = lookup.make_some_request
+        result = lookup._feed_self_test("Some test", request_method, 1, 2)
+
+        # We got back a SelfTestResult associated with the Mock
+        # object's collection.
+        assert isinstance(result, SelfTestResult)
+        eq_(self._default_collection, result.collection)
+
+        # It indicates some request was made, and the response
+        # annotated using our mock _annotate_feed_response.
+        eq_("Some test", result.name)
+        assert result.duration < 1
+        eq_(True, result.success)
+        eq_(["I summarized", "the response"], result.result)
+
+        # But what request was made, exactly?
+
+        # Here we see that Mock.make_some_request was called
+        # with the positional arguments passed into _feed_self_test,
+        # and a keyword argument indicating that 5xx responses should
+        # be processed normally and not used as a reason to raise an
+        # exception.
+        eq_(
+            [((1, 2),
+              {'allowed_response_codes': ['1xx', '2xx', '3xx', '4xx', '5xx']})
+            ],
+            lookup.requests
+        )
+
+        # That method returned "A fake response", which was passed
+        # into _annotate_feed_response, along with the
+        # SelfTestResult in progress.
+        [(used_result, response)] = lookup.annotated_responses
+        eq_(result, used_result)
+        eq_("A fake response", response)
+
+    def test__annotate_feed_response(self):
+        # Test the _annotate_feed_response class helper method.
+        m = MetadataWranglerOPDSLookup._annotate_feed_response
+        def mock_response(url, authorization, response_code, content):
+            request = MockRequestsRequest(
+                url, headers=dict(Authorization=authorization)
+            )
+            response = MockRequestsResponse(
+                response_code, content=content, request=request
+            )
+            return response
+
+        # First, test success.
+        url = "http://metadata-wrangler/",
+        auth = "auth"
+        test_result = SelfTestResult("success")
+        response = mock_response(
+            url, auth, 200,
+            self.sample_opds("metadata_wrangler_overdrive.opds")
+        )
+        results = m(test_result, response)
+        eq_([
+            'Request URL: %s' % url,
+            'Request authorization: %s' % auth,
+            'Status code: 200',
+            'Total identifiers registered with this collection: 201',
+            'Entries on this page: 1',
+            ' The Green Mouse'
+        ], test_result.result)
+        eq_(True, test_result.success)
+
+        # Next, test failure.
+        response = mock_response(
+            url, auth, 401,
+            "An error message."
+        )
+        test_result = SelfTestResult("failure")
+        eq_(False, test_result.success)
+        m(test_result, response)
+        eq_([
+            'Request URL: %s' % url,
+            'Request authorization: %s' % auth,
+            'Status code: 401',
+        ], test_result.result)
+
+
+class OPDSImporterTest(OPDSTest):
 
     def setup(self):
         super(OPDSImporterTest, self).setup()
-        base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(base_path, "files", "opds")
-        self.content_server_feed = open(
-            os.path.join(self.resource_path, "content_server.opds")).read()
-        self.content_server_mini_feed = open(
-            os.path.join(self.resource_path, "content_server_mini.opds")).read()
-        self.audiobooks_opds = open(
-            os.path.join(self.resource_path, "audiobooks.opds")).read()
+        self.content_server_feed = self.sample_opds("content_server.opds")
+        self.content_server_mini_feed = self.sample_opds("content_server_mini.opds")
+        self.audiobooks_opds = self.sample_opds("audiobooks.opds")
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
@@ -495,9 +719,7 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
-        feed = open(
-            os.path.join(self.resource_path, "unrecognized_identifier.opds")
-        ).read()
+        feed = self.sample_opds("unrecognized_identifier.opds")
         values, failures = OPDSImporter.extract_metadata_from_elementtree(
             feed, data_source
         )
@@ -515,9 +737,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_messages(self):
         parser = OPDSXMLParser()
-        feed = open(
-            os.path.join(self.resource_path, "unrecognized_identifier.opds")
-        ).read()
+        feed = self.sample_opds("unrecognized_identifier.opds")
         root = etree.parse(StringIO(feed))
         [message] = OPDSImporter.extract_messages(parser, root)
         eq_('urn:librarysimplified.org/terms/id/Gutenberg ID/100', message.urn)
@@ -914,8 +1134,7 @@ class TestOPDSImporter(OPDSImporterTest):
         that comes from a second previously unknown data source. The
         book is imported and both DataSources are created.
         """
-        feed = open(
-            os.path.join(self.resource_path, "unrecognized_distributor.opds")).read()
+        feed = self.sample_opds("unrecognized_distributor.opds")
         self._default_collection.external_integration.setting('data_source').value = (
             "some new source"
         )
@@ -944,8 +1163,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_import_updates_metadata(self):
 
-        path = os.path.join(self.resource_path, "metadata_wrangler_overdrive.opds")
-        feed = open(path).read()
+        feed = self.sample_opds("metadata_wrangler_overdrive.opds")
 
         edition, is_new = self._edition(
             DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID,
@@ -1028,8 +1246,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.OA_CONTENT_SERVER, crow_pool.data_source.name)
 
     def test_import_from_feed_treats_message_as_failure(self):
-        path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
-        feed = open(path).read()
+        feed = self.sample_opds("unrecognized_identifier.opds")
         imported_editions, imported_pools, imported_works, failures = (
             OPDSImporter(
                 self._db, collection=self._default_collection
@@ -1136,8 +1353,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(None, i2.thumbnail)
 
     def test_import_book_that_offers_no_license(self):
-        path = os.path.join(self.resource_path, "book_without_license.opds")
-        feed = open(path).read()
+        feed = self.sample_opds("book_without_license.opds")
         importer = OPDSImporter(self._db, self._default_collection)
         imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)

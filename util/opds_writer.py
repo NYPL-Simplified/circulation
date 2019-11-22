@@ -32,6 +32,7 @@ class AtomFeed(object):
     SCHEMA_NS = 'http://schema.org/'
     DRM_NS = 'http://librarysimplified.org/terms/drm'
     OPF_NS = 'http://www.idpf.org/2007/opf'
+    OPENSEARCH_NS = 'http://a9.com/-/spec/opensearch/1.1/'
 
     SIMPLIFIED_NS = "http://librarysimplified.org/terms/"
     BIBFRAME_NS = "http://bibframe.org/vocab/"
@@ -47,7 +48,8 @@ class AtomFeed(object):
         'schema' : SCHEMA_NS,
         'simplified' : SIMPLIFIED_NS,
         'bibframe' : BIBFRAME_NS,
-        'bib': BIB_SCHEMA_NS
+        'bib': BIB_SCHEMA_NS,
+        'opensearch': OPENSEARCH_NS,
     }
 
     default_typemap = {datetime: lambda e, v: _strftime(v)}

@@ -1426,16 +1426,31 @@ class DummyHTTPClient(object):
         return self.responses.pop(0)
 
 
+class MockRequestsRequest(object):
+    """A mock object that simulates an HTTP request from the
+    `requests` library.
+    """
+    def __init__(self, url, method="GET", headers=None):
+        self.url = url
+        self.method = method
+        self.headers = headers or dict()
+
+
 class MockRequestsResponse(object):
     """A mock object that simulates an HTTP response from the
     `requests` library.
     """
-    def __init__(self, status_code, headers={}, content=None, url=None):
+    def __init__(
+        self, status_code, headers={}, content=None, url=None, request=None
+    ):
         self.status_code = status_code
         self.headers = headers
         self.content = content
+        if request and not url:
+            url = request.url
         self.url = url or "http://url/"
         self.encoding = "utf-8"
+        self.request = request
 
     def json(self):
         content = self.content

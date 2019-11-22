@@ -34,6 +34,9 @@ class SelfTestResult(object):
         # End time of the test.
         self.end = None
 
+        # Collection associated with the test
+        self.collection = None
+
     @property
     def to_dict(self):
         """Convert this SelfTestResult to a dictionary for use in
@@ -57,6 +60,9 @@ class SelfTestResult(object):
         if self.end:
             value['end'] = f(self.end)
 
+        if self.collection:
+            value['collection'] = self.collection.name
+
         # String results will be displayed in a fixed-width font.
         # Lists of strings will be hidden behind an expandable toggle.
         # Other return values have no defined method of display.
@@ -77,8 +83,12 @@ class SelfTestResult(object):
                 exception = " exception=%r" % self.exception
         else:
             exception = ""
-        return "<SelfTestResult: name=%r duration=%.2fsec success=%r%s result=%r>" % (
-            self.name, self.duration, self.success,
+        if self.collection:
+            collection = " collection=%r" % self.collection.name
+        else:
+            collection = ""
+        return "<SelfTestResult: name=%r%s duration=%.2fsec success=%r%s result=%r>" % (
+            self.name, collection, self.duration, self.success,
             exception, self.result
         )
 

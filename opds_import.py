@@ -69,7 +69,10 @@ from util.opds_writer import (
 )
 from util.string_helpers import base64
 from mirror import MirrorUploader
-from selftest import HasSelfTests
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 
 
 class AccessNotAuthenticated(Exception):
@@ -130,7 +133,7 @@ class SimplifiedOPDSLookup(object):
         return self._get(url)
 
 
-class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
+class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
 
     PROTOCOL = ExternalIntegration.METADATA_WRANGLER
     NAME = _("Library Simplified Metadata Wrangler")
@@ -172,6 +175,116 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
             integration.url, shared_secret=integration.password,
             collection=collection
         )
+
+    def _run_self_tests(self, _db, lookup_class=None):
+        """Run self-tests on every eligible Collection.
+
+        :param _db: A database connection.
+        :param lookup_class: Pass in a mock class to instantiate that
+           class as needed instead of MetadataWranglerOPDSLookup.
+        :return: A dictionary mapping Collection objects to lists of
+           SelfTestResult objects.
+        """
+        lookup_class = lookup_class or MetadataWranglerOPDSLookup
+        results = dict()
+
+        # Find all eligible Collections on the system, instantiate a
+        # _new_ MetadataWranglerOPDSLookup for each, and call
+        # its _run_collection_self_tests method.
+        for c in _db.query(Collection):
+            try:
+                metadata_identifier = c.metadata_identifier
+            except ValueError, e:
+                continue
+
+            lookup = lookup_class.from_config(_db, c)
+            for i in lookup._run_collection_self_tests():
+                yield i
+
+    def _run_collection_self_tests(self):
+        """Run the self-test suite on the Collection associated with this
+        MetadataWranglerOPDSLookup.
+        """
+        if not self.collection:
+            return
+        metadata_identifier = None
+        try:
+            metadata_identifier = self.collection.metadata_identifier
+        except ValueError, e:
+            # This collection has no metadata identifier. It's
+            # probably a "Manual intervention" collection. It cannot
+            # interact with the metadata wrangler and there's no need
+            # to test it.
+            return
+
+        # Check various endpoints that yield OPDS feeds.
+        one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        for title, m, args in (
+            (
+                "Metadata updates in last 24 hours", 
+                self.updates, [one_day_ago]
+            ),
+            (
+                "Titles where we could (but haven't) provide information to the metadata wrangler",
+                self.metadata_needed, []
+            )
+        ):
+            yield self._feed_self_test(title, m, *args)
+
+    def _feed_self_test(self, name, method, *args):
+        """Retrieve a feed from the metadata wrangler and 
+        turn it into a SelfTestResult.
+        """
+        result = SelfTestResult(name)
+        result.collection = self.collection
+
+        # If the server returns a 500 error we don't want to raise an
+        # exception -- we want to record it as part of the test
+        # result.
+        kwargs = dict(allowed_response_codes=['%sxx' % f for f in range(1,6)])
+
+        response = method(*args, **kwargs)
+        self._annotate_feed_response(result, response)
+
+        # We're all done.
+        result.end = datetime.datetime.utcnow()
+        return result
+
+    @classmethod
+    def _annotate_feed_response(cls, result, response):
+        """Parse an OPDS feed and annotate a SelfTestResult with some
+        information about it:
+
+        * How the feed was requested.
+        * What the response code was.
+        * The number of items on the first page.
+        * The title of each item on the page, if any.
+        * The total number of items in the feed, if available.
+
+        :param result: A SelfTestResult object.
+        :param response: A requests Response object.
+        """
+        lines = []
+        lines.append("Request URL: %s" % response.url)
+        lines.append(
+            "Request authorization: %s" %
+            response.request.headers.get('Authorization')
+        )
+        lines.append("Status code: %d" % response.status_code)
+        result.success = response.status_code == 200
+        if result.success:
+            feed = feedparser.parse(response.content)
+            total_results = feed['feed'].get('opensearch_totalresults')
+            if total_results is not None:
+                lines.append(
+                    "Total identifiers registered with this collection: %s" % (
+                        total_results
+                    )
+                )
+            lines.append("Entries on this page: %d" % len(feed['entries']))
+            for i in feed['entries']:
+                lines.append(" " + i['title'])
+        result.result = lines
 
     def __init__(self, url, shared_secret=None, collection=None):
         super(MetadataWranglerOPDSLookup, self).__init__(url)
@@ -250,14 +363,14 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         add_with_metadata_url = self.get_collection_url(self.ADD_WITH_METADATA_ENDPOINT)
         return self._post(add_with_metadata_url, unicode(feed))
 
-    def metadata_needed(self):
+    def metadata_needed(self, **kwargs):
         """Get a feed of items that need additional metadata to be processed
         by the Metadata Wrangler.
         """
         metadata_needed_url = self.get_collection_url(
             self.METADATA_NEEDED_ENDPOINT
         )
-        return self._get(metadata_needed_url)
+        return self._get(metadata_needed_url, **kwargs)
 
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler Collection"""
@@ -267,7 +380,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         logging.info("Metadata Wrangler Collection Removal URL: %s", url)
         return self._post(url)
 
-    def updates(self, last_update_time):
+    def updates(self, last_update_time, **kwargs):
         """Retrieve updated items from an authenticated Metadata
         Wrangler Collection
 
@@ -279,7 +392,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
             formatted_time = last_update_time.strftime('%Y-%m-%dT%H:%M:%SZ')
             url = self.add_args(url, ('last_update_time='+formatted_time))
         logging.info("Metadata Wrangler Collection Updates URL: %s", url)
-        return self._get(url)
+        return self._get(url, **kwargs)
 
     def canonicalize_author_name(self, identifier, working_display_name):
         """Attempt to find the canonical name for the author of a book.
