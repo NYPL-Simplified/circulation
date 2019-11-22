@@ -74,10 +74,14 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
             eq_("Successfully ran new self tests", response.data)
 
         positional, keyword = self.run_self_tests_called_with
-        # run_self_tests was called with a single positional argument:
-        # the database connection. This means the HasSelfTests implementation
-        # will be instantiated as ExternalSearchIndex(_db).
-        eq_((self._db,), positional)
+        # run_self_tests was called with positional arguments:
+        # * The database connection
+        # * The method to call to instantiate a HasSelfTests implementation
+        #   (None -- this means to use the default ExternalSearchIndex
+        #   constructor.)
+        # * The database connection again (to be passed into
+        #   the ExternalSearchIndex constructor).
+        eq_((self._db, None, self._db), positional)
 
         # run_self_tests was not called with any keyword arguments.
         eq_({}, keyword)

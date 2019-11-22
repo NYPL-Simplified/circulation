@@ -24,7 +24,7 @@ class SearchServiceSelfTestsController(SelfTestsController, ExternalSearchTest):
 
     def _find_protocol_class(self, integration):
         # There's only one possibility for search integrations.
-        return ExternalSearchIndex
+        return ExternalSearchIndex, (None, self._db,)
 
     def look_up_by_id(self, identifier):
         return self.look_up_service_by_id(
