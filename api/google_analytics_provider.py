@@ -39,6 +39,7 @@ class GoogleAnalyticsProvider(object):
                     "<li>open_access</li>" +
                     "<li>distributor</li>" +
                     "<li>medium</li>" +
+                    "<li>library</li>" +
                     "</ol></p>" +
                     "<p>Each dimension should have the scope set to 'Hit' and the 'Active' box checked.</p>" +
                     "<p>Then go to Tracking Info and get the tracking id for the property.  Select your " +
@@ -115,7 +116,8 @@ class GoogleAnalyticsProvider(object):
             fields.update({'cd13' : license_pool.data_source.name})
             if work and edition:
                 fields.update({'cd14' : edition.medium})
-
+        if library:
+            fields.update({'cd15' : library.short_name})
 
         # urlencode doesn't like unicode strings so we convert them to utf8
         fields = {k: unicodedata.normalize("NFKD", unicode(v)).encode("utf8") for k, v in fields.iteritems()}
