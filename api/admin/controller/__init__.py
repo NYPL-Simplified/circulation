@@ -1561,7 +1561,7 @@ class SettingsController(AdminCirculationManagerController):
 
             elif self.type == "search service":
                 self_test_results = ExternalSearchIndex.prior_test_results(
-                    self._db, None, self._db
+                    self._db, None, self._db, item
                 )
             elif self.type == "metadata service":
                 self_test_results = protocol_class.prior_test_results(
