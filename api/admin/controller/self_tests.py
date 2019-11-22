@@ -8,6 +8,7 @@ from . import SettingsController
 
 class SelfTestsController(SettingsController):
     def _manage_self_tests(self, identifier):
+        """Generic request-processing method."""
         if not identifier:
             return MISSING_IDENTIFIER
         if flask.request.method == "GET":
@@ -15,22 +16,54 @@ class SelfTestsController(SettingsController):
         else:
             return self.process_post(identifier)
 
+    def find_protocol_class(self, integration):
+        """Given an ExternalIntegration, find the class on which run_tests()
+        or prior_test_results() should be called, and any extra
+        arguments that should be passed into the call.
+        """
+        if not hasattr(self, "_find_protocol_class"):
+            raise NotImplementedError()
+        protocol_class = self._find_protocol_class(integration)
+        if isinstance(protocol_class, tuple):
+            protocol_class, extra_arguments = protocol_class
+        else:
+            extra_arguments = ()
+        return protocol_class, extra_arguments
+
+    def get_info(self, integration):
+        protocol_class, ignore = self.find_protocol_class(integration)
+        [protocol] = self._get_integration_protocols([protocol_class])
+        return dict(
+            id=integration.id,
+            name=integration.name,
+            protocol=protocol,
+            settings=protocol.get("settings"),
+            goal=integration.goal
+        )
+
+    def run_tests(self, integration):
+        protocol_class, extra_arguments = self.find_protocol_class(integration)
+        value, results = protocol_class.run_self_tests(
+            self._db, *extra_arguments
+        )
+        return value
+
     def process_get(self, identifier):
-        item = self.look_up_by_id(identifier)
-        if isinstance(item, ProblemDetail):
-            return item
-        info = self.get_info(item)
-        protocol_class = None
-        if hasattr(self, "_find_protocol_class"):
-            protocol_class = self._find_protocol_class(item)
-        info["self_test_results"] = self._get_prior_test_results(item, protocol_class)
+        integration = self.look_up_by_id(identifier)
+        if isinstance(integration, ProblemDetail):
+            return integration
+        info = self.get_info(integration)
+        protocol_class, extra_arguments = self.find_protocol_class(integration)
+        info["self_test_results"] = self._get_prior_test_results(
+            integration, protocol_class, *extra_arguments
+        )
         return dict(self_test_results=info)
 
     def process_post(self, identifier):
-        item = self.look_up_by_id(identifier)
-        if isinstance (item, ProblemDetail):
-            return item
-        value = self.run_tests(item)
+        integration = self.look_up_by_id(identifier)
+        if isinstance (integration, ProblemDetail):
+            return integration
+        value = self.run_tests(integration)
         if value and isinstance(value, ProblemDetail):
             return value
         elif value:
