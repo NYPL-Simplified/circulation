@@ -4979,7 +4979,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-4707a2f2-b691-4268-9395-822c0d23cec2'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-b9de2772-b37a-4d06-b1a1-e37e64dd8a28'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7924,7 +7924,7 @@ identifiers for the work.</td>
 <dl class="class">
 <dt id="core.opds_import.MetadataWranglerOPDSLookup">
 <em class="property">class </em><code class="descclassname">core.opds_import.</code><code class="descname">MetadataWranglerOPDSLookup</code><span class="sig-paren">(</span><em>url</em>, <em>shared_secret=None</em>, <em>collection=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#MetadataWranglerOPDSLookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#core.opds_import.SimplifiedOPDSLookup" title="core.opds_import.SimplifiedOPDSLookup"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.SimplifiedOPDSLookup</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#core.opds_import.SimplifiedOPDSLookup" title="core.opds_import.SimplifiedOPDSLookup"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.opds_import.SimplifiedOPDSLookup</span></code></a>, <a class="reference internal" href="#core.selftest.HasSelfTests" title="core.selftest.HasSelfTests"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.selftest.HasSelfTests</span></code></a></p>
 <dl class="attribute">
 <dt id="core.opds_import.MetadataWranglerOPDSLookup.ADD_ENDPOINT">
 <code class="descname">ADD_ENDPOINT</code><em class="property"> = 'add'</em><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.ADD_ENDPOINT" title="Permalink to this definition">¶</a></dt>
@@ -8044,7 +8044,7 @@ that goes into library records).</li>
 
 <dl class="method">
 <dt id="core.opds_import.MetadataWranglerOPDSLookup.metadata_needed">
-<code class="descname">metadata_needed</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#MetadataWranglerOPDSLookup.metadata_needed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.metadata_needed" title="Permalink to this definition">¶</a></dt>
+<code class="descname">metadata_needed</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#MetadataWranglerOPDSLookup.metadata_needed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.metadata_needed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get a feed of items that need additional metadata to be processed
 by the Metadata Wrangler.</p>
 </dd></dl>
@@ -8057,7 +8057,7 @@ by the Metadata Wrangler.</p>
 
 <dl class="method">
 <dt id="core.opds_import.MetadataWranglerOPDSLookup.updates">
-<code class="descname">updates</code><span class="sig-paren">(</span><em>last_update_time</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#MetadataWranglerOPDSLookup.updates"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.updates" title="Permalink to this definition">¶</a></dt>
+<code class="descname">updates</code><span class="sig-paren">(</span><em>last_update_time</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#MetadataWranglerOPDSLookup.updates"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.MetadataWranglerOPDSLookup.updates" title="Permalink to this definition">¶</a></dt>
 <dd><p>Retrieve updated items from an authenticated Metadata
 Wrangler Collection</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -11385,8 +11385,16 @@ WorkCoverageProvider, and must be handled in a subclass.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="core.testing.MockRequestsRequest">
+<em class="property">class </em><code class="descclassname">core.testing.</code><code class="descname">MockRequestsRequest</code><span class="sig-paren">(</span><em>url</em>, <em>method='GET'</em>, <em>headers=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#MockRequestsRequest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.MockRequestsRequest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A mock object that simulates an HTTP request from the
+<cite>requests</cite> library.</p>
+</dd></dl>
+
+<dl class="class">
 <dt id="core.testing.MockRequestsResponse">
-<em class="property">class </em><code class="descclassname">core.testing.</code><code class="descname">MockRequestsResponse</code><span class="sig-paren">(</span><em>status_code</em>, <em>headers={}</em>, <em>content=None</em>, <em>url=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#MockRequestsResponse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.MockRequestsResponse" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.testing.</code><code class="descname">MockRequestsResponse</code><span class="sig-paren">(</span><em>status_code</em>, <em>headers={}</em>, <em>content=None</em>, <em>url=None</em>, <em>request=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/testing.html#MockRequestsResponse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.testing.MockRequestsResponse" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A mock object that simulates an HTTP response from the
 <cite>requests</cite> library.</p>

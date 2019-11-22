@@ -67,6 +67,7 @@
     <span class="n">SCHEMA_NS</span> <span class="o">=</span> <span class="s1">&#39;http://schema.org/&#39;</span>
     <span class="n">DRM_NS</span> <span class="o">=</span> <span class="s1">&#39;http://librarysimplified.org/terms/drm&#39;</span>
     <span class="n">OPF_NS</span> <span class="o">=</span> <span class="s1">&#39;http://www.idpf.org/2007/opf&#39;</span>
+    <span class="n">OPENSEARCH_NS</span> <span class="o">=</span> <span class="s1">&#39;http://a9.com/-/spec/opensearch/1.1/&#39;</span>
 
     <span class="n">SIMPLIFIED_NS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/&quot;</span>
     <span class="n">BIBFRAME_NS</span> <span class="o">=</span> <span class="s2">&quot;http://bibframe.org/vocab/&quot;</span>
@@ -82,7 +83,8 @@
         <span class="s1">&#39;schema&#39;</span> <span class="p">:</span> <span class="n">SCHEMA_NS</span><span class="p">,</span>
         <span class="s1">&#39;simplified&#39;</span> <span class="p">:</span> <span class="n">SIMPLIFIED_NS</span><span class="p">,</span>
         <span class="s1">&#39;bibframe&#39;</span> <span class="p">:</span> <span class="n">BIBFRAME_NS</span><span class="p">,</span>
-        <span class="s1">&#39;bib&#39;</span><span class="p">:</span> <span class="n">BIB_SCHEMA_NS</span>
+        <span class="s1">&#39;bib&#39;</span><span class="p">:</span> <span class="n">BIB_SCHEMA_NS</span><span class="p">,</span>
+        <span class="s1">&#39;opensearch&#39;</span><span class="p">:</span> <span class="n">OPENSEARCH_NS</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">default_typemap</span> <span class="o">=</span> <span class="p">{</span><span class="n">datetime</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">e</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">_strftime</span><span class="p">(</span><span class="n">v</span><span class="p">)}</span>

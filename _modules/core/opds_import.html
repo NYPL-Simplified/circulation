@@ -104,7 +104,10 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="k">import</span> <span class="n">base64</span>
 <span class="kn">from</span> <span class="nn">mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="n">HasSelfTests</span>
+<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="p">(</span>
+    <span class="n">HasSelfTests</span><span class="p">,</span>
+    <span class="n">SelfTestResult</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <div class="viewcode-block" id="AccessNotAuthenticated"><a class="viewcode-back" href="../../core.html#api.coverage.AccessNotAuthenticated">[docs]</a><span class="k">class</span> <span class="nc">AccessNotAuthenticated</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
@@ -165,7 +168,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="MetadataWranglerOPDSLookup"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup">[docs]</a><span class="k">class</span> <span class="nc">MetadataWranglerOPDSLookup</span><span class="p">(</span><span class="n">SimplifiedOPDSLookup</span><span class="p">):</span>
+<div class="viewcode-block" id="MetadataWranglerOPDSLookup"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup">[docs]</a><span class="k">class</span> <span class="nc">MetadataWranglerOPDSLookup</span><span class="p">(</span><span class="n">SimplifiedOPDSLookup</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
 
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">METADATA_WRANGLER</span>
     <span class="n">NAME</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Library Simplified Metadata Wrangler&quot;</span><span class="p">)</span>
@@ -207,6 +210,116 @@
             <span class="n">integration</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">shared_secret</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">password</span><span class="p">,</span>
             <span class="n">collection</span><span class="o">=</span><span class="n">collection</span>
         <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_run_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">lookup_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run self-tests on every eligible Collection.</span>
+
+<span class="sd">        :param _db: A database connection.</span>
+<span class="sd">        :param lookup_class: Pass in a mock class to instantiate that</span>
+<span class="sd">           class as needed instead of MetadataWranglerOPDSLookup.</span>
+<span class="sd">        :return: A dictionary mapping Collection objects to lists of</span>
+<span class="sd">           SelfTestResult objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lookup_class</span> <span class="o">=</span> <span class="n">lookup_class</span> <span class="ow">or</span> <span class="n">MetadataWranglerOPDSLookup</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="c1"># Find all eligible Collections on the system, instantiate a</span>
+        <span class="c1"># _new_ MetadataWranglerOPDSLookup for each, and call</span>
+        <span class="c1"># its _run_collection_self_tests method.</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Collection</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">metadata_identifier</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">lookup</span> <span class="o">=</span> <span class="n">lookup_class</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">lookup</span><span class="o">.</span><span class="n">_run_collection_self_tests</span><span class="p">():</span>
+                <span class="k">yield</span> <span class="n">i</span>
+
+    <span class="k">def</span> <span class="nf">_run_collection_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run the self-test suite on the Collection associated with this</span>
+<span class="sd">        MetadataWranglerOPDSLookup.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">metadata_identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">metadata_identifier</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># This collection has no metadata identifier. It&#39;s</span>
+            <span class="c1"># probably a &quot;Manual intervention&quot; collection. It cannot</span>
+            <span class="c1"># interact with the metadata wrangler and there&#39;s no need</span>
+            <span class="c1"># to test it.</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Check various endpoints that yield OPDS feeds.</span>
+        <span class="n">one_day_ago</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">title</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">args</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;Metadata updates in last 24 hours&quot;</span><span class="p">,</span> 
+                <span class="bp">self</span><span class="o">.</span><span class="n">updates</span><span class="p">,</span> <span class="p">[</span><span class="n">one_day_ago</span><span class="p">]</span>
+            <span class="p">),</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;Titles where we could (but haven&#39;t) provide information to the metadata wrangler&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metadata_needed</span><span class="p">,</span> <span class="p">[]</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feed_self_test</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_feed_self_test</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve a feed from the metadata wrangler and </span>
+<span class="sd">        turn it into a SelfTestResult.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">SelfTestResult</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span>
+
+        <span class="c1"># If the server returns a 500 error we don&#39;t want to raise an</span>
+        <span class="c1"># exception -- we want to record it as part of the test</span>
+        <span class="c1"># result.</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">allowed_response_codes</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">xx&#39;</span> <span class="o">%</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">6</span><span class="p">)])</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_annotate_feed_response</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>
+
+        <span class="c1"># We&#39;re all done.</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_annotate_feed_response</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">response</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse an OPDS feed and annotate a SelfTestResult with some</span>
+<span class="sd">        information about it:</span>
+
+<span class="sd">        * How the feed was requested.</span>
+<span class="sd">        * What the response code was.</span>
+<span class="sd">        * The number of items on the first page.</span>
+<span class="sd">        * The title of each item on the page, if any.</span>
+<span class="sd">        * The total number of items in the feed, if available.</span>
+
+<span class="sd">        :param result: A SelfTestResult object.</span>
+<span class="sd">        :param response: A requests Response object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Request URL: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">response</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="s2">&quot;Request authorization: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Authorization&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Status code: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">total_results</span> <span class="o">=</span> <span class="n">feed</span><span class="p">[</span><span class="s1">&#39;feed&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;opensearch_totalresults&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">total_results</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="s2">&quot;Total identifiers registered with this collection: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                        <span class="n">total_results</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Entries on this page: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">feed</span><span class="p">[</span><span class="s1">&#39;entries&#39;</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">feed</span><span class="p">[</span><span class="s1">&#39;entries&#39;</span><span class="p">]:</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">i</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">])</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">lines</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">shared_secret</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
@@ -285,14 +398,14 @@
         <span class="n">add_with_metadata_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_collection_url</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ADD_WITH_METADATA_ENDPOINT</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post</span><span class="p">(</span><span class="n">add_with_metadata_url</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="MetadataWranglerOPDSLookup.metadata_needed"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.metadata_needed">[docs]</a>    <span class="k">def</span> <span class="nf">metadata_needed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="MetadataWranglerOPDSLookup.metadata_needed"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.metadata_needed">[docs]</a>    <span class="k">def</span> <span class="nf">metadata_needed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get a feed of items that need additional metadata to be processed</span>
 <span class="sd">        by the Metadata Wrangler.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">metadata_needed_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_collection_url</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">METADATA_NEEDED_ENDPOINT</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">metadata_needed_url</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">metadata_needed_url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MetadataWranglerOPDSLookup.remove"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifiers</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Remove items from an authenticated Metadata Wrangler Collection&quot;&quot;&quot;</span>
@@ -302,7 +415,7 @@
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Metadata Wrangler Collection Removal URL: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post</span><span class="p">(</span><span class="n">url</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MetadataWranglerOPDSLookup.updates"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.updates">[docs]</a>    <span class="k">def</span> <span class="nf">updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">last_update_time</span><span class="p">):</span>
+<div class="viewcode-block" id="MetadataWranglerOPDSLookup.updates"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.updates">[docs]</a>    <span class="k">def</span> <span class="nf">updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">last_update_time</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Retrieve updated items from an authenticated Metadata</span>
 <span class="sd">        Wrangler Collection</span>
 
@@ -314,7 +427,7 @@
             <span class="n">formatted_time</span> <span class="o">=</span> <span class="n">last_update_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">T%H:%M:%SZ&#39;</span><span class="p">)</span>
             <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_args</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;last_update_time=&#39;</span><span class="o">+</span><span class="n">formatted_time</span><span class="p">))</span>
         <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Metadata Wrangler Collection Updates URL: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MetadataWranglerOPDSLookup.canonicalize_author_name"><a class="viewcode-back" href="../../core.html#api.coverage.MetadataWranglerOPDSLookup.canonicalize_author_name">[docs]</a>    <span class="k">def</span> <span class="nf">canonicalize_author_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">working_display_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Attempt to find the canonical name for the author of a book.</span>
