@@ -44,7 +44,9 @@ from sqlalchemy import (
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     backref,
+    contains_eager,
     joinedload,
+    lazyload,
     mapper,
     relationship,
 )
@@ -635,20 +637,24 @@ class Collection(Base, HasFullTableCache):
         """
         opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
         qu = _db.query(
-            Work, LicensePool, Identifier
+            LicensePool
+        ).join(
+            LicensePool.work,
+        ).join(
+            LicensePool.identifier,
         ).join(
             Work.coverage_records,
         ).join(
             Identifier.collections,
         )
         qu = qu.filter(
-            Work.id==WorkCoverageRecord.work_id,
-            Work.id==LicensePool.work_id,
-            LicensePool.identifier_id==Identifier.id,
             WorkCoverageRecord.operation==opds_operation,
-            CollectionIdentifier.identifier_id==Identifier.id,
             CollectionIdentifier.collection_id==self.id
-        ).options(joinedload(Work.license_pools, LicensePool.identifier))
+        )
+        qu = qu.options(
+            contains_eager(LicensePool.work),
+        )
+        qu = qu.options(contains_eager(LicensePool.identifier))
 
         if timestamp:
             qu = qu.filter(
