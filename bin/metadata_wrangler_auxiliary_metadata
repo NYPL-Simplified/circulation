@@ -7,5 +7,5 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
 from core.scripts import RunCollectionMonitorScript
-from api.monitor import MWAuxiliaryMetadataMonitor
+from api.metadata_wrangler import MWAuxiliaryMetadataMonitor
 RunCollectionMonitorScript(MWAuxiliaryMetadataMonitor).run()

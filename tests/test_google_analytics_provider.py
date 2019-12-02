@@ -120,6 +120,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_("true", params['cd12'][0])
         eq_(DataSource.GUTENBERG, params['cd13'][0])
         eq_(EditionConstants.BOOK_MEDIUM, params['cd14'][0])
+        eq_(self._default_library.short_name, params['cd15'][0])
 
     def test_collect_event_without_work(self):
         integration, ignore = create(
@@ -163,6 +164,9 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(None, params.get('cd10'))
         eq_(None, params.get('cd11'))
         eq_(None, params.get('cd12'))
+        eq_([source.name], params.get('cd13'))
+        eq_(None, params.get('cd14'))
+        eq_([self._default_library.short_name], params.get('cd15'))
 
     def test_collect_event_without_license_pool(self):
         integration, ignore = create(
@@ -198,3 +202,6 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(None, params.get('cd10'))
         eq_(None, params.get('cd11'))
         eq_(None, params.get('cd12'))
+        eq_(None, params.get('cd13'))
+        eq_(None, params.get('cd14'))
+        eq_([self._default_library.short_name], params.get('cd15'))

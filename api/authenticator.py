@@ -394,7 +394,7 @@ class PatronData(object):
         """
         if self.personal_name:
             return dict(name=self.personal_name)
-        return None
+        return {}
 
     @property
     def to_dict(self):
