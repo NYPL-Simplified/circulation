@@ -592,30 +592,28 @@ class TestCollection(DatabaseTest):
             in_other_catalog.license_pools[0].identifier
         )
 
-        # When no timestamp is passed, all works in the catalog are returned.
-        # in order of their WorkCoverageRecord timestamp.
-        t1, t2 = self.collection.works_updated_since(self._db, None).all()
-        eq_(w1, t1[0])
-        eq_(w2, t2[0])
+        # When no timestamp is passed, all LicensePeols in the catalog
+        # are returned, in order of the WorkCoverageRecord
+        # timestamp on the associated Work.
+        lp1, lp2 = self.collection.works_updated_since(self._db, None).all()
+        eq_(w1, lp1.work)
+        eq_(w2, lp2.work)
 
-        # The return value is a sequence of 5-tuples, each containing
-        # (Work, LicensePool, Identifier, WorkCoverageRecord,
-        # CollectionIdentifier). This gives the caller all the information
-        # necessary to understand the path by which a given Work belongs to
-        # a given Collection.
-        _w1, lp1, i1 = t1
-        [pool] = w1.license_pools
-        eq_(pool, lp1)
-        eq_(pool.identifier, i1)
-
-        # When a timestamp is passed, only works that have been updated
-        # since then will be returned
+        # When a timestamp is passed, only LicensePools whose works
+        # have been updated since then will be returned.
         [w1_coverage_record] = [
             c for c in w1.coverage_records
             if c.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION
         ]
         w1_coverage_record.timestamp = datetime.datetime.utcnow()
-        eq_([w1], [x[0] for x in self.collection.works_updated_since(self._db, timestamp)])
+        eq_(
+            [w1],
+            [
+                x.work for x in self.collection.works_updated_since(
+                    self._db, timestamp
+                )
+            ]
+        )
 
     def test_isbns_updated_since(self):
         i1 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)

@@ -627,13 +627,14 @@ class Collection(Base, HasFullTableCache):
         return query
 
     def works_updated_since(self, _db, timestamp):
-        """Finds all works in a collection's catalog that have been updated
-           since the timestamp. Used in the metadata wrangler.
+        """Finds all LicensePools in a collection's catalog whose Works' OPDS
+        entries have been updated since the timestamp. Used by the
+        metadata wrangler.
 
-           :return: a Query that yields (Work, LicensePool,
-              Identifier) 3-tuples. This gives caller all the
-              information necessary to create full OPDS entries for
-              the works.
+           :return: a Query that yields LicensePools. The Work and
+              Identifier associated with each LicensePool have been
+              pre-loaded, giving the caller all the information
+              necessary to create full OPDS entries for the works.
         """
         opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
         qu = _db.query(
