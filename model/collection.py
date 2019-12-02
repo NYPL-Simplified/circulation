@@ -44,6 +44,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     backref,
+    contains_eager,
     joinedload,
     mapper,
     relationship,
@@ -624,31 +625,40 @@ class Collection(Base, HasFullTableCache):
 
         return query
 
-    def works_updated_since(self, _db, timestamp):
-        """Finds all works in a collection's catalog that have been updated
-           since the timestamp. Used in the metadata wrangler.
+    def licensepools_with_works_updated_since(self, _db, timestamp):
+        """Finds all LicensePools in a collection's catalog whose Works' OPDS
+        entries have been updated since the timestamp. Used by the
+        metadata wrangler.
 
-           :return: a Query that yields (Work, LicensePool,
-              Identifier) 3-tuples. This gives caller all the
-              information necessary to create full OPDS entries for
-              the works.
+        :param _db: A database connection,
+        :param timestamp: A datetime.timestamp object
+
+        :return: a Query that yields LicensePools. The Work and
+           Identifier associated with each LicensePool have been
+           pre-loaded, giving the caller all the information
+           necessary to create full OPDS entries for the works.
         """
         opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
         qu = _db.query(
-            Work, LicensePool, Identifier
+            LicensePool
+        ).join(
+            LicensePool.work,
+        ).join(
+            LicensePool.identifier,
         ).join(
             Work.coverage_records,
         ).join(
-            Identifier.collections,
+            CollectionIdentifier,
+            Identifier.id==CollectionIdentifier.identifier_id
         )
         qu = qu.filter(
-            Work.id==WorkCoverageRecord.work_id,
-            Work.id==LicensePool.work_id,
-            LicensePool.identifier_id==Identifier.id,
             WorkCoverageRecord.operation==opds_operation,
-            CollectionIdentifier.identifier_id==Identifier.id,
             CollectionIdentifier.collection_id==self.id
-        ).options(joinedload(Work.license_pools, LicensePool.identifier))
+        )
+        qu = qu.options(
+            contains_eager(LicensePool.work),
+            contains_eager(LicensePool.identifier),
+        )
 
         if timestamp:
             qu = qu.filter(
