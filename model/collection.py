@@ -645,7 +645,8 @@ class Collection(Base, HasFullTableCache):
         ).join(
             Work.coverage_records,
         ).join(
-            Identifier.collections,
+            CollectionIdentifier,
+            Identifier.id==CollectionIdentifier.identifier_id
         )
         qu = qu.filter(
             WorkCoverageRecord.operation==opds_operation,
@@ -653,8 +654,8 @@ class Collection(Base, HasFullTableCache):
         )
         qu = qu.options(
             contains_eager(LicensePool.work),
+            contains_eager(LicensePool.identifier),
         )
-        qu = qu.options(contains_eager(LicensePool.identifier))
 
         if timestamp:
             qu = qu.filter(
