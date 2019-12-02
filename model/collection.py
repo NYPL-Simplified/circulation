@@ -631,10 +631,13 @@ class Collection(Base, HasFullTableCache):
         entries have been updated since the timestamp. Used by the
         metadata wrangler.
 
-           :return: a Query that yields LicensePools. The Work and
-              Identifier associated with each LicensePool have been
-              pre-loaded, giving the caller all the information
-              necessary to create full OPDS entries for the works.
+        :param _db: A database connection,
+        :param timestamp: A datetime.timestamp object
+
+        :return: a Query that yields LicensePools. The Work and
+           Identifier associated with each LicensePool have been
+           pre-loaded, giving the caller all the information
+           necessary to create full OPDS entries for the works.
         """
         opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
         qu = _db.query(
