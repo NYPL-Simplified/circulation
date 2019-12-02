@@ -571,14 +571,18 @@ class TestCollection(DatabaseTest):
         # Only the failing identifier is in the query.
         eq_([unresolved_id], result.all())
 
-    def test_works_updated_since(self):
+    def test_licensepools_with_works_updated_since(self):
+        m = self.collection.licensepools_with_works_updated_since
+
+        # Verify our ability to find LicensePools with works whose
+        # OPDS entries were updated since a given time.
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
 
         # An empty catalog returns nothing.
         timestamp = datetime.datetime.utcnow()
-        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
+        eq_([], m(self._db, timestamp).all())
 
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
         self.collection.catalog_identifier(w2.license_pools[0].identifier)
@@ -595,7 +599,7 @@ class TestCollection(DatabaseTest):
         # When no timestamp is passed, all LicensePeols in the catalog
         # are returned, in order of the WorkCoverageRecord
         # timestamp on the associated Work.
-        lp1, lp2 = self.collection.works_updated_since(self._db, None).all()
+        lp1, lp2 = m(self._db, None).all()
         eq_(w1, lp1.work)
         eq_(w2, lp2.work)
 
@@ -607,12 +611,7 @@ class TestCollection(DatabaseTest):
         ]
         w1_coverage_record.timestamp = datetime.datetime.utcnow()
         eq_(
-            [w1],
-            [
-                x.work for x in self.collection.works_updated_since(
-                    self._db, timestamp
-                )
-            ]
+            [w1], [x.work for x in m(self._db, timestamp)]
         )
 
     def test_isbns_updated_since(self):

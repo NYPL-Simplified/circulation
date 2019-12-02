@@ -626,7 +626,7 @@ class Collection(Base, HasFullTableCache):
 
         return query
 
-    def works_updated_since(self, _db, timestamp):
+    def licensepools_with_works_updated_since(self, _db, timestamp):
         """Finds all LicensePools in a collection's catalog whose Works' OPDS
         entries have been updated since the timestamp. Used by the
         metadata wrangler.
