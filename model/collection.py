@@ -46,7 +46,6 @@ from sqlalchemy.orm import (
     backref,
     contains_eager,
     joinedload,
-    lazyload,
     mapper,
     relationship,
 )
