@@ -266,6 +266,60 @@ class HeartbeatController(object):
 
 
 class URNLookupController(object):
+
+    def __init__(self, _db):
+        self._db = _db
+
+    def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
+        """Generate an OPDS feed describing works identified by identifier."""
+        handler = URNLookupHandler(self._db)
+
+        urns = flask.request.args.getlist('urn')
+
+        this_url = cdn_url_for(route_name, _external=True, urn=urns)
+        response = handler.process_urns(urns, **process_urn_kwargs)
+        self.post_lookup_hook()
+
+
+        if response:
+            # In a subclass, self.process_urns may return a ProblemDetail
+            return response
+
+        opds_feed = LookupAcquisitionFeed(
+            self._db, "Lookup results", this_url, handler.works, annotator,
+            precomposed_entries=handler.precomposed_entries,
+        )
+        return feed_response(opds_feed)
+    
+    def permalink(self, urn, annotator, route_name='work'):
+        """
+        TODO: Check if this method is being used.
+        Look up a single identifier and generate an OPDS feed."""
+        handler = URNLookupHandler(self._db)
+        this_url = cdn_url_for(route_name, _external=True, urn=urn)
+        handler.process_urns([urn])
+        self.post_lookup_hook()
+
+        # A LookupAcquisitionFeed's .works is a list of (identifier,
+        # work) tuples, but an AcquisitionFeed's .works is just a
+        # list of works.
+        works = [work for (identifier, work) in handler.works]
+        opds_feed = AcquisitionFeed(
+            self._db, urn, this_url, works, annotator,
+            precomposed_entries=handler.precomposed_entries
+        )
+
+        return feed_response(opds_feed)
+    
+    def post_lookup_hook(self):
+        """Run after looking up a number of Identifiers.
+
+        By default, does nothing.
+        """
+        pass
+
+
+class URNLookupHandler(object):
     """A generic controller that takes URNs as input and looks up their
     OPDS entries.
     """
@@ -279,41 +333,6 @@ class URNLookupController(object):
         self.works = []
         self.precomposed_entries = []
         self.unresolved_identifiers = []
-
-    def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
-        """Generate an OPDS feed describing works identified by identifier."""
-        urns = flask.request.args.getlist('urn')
-
-        this_url = cdn_url_for(route_name, _external=True, urn=urns)
-        response = self.process_urns(urns, **process_urn_kwargs)
-        self.post_lookup_hook()
-
-        if response:
-            # In a subclass, self.process_urns may return a ProblemDetail
-            return response
-
-        opds_feed = LookupAcquisitionFeed(
-            self._db, "Lookup results", this_url, self.works, annotator,
-            precomposed_entries=self.precomposed_entries,
-        )
-        return feed_response(opds_feed)
-
-    def permalink(self, urn, annotator, route_name='work'):
-        """Look up a single identifier and generate an OPDS feed."""
-        this_url = cdn_url_for(route_name, _external=True, urn=urn)
-        self.process_urns([urn])
-        self.post_lookup_hook()
-
-        # A LookupAcquisitionFeed's .works is a list of (identifier,
-        # work) tuples, but an AcquisitionFeed's .works is just a
-        # list of works.
-        works = [work for (identifier, work) in self.works]
-        opds_feed = AcquisitionFeed(
-            self._db, urn, this_url, works, annotator,
-            precomposed_entries=self.precomposed_entries
-        )
-
-        return feed_response(opds_feed)
 
     def process_urns(self, urns, **process_urn_kwargs):
         """Processes a list of URNs for a lookup request.
@@ -366,13 +385,6 @@ class URNLookupController(object):
         self.precomposed_entries.append(
             OPDSMessage(urn, status_code, message)
         )
-
-    def post_lookup_hook(self):
-        """Run after looking up a number of Identifiers.
-
-        By default, does nothing.
-        """
-        pass
 
 
 class ComplaintController(object):

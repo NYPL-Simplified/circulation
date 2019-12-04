@@ -35,6 +35,7 @@ from ..lane import (
 from ..app_server import (
     HeartbeatController,
     URNLookupController,
+    URNLookupHandler,
     ErrorHandler,
     ComplaintController,
     load_facets_from_request,
@@ -100,77 +101,82 @@ class TestHeartbeatController(object):
         eq_('ba.na.na-10-ssssssssss', data['releaseID'])
 
 
-class TestURNLookupController(DatabaseTest):
-
+class TestURNLookupHandler(DatabaseTest):
     def setup(self):
-        super(TestURNLookupController, self).setup()
-        self.controller = URNLookupController(self._db)
-
+        super(TestURNLookupHandler, self).setup()
+        self.handler = URNLookupHandler(self._db)
+    
     def assert_one_message(self, urn, code, message):
         """Assert that the given message is the only thing
         in the feed.
         """
-        [obj] = self.controller.precomposed_entries
+        [obj] = self.handler.precomposed_entries
         expect = OPDSMessage(urn, code, message)
         assert isinstance(obj, OPDSMessage)
         eq_(urn, obj.urn)
         eq_(code, obj.status_code)
         eq_(message, obj.message)
-        eq_([], self.controller.works)
-
+        eq_([], self.handler.works)
+    
     def test_process_urns_invalid_urn(self):
         urn = "not even a URN"
-        self.controller.process_urns([urn])
+        self.handler.process_urns([urn])
         self.assert_one_message(urn, 400, INVALID_URN.detail)
 
     def test_process_urns_unrecognized_identifier(self):
-        # Give the controller a URN that, although valid, doesn't
+        # Give the handler a URN that, although valid, doesn't
         # correspond to any Identifier in the database.
         urn = Identifier.GUTENBERG_URN_SCHEME_PREFIX + 'Gutenberg%20ID/000'
-        self.controller.process_urns([urn])
+        self.handler.process_urns([urn])
 
         # The result is a 404 message.
         self.assert_one_message(
-            urn, 404, self.controller.UNRECOGNIZED_IDENTIFIER
+            urn, 404, self.handler.UNRECOGNIZED_IDENTIFIER
         )
 
     def test_process_identifier_no_license_pool(self):
-        # Give the controller a URN that corresponds to an Identifier
+        # Give the handler a URN that corresponds to an Identifier
         # which has no LicensePool.
         identifier = self._identifier()
-        self.controller.process_identifier(identifier, identifier.urn)
+        self.handler.process_identifier(identifier, identifier.urn)
 
         # The result is a 404 message.
         self.assert_one_message(
-            identifier.urn, 404, self.controller.UNRECOGNIZED_IDENTIFIER
+            identifier.urn, 404, self.handler.UNRECOGNIZED_IDENTIFIER
         )
 
     def test_process_identifier_license_pool_but_no_work(self):
         edition, pool = self._edition(with_license_pool=True)
         identifier = edition.primary_identifier
-        self.controller.process_identifier(identifier, identifier.urn)
+        self.handler.process_identifier(identifier, identifier.urn)
         self.assert_one_message(
-            identifier.urn, 202, self.controller.WORK_NOT_CREATED
+            identifier.urn, 202, self.handler.WORK_NOT_CREATED
         )
 
     def test_process_identifier_work_not_presentation_ready(self):
         work = self._work(with_license_pool=True)
         work.presentation_ready = False
         identifier = work.license_pools[0].identifier
-        self.controller.process_identifier(identifier, identifier.urn)
+        self.handler.process_identifier(identifier, identifier.urn)
 
         self.assert_one_message(
-            identifier.urn, 202, self.controller.WORK_NOT_PRESENTATION_READY
+            identifier.urn, 202, self.handler.WORK_NOT_PRESENTATION_READY
         )
 
     def test_process_identifier_work_is_presentation_ready(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        self.controller.process_identifier(identifier, identifier.urn)
-        eq_([], self.controller.precomposed_entries)
+        self.handler.process_identifier(identifier, identifier.urn)
+        eq_([], self.handler.precomposed_entries)
         eq_([(work.presentation_edition.primary_identifier, work)],
-            self.controller.works
+            self.handler.works
         )
+
+class TestURNLookupController(DatabaseTest):
+
+    def setup(self):
+        super(TestURNLookupController, self).setup()
+        self.controller = URNLookupController(self._db)
 
     # Set up a mock Flask app for testing the controller methods.
     app = Flask(__name__)
