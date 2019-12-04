@@ -272,18 +272,14 @@ class URNLookupController(object):
 
     def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
         """Generate an OPDS feed describing works identified by identifier."""
-        handler = URNLookupHandler(self._db)
-
         urns = flask.request.args.getlist('urn')
 
         this_url = cdn_url_for(route_name, _external=True, urn=urns)
-        response = handler.process_urns(urns, **process_urn_kwargs)
-        self.post_lookup_hook()
+        handler = self.process_urns(urns, **process_urn_kwargs)
 
-
-        if response:
+        if isinstance(handler, ProblemDetail):
             # In a subclass, self.process_urns may return a ProblemDetail
-            return response
+            return handler
 
         opds_feed = LookupAcquisitionFeed(
             self._db, "Lookup results", this_url, handler.works, annotator,
@@ -291,6 +287,11 @@ class URNLookupController(object):
         )
         return feed_response(opds_feed)
     
+    def process_urns(self, urns, **process_urn_kwargs):
+        handler = URNLookupHandler(self._db)
+        handler.process_urns(urns, **process_urn_kwargs)
+        return handler
+
     def permalink(self, urn, annotator, route_name='work'):
         """
         TODO: Check if this method is being used.
@@ -310,13 +311,6 @@ class URNLookupController(object):
         )
 
         return feed_response(opds_feed)
-    
-    def post_lookup_hook(self):
-        """Run after looking up a number of Identifiers.
-
-        By default, does nothing.
-        """
-        pass
 
 
 class URNLookupHandler(object):
@@ -385,6 +379,14 @@ class URNLookupHandler(object):
         self.precomposed_entries.append(
             OPDSMessage(urn, status_code, message)
         )
+    
+    def post_lookup_hook(self):
+        """Run after looking up a number of Identifiers.
+
+        By default, does nothing.
+        """
+        pass
+
 
 
 class ComplaintController(object):
