@@ -102,6 +102,7 @@ from core.model import (
     CachedFeed,
     Work,
     CirculationEvent,
+    LinkRelations,
     LicensePoolDeliveryMechanism,
     PresentationCalculationPolicy,
     RightsStatus,
@@ -3785,6 +3786,31 @@ class TestMARCRecordController(CirculationControllerTest):
             assert "No MARC exporter is currently configured" in html
             assert '<h3>All Books</h3>' in html
             assert '<a href="http://mirror1">Full file - last updated %s</a>' % now.strftime("%B %-d, %Y") in html
+
+
+class TestURNLookupController(CirculationControllerTest):
+
+    def test_work_lookup(self):
+        # End-to-end test of work_lookup().
+
+        urn = self.english_1.license_pools[0].identifier.urn
+        with self.request_context_with_library("/?urn=%s" % urn):
+            response = self.manager.urn_lookup.work_lookup('work')
+
+            # We got an OPDS feed.
+            eq_(200, response.status_code)
+            eq_(
+                OPDSFeed.ACQUISITION_FEED_TYPE,
+                response.headers['Content-Type']
+            )
+
+            # The OPDS feed mentions the book we wanted to look up.
+            assert self.english_1.title in response.data
+
+            # The OPDS feed includes an open-access acquisition link
+            # -- something that only gets inserted by the
+            # CirculationManagerAnnotator.
+            assert LinkRelations.OPEN_ACCESS_DOWNLOAD in response.data
 
 
 class TestAnalyticsController(CirculationControllerTest):
