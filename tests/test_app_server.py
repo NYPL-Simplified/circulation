@@ -117,6 +117,16 @@ class TestURNLookupHandler(DatabaseTest):
         eq_(code, obj.status_code)
         eq_(message, obj.message)
         eq_([], self.handler.works)
+
+    def test_process_urns_hook_method(self):
+        # Verify that process_urns() calls post_lookup_hook() once
+        # it's done.
+        class Mock(URNLookupHandler):
+            def post_lookup_hook(self):
+                self.called = True
+        handler = Mock(self._db)
+        handler.process_urns([])
+        eq_(True, handler.called)
     
     def test_process_urns_invalid_urn(self):
         urn = "not even a URN"

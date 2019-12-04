@@ -299,7 +299,6 @@ class URNLookupController(object):
         handler = URNLookupHandler(self._db)
         this_url = cdn_url_for(route_name, _external=True, urn=urn)
         handler.process_urns([urn])
-        self.post_lookup_hook()
 
         # A LookupAcquisitionFeed's .works is a list of (identifier,
         # work) tuples, but an AcquisitionFeed's .works is just a
@@ -340,6 +339,7 @@ class URNLookupHandler(object):
 
         for urn, identifier in identifiers_by_urn.items():
             self.process_identifier(identifier, urn, **process_urn_kwargs)
+        self.post_lookup_hook()
 
     def add_urn_failure_messages(self, failures):
         for urn in failures:
