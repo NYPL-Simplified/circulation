@@ -3788,24 +3788,7 @@ class TestMARCRecordController(CirculationControllerTest):
             assert '<a href="http://mirror1">Full file - last updated %s</a>' % now.strftime("%B %-d, %Y") in html
 
 
-class TestURNLookupController(CirculationControllerTest):
 
-    def test_work_lookup(self):
-        # End-to-end test of work_lookup().
-
-        urn = self.english_1.license_pools[0].identifier.urn
-        with self.request_context_with_library("/?urn=%s" % urn):
-            response = self.manager.urn_lookup.work_lookup('work')
-
-            # We got an OPDS feed.
-            eq_(200, response.status_code)
-            eq_(
-                OPDSFeed.ACQUISITION_FEED_TYPE,
-                response.headers['Content-Type']
-            )
-
-            # The OPDS feed mentions the book we wanted to look up.
-            assert self.english_1.title in response.data
 
             # The OPDS feed includes an open-access acquisition link
             # -- something that only gets inserted by the
@@ -4523,17 +4506,27 @@ class TestSharedCollectionController(ControllerTest):
             eq_(NO_ACTIVE_HOLD.uri, response.uri)
 
 
-class TestURLLookupController(ControllerTest):
+class TestURNLookupController(ControllerTest):
     """Test that a client can look up data on specific works."""
 
-    def test_get(self):
-        # Look up a work.
-        work = self._work(with_license_pool=True)
+    def test_work_lookup(self):
+        work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         urn = pool.identifier.urn
         with self.request_context_with_library("/?urn=%s" % urn):
             route_name = "work"
+
+            # Look up a work.
             response = self.manager.urn_lookup.work_lookup(route_name)
+
+            # We got an OPDS feed.
+            eq_(200, response.status_code)
+            eq_(
+                OPDSFeed.ACQUISITION_FEED_TYPE,
+                response.headers['Content-Type']
+            )
+
+            # Parse it.
             feed = feedparser.parse(response.data)
 
             # The route name we passed into work_lookup shows up in
@@ -4544,6 +4537,12 @@ class TestURLLookupController(ControllerTest):
             # The work we looked up has an OPDS entry.
             [entry] = feed['entries']
             eq_(work.title, entry['title'])
+
+            # The OPDS feed includes an open-access acquisition link
+            # -- something that only gets inserted by the
+            # CirculationManagerAnnotator.
+            [link] = entry.links
+            eq_(LinkRelations.OPEN_ACCESS_DOWNLOAD, link['rel'])
 
 
 class TestProfileController(ControllerTest):
