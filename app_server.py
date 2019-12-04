@@ -299,7 +299,7 @@ class URNLookupController(object):
         handler = URNLookupHandler(self._db)
         this_url = cdn_url_for(route_name, _external=True, urn=urn)
         handler.process_urns([urn])
-        self.post_lookup_hook()
+        handler.post_lookup_hook()
 
         # A LookupAcquisitionFeed's .works is a list of (identifier,
         # work) tuples, but an AcquisitionFeed's .works is just a
