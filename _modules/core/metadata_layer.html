@@ -42,28 +42,28 @@
 <span class="sd">the information into this format.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="k">import</span> <span class="n">parse</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">or_</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="kn">import</span> <span class="n">parse</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">NoResultFound</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">aliased</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">aliased</span>
 <span class="kn">import</span> <span class="nn">csv</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">re</span>
 
-<span class="kn">from</span> <span class="nn">pymarc</span> <span class="k">import</span> <span class="n">MARCReader</span>
+<span class="kn">from</span> <span class="nn">pymarc</span> <span class="kn">import</span> <span class="n">MARCReader</span>
 
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">util.http</span> <span class="k">import</span> <span class="n">RemoteIntegrationException</span>
-<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="k">import</span> <span class="n">name_tidy</span>
-<span class="kn">from</span> <span class="nn">util.median</span> <span class="k">import</span> <span class="n">median</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">util.http</span> <span class="kn">import</span> <span class="n">RemoteIntegrationException</span>
+<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="kn">import</span> <span class="n">name_tidy</span>
+<span class="kn">from</span> <span class="nn">util.median</span> <span class="kn">import</span> <span class="n">median</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
@@ -90,16 +90,16 @@
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">NO_VALUE</span><span class="p">,</span> <span class="n">NO_NUMBER</span>
-<span class="kn">from</span> <span class="nn">analytics</span> <span class="k">import</span> <span class="n">Analytics</span>
-<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="k">import</span> <span class="n">display_name_to_sort_name</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">NO_VALUE</span><span class="p">,</span> <span class="n">NO_NUMBER</span>
+<span class="kn">from</span> <span class="nn">analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
+<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="kn">import</span> <span class="n">display_name_to_sort_name</span>
 
 <div class="viewcode-block" id="ReplacementPolicy"><a class="viewcode-back" href="../../core.html#core.metadata_layer.ReplacementPolicy">[docs]</a><span class="k">class</span> <span class="nc">ReplacementPolicy</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;How serious should we be about overwriting old metadata with</span>
 <span class="sd">    this new metadata?</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">identifiers</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">subjects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -185,7 +185,7 @@
         <span class="p">)</span></div></div>
 
 <div class="viewcode-block" id="SubjectData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.SubjectData">[docs]</a><span class="k">class</span> <span class="nc">SubjectData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="nb">type</span>
 
         <span class="c1"># Because subjects are sometimes evaluated according to keyword</span>
@@ -205,7 +205,7 @@
     <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;&lt;SubjectData type=&quot;</span><span class="si">%s</span><span class="s1">&quot; identifier=&quot;</span><span class="si">%s</span><span class="s1">&quot; name=&quot;</span><span class="si">%s</span><span class="s1">&quot; weight=</span><span class="si">%d</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span>
         <span class="p">)</span></div>
@@ -213,7 +213,7 @@
 
 <div class="viewcode-block" id="ContributorData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.ContributorData">[docs]</a><span class="k">class</span> <span class="nc">ContributorData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sort_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sort_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">family_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">wikipedia_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">roles</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">lc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">viaf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">biography</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span> <span class="o">=</span> <span class="n">sort_name</span>
@@ -234,7 +234,7 @@
         <span class="c1"># TODO:  consider if it&#39;s time for ContributorData to connect back to Contributions</span>
 
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;&lt;ContributorData sort=&quot;</span><span class="si">%s</span><span class="s1">&quot; display=&quot;</span><span class="si">%s</span><span class="s1">&quot; family=&quot;</span><span class="si">%s</span><span class="s1">&quot; wiki=&quot;</span><span class="si">%s</span><span class="s1">&quot; roles=</span><span class="si">%r</span><span class="s1"> lc=</span><span class="si">%s</span><span class="s1"> viaf=</span><span class="si">%s</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sort_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">family_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wikipedia_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roles</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">viaf</span><span class="p">)</span>
 
 
@@ -508,12 +508,12 @@
 
 
 <div class="viewcode-block" id="IdentifierData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.IdentifierData">[docs]</a><span class="k">class</span> <span class="nc">IdentifierData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="nb">type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span> <span class="o">=</span> <span class="n">identifier</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;&lt;IdentifierData type=&quot;</span><span class="si">%s</span><span class="s1">&quot; identifier=&quot;</span><span class="si">%s</span><span class="s1">&quot; weight=&quot;</span><span class="si">%s</span><span class="s1">&quot;&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span>
         <span class="p">)</span>
@@ -525,7 +525,7 @@
 
 
 <div class="viewcode-block" id="LinkData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.LinkData">[docs]</a><span class="k">class</span> <span class="nc">LinkData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">thumbnail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rights_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rights_explanation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">original</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transformation_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">rel</span><span class="p">:</span>
@@ -563,7 +563,7 @@
         <span class="c1"># content and the link relation.</span>
         <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
             <span class="n">content</span> <span class="o">=</span> <span class="s2">&quot;, </span><span class="si">%d</span><span class="s2"> bytes content&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -586,7 +586,7 @@
 
 
 <div class="viewcode-block" id="MeasurementData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.MeasurementData">[docs]</a><span class="k">class</span> <span class="nc">MeasurementData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                  <span class="n">quantity_measured</span><span class="p">,</span>
                  <span class="n">value</span><span class="p">,</span>
                  <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
@@ -602,14 +602,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">weight</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">taken_at</span> <span class="o">=</span> <span class="n">taken_at</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;&lt;MeasurementData quantity=&quot;</span><span class="si">%s</span><span class="s1">&quot; value=</span><span class="si">%f</span><span class="s1"> weight=</span><span class="si">%d</span><span class="s1"> taken=</span><span class="si">%s</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">quantity_measured</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">taken_at</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="FormatData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.FormatData">[docs]</a><span class="k">class</span> <span class="nc">FormatData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">,</span> <span class="n">link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rights_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">,</span> <span class="n">link</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rights_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span> <span class="o">=</span> <span class="n">content_type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">drm_scheme</span> <span class="o">=</span> <span class="n">drm_scheme</span>
         <span class="k">if</span> <span class="n">link</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">link</span><span class="p">,</span> <span class="n">LinkData</span><span class="p">):</span>
@@ -623,7 +623,7 @@
 
 
 <div class="viewcode-block" id="LicenseData"><a class="viewcode-back" href="../../core.html#core.metadata_layer.LicenseData">[docs]</a><span class="k">class</span> <span class="nc">LicenseData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">checkout_url</span><span class="p">,</span> <span class="n">status_url</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">remaining_checkouts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">checkout_url</span><span class="p">,</span> <span class="n">status_url</span><span class="p">,</span> <span class="n">expires</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">remaining_checkouts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">concurrent_checkouts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span> <span class="o">=</span> <span class="n">identifier</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">checkout_url</span> <span class="o">=</span> <span class="n">checkout_url</span>
@@ -637,7 +637,7 @@
 
     <span class="n">CLEAR_VALUE</span> <span class="o">=</span> <span class="n">Timestamp</span><span class="o">.</span><span class="n">CLEAR_VALUE</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">achievements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">finish</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">achievements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">counter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exception</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;A constructor intended to be used by a service to customize its</span>
 <span class="sd">        eventual Timestamp.</span>
@@ -950,7 +950,7 @@
         <span class="s2">&quot;Abstract metadata layer - Circulation data&quot;</span>
     <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">data_source</span><span class="p">,</span>
             <span class="n">primary_identifier</span><span class="p">,</span>
@@ -1066,7 +1066,7 @@
                         <span class="p">)</span>
 
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">description_string</span> <span class="o">=</span> <span class="s1">&#39;&lt;CirculationData primary_identifier=</span><span class="si">%(primary_identifier)r</span><span class="s1">| licenses_owned=</span><span class="si">%(licenses_owned)s</span><span class="s1">|&#39;</span>
         <span class="n">description_string</span> <span class="o">+=</span> <span class="s1">&#39; licenses_available=</span><span class="si">%(licenses_available)s</span><span class="s1">| default_rights_uri=</span><span class="si">%(default_rights_uri)s</span><span class="s1">|&#39;</span>
         <span class="n">description_string</span> <span class="o">+=</span> <span class="s1">&#39; links=</span><span class="si">%(links)r</span><span class="s1">| formats=</span><span class="si">%(formats)r</span><span class="s1">| data_source=</span><span class="si">%(data_source)s</span><span class="s1">|&gt;&#39;</span>
@@ -1362,7 +1362,7 @@
         <span class="s1">&#39;issued&#39;</span><span class="p">,</span> <span class="s1">&#39;published&#39;</span>
     <span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">data_source</span><span class="p">,</span>
             <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2172,7 +2172,7 @@
                       <span class="n">Classification</span><span class="o">.</span><span class="n">TRUSTED_DISTRIBUTOR_WEIGHT</span><span class="p">),</span>
     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">data_source_name</span><span class="p">,</span>
             <span class="n">title_field</span><span class="o">=</span><span class="s1">&#39;title&#39;</span><span class="p">,</span>

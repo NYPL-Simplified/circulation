@@ -33,14 +33,14 @@
           <div class="body" role="main">
             
   <h1>Source code for api.circulation_exceptions</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="n">IntegrationException</span>
-<span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="n">IntegrationException</span>
+<span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">INTEGRATION_ERROR</span><span class="p">,</span>
     <span class="n">INTERNAL_SERVER_ERROR</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 
 
 <div class="viewcode-block" id="CirculationException"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CirculationException">[docs]</a><span class="k">class</span> <span class="nc">CirculationException</span><span class="p">(</span><span class="n">IntegrationException</span><span class="p">):</span>
@@ -50,7 +50,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">status_code</span> <span class="o">=</span> <span class="mi">400</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">message</span> <span class="o">=</span> <span class="n">message</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">debug_info</span><span class="p">)</span></div>
 
@@ -66,7 +66,7 @@
     <span class="sd">&quot;&quot;&quot;One of the servers we communicate with had an internal error.&quot;&quot;&quot;</span>
     <span class="n">status_code</span> <span class="o">=</span> <span class="mi">502</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">service_name</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">service_name</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RemoteInitiatedServerError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">service_name</span> <span class="o">=</span> <span class="n">service_name</span>
 

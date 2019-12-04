@@ -33,33 +33,33 @@
           <div class="body" role="main">
             
   <h1>Source code for api.routes</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">wraps</span><span class="p">,</span> <span class="n">update_wrapper</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span><span class="p">,</span> <span class="n">update_wrapper</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 
 <span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Response</span><span class="p">,</span>
     <span class="n">redirect</span><span class="p">,</span>
     <span class="n">request</span><span class="p">,</span>
     <span class="n">make_response</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">flask_cors.core</span> <span class="k">import</span> <span class="n">get_cors_options</span><span class="p">,</span> <span class="n">set_cors_headers</span>
-<span class="kn">from</span> <span class="nn">werkzeug.exceptions</span> <span class="k">import</span> <span class="n">HTTPException</span>
+<span class="kn">from</span> <span class="nn">flask_cors.core</span> <span class="kn">import</span> <span class="n">get_cors_options</span><span class="p">,</span> <span class="n">set_cors_headers</span>
+<span class="kn">from</span> <span class="nn">werkzeug.exceptions</span> <span class="kn">import</span> <span class="n">HTTPException</span>
 
-<span class="kn">from</span> <span class="nn">app</span> <span class="k">import</span> <span class="n">app</span><span class="p">,</span> <span class="n">babel</span>
+<span class="kn">from</span> <span class="nn">app</span> <span class="kn">import</span> <span class="n">app</span><span class="p">,</span> <span class="n">babel</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ErrorHandler</span><span class="p">,</span>
     <span class="n">returns_problem_detail</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="n">ConfigurationSetting</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">controller</span> <span class="k">import</span> <span class="n">CirculationManager</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="n">REMOTE_INTEGRATION_FAILED</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">controller</span> <span class="kn">import</span> <span class="n">CirculationManager</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="n">REMOTE_INTEGRATION_FAILED</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
 <div class="viewcode-block" id="initialize_circulation_manager"><a class="viewcode-back" href="../../api.html#api.routes.initialize_circulation_manager">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">before_first_request</span>
 <span class="k">def</span> <span class="nf">initialize_circulation_manager</span><span class="p">():</span>

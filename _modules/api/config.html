@@ -35,25 +35,25 @@
   <h1>Source code for api.config</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">contextlib</span>
-<span class="kn">from</span> <span class="nn">copy</span> <span class="k">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 
-<span class="kn">from</span> <span class="nn">Crypto.PublicKey</span> <span class="k">import</span> <span class="n">RSA</span>
-<span class="kn">from</span> <span class="nn">Crypto.Cipher</span> <span class="k">import</span> <span class="n">PKCS1_OAEP</span>
+<span class="kn">from</span> <span class="nn">Crypto.PublicKey</span> <span class="kn">import</span> <span class="n">RSA</span>
+<span class="kn">from</span> <span class="nn">Crypto.Cipher</span> <span class="kn">import</span> <span class="n">PKCS1_OAEP</span>
 
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span> <span class="k">as</span> <span class="n">CoreConfiguration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">IntegrationException</span><span class="p">,</span>
     <span class="n">empty_config</span> <span class="k">as</span> <span class="n">core_empty_config</span><span class="p">,</span>
     <span class="n">temp_config</span> <span class="k">as</span> <span class="n">core_temp_config</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">MoneyUtility</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="n">Facets</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="n">ConfigurationSetting</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">MoneyUtility</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="n">Facets</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
 
 <div class="viewcode-block" id="Configuration"><a class="viewcode-back" href="../../api.html#api.config.Configuration">[docs]</a><span class="k">class</span> <span class="nc">Configuration</span><span class="p">(</span><span class="n">CoreConfiguration</span><span class="p">):</span>
 

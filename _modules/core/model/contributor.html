@@ -35,9 +35,9 @@
   <h1>Source code for core.model.contributor</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Contributor, Contribution</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">flush</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
@@ -45,26 +45,26 @@
 
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">ForeignKey</span><span class="p">,</span>
     <span class="n">Integer</span><span class="p">,</span>
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ARRAY</span><span class="p">,</span>
     <span class="n">JSON</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="k">import</span> <span class="n">IntegrityError</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="k">import</span> <span class="n">MutableDict</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="kn">import</span> <span class="n">IntegrityError</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="kn">import</span> <span class="n">MutableDict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">relationship</span><span class="p">,</span>
     <span class="n">synonym</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">..util.personal_names</span> <span class="k">import</span> <span class="n">display_name_to_sort_name</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">..util.personal_names</span> <span class="kn">import</span> <span class="n">display_name_to_sort_name</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
 <div class="viewcode-block" id="Contributor"><a class="viewcode-back" href="../../../core.model.html#core.model.contributor.Contributor">[docs]</a><span class="k">class</span> <span class="nc">Contributor</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Someone (usually human) who contributes to books.&quot;&quot;&quot;</span>
@@ -186,7 +186,7 @@
     <span class="n">BIRTH_DATE</span> <span class="o">=</span> <span class="s1">&#39;birthDate&#39;</span>
     <span class="n">DEATH_DATE</span> <span class="o">=</span> <span class="s1">&#39;deathDate&#39;</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">extra</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span><span class="p">:</span>
             <span class="n">extra</span> <span class="o">+=</span> <span class="s2">&quot; lc=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">lc</span>

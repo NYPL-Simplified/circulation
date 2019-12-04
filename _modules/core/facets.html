@@ -33,7 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.facets</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
 <div class="viewcode-block" id="FacetConstants"><a class="viewcode-back" href="../../core.html#core.facets.FacetConstants">[docs]</a><span class="k">class</span> <span class="nc">FacetConstants</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -180,7 +180,7 @@
 
         <span class="k">return</span> <span class="n">FacetConfig</span><span class="p">(</span><span class="n">enabled_facets</span><span class="p">,</span> <span class="n">default_facets</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enabled_facets</span><span class="p">,</span> <span class="n">default_facets</span><span class="p">,</span> <span class="n">entrypoints</span><span class="o">=</span><span class="p">[]):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enabled_facets</span><span class="p">,</span> <span class="n">default_facets</span><span class="p">,</span> <span class="n">entrypoints</span><span class="o">=</span><span class="p">[]):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_enabled_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">enabled_facets</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_default_facets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">default_facets</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">entrypoints</span> <span class="o">=</span> <span class="n">entrypoints</span>

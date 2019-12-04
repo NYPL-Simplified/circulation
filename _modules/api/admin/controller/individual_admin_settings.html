@@ -33,23 +33,23 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller.individual_admin_settings</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">SettingsController</span>
+<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">SettingsController</span>
 <span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Admin</span><span class="p">,</span>
     <span class="n">AdminRole</span><span class="p">,</span>
     <span class="n">Library</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="k">import</span> <span class="n">Validator</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">api.admin.exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
 
 <div class="viewcode-block" id="IndividualAdminSettingsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController">[docs]</a><span class="k">class</span> <span class="nc">IndividualAdminSettingsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
 

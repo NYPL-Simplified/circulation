@@ -35,31 +35,31 @@
   <h1>Source code for core.model.edition</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Edition</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="n">CoverageRecord</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageRecord</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DataSourceConstants</span><span class="p">,</span>
     <span class="n">EditionConstants</span><span class="p">,</span>
     <span class="n">LinkRelations</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">contributor</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">contributor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Contributor</span><span class="p">,</span>
     <span class="n">Contribution</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">Date</span><span class="p">,</span>
     <span class="n">Enum</span><span class="p">,</span>
@@ -69,16 +69,16 @@
     <span class="n">String</span><span class="p">,</span>
     <span class="n">Unicode</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="n">JSON</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="k">import</span> <span class="n">MutableDict</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">..util</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="n">JSON</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="kn">import</span> <span class="n">MutableDict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">..util</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">LanguageCodes</span><span class="p">,</span>
     <span class="n">TitleProcessor</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..util.permanent_work_id</span> <span class="k">import</span> <span class="n">WorkIDCalculator</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
+<span class="kn">from</span> <span class="nn">..util.permanent_work_id</span> <span class="kn">import</span> <span class="n">WorkIDCalculator</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
 
 <div class="viewcode-block" id="Edition"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Edition">[docs]</a><span class="k">class</span> <span class="nc">Edition</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">EditionConstants</span><span class="p">):</span>
@@ -167,7 +167,7 @@
     <span class="c1"># Information kept in here probably won&#39;t be used.</span>
     <span class="n">extra</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">MutableDict</span><span class="o">.</span><span class="n">as_mutable</span><span class="p">(</span><span class="n">JSON</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="p">{})</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">id_repr</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">)</span>
         <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Edition </span><span class="si">%s</span><span class="s2"> [</span><span class="si">%r</span><span class="s2">] (</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">id_repr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span>

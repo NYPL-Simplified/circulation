@@ -48,22 +48,22 @@
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Counter&#39;</span><span class="p">,</span> <span class="s1">&#39;deque&#39;</span><span class="p">,</span> <span class="s1">&#39;defaultdict&#39;</span><span class="p">,</span> <span class="s1">&#39;namedtuple&#39;</span><span class="p">,</span> <span class="s1">&#39;OrderedDict&#39;</span><span class="p">]</span>
 <span class="c1"># For bootstrapping reasons, the collection ABCs are defined in _abcoll.py.</span>
 <span class="c1"># They should however be considered an integral part of collections.py.</span>
-<span class="kn">from</span> <span class="nn">_abcoll</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">_abcoll</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">import</span> <span class="nn">_abcoll</span>
 <span class="n">__all__</span> <span class="o">+=</span> <span class="n">_abcoll</span><span class="o">.</span><span class="n">__all__</span>
 
-<span class="kn">from</span> <span class="nn">_collections</span> <span class="k">import</span> <span class="n">deque</span><span class="p">,</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">operator</span> <span class="k">import</span> <span class="n">itemgetter</span> <span class="k">as</span> <span class="n">_itemgetter</span><span class="p">,</span> <span class="n">eq</span> <span class="k">as</span> <span class="n">_eq</span>
-<span class="kn">from</span> <span class="nn">keyword</span> <span class="k">import</span> <span class="n">iskeyword</span> <span class="k">as</span> <span class="n">_iskeyword</span>
+<span class="kn">from</span> <span class="nn">_collections</span> <span class="kn">import</span> <span class="n">deque</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">itemgetter</span> <span class="k">as</span> <span class="n">_itemgetter</span><span class="p">,</span> <span class="n">eq</span> <span class="k">as</span> <span class="n">_eq</span>
+<span class="kn">from</span> <span class="nn">keyword</span> <span class="kn">import</span> <span class="n">iskeyword</span> <span class="k">as</span> <span class="n">_iskeyword</span>
 <span class="kn">import</span> <span class="nn">sys</span> <span class="k">as</span> <span class="nn">_sys</span>
 <span class="kn">import</span> <span class="nn">heapq</span> <span class="k">as</span> <span class="nn">_heapq</span>
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">repeat</span> <span class="k">as</span> <span class="n">_repeat</span><span class="p">,</span> <span class="n">chain</span> <span class="k">as</span> <span class="n">_chain</span><span class="p">,</span> <span class="n">starmap</span> <span class="k">as</span> <span class="n">_starmap</span>
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">imap</span> <span class="k">as</span> <span class="n">_imap</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">repeat</span> <span class="k">as</span> <span class="n">_repeat</span><span class="p">,</span> <span class="n">chain</span> <span class="k">as</span> <span class="n">_chain</span><span class="p">,</span> <span class="n">starmap</span> <span class="k">as</span> <span class="n">_starmap</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">imap</span> <span class="k">as</span> <span class="n">_imap</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">thread</span> <span class="k">import</span> <span class="n">get_ident</span> <span class="k">as</span> <span class="n">_get_ident</span>
+    <span class="kn">from</span> <span class="nn">thread</span> <span class="kn">import</span> <span class="n">get_ident</span> <span class="k">as</span> <span class="n">_get_ident</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">dummy_thread</span> <span class="k">import</span> <span class="n">get_ident</span> <span class="k">as</span> <span class="n">_get_ident</span>
+    <span class="kn">from</span> <span class="nn">dummy_thread</span> <span class="kn">import</span> <span class="n">get_ident</span> <span class="k">as</span> <span class="n">_get_ident</span>
 
 
 <span class="c1">################################################################################</span>
@@ -82,7 +82,7 @@
     <span class="c1"># The sentinel element never gets deleted (this simplifies the algorithm).</span>
     <span class="c1"># Each link is stored as a list of length three:  [PREV, NEXT, KEY].</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Initialize an ordered dictionary.  The signature is the same as</span>
 <span class="sd">        regular dictionaries, but keyword arguments are not recommended because</span>
 <span class="sd">        their insertion order is arbitrary.</span>
@@ -103,7 +103,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">__map</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__update</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">dict_setitem</span><span class="o">=</span><span class="nb">dict</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">dict_setitem</span><span class="o">=</span><span class="nb">dict</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">):</span>
         <span class="s1">&#39;od.__setitem__(i, y) &lt;==&gt; od[i]=y&#39;</span>
         <span class="c1"># Setting a new item creates a new link at the end of the linked list,</span>
         <span class="c1"># and the inherited dictionary is updated with the new key/value pair.</span>
@@ -113,7 +113,7 @@
             <span class="n">last</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">root</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__map</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">last</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">key</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">dict_setitem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">dict_delitem</span><span class="o">=</span><span class="nb">dict</span><span class="o">.</span><span class="fm">__delitem__</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">dict_delitem</span><span class="o">=</span><span class="nb">dict</span><span class="o">.</span><span class="fm">__delitem__</span><span class="p">):</span>
         <span class="s1">&#39;od.__delitem__(y) &lt;==&gt; del od[y]&#39;</span>
         <span class="c1"># Deleting an existing item uses self.__map to find the link which gets</span>
         <span class="c1"># removed by updating the links in the predecessor and successor nodes.</span>
@@ -122,7 +122,7 @@
         <span class="n">link_prev</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">link_next</span>                        <span class="c1"># update link_prev[NEXT]</span>
         <span class="n">link_next</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">link_prev</span>                        <span class="c1"># update link_next[PREV]</span>
 
-    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="s1">&#39;od.__iter__() &lt;==&gt; iter(od)&#39;</span>
         <span class="c1"># Traverse the linked list in order.</span>
         <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__root</span>
@@ -131,7 +131,7 @@
             <span class="k">yield</span> <span class="n">curr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>                               <span class="c1"># yield the curr[KEY]</span>
             <span class="n">curr</span> <span class="o">=</span> <span class="n">curr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>                              <span class="c1"># move to next node</span>
 
-    <span class="k">def</span> <span class="nf">__reversed__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__reversed__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="s1">&#39;od.__reversed__() &lt;==&gt; reversed(od)&#39;</span>
         <span class="c1"># Traverse the linked list in reverse order.</span>
         <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__root</span>
@@ -213,7 +213,7 @@
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_repr_running</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_repr_running</span><span class="o">=</span><span class="p">{}):</span>
         <span class="s1">&#39;od.__repr__() &lt;==&gt; repr(od)&#39;</span>
         <span class="n">call_key</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">_get_ident</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">call_key</span> <span class="ow">in</span> <span class="n">_repr_running</span><span class="p">:</span>
@@ -251,7 +251,7 @@
             <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
         <span class="k">return</span> <span class="bp">self</span>
 
-    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;od.__eq__(y) &lt;==&gt; od==y.  Comparison to another OD is order-sensitive</span>
 <span class="sd">        while comparison to a regular mapping is order-insensitive.</span>
 
@@ -260,7 +260,7 @@
             <span class="k">return</span> <span class="nb">dict</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">_imap</span><span class="p">(</span><span class="n">_eq</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">))</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="s1">&#39;od.__ne__(y) &lt;==&gt; od!=y&#39;</span>
         <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">other</span>
 
@@ -490,7 +490,7 @@
     <span class="c1">#   http://code.activestate.com/recipes/259174/</span>
     <span class="c1">#   Knuth, TAOCP Vol. II section 4.6.3</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Create a new, empty Counter object.  And if given, count elements</span>
 <span class="sd">        from an input iterable.  Or, initialize the count from another mapping</span>
 <span class="sd">        of elements to their counts.</span>
@@ -511,7 +511,7 @@
         <span class="nb">super</span><span class="p">(</span><span class="n">Counter</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__missing__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__missing__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="s1">&#39;The count of elements not in the Counter is zero.&#39;</span>
         <span class="c1"># Needed so that self[missing_item] does not raise KeyError</span>
         <span class="k">return</span> <span class="mi">0</span>
@@ -645,12 +645,12 @@
     <span class="k">def</span> <span class="nf">__reduce__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">,</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">),)</span>
 
-    <span class="k">def</span> <span class="nf">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">elem</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">elem</span><span class="p">):</span>
         <span class="s1">&#39;Like dict.__delitem__() but does not raise KeyError for missing values.&#39;</span>
         <span class="k">if</span> <span class="n">elem</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
             <span class="nb">super</span><span class="p">(</span><span class="n">Counter</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__delitem__</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="p">:</span>
             <span class="k">return</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">()&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
         <span class="n">items</span> <span class="o">=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1">: </span><span class="si">%r</span><span class="s1">&#39;</span><span class="o">.</span><span class="fm">__mod__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">most_common</span><span class="p">()))</span>
@@ -665,7 +665,7 @@
     <span class="c1"># To strip negative and zero counts, add-in an empty counter:</span>
     <span class="c1">#       c += Counter()</span>
 
-    <span class="k">def</span> <span class="nf">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Add counts from two counters.</span>
 
 <span class="sd">        &gt;&gt;&gt; Counter(&#39;abbb&#39;) + Counter(&#39;bcc&#39;)</span>
@@ -684,7 +684,7 @@
                 <span class="n">result</span><span class="p">[</span><span class="n">elem</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
         <span class="k">return</span> <span class="n">result</span>
 
-    <span class="k">def</span> <span class="nf">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39; Subtract count, but keep only results with positive counts.</span>
 
 <span class="sd">        &gt;&gt;&gt; Counter(&#39;abbbc&#39;) - Counter(&#39;bccd&#39;)</span>
@@ -703,7 +703,7 @@
                 <span class="n">result</span><span class="p">[</span><span class="n">elem</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span> <span class="o">-</span> <span class="n">count</span>
         <span class="k">return</span> <span class="n">result</span>
 
-    <span class="k">def</span> <span class="nf">__or__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__or__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;Union is the maximum of value in either of the input counters.</span>
 
 <span class="sd">        &gt;&gt;&gt; Counter(&#39;abbb&#39;) | Counter(&#39;bcc&#39;)</span>
@@ -723,7 +723,7 @@
                 <span class="n">result</span><span class="p">[</span><span class="n">elem</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
         <span class="k">return</span> <span class="n">result</span>
 
-    <span class="k">def</span> <span class="nf">__and__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__and__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39; Intersection is the minimum of corresponding counts.</span>
 
 <span class="sd">        &gt;&gt;&gt; Counter(&#39;abbb&#39;) &amp; Counter(&#39;bcc&#39;)</span>
@@ -743,7 +743,7 @@
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
     <span class="c1"># verify that instances can be pickled</span>
-    <span class="kn">from</span> <span class="nn">cPickle</span> <span class="k">import</span> <span class="n">loads</span><span class="p">,</span> <span class="n">dumps</span>
+    <span class="kn">from</span> <span class="nn">cPickle</span> <span class="kn">import</span> <span class="n">loads</span><span class="p">,</span> <span class="n">dumps</span>
     <span class="n">Point</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;Point&#39;</span><span class="p">,</span> <span class="s1">&#39;x, y&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">p</span> <span class="o">==</span> <span class="n">loads</span><span class="p">(</span><span class="n">dumps</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
@@ -754,7 +754,7 @@
         <span class="nd">@property</span>
         <span class="k">def</span> <span class="nf">hypot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
-        <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="k">return</span> <span class="s1">&#39;Point: x=</span><span class="si">%6.3f</span><span class="s1">  y=</span><span class="si">%6.3f</span><span class="s1">  hypot=</span><span class="si">%6.3f</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hypot</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">Point</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">Point</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="o">/</span><span class="mf">7.</span><span class="p">):</span>

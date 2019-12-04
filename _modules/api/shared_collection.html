@@ -33,23 +33,23 @@
           <div class="body" role="main">
             
   <h1>Source code for api.shared_collection</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">IntegrationClient</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
 
 <div class="viewcode-block" id="SharedCollectionAPI"><a class="viewcode-back" href="../../api.html#api.shared_collection.SharedCollectionAPI">[docs]</a><span class="k">class</span> <span class="nc">SharedCollectionAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Logic for circulating books to patrons of libraries on other</span>
@@ -59,7 +59,7 @@
 <span class="sd">    collection types.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">api_map</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">api_map</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param _db: A database session (probably a scoped session).</span>
@@ -100,7 +100,7 @@
         <span class="sd">&quot;&quot;&quot;When you see a Collection that implements protocol X, instantiate</span>
 <span class="sd">        API class Y to handle that collection.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">odl</span> <span class="k">import</span> <span class="n">ODLAPI</span>
+        <span class="kn">from</span> <span class="nn">odl</span> <span class="kn">import</span> <span class="n">ODLAPI</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">ODLAPI</span><span class="p">,</span>
         <span class="p">}</span>

@@ -34,7 +34,7 @@
             
   <h1>Source code for api.adobe_vendor_id</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">argparse</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
@@ -42,23 +42,23 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">jwt</span>
-<span class="kn">from</span> <span class="nn">jwt.algorithms</span> <span class="k">import</span> <span class="n">HMACAlgorithm</span>
+<span class="kn">from</span> <span class="nn">jwt.algorithms</span> <span class="kn">import</span> <span class="n">HMACAlgorithm</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 
 <span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.base_controller</span> <span class="k">import</span> <span class="n">BaseCirculationManagerController</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="k">import</span> <span class="n">XMLParser</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="k">import</span> <span class="n">url_for</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.base_controller</span> <span class="kn">import</span> <span class="n">BaseCirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="n">url_for</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">create</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
@@ -69,14 +69,14 @@
     <span class="n">Library</span><span class="p">,</span>
     <span class="n">Patron</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="k">import</span> <span class="n">Script</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">Script</span>
 
 <div class="viewcode-block" id="AdobeVendorIDController"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AdobeVendorIDController">[docs]</a><span class="k">class</span> <span class="nc">AdobeVendorIDController</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;Flask controllers that implement the Account Service and</span>
 <span class="sd">    Authorization Service portions of the Adobe Vendor ID protocol.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">vendor_id</span><span class="p">,</span> <span class="n">node_value</span><span class="p">,</span> <span class="n">authenticator</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">vendor_id</span><span class="p">,</span> <span class="n">node_value</span><span class="p">,</span> <span class="n">authenticator</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">request_handler</span> <span class="o">=</span> <span class="n">AdobeVendorIDRequestHandler</span><span class="p">(</span><span class="n">vendor_id</span><span class="p">)</span>
@@ -218,7 +218,7 @@
     <span class="n">AUTHENTICATION_FAILURE</span> <span class="o">=</span> <span class="s1">&#39;Incorrect barcode or PIN.&#39;</span>
     <span class="n">URN_LOOKUP_FAILURE</span> <span class="o">=</span> <span class="s2">&quot;Could not identify patron from &#39;</span><span class="si">%s</span><span class="s2">&#39;.&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vendor_id</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vendor_id</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">vendor_id</span> <span class="o">=</span> <span class="n">vendor_id</span>
 
 <div class="viewcode-block" id="AdobeVendorIDRequestHandler.handle_signin_request"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.AdobeVendorIDRequestHandler.handle_signin_request">[docs]</a>    <span class="k">def</span> <span class="nf">handle_signin_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">standard_lookup</span><span class="p">,</span> <span class="n">authdata_lookup</span><span class="p">):</span>
@@ -282,7 +282,7 @@
 <div class="viewcode-block" id="DeviceManagementRequestHandler"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.DeviceManagementRequestHandler">[docs]</a><span class="k">class</span> <span class="nc">DeviceManagementRequestHandler</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Handle incoming requests for the DRM Device Management Protocol.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="n">credential</span>
 
 <div class="viewcode-block" id="DeviceManagementRequestHandler.device_list"><a class="viewcode-back" href="../../api.html#api.adobe_vendor_id.DeviceManagementRequestHandler.device_list">[docs]</a>    <span class="k">def</span> <span class="nf">device_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -374,7 +374,7 @@
     <span class="n">AUTHDATA_TOKEN_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Authdata for Adobe Vendor ID&quot;</span>
     <span class="n">VENDOR_ID_UUID_TOKEN_TYPE</span> <span class="o">=</span> <span class="s2">&quot;Vendor ID UUID&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">authenticator</span><span class="p">,</span> <span class="n">node_value</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">authenticator</span><span class="p">,</span> <span class="n">node_value</span><span class="p">,</span>
                  <span class="n">temporary_token_duration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
@@ -639,7 +639,7 @@
 
     <span class="n">ALGORITHM</span> <span class="o">=</span> <span class="s1">&#39;HS256&#39;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vendor_id</span><span class="p">,</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">,</span> <span class="n">secret</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vendor_id</span><span class="p">,</span> <span class="n">library_uri</span><span class="p">,</span> <span class="n">library_short_name</span><span class="p">,</span> <span class="n">secret</span><span class="p">,</span>
                  <span class="n">other_libraries</span><span class="o">=</span><span class="p">{}):</span>
         <span class="sd">&quot;&quot;&quot;Basic constructor.</span>
 

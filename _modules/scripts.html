@@ -34,12 +34,12 @@
             
   <h1>Source code for scripts</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
-<span class="kn">from</span> <span class="nn">cStringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">cStringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">datetime</span><span class="p">,</span>
     <span class="n">timedelta</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">csv</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
@@ -49,28 +49,28 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">argparse</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">or_</span><span class="p">,</span>
     <span class="n">func</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">contains_eager</span><span class="p">,</span>
     <span class="n">defer</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="k">import</span> <span class="n">NumericRange</span>
+<span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="kn">import</span> <span class="n">NumericRange</span>
 
-<span class="kn">from</span> <span class="nn">core</span> <span class="k">import</span> <span class="n">log</span>
-<span class="kn">from</span> <span class="nn">core.cdn</span> <span class="k">import</span> <span class="n">cdnify</span>
-<span class="kn">from</span> <span class="nn">core.entrypoint</span> <span class="k">import</span> <span class="n">EntryPoint</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="n">Lane</span>
-<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core</span> <span class="kn">import</span> <span class="n">log</span>
+<span class="kn">from</span> <span class="nn">core.cdn</span> <span class="kn">import</span> <span class="n">cdnify</span>
+<span class="kn">from</span> <span class="nn">core.entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="n">Lane</span>
+<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">FormatData</span><span class="p">,</span>
     <span class="n">ReplacementPolicy</span><span class="p">,</span>
     <span class="n">LinkData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CachedMARCFile</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -97,8 +97,8 @@
     <span class="n">Timestamp</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Script</span> <span class="k">as</span> <span class="n">CoreScript</span><span class="p">,</span>
     <span class="n">DatabaseMigrationInitializationScript</span><span class="p">,</span>
     <span class="n">RunCoverageProvidersScript</span><span class="p">,</span>
@@ -110,66 +110,66 @@
     <span class="n">RunMonitorScript</span><span class="p">,</span>
     <span class="n">TimestampScript</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Pagination</span><span class="p">,</span>
     <span class="n">Facets</span><span class="p">,</span>
     <span class="n">FeaturedFacets</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span>
     <span class="n">OPDSImporter</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.opds</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AcquisitionFeed</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
      <span class="n">OPDSFeed</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.external_list</span> <span class="k">import</span> <span class="n">CustomListFromCSV</span>
-<span class="kn">from</span> <span class="nn">core.external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
-<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">core.external_list</span> <span class="kn">import</span> <span class="n">CustomListFromCSV</span>
+<span class="kn">from</span> <span class="nn">core.external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
 
-<span class="kn">from</span> <span class="nn">api.config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AdobeVendorIDModel</span><span class="p">,</span>
     <span class="n">AuthdataUtility</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.lanes</span> <span class="k">import</span> <span class="n">create_default_lanes</span>
-<span class="kn">from</span> <span class="nn">api.controller</span> <span class="k">import</span> <span class="n">CirculationManager</span>
-<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="k">import</span> <span class="n">OverdriveAPI</span>
-<span class="kn">from</span> <span class="nn">api.circulation</span> <span class="k">import</span> <span class="n">CirculationAPI</span>
-<span class="kn">from</span> <span class="nn">api.opds</span> <span class="k">import</span> <span class="n">CirculationManagerAnnotator</span>
-<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.lanes</span> <span class="kn">import</span> <span class="n">create_default_lanes</span>
+<span class="kn">from</span> <span class="nn">api.controller</span> <span class="kn">import</span> <span class="n">CirculationManager</span>
+<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="kn">import</span> <span class="n">OverdriveAPI</span>
+<span class="kn">from</span> <span class="nn">api.circulation</span> <span class="kn">import</span> <span class="n">CirculationAPI</span>
+<span class="kn">from</span> <span class="nn">api.opds</span> <span class="kn">import</span> <span class="n">CirculationManagerAnnotator</span>
+<span class="kn">from</span> <span class="nn">api.overdrive</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OverdriveAPI</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.bibliotheca</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BibliothecaCirculationSweep</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.nyt</span> <span class="k">import</span> <span class="n">NYTBestSellerAPI</span>
-<span class="kn">from</span> <span class="nn">api.opds_for_distributors</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.nyt</span> <span class="kn">import</span> <span class="n">NYTBestSellerAPI</span>
+<span class="kn">from</span> <span class="nn">api.opds_for_distributors</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSForDistributorsImporter</span><span class="p">,</span>
     <span class="n">OPDSForDistributorsImportMonitor</span><span class="p">,</span>
     <span class="n">OPDSForDistributorsReaperMonitor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.odl</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.odl</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ODLImporter</span><span class="p">,</span>
     <span class="n">ODLImportMonitor</span><span class="p">,</span>
     <span class="n">SharedODLImporter</span><span class="p">,</span>
     <span class="n">SharedODLImportMonitor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="k">import</span> <span class="n">OPDSImportScript</span>
-<span class="kn">from</span> <span class="nn">api.novelist</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.scripts</span> <span class="kn">import</span> <span class="n">OPDSImportScript</span>
+<span class="kn">from</span> <span class="nn">api.novelist</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">NoveListAPI</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="n">MARCExtractor</span>
-<span class="kn">from</span> <span class="nn">api.onix</span> <span class="k">import</span> <span class="n">ONIXExtractor</span>
-<span class="kn">from</span> <span class="nn">core.marc</span> <span class="k">import</span> <span class="n">MARCExporter</span>
-<span class="kn">from</span> <span class="nn">api.marc</span> <span class="k">import</span> <span class="n">LibraryAnnotator</span> <span class="k">as</span> <span class="n">MARCLibraryAnnotator</span>
-<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="k">import</span> <span class="n">LocalAnalyticsExporter</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="n">MARCExtractor</span>
+<span class="kn">from</span> <span class="nn">api.onix</span> <span class="kn">import</span> <span class="n">ONIXExtractor</span>
+<span class="kn">from</span> <span class="nn">core.marc</span> <span class="kn">import</span> <span class="n">MARCExporter</span>
+<span class="kn">from</span> <span class="nn">api.marc</span> <span class="kn">import</span> <span class="n">LibraryAnnotator</span> <span class="k">as</span> <span class="n">MARCLibraryAnnotator</span>
+<span class="kn">from</span> <span class="nn">api.local_analytics_exporter</span> <span class="kn">import</span> <span class="n">LocalAnalyticsExporter</span>
 
 <div class="viewcode-block" id="Script"><a class="viewcode-back" href="../scripts.html#scripts.Script">[docs]</a><span class="k">class</span> <span class="nc">Script</span><span class="p">(</span><span class="n">CoreScript</span><span class="p">):</span>
 <div class="viewcode-block" id="Script.load_config"><a class="viewcode-back" href="../scripts.html#scripts.Script.load_config">[docs]</a>    <span class="k">def</span> <span class="nf">load_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -187,7 +187,7 @@
     <span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Create works for identifiers&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata_web_app_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata_web_app_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">metadata_web_app_url</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">lookup</span> <span class="o">=</span> <span class="n">MetadataWranglerOPDSLookup</span><span class="p">(</span><span class="n">metadata_web_app_url</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -378,7 +378,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">parser</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">manager</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">manager</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 <span class="sd">        :param _db: A database connection.</span>
@@ -398,7 +398,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">cmd_args</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">manager</span><span class="p">:</span>
             <span class="n">manager</span> <span class="o">=</span> <span class="n">CirculationManager</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="n">testing</span><span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">api.app</span> <span class="k">import</span> <span class="n">app</span>
+        <span class="kn">from</span> <span class="nn">api.app</span> <span class="kn">import</span> <span class="n">app</span>
         <span class="n">app</span><span class="o">.</span><span class="n">manager</span> <span class="o">=</span> <span class="n">manager</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">BASE_URL_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
@@ -757,7 +757,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">parser</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">CacheMARCFiles</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">cmd_args</span><span class="p">)</span>
 
@@ -1255,7 +1255,7 @@
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Update New York Times best-seller lists&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_history</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_history</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">NYTBestSellerListsScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">include_history</span> <span class="o">=</span> <span class="n">include_history</span>
 

@@ -35,14 +35,14 @@
   <h1>Source code for spellchecker.spellchecker</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot; SpellChecker Module; simple, intuitive spell checker based on the post by</span>
 <span class="sd">    Peter Norvig. See: https://norvig.com/spell-correct.html &quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">division</span><span class="p">,</span> <span class="n">unicode_literals</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">division</span><span class="p">,</span> <span class="n">unicode_literals</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">string</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 
-<span class="kn">from</span> <span class="nn">.utils</span> <span class="k">import</span> <span class="n">load_file</span><span class="p">,</span> <span class="n">write_file</span><span class="p">,</span> <span class="n">_parse_into_words</span><span class="p">,</span> <span class="n">ENSURE_UNICODE</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">load_file</span><span class="p">,</span> <span class="n">write_file</span><span class="p">,</span> <span class="n">_parse_into_words</span><span class="p">,</span> <span class="n">ENSURE_UNICODE</span>
 
 
 <span class="k">class</span> <span class="nc">SpellChecker</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -64,7 +64,7 @@
 
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;_distance&quot;</span><span class="p">,</span> <span class="s2">&quot;_word_frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;_tokenizer&quot;</span><span class="p">,</span> <span class="s2">&quot;_case_sensitive&quot;</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span>
         <span class="n">local_dictionary</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -95,12 +95,12 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_word_frequency</span><span class="o">.</span><span class="n">load_dictionary</span><span class="p">(</span><span class="n">full_filename</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; setup easier known checks &quot;&quot;&quot;</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_word_frequency</span>
 
-    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; setup easier frequency checks &quot;&quot;&quot;</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_word_frequency</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
@@ -194,6 +194,10 @@
         <span class="n">word</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">known</span><span class="p">([</span><span class="n">word</span><span class="p">]):</span>  <span class="c1"># short-cut if word is correct already</span>
             <span class="k">return</span> <span class="p">{</span><span class="n">word</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_if_should_check</span><span class="p">(</span><span class="n">word</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">word</span><span class="p">}</span>
+
         <span class="c1"># get edit distance 1...</span>
         <span class="n">res</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edit_distance_1</span><span class="p">(</span><span class="n">word</span><span class="p">)]</span>
         <span class="n">tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">known</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
@@ -221,7 +225,7 @@
             <span class="n">w</span>
             <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">tmp</span>
             <span class="k">if</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_word_frequency</span><span class="o">.</span><span class="n">dictionary</span>
-            <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_if_should_check</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_if_should_check</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">unknown</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">words</span><span class="p">):</span>
@@ -250,7 +254,7 @@
 <span class="sd">            Returns:</span>
 <span class="sd">                set: The set of strings that are edit distance one from the \</span>
 <span class="sd">                provided word &quot;&quot;&quot;</span>
-        <span class="n">word</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">word</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">word</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">word</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_case_sensitive</span> <span class="k">else</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_if_should_check</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{</span><span class="n">word</span><span class="p">}</span>
         <span class="n">letters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_word_frequency</span><span class="o">.</span><span class="n">letters</span>
@@ -270,7 +274,7 @@
 <span class="sd">            Returns:</span>
 <span class="sd">                set: The set of strings that are edit distance two from the \</span>
 <span class="sd">                provided word &quot;&quot;&quot;</span>
-        <span class="n">word</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">word</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">word</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">word</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_case_sensitive</span> <span class="k">else</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[</span>
             <span class="n">e2</span> <span class="k">for</span> <span class="n">e1</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edit_distance_1</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="k">for</span> <span class="n">e2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edit_distance_1</span><span class="p">(</span><span class="n">e1</span><span class="p">)</span>
         <span class="p">]</span>
@@ -292,9 +296,10 @@
         <span class="p">]</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">e2</span> <span class="k">for</span> <span class="n">e1</span> <span class="ow">in</span> <span class="n">tmp</span> <span class="k">for</span> <span class="n">e2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edit_distance_1</span><span class="p">(</span><span class="n">e1</span><span class="p">)]</span>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_check_if_should_check</span><span class="p">(</span><span class="n">word</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_check_if_should_check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">word</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">punctuation</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_word_frequency</span><span class="o">.</span><span class="n">longest_word_length</span> <span class="o">+</span> <span class="mi">3</span><span class="p">:</span>  <span class="c1"># magic number to allow removal of up to 2 letters.</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">try</span><span class="p">:</span>  <span class="c1"># check if it is a number (int, float, etc)</span>
             <span class="nb">float</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
@@ -316,26 +321,28 @@
         <span class="s2">&quot;_letters&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_tokenizer&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_case_sensitive&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_longest_word_length&quot;</span>
     <span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">case_sensitive</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">case_sensitive</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_dictionary</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_total_words</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_unique_words</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_letters</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_case_sensitive</span> <span class="o">=</span> <span class="n">case_sensitive</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_longest_word_length</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_tokenizer</span> <span class="o">=</span> <span class="n">_parse_into_words</span>
         <span class="k">if</span> <span class="n">tokenizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_tokenizer</span> <span class="o">=</span> <span class="n">tokenizer</span>
 
-    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; turn on contains &quot;&quot;&quot;</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">key</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_case_sensitive</span> <span class="k">else</span> <span class="n">key</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dictionary</span>
 
-    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; turn on getitem &quot;&quot;&quot;</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">ENSURE_UNICODE</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">key</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_case_sensitive</span> <span class="k">else</span> <span class="n">key</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
@@ -385,6 +392,14 @@
 <span class="sd">            Note:</span>
 <span class="sd">                Not settable &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_letters</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">longest_word_length</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; int: The longest word length in the dictionary</span>
+
+<span class="sd">            Note:</span>
+<span class="sd">                Not settable &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_longest_word_length</span>
 
     <span class="k">def</span> <span class="nf">tokenize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; Tokenize the provided string object into individual words</span>
@@ -521,10 +536,13 @@
 
     <span class="k">def</span> <span class="nf">_update_dictionary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot; Update the word frequency object &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_longest_word_length</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_total_words</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dictionary</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_unique_words</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dictionary</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_letters</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dictionary</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_longest_word_length</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_longest_word_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_letters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
 </pre></div>
 

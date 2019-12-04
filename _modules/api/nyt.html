@@ -35,33 +35,33 @@
   <h1>Source code for api.nyt</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Interface to the New York Times APIs.&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">isbnlib</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">NoResultFound</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">IntegrationException</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.selftest</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HasSelfTests</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="k">import</span> <span class="n">MetadataWranglerOPDSLookup</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="n">MetadataWranglerOPDSLookup</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Metadata</span><span class="p">,</span>
     <span class="n">IdentifierData</span><span class="p">,</span>
     <span class="n">ContributorData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">CustomList</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
@@ -70,7 +70,7 @@
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.external_list</span> <span class="k">import</span> <span class="n">TitleFromExternalList</span>
+<span class="kn">from</span> <span class="nn">core.external_list</span> <span class="kn">import</span> <span class="n">TitleFromExternalList</span>
 
 <div class="viewcode-block" id="NYTAPI"><a class="viewcode-back" href="../../api.html#api.nyt.NYTAPI">[docs]</a><span class="k">class</span> <span class="nc">NYTAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -118,7 +118,7 @@
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="n">integration</span><span class="o">.</span><span class="n">password</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;NYT API&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">api_key</span><span class="p">:</span>
@@ -222,7 +222,7 @@
 
 <div class="viewcode-block" id="NYTBestSellerList"><a class="viewcode-back" href="../../api.html#api.nyt.NYTBestSellerList">[docs]</a><span class="k">class</span> <span class="nc">NYTBestSellerList</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">list_info</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">list_info</span><span class="p">,</span> <span class="n">metadata_client</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;display_name&#39;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">created</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;oldest_published_date&#39;</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">updated</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">list_info</span><span class="p">[</span><span class="s1">&#39;newest_published_date&#39;</span><span class="p">])</span>
@@ -331,7 +331,7 @@
 
 <div class="viewcode-block" id="NYTBestSellerListTitle"><a class="viewcode-back" href="../../api.html#api.nyt.NYTBestSellerListTitle">[docs]</a><span class="k">class</span> <span class="nc">NYTBestSellerListTitle</span><span class="p">(</span><span class="n">TitleFromExternalList</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">medium</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">medium</span><span class="p">):</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">bestsellers_date</span> <span class="o">=</span> <span class="n">NYTAPI</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bestsellers_date&#39;</span><span class="p">))</span>

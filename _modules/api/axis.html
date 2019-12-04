@@ -39,28 +39,28 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">contains_eager</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">contains_eager</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="k">import</span> <span class="n">Analytics</span>
+<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
 
-<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">temp_config</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BibliographicCoverageProvider</span><span class="p">,</span>
     <span class="n">CoverageFailure</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">ContributorData</span><span class="p">,</span>
     <span class="n">FormatData</span><span class="p">,</span>
@@ -71,7 +71,7 @@
     <span class="n">SubjectData</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -93,43 +93,43 @@
     <span class="n">Subject</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionMonitor</span><span class="p">,</span>
     <span class="n">IdentifierSweepMonitor</span><span class="p">,</span>
     <span class="n">TimelineMonitor</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">MetadataWranglerOPDSLookup</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">DatabaseTest</span>
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
-<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="k">import</span> <span class="n">XMLParser</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
     <span class="n">RemoteIntegrationException</span><span class="p">,</span>
 <span class="p">)</span>
 
 
-<span class="kn">from</span> <span class="nn">authenticator</span> <span class="k">import</span> <span class="n">Authenticator</span>
+<span class="kn">from</span> <span class="nn">authenticator</span> <span class="kn">import</span> <span class="n">Authenticator</span>
 
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">APIAwareFulfillmentInfo</span><span class="p">,</span>
     <span class="n">LoanInfo</span><span class="p">,</span>
     <span class="n">FulfillmentInfo</span><span class="p">,</span>
     <span class="n">HoldInfo</span><span class="p">,</span>
     <span class="n">BaseCirculationAPI</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">selftest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HasCollectionSelfTests</span><span class="p">,</span>
     <span class="n">SelfTestResult</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">web_publication_manifest</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">web_publication_manifest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">FindawayManifest</span><span class="p">,</span>
     <span class="n">SpineItem</span><span class="p">,</span>
 <span class="p">)</span>
@@ -190,7 +190,7 @@
         <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">findaway_drm</span><span class="p">):</span> <span class="s1">&#39;Acoustik&#39;</span><span class="p">,</span>
     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">AXIS_360</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Collection protocol is </span><span class="si">%s</span><span class="s2">, but passed into Axis360API!&quot;</span> <span class="o">%</span>
@@ -604,7 +604,7 @@
 
     <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">Axis360API</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">Axis360API</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">Axis360CirculationMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">api_class</span><span class="p">,</span> <span class="n">Axis360API</span><span class="p">):</span>
             <span class="c1"># Use a preexisting Axis360API instance rather than</span>
@@ -671,7 +671,7 @@
         <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">collection</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">with_token</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">with_token</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param collection: Get Axis 360 credentials from this</span>
@@ -688,7 +688,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="MockAxis360API.queue_response"><a class="viewcode-back" href="../../api.html#api.axis.MockAxis360API.queue_response">[docs]</a>    <span class="k">def</span> <span class="nf">queue_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">MockRequestsResponse</span>
+        <span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
             <span class="mi">0</span><span class="p">,</span> <span class="n">MockRequestsResponse</span><span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
         <span class="p">)</span></div>
@@ -716,7 +716,7 @@
     <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">AXIS_360_ID</span>
     <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">25</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">Axis360API</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">Axis360API</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param collection: Provide bibliographic coverage to all</span>
@@ -783,7 +783,7 @@
     <span class="n">INTERVAL_SECONDS</span> <span class="o">=</span> <span class="mi">3600</span><span class="o">*</span><span class="mi">12</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">AXIS_360</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">Axis360API</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">Axis360API</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">AxisCollectionReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">api_class</span><span class="p">,</span> <span class="n">Axis360API</span><span class="p">):</span>
             <span class="c1"># Use a preexisting Axis360API instance rather than</span>
@@ -846,7 +846,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)]</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_availability</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include_bibliographic</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_availability</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include_bibliographic</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">include_availability</span> <span class="o">=</span> <span class="n">include_availability</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">include_bibliographic</span> <span class="o">=</span> <span class="n">include_bibliographic</span>
 
@@ -1206,7 +1206,7 @@
         <span class="mi">5004</span> <span class="p">:</span> <span class="n">LibraryInvalidInputException</span><span class="p">,</span> <span class="c1"># Missing TransactionID</span>
     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param collection: A Collection, in case parsing this document</span>
@@ -1356,7 +1356,7 @@
 
 <div class="viewcode-block" id="AvailabilityResponseParser"><a class="viewcode-back" href="../../api.html#api.axis.AvailabilityResponseParser">[docs]</a><span class="k">class</span> <span class="nc">AvailabilityResponseParser</span><span class="p">(</span><span class="n">ResponseParser</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param api: An Axis360API instance, in case the parsing of an</span>
@@ -1521,7 +1521,7 @@
 <div class="viewcode-block" id="AudiobookFulfillmentInfoResponseParser"><a class="viewcode-back" href="../../api.html#api.axis.AudiobookFulfillmentInfoResponseParser">[docs]</a><span class="k">class</span> <span class="nc">AudiobookFulfillmentInfoResponseParser</span><span class="p">(</span><span class="n">JSONResponseParser</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Parse JSON documents into Findaway audiobook manifests.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param api: An Axis360API instance, in case the parsing of</span>

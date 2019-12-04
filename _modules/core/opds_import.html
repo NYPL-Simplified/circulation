@@ -33,12 +33,12 @@
           <div class="body" role="main">
             
   <h1>Source code for core.opds_import</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">io</span> <span class="k">import</span> <span class="p">(</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">StringIO</span><span class="p">,</span>
     <span class="n">BytesIO</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">defaultdict</span><span class="p">,</span>
     <span class="n">Counter</span><span class="p">,</span>
 <span class="p">)</span>
@@ -48,22 +48,22 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">from</span> <span class="nn">urlparse</span> <span class="k">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urljoin</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">aliased</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">urlparse</span> <span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urljoin</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">aliased</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 
-<span class="kn">from</span> <span class="nn">monitor</span> <span class="k">import</span> <span class="n">CollectionMonitor</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">util.xmlparser</span> <span class="k">import</span> <span class="n">XMLParser</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">monitor</span> <span class="kn">import</span> <span class="n">CollectionMonitor</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">IntegrationException</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">Metadata</span><span class="p">,</span>
     <span class="n">IdentifierData</span><span class="p">,</span>
@@ -75,7 +75,7 @@
     <span class="n">TimestampData</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
@@ -91,20 +91,20 @@
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">model.constants</span> <span class="k">import</span> <span class="n">MediaTypes</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="n">CoverageFailure</span>
-<span class="kn">from</span> <span class="nn">util.http</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">model.constants</span> <span class="kn">import</span> <span class="n">MediaTypes</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageFailure</span>
+<span class="kn">from</span> <span class="nn">util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
     <span class="n">HTTP</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSFeed</span><span class="p">,</span>
     <span class="n">OPDSMessage</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="k">import</span> <span class="n">base64</span>
-<span class="kn">from</span> <span class="nn">mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">from</span> <span class="nn">mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">selftest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HasSelfTests</span><span class="p">,</span>
     <span class="n">SelfTestResult</span><span class="p">,</span>
 <span class="p">)</span>
@@ -141,7 +141,7 @@
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">url</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_url</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_url</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">base_url</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
             <span class="n">base_url</span> <span class="o">+=</span> <span class="s2">&quot;/&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">base_url</span>
@@ -321,7 +321,7 @@
                 <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">i</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">])</span>
         <span class="n">result</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">lines</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">shared_secret</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">shared_secret</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shared_secret</span> <span class="o">=</span> <span class="n">shared_secret</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span>
@@ -450,13 +450,13 @@
 
 <div class="viewcode-block" id="MockSimplifiedOPDSLookup"><a class="viewcode-back" href="../../core.html#api.coverage.MockSimplifiedOPDSLookup">[docs]</a><span class="k">class</span> <span class="nc">MockSimplifiedOPDSLookup</span><span class="p">(</span><span class="n">SimplifiedOPDSLookup</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MockSimplifiedOPDSLookup</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
 <div class="viewcode-block" id="MockSimplifiedOPDSLookup.queue_response"><a class="viewcode-back" href="../../core.html#api.coverage.MockSimplifiedOPDSLookup.queue_response">[docs]</a>    <span class="k">def</span> <span class="nf">queue_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">testing</span> <span class="k">import</span> <span class="n">MockRequestsResponse</span>
+        <span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
             <span class="mi">0</span><span class="p">,</span> <span class="n">MockRequestsResponse</span><span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
         <span class="p">)</span></div>
@@ -550,7 +550,7 @@
     <span class="c1"># when they show up in &lt;simplified:message&gt; tags.</span>
     <span class="n">SUCCESS_STATUS_CODES</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">identifier_mapping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">http_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">content_modifier</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">map_from_collection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mirrors</span><span class="o">=</span><span class="kc">None</span>
@@ -1742,7 +1742,7 @@
     <span class="c1"># specialize OPDS import should override this.</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span>
                  <span class="n">force_reimport</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">import_class_kwargs</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">collection</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>

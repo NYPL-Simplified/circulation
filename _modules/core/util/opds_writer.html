@@ -37,8 +37,8 @@
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">builder</span><span class="p">,</span> <span class="n">etree</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">builder</span><span class="p">,</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <div class="viewcode-block" id="ElementMaker"><a class="viewcode-back" href="../../../core.util.html#core.util.opds_writer.ElementMaker">[docs]</a><span class="k">class</span> <span class="nc">ElementMaker</span><span class="p">(</span><span class="n">builder</span><span class="o">.</span><span class="n">ElementMaker</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A helper object for creating etree elements.&quot;&quot;&quot;</span>
@@ -181,7 +181,7 @@
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">updated</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">feed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">id</span><span class="p">(</span><span class="n">url</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">E</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">title</span><span class="p">)),</span>
@@ -218,7 +218,7 @@
     <span class="n">REVOKE_LOAN_REL</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/rel/revoke&quot;</span>
     <span class="n">NO_TITLE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/problem/no-title&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span></div>
 
 
@@ -229,20 +229,20 @@
 <span class="sd">    Inserted into an OPDS feed as an extension tag.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">urn</span> <span class="o">=</span> <span class="n">urn</span>
         <span class="k">if</span> <span class="n">status_code</span><span class="p">:</span>
             <span class="n">status_code</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">status_code</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tounicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
 

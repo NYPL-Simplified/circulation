@@ -202,7 +202,7 @@
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup.ADD_ENDPOINT">ADD_ENDPOINT (core.opds_import.MetadataWranglerOPDSLookup attribute)</a>
 </li>
-      <li><a href="core.html#core.app_server.URNLookupController.add_entry">add_entry() (core.app_server.URNLookupController method)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.add_entry">add_entry() (core.app_server.URNLookupHandler method)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.customlist.CustomList.add_entry">(core.model.customlist.CustomList method)</a>
@@ -248,7 +248,7 @@
 </li>
       <li><a href="core.model.html#core.model.identifier.Identifier.add_measurement">add_measurement() (core.model.identifier.Identifier method)</a>
 </li>
-      <li><a href="core.html#core.app_server.URNLookupController.add_message">add_message() (core.app_server.URNLookupController method)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.add_message">add_message() (core.app_server.URNLookupHandler method)</a>
 </li>
       <li><a href="api.html#api.opds.LibraryAnnotator.add_patron">add_patron() (api.opds.LibraryAnnotator method)</a>
 </li>
@@ -290,7 +290,7 @@
 </li>
       <li><a href="core.html#core.marc.Annotator.add_title">add_title() (core.marc.Annotator class method)</a>
 </li>
-      <li><a href="core.html#core.app_server.URNLookupController.add_urn_failure_messages">add_urn_failure_messages() (core.app_server.URNLookupController method)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.add_urn_failure_messages">add_urn_failure_messages() (core.app_server.URNLookupHandler method)</a>
 </li>
       <li><a href="api.html#api.marc.LibraryAnnotator.add_web_client_urls">add_web_client_urls() (api.marc.LibraryAnnotator method)</a>
 </li>
@@ -298,7 +298,7 @@
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup.ADD_WITH_METADATA_ENDPOINT">ADD_WITH_METADATA_ENDPOINT (core.opds_import.MetadataWranglerOPDSLookup attribute)</a>
 </li>
-      <li><a href="core.html#core.app_server.URNLookupController.add_work">add_work() (core.app_server.URNLookupController method)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.add_work">add_work() (core.app_server.URNLookupHandler method)</a>
 </li>
       <li><a href="core.model.html#core.model.listeners.add_work_to_customlists_for_collection">add_work_to_customlists_for_collection() (in module core.model.listeners)</a>
 </li>
@@ -7148,6 +7148,8 @@
       </ul></li>
       <li><a href="core.model.html#core.model.collection.Collection.licensepools">licensepools (core.model.collection.Collection attribute)</a>
 </li>
+      <li><a href="core.model.html#core.model.collection.Collection.licensepools_with_works_updated_since">licensepools_with_works_updated_since() (core.model.collection.Collection method)</a>
+</li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.licenses">licenses (core.model.licensing.LicensePool attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.licenses_available">licenses_available (core.model.licensing.LicensePool attribute)</a>
@@ -9648,7 +9650,7 @@
         <li><a href="core.model.html#core.model.resource.Representation.post">(core.model.resource.Representation class method)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.app_server.URNLookupController.post_lookup_hook">post_lookup_hook() (core.app_server.URNLookupController method)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.post_lookup_hook">post_lookup_hook() (core.app_server.URNLookupHandler method)</a>
 </li>
       <li><a href="api.html#api.axis.HoldReleaseResponseParser.post_process">post_process() (api.axis.HoldReleaseResponseParser method)</a>
 </li>
@@ -9914,7 +9916,7 @@
         <li><a href="api.admin.controller.html#api.admin.controller.storage_services.StorageServicesController.process_get">(api.admin.controller.storage_services.StorageServicesController method)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.app_server.URNLookupController.process_identifier">process_identifier() (core.app_server.URNLookupController method)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.process_identifier">process_identifier() (core.app_server.URNLookupHandler method)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.process_individual_admins">process_individual_admins() (api.admin.controller.individual_admin_settings.IndividualAdminSettingsController method)</a>
 </li>
@@ -10127,7 +10129,11 @@
       <li><a href="api.admin.controller.html#api.admin.controller.SitewideRegistrationController.process_sitewide_registration">process_sitewide_registration() (api.admin.controller.SitewideRegistrationController method)</a>
 </li>
       <li><a href="core.html#core.app_server.URNLookupController.process_urns">process_urns() (core.app_server.URNLookupController method)</a>
+
+      <ul>
+        <li><a href="core.html#core.app_server.URNLookupHandler.process_urns">(core.app_server.URNLookupHandler method)</a>
 </li>
+      </ul></li>
       <li><a href="core.html#core.scripts.WorkConsolidationScript.process_work">process_work() (core.scripts.WorkConsolidationScript method)</a>
 
       <ul>
@@ -13190,7 +13196,7 @@
 </li>
       <li><a href="core.model.html#core.model.resource.Hyperlink.unmirrored">unmirrored() (core.model.resource.Hyperlink class method)</a>
 </li>
-      <li><a href="core.html#core.app_server.URNLookupController.UNRECOGNIZED_IDENTIFIER">UNRECOGNIZED_IDENTIFIER (core.app_server.URNLookupController attribute)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.UNRECOGNIZED_IDENTIFIER">UNRECOGNIZED_IDENTIFIER (core.app_server.URNLookupHandler attribute)</a>
 </li>
       <li><a href="api.html#api.custom_index.CustomIndexView.unregister">unregister() (api.custom_index.CustomIndexView class method)</a>
 
@@ -13464,6 +13470,8 @@
         <li><a href="core.html#core.app_server.URNLookupController">(class in core.app_server)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#core.app_server.URNLookupHandler">URNLookupHandler (class in core.app_server)</a>
+</li>
       <li><a href="api.html#api.feedbooks.RehostingPolicy.US_SITES">US_SITES (api.feedbooks.RehostingPolicy attribute)</a>
 </li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider.USE_SSL">USE_SSL (api.sip.SIP2AuthenticationProvider attribute)</a>
@@ -13838,9 +13846,9 @@
         <li><a href="core.html#core.app_server.URNLookupController.work_lookup">(core.app_server.URNLookupController method)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.app_server.URNLookupController.WORK_NOT_CREATED">WORK_NOT_CREATED (core.app_server.URNLookupController attribute)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.WORK_NOT_CREATED">WORK_NOT_CREATED (core.app_server.URNLookupHandler attribute)</a>
 </li>
-      <li><a href="core.html#core.app_server.URNLookupController.WORK_NOT_PRESENTATION_READY">WORK_NOT_PRESENTATION_READY (core.app_server.URNLookupController attribute)</a>
+      <li><a href="core.html#core.app_server.URNLookupHandler.WORK_NOT_PRESENTATION_READY">WORK_NOT_PRESENTATION_READY (core.app_server.URNLookupHandler attribute)</a>
 </li>
       <li><a href="api.admin.html#api.admin.routes.work_preview_book_cover">work_preview_book_cover() (in module api.admin.routes)</a>
 </li>
@@ -13915,8 +13923,6 @@
       <li><a href="core.model.html#core.model.patron.Patron.works_on_loan_or_on_hold">works_on_loan_or_on_hold() (core.model.patron.Patron method)</a>
 </li>
       <li><a href="core.html#core.external_search.ExternalSearchIndex.works_prefixed">works_prefixed() (core.external_search.ExternalSearchIndex class method)</a>
-</li>
-      <li><a href="core.model.html#core.model.collection.Collection.works_updated_since">works_updated_since() (core.model.collection.Collection method)</a>
 </li>
       <li><a href="core.html#core.external_search.WorkSearchResult">WorkSearchResult (class in core.external_search)</a>
 </li>

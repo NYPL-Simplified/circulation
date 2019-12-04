@@ -33,19 +33,19 @@
           <div class="body" role="main">
             
   <h1>Source code for api.sip</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="k">import</span> <span class="p">(</span>
+<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BasicAuthenticationProvider</span><span class="p">,</span>
     <span class="n">PatronData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.sip.client</span> <span class="k">import</span> <span class="n">SIPClient</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">RemoteIntegrationException</span>
-<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">MoneyUtility</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="n">ExternalIntegration</span>
+<span class="kn">from</span> <span class="nn">api.sip.client</span> <span class="kn">import</span> <span class="n">SIPClient</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">RemoteIntegrationException</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">MoneyUtility</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">api.sip.dialect</span> <span class="k">import</span> <span class="n">Dialect</span> <span class="k">as</span> <span class="n">Sip2Dialect</span>
+<span class="kn">from</span> <span class="nn">api.sip.dialect</span> <span class="kn">import</span> <span class="n">Dialect</span> <span class="k">as</span> <span class="n">Sip2Dialect</span>
 
 <div class="viewcode-block" id="SIP2AuthenticationProvider"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SIP2AuthenticationProvider</span><span class="p">(</span><span class="n">BasicAuthenticationProvider</span><span class="p">):</span>
 
@@ -117,7 +117,7 @@
         <span class="n">SIPClient</span><span class="o">.</span><span class="n">RECALL_OVERDUE</span> <span class="p">:</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">RECALL_OVERDUE</span><span class="p">,</span>
     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connect</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connect</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;An object capable of communicating with a SIP server.</span>
 
 <span class="sd">        :param server: Hostname of the SIP server.</span>

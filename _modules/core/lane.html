@@ -34,29 +34,29 @@
             
   <h1>Source code for core.lane</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 
-<span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="k">import</span> <span class="n">NumericRange</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">Select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="n">JSON</span>
+<span class="kn">from</span> <span class="nn">psycopg2.extras</span> <span class="kn">import</span> <span class="n">NumericRange</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">Select</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="n">JSON</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
 <span class="kn">import</span> <span class="nn">classifier</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classifier</span><span class="p">,</span>
     <span class="n">GenreData</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
     <span class="n">case</span><span class="p">,</span>
     <span class="n">or_</span><span class="p">,</span>
@@ -66,13 +66,13 @@
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">text</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.associationproxy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.associationproxy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">association_proxy</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">hybrid_property</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">aliased</span><span class="p">,</span>
     <span class="n">backref</span><span class="p">,</span>
     <span class="n">contains_eager</span><span class="p">,</span>
@@ -81,13 +81,13 @@
     <span class="n">lazyload</span><span class="p">,</span>
     <span class="n">relationship</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">literal</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">literal</span>
 
-<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">EntryPoint</span><span class="p">,</span>
     <span class="n">EverythingEntryPoint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">directly_modified</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">numericrange_to_tuple</span><span class="p">,</span>
@@ -110,19 +110,19 @@
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">WorkGenre</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.constants</span> <span class="k">import</span> <span class="n">EditionConstants</span>
-<span class="kn">from</span> <span class="nn">facets</span> <span class="k">import</span> <span class="n">FacetConstants</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model.constants</span> <span class="kn">import</span> <span class="n">EditionConstants</span>
+<span class="kn">from</span> <span class="nn">facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">fast_query_count</span><span class="p">,</span>
     <span class="n">LanguageCodes</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">util.accept_language</span> <span class="k">import</span> <span class="n">parse_accept_language</span>
+<span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">util.accept_language</span> <span class="kn">import</span> <span class="n">parse_accept_language</span>
 
 <span class="kn">import</span> <span class="nn">elasticsearch</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">event</span><span class="p">,</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -130,7 +130,7 @@
     <span class="n">Integer</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ARRAY</span><span class="p">,</span>
     <span class="n">INT4RANGE</span><span class="p">,</span>
 <span class="p">)</span>
@@ -194,7 +194,7 @@
     <span class="sd">&quot;&quot;&quot;Basic Facets class that knows how to filter a query based on a</span>
 <span class="sd">    selected EntryPoint.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">entrypoint_is_default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">entrypoint_is_default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param entrypoint: An EntryPoint (optional).</span>
@@ -427,7 +427,7 @@
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_request</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
                                  <span class="n">default_entrypoint</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">availability</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">availability</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span>
                  <span class="n">order_ascending</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">enabled_facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">entrypoint_is_default</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
@@ -749,7 +749,7 @@
 <span class="sd">    AcquisitionFeed.groups().</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">minimum_featured_quality</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">minimum_featured_quality</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">random_seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set up an object that finds featured books in a given</span>
 <span class="sd">        WorkList.</span>
@@ -802,7 +802,7 @@
 <span class="sd">    preferred language.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">media</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">media</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entrypoint</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">media</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">ALL_MEDIUM</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">media</span> <span class="o">=</span> <span class="n">media</span>
@@ -916,7 +916,7 @@
     <span class="k">def</span> <span class="nf">default</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Pagination</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_SIZE</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">DEFAULT_SIZE</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">DEFAULT_SIZE</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param offset: Start pulling entries from the query at this index.</span>
@@ -1480,7 +1480,7 @@
 <span class="sd">            that generates such a list when executed.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Filter</span><span class="p">,</span>
             <span class="n">ExternalSearchIndex</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1498,7 +1498,7 @@
 <span class="sd">        Using this ensures that modify_search_filter_hook() is always</span>
 <span class="sd">        called.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="n">Filter</span>
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">Filter</span>
         <span class="nb">filter</span> <span class="o">=</span> <span class="n">Filter</span><span class="o">.</span><span class="n">from_worklist</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
         <span class="n">modified</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">modify_search_filter_hook</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">modified</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1534,7 +1534,7 @@
         <span class="sd">&quot;&quot;&quot;Convert a list of lists of Hit objects into a list</span>
 <span class="sd">        of lists of Work objects.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Filter</span><span class="p">,</span>
             <span class="n">WorkSearchResult</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1669,7 +1669,7 @@
         <span class="c1"># problem?</span>
         <span class="n">pagination</span> <span class="o">=</span> <span class="n">Pagination</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">ask_for_size</span><span class="p">)</span>
 
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
         <span class="n">search_engine</span> <span class="o">=</span> <span class="n">search_engine</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
@@ -1786,7 +1786,7 @@
         <span class="n">queries</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">lane</span> <span class="ow">in</span> <span class="n">lanes</span><span class="p">:</span>
             <span class="n">overview_facets</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">overview_facets</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
-            <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="n">Filter</span>
+            <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">Filter</span>
             <span class="nb">filter</span> <span class="o">=</span> <span class="n">Filter</span><span class="o">.</span><span class="n">from_worklist</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">overview_facets</span><span class="p">)</span>
             <span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">))</span>
         <span class="n">resultsets</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search_engine</span><span class="o">.</span><span class="n">query_works_multi</span><span class="p">(</span><span class="n">queries</span><span class="p">))</span>
@@ -2110,7 +2110,7 @@
 
 <div class="viewcode-block" id="SpecificWorkList"><a class="viewcode-back" href="../../core.html#core.lane.SpecificWorkList">[docs]</a><span class="k">class</span> <span class="nc">SpecificWorkList</span><span class="p">(</span><span class="n">DatabaseBackedWorkList</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A WorkList that only finds specific works, identified by ID.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_ids</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_ids</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">SpecificWorkList</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">work_ids</span> <span class="o">=</span> <span class="n">work_ids</span>
 
@@ -2482,7 +2482,7 @@
 <div class="viewcode-block" id="Lane.update_size"><a class="viewcode-back" href="../../core.html#core.lane.Lane.update_size">[docs]</a>    <span class="k">def</span> <span class="nf">update_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Update the stored estimate of the number of Works in this Lane.&quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
         <span class="n">search_engine</span> <span class="o">=</span> <span class="n">search_engine</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="c1"># Do the estimate for every known entry point.</span>

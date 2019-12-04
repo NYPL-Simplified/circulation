@@ -33,7 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.testing</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="p">(</span>
+<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">datetime</span><span class="p">,</span>
     <span class="n">timedelta</span><span class="p">,</span>
 <span class="p">)</span>
@@ -44,21 +44,21 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">set_trace</span><span class="p">,</span>
     <span class="n">eq_</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="c1"># TODO PYTHON3</span>
 <span class="c1"># from psycopg2.errors import UndefinedTable</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="k">import</span> <span class="n">ProgrammingError</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="kn">import</span> <span class="n">ProgrammingError</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 
-<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Lane</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.constants</span> <span class="k">import</span> <span class="n">MediaTypes</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model.constants</span> <span class="kn">import</span> <span class="n">MediaTypes</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
     <span class="n">SessionManager</span><span class="p">,</span>
@@ -66,7 +66,7 @@
     <span class="n">create</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -96,10 +96,10 @@
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
 
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BibliographicCoverageProvider</span><span class="p">,</span>
     <span class="n">CollectionCoverageProvider</span><span class="p">,</span>
     <span class="n">IdentifierCoverageProvider</span><span class="p">,</span>
@@ -107,12 +107,12 @@
     <span class="n">WorkCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">MockExternalSearchIndex</span><span class="p">,</span>
     <span class="n">ExternalSearchIndex</span><span class="p">,</span>
     <span class="n">SearchIndexCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">log</span> <span class="k">import</span> <span class="n">LogConfiguration</span>
+<span class="kn">from</span> <span class="nn">log</span> <span class="kn">import</span> <span class="n">LogConfiguration</span>
 <span class="kn">import</span> <span class="nn">external_search</span>
 <span class="kn">import</span> <span class="nn">mock</span>
 <span class="kn">import</span> <span class="nn">inspect</span>
@@ -1280,7 +1280,7 @@
 <span class="sd">    to cover.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">InstrumentedCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attempts</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -1294,7 +1294,7 @@
     <span class="sd">&quot;&quot;&quot;A WorkCoverageProvider that keeps track of every item it tried</span>
 <span class="sd">    to cover.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">InstrumentedWorkCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attempts</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -1339,7 +1339,7 @@
     <span class="sd">&quot;&quot;&quot;A CoverageProvider that does nothing and always fails.&quot;&quot;&quot;</span>
     <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Never successful&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">NeverSuccessfulCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span>
@@ -1412,7 +1412,7 @@
 
 <div class="viewcode-block" id="DummyMetadataClient"><a class="viewcode-back" href="../../core.html#core.testing.DummyMetadataClient">[docs]</a><span class="k">class</span> <span class="nc">DummyMetadataClient</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lookups</span> <span class="o">=</span> <span class="p">{}</span>
 
 <div class="viewcode-block" id="DummyMetadataClient.canonicalize_author_name"><a class="viewcode-back" href="../../core.html#core.testing.DummyMetadataClient.canonicalize_author_name">[docs]</a>    <span class="k">def</span> <span class="nf">canonicalize_author_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">primary_identifier</span><span class="p">,</span> <span class="n">display_author</span><span class="p">):</span>
@@ -1424,7 +1424,7 @@
 
 <div class="viewcode-block" id="DummyHTTPClient"><a class="viewcode-back" href="../../core.html#core.testing.DummyHTTPClient">[docs]</a><span class="k">class</span> <span class="nc">DummyHTTPClient</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -1465,7 +1465,7 @@
     <span class="sd">&quot;&quot;&quot;A mock object that simulates an HTTP request from the</span>
 <span class="sd">    `requests` library.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="n">headers</span> <span class="ow">or</span> <span class="nb">dict</span><span class="p">()</span></div>
@@ -1475,7 +1475,7 @@
     <span class="sd">&quot;&quot;&quot;A mock object that simulates an HTTP response from the</span>
 <span class="sd">    `requests` library.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">request</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>

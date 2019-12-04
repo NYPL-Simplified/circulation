@@ -33,27 +33,27 @@
           <div class="body" role="main">
             
   <h1>Source code for core.marc</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">io</span> <span class="k">import</span> <span class="n">BytesIO</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">re</span>
 
-<span class="kn">from</span> <span class="nn">pymarc</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">pymarc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Field</span><span class="p">,</span>
     <span class="n">Record</span><span class="p">,</span>
     <span class="n">MARCWriter</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="n">BaseFacets</span>
-<span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">BaseFacets</span>
+<span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ExternalSearchIndex</span><span class="p">,</span>
     <span class="n">SortKeyPagination</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">CachedMARCFile</span><span class="p">,</span>
@@ -67,11 +67,11 @@
     <span class="n">Session</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">s3</span> <span class="k">import</span> <span class="n">S3Uploader</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="n">Lane</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">s3</span> <span class="kn">import</span> <span class="n">S3Uploader</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">Lane</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
 
 <div class="viewcode-block" id="Annotator"><a class="viewcode-back" href="../../core.html#core.marc.Annotator">[docs]</a><span class="k">class</span> <span class="nc">Annotator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;The Annotator knows how to add information about a Work to</span>
@@ -485,7 +485,7 @@
 <span class="sd">    it only works updated since a certain time.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_time</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_time</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">start_time</span>
 
 <div class="viewcode-block" id="MARCExporterFacets.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.marc.MARCExporterFacets.modify_search_filter">[docs]</a>    <span class="k">def</span> <span class="nf">modify_search_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
@@ -583,7 +583,7 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="o">=</span> <span class="n">library</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">integration</span> <span class="o">=</span> <span class="n">integration</span>

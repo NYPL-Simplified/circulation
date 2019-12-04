@@ -33,20 +33,20 @@
           <div class="body" role="main">
             
   <h1>Source code for api.simple_authentication</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">authenticator</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">authenticator</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BasicAuthenticationProvider</span><span class="p">,</span>
     <span class="n">PatronData</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="n">Patron</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">Patron</span>
 
 <div class="viewcode-block" id="SimpleAuthenticationProvider"><a class="viewcode-back" href="../../api.html#api.simple_authentication.SimpleAuthenticationProvider">[docs]</a><span class="k">class</span> <span class="nc">SimpleAuthenticationProvider</span><span class="p">(</span><span class="n">BasicAuthenticationProvider</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An authentication provider that authenticates a single patron.</span>
@@ -82,7 +82,7 @@
         <span class="p">}</span>
     <span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">SimpleAuthenticationProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">,</span> <span class="n">analytics</span>
         <span class="p">)</span>

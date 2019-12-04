@@ -34,11 +34,11 @@
             
   <h1>Source code for core.util.summary</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">textblob</span> <span class="k">import</span> <span class="n">TextBlob</span>
-<span class="kn">from</span> <span class="nn">textblob.exceptions</span> <span class="k">import</span> <span class="n">MissingCorpusError</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">textblob</span> <span class="kn">import</span> <span class="n">TextBlob</span>
+<span class="kn">from</span> <span class="nn">textblob.exceptions</span> <span class="kn">import</span> <span class="n">MissingCorpusError</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Bigrams</span><span class="p">,</span>
     <span class="n">english_bigrams</span><span class="p">,</span>
 <span class="p">)</span>
@@ -93,7 +93,7 @@
     <span class="n">_nltk_installed</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Summary Evaluator&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimal_number_of_sentences</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimal_number_of_sentences</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
                  <span class="n">noun_phrases_to_consider</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bad_phrases</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">optimal_number_of_sentences</span><span class="o">=</span><span class="n">optimal_number_of_sentences</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">summaries</span> <span class="o">=</span> <span class="p">[]</span>

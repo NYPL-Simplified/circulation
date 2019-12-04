@@ -33,25 +33,25 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller.collection_library_registrations</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">api.odl</span> <span class="k">import</span> <span class="n">SharedODLAPI</span>
-<span class="kn">from</span> <span class="nn">api.registry</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.odl</span> <span class="kn">import</span> <span class="n">SharedODLAPI</span>
+<span class="kn">from</span> <span class="nn">api.registry</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Registration</span><span class="p">,</span>
     <span class="n">RemoteRegistry</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">Library</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">SettingsController</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">SettingsController</span>
 
 <div class="viewcode-block" id="CollectionLibraryRegistrationsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.collection_library_registrations.CollectionLibraryRegistrationsController">[docs]</a><span class="k">class</span> <span class="nc">CollectionLibraryRegistrationsController</span><span class="p">(</span><span class="n">SettingsController</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Use the OPDS Directory Registration Protocol to register a</span>
@@ -61,7 +61,7 @@
 
     <span class="c1"># TODO: This controller can share some code with DiscoveryServiceLibraryRegistrationsController.</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">CollectionLibraryRegistrationsController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shared_collection_provider_apis</span> <span class="o">=</span> <span class="p">[</span><span class="n">SharedODLAPI</span><span class="p">]</span>
 

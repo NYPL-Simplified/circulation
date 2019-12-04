@@ -33,21 +33,21 @@
           <div class="body" role="main">
             
   <h1>Source code for core.log</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">socket</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
-<span class="kn">from</span> <span class="nn">loggly.handlers</span> <span class="k">import</span> <span class="n">HTTPSHandler</span> <span class="k">as</span> <span class="n">LogglyHandler</span>
-<span class="kn">from</span> <span class="nn">watchtower</span> <span class="k">import</span> <span class="n">CloudWatchLogHandler</span>
-<span class="kn">from</span> <span class="nn">boto3.session</span> <span class="k">import</span> <span class="n">Session</span> <span class="k">as</span> <span class="n">AwsSession</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">ConfigurationSetting</span>
-<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">StringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">loggly.handlers</span> <span class="kn">import</span> <span class="n">HTTPSHandler</span> <span class="k">as</span> <span class="n">LogglyHandler</span>
+<span class="kn">from</span> <span class="nn">watchtower</span> <span class="kn">import</span> <span class="n">CloudWatchLogHandler</span>
+<span class="kn">from</span> <span class="nn">boto3.session</span> <span class="kn">import</span> <span class="n">Session</span> <span class="k">as</span> <span class="n">AwsSession</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">ConfigurationSetting</span>
+<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
 <div class="viewcode-block" id="JSONFormatter"><a class="viewcode-back" href="../../core.html#core.log.JSONFormatter">[docs]</a><span class="k">class</span> <span class="nc">JSONFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
     <span class="n">hostname</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span>
@@ -55,7 +55,7 @@
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fqdn</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">hostname</span><span class="p">):</span>
         <span class="n">hostname</span> <span class="o">=</span> <span class="n">fqdn</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app_name</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app_name</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">JSONFormatter</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">app_name</span> <span class="o">=</span> <span class="n">app_name</span> <span class="ow">or</span> <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">DEFAULT_APP_NAME</span>
 
@@ -216,7 +216,7 @@
 <div class="viewcode-block" id="Loggly.from_configuration"><a class="viewcode-back" href="../../core.html#core.log.Loggly.from_configuration">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_configuration</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">testing</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="n">loggly</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">ConfigurationSetting</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">,</span> <span class="n">ConfigurationSetting</span><span class="p">)</span>
 
         <span class="n">app_name</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEFAULT_APP_NAME</span>
         <span class="k">if</span> <span class="n">_db</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">testing</span><span class="p">:</span>

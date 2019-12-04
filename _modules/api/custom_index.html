@@ -42,24 +42,24 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
-<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="k">import</span> <span class="n">cdn_url_for</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="n">cdn_url_for</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="n">Lane</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="n">Lane</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="k">import</span> <span class="n">OPDSFeed</span>
+<span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
 
 <div class="viewcode-block" id="CustomIndexView"><a class="viewcode-back" href="../../api.html#api.custom_index.CustomIndexView">[docs]</a><span class="k">class</span> <span class="nc">CustomIndexView</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A custom view that replaces the default OPDS view for a</span>
@@ -108,10 +108,10 @@
         <span class="n">view_class</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BY_PROTOCOL</span><span class="p">[</span><span class="n">protocol</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">view_class</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Render the custom index view.</span>
 
 <span class="sd">        :return: A Response or ProblemDetail</span>
@@ -143,7 +143,7 @@
         <span class="p">},</span>
     <span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="n">m</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">for_library_and_externalintegration</span>
         <span class="n">yes_lane_id</span> <span class="o">=</span> <span class="n">m</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REQUIREMENT_MET_LANE</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">integration</span><span class="p">)</span>
@@ -172,7 +172,7 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">lane</span>
 
-    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">url_for</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">url_for</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Render an OPDS navigation feed that lets the patron choose a root</span>
 <span class="sd">        lane on their own, without providing any credentials.</span>
 <span class="sd">        &quot;&quot;&quot;</span>

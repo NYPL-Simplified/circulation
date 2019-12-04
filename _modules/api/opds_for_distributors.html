@@ -33,19 +33,19 @@
           <div class="body" role="main">
             
   <h1>Source code for api.opds_for_distributors</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSImporter</span><span class="p">,</span>
     <span class="n">OPDSImportMonitor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">Credential</span><span class="p">,</span>
     <span class="n">DeliveryMechanism</span><span class="p">,</span>
@@ -60,23 +60,23 @@
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">FormatData</span><span class="p">,</span>
     <span class="n">TimestampData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.selftest</span> <span class="k">import</span> <span class="n">HasSelfTests</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.selftest</span> <span class="kn">import</span> <span class="n">HasSelfTests</span>
+<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BaseCirculationAPI</span><span class="p">,</span>
     <span class="n">LoanInfo</span><span class="p">,</span>
     <span class="n">FulfillmentInfo</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
-<span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DatabaseTest</span><span class="p">,</span>
     <span class="n">MockRequestsResponse</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">IntegrationException</span>
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">IntegrationException</span>
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 
 <div class="viewcode-block" id="OPDSForDistributorsAPI"><a class="viewcode-back" href="../../api.html#api.opds_for_distributors.OPDSForDistributorsAPI">[docs]</a><span class="k">class</span> <span class="nc">OPDSForDistributorsAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
     <span class="n">NAME</span> <span class="o">=</span> <span class="s2">&quot;OPDS for Distributors&quot;</span>
@@ -114,7 +114,7 @@
         <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">SUPPORTED_MEDIA_TYPES</span>
     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">collection_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">id</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">external_integration_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">id</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data_source_name</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Collection</span><span class="o">.</span><span class="n">DATA_SOURCE_NAME_SETTING</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
@@ -350,7 +350,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">OPDSForDistributorsImporter</span><span class="o">.</span><span class="n">NAME</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">OPDSForDistributorsImportMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">OPDSForDistributorsAPI</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
@@ -373,7 +373,7 @@
 <span class="sd">    has been removed from the collection.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">OPDSForDistributorsReaperMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">import_class</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">seen_identifiers</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
@@ -443,7 +443,7 @@
         <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">collection</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MockOPDSForDistributorsAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>

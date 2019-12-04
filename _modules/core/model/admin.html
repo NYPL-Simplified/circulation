@@ -35,17 +35,17 @@
   <h1>Source code for core.model.admin</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Admin, AdminRole</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
 
 <span class="kn">import</span> <span class="nn">bcrypt</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">ForeignKey</span><span class="p">,</span>
     <span class="n">Index</span><span class="p">,</span>
@@ -53,9 +53,9 @@
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
 <div class="viewcode-block" id="Admin"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin">[docs]</a><span class="k">class</span> <span class="nc">Admin</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
 
@@ -193,7 +193,7 @@
         <span class="k">if</span> <span class="n">role</span><span class="p">:</span>
             <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">role</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;Admin: email=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">email</span></div>
 
 <div class="viewcode-block" id="AdminRole"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.AdminRole">[docs]</a><span class="k">class</span> <span class="nc">AdminRole</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
@@ -228,7 +228,7 @@
             <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&lt;AdminRole: role=</span><span class="si">%s</span><span class="s2"> library=</span><span class="si">%s</span><span class="s2"> admin=</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">admin</span><span class="o">.</span><span class="n">email</span><span class="p">)</span></div>
 

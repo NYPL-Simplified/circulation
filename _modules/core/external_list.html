@@ -34,23 +34,23 @@
             
   <h1>Source code for core.external_list</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="k">import</span> <span class="n">parse</span>
+<span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="kn">import</span> <span class="n">parse</span>
 <span class="kn">import</span> <span class="nn">csv</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="n">or_</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">opds_import</span> <span class="k">import</span> <span class="n">SimplifiedOPDSLookup</span>
+<span class="kn">from</span> <span class="nn">opds_import</span> <span class="kn">import</span> <span class="n">SimplifiedOPDSLookup</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CSVMetadataImporter</span><span class="p">,</span>
     <span class="n">ReplacementPolicy</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
@@ -62,12 +62,12 @@
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
 
 <div class="viewcode-block" id="CustomListFromCSV"><a class="viewcode-back" href="../../core.html#core.external_list.CustomListFromCSV">[docs]</a><span class="k">class</span> <span class="nc">CustomListFromCSV</span><span class="p">(</span><span class="n">CSVMetadataImporter</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Create a CustomList, with entries, from a CSV file.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">list_name</span><span class="p">,</span> <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">list_name</span><span class="p">,</span> <span class="n">metadata_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">overwrite_old_data</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                  <span class="n">annotation_field</span><span class="o">=</span><span class="s1">&#39;text&#39;</span><span class="p">,</span>
                  <span class="n">annotation_author_name_field</span><span class="o">=</span><span class="s1">&#39;name&#39;</span><span class="p">,</span>
@@ -186,7 +186,7 @@
 <span class="sd">    Edition and CustomListEntry objects.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">first_appearance</span><span class="p">,</span> <span class="n">most_recent_appearance</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">first_appearance</span><span class="p">,</span> <span class="n">most_recent_appearance</span><span class="p">,</span>
                  <span class="n">annotation</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Title from external list&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
@@ -289,7 +289,7 @@
 <div class="viewcode-block" id="MembershipManager"><a class="viewcode-back" href="../../core.html#core.external_list.MembershipManager">[docs]</a><span class="k">class</span> <span class="nc">MembershipManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Manage the membership of a custom list based on some criteria.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span>
             <span class="s2">&quot;Membership manager for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">custom_list</span><span class="o">.</span><span class="n">name</span>
         <span class="p">)</span>
@@ -344,7 +344,7 @@
     <span class="sd">&quot;&quot;&quot;Manage a custom list containing all Editions whose primary</span>
 <span class="sd">    Identifier is classified under one of the given subject fragments.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">subject_fragments</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_list</span><span class="p">,</span> <span class="n">subject_fragments</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ClassificationBasedMembershipManager</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">custom_list</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subject_fragments</span> <span class="o">=</span> <span class="n">subject_fragments</span>
 

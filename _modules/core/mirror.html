@@ -33,9 +33,9 @@
           <div class="body" role="main">
             
   <h1>Source code for core.mirror</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 
 <div class="viewcode-block" id="MirrorUploader"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader">[docs]</a><span class="k">class</span> <span class="nc">MirrorUploader</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;Handles the job of uploading a representation&#39;s content to</span>
@@ -70,7 +70,7 @@
 <div class="viewcode-block" id="MirrorUploader.integration_by_name"><a class="viewcode-back" href="../../core.html#core.mirror.MirrorUploader.integration_by_name">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">integration_by_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">storage_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find the ExternalIntegration for the mirror by storage name.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">ExternalIntegration</span>
+        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">ExternalIntegration</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">goal</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">STORAGE_GOAL</span><span class="p">,</span>
             <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="n">storage_name</span>
@@ -94,9 +94,9 @@
 <span class="sd">        :return: A MirrorUploader, or None if the Collection has no</span>
 <span class="sd">            mirror integration.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">ExternalIntegration</span>
+        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">ExternalIntegration</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">Session</span>
+            <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">Session</span>
             <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
             <span class="n">integration</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">for_collection_and_purpose</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">purpose</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
@@ -115,7 +115,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">implementation_class</span><span class="p">(</span><span class="n">integration</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Instantiate a MirrorUploader from an ExternalIntegration.</span>
 
 <span class="sd">        :param integration: An ExternalIntegration configuring the credentials</span>

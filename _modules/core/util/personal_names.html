@@ -33,13 +33,13 @@
           <div class="body" role="main">
             
   <h1>Source code for core.util.personal_names</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="k">import</span> <span class="n">fuzz</span>
-<span class="kn">from</span> <span class="nn">nameparser</span> <span class="k">import</span> <span class="n">HumanName</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="kn">import</span> <span class="n">fuzz</span>
+<span class="kn">from</span> <span class="nn">nameparser</span> <span class="kn">import</span> <span class="n">HumanName</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">unicodedata</span>
 
-<span class="kn">from</span> <span class="nn">permanent_work_id</span> <span class="k">import</span> <span class="n">WorkIDCalculator</span><span class="p">;</span>
+<span class="kn">from</span> <span class="nn">permanent_work_id</span> <span class="kn">import</span> <span class="n">WorkIDCalculator</span><span class="p">;</span>
 
 
 <span class="sd">&quot;&quot;&quot;Fallback algorithms for dealing with personal names when VIAF fails us.&quot;&quot;&quot;</span>

@@ -35,38 +35,38 @@
   <h1>Source code for core.model.resource</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Resource, ResourceTransformation, Hyperlink, Representation</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..config</span> <span class="k">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">..config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DataSourceConstants</span><span class="p">,</span>
     <span class="n">IdentifierConstants</span><span class="p">,</span>
     <span class="n">LinkRelations</span><span class="p">,</span>
     <span class="n">MediaTypes</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..util.http</span> <span class="k">import</span> <span class="n">HTTP</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
+<span class="kn">from</span> <span class="nn">..util.http</span> <span class="kn">import</span> <span class="n">HTTP</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
-<span class="kn">from</span> <span class="nn">io</span> <span class="k">import</span> <span class="n">BytesIO</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">hashlib</span> <span class="k">import</span> <span class="n">md5</span>
+<span class="kn">from</span> <span class="nn">hashlib</span> <span class="kn">import</span> <span class="n">md5</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">PIL</span> <span class="k">import</span> <span class="n">Image</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">requests</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Binary</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">DateTime</span><span class="p">,</span>
@@ -76,14 +76,14 @@
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="n">JSON</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="k">import</span> <span class="n">MutableDict</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="n">JSON</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.mutable</span> <span class="kn">import</span> <span class="n">MutableDict</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">backref</span><span class="p">,</span>
     <span class="n">relationship</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">or_</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
@@ -116,7 +116,7 @@
 
     <span class="c1"># Many Works may use this resource (as opposed to other resources</span>
     <span class="c1"># linked to them with rel=&quot;description&quot;) as their summary.</span>
-    <span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+    <span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
     <span class="n">summary_works</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;Work&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;summary&quot;</span><span class="p">,</span> <span class="n">foreign_keys</span><span class="o">=</span><span class="p">[</span><span class="n">Work</span><span class="o">.</span><span class="n">summary_id</span><span class="p">])</span>
 
     <span class="c1"># Many LicensePools (but probably one at most) may use this</span>
@@ -451,7 +451,7 @@
 <span class="sd">        thumbnail was created of it. (We do cover the case where the thumbnail</span>
 <span class="sd">        was created but not mirrored.)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
+        <span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hyperlink</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="n">Hyperlink</span><span class="o">.</span><span class="n">identifier</span>

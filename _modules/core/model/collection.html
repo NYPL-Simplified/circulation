@@ -35,37 +35,37 @@
   <h1>Source code for core.model.collection</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Collection, CollectionIdentifier, CollectionMissing</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">create</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">configuration</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">configuration</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="n">EditionConstants</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="k">import</span> <span class="n">HasFullTableCache</span>
-<span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
-<span class="kn">from</span> <span class="nn">integrationclient</span> <span class="k">import</span> <span class="n">IntegrationClient</span>
-<span class="kn">from</span> <span class="nn">library</span> <span class="k">import</span> <span class="n">Library</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="n">EditionConstants</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">hasfulltablecache</span> <span class="kn">import</span> <span class="n">HasFullTableCache</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">integrationclient</span> <span class="kn">import</span> <span class="n">IntegrationClient</span>
+<span class="kn">from</span> <span class="nn">library</span> <span class="kn">import</span> <span class="n">Library</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">work</span> <span class="k">import</span> <span class="n">Work</span>
+<span class="kn">from</span> <span class="nn">work</span> <span class="kn">import</span> <span class="n">Work</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">exists</span><span class="p">,</span>
     <span class="n">ForeignKey</span><span class="p">,</span>
@@ -76,21 +76,22 @@
     <span class="n">UniqueConstraint</span><span class="p">,</span>
     <span class="n">Boolean</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">backref</span><span class="p">,</span>
+    <span class="n">contains_eager</span><span class="p">,</span>
     <span class="n">joinedload</span><span class="p">,</span>
     <span class="n">mapper</span><span class="p">,</span>
     <span class="n">relationship</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="n">NoResultFound</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="n">NoResultFound</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
     <span class="n">or_</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">base64</span><span class="p">,</span>
     <span class="n">native_string</span><span class="p">,</span>
 <span class="p">)</span>
@@ -193,7 +194,7 @@
     <span class="c1"># every library.</span>
     <span class="n">GLOBAL_COLLECTION_DATA_SOURCES</span> <span class="o">=</span> <span class="p">[</span><span class="n">DataSource</span><span class="o">.</span><span class="n">ENKI</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
             <span class="sa">u</span><span class="s1">&#39;&lt;Collection &quot;</span><span class="si">%s</span><span class="s1">&quot;/&quot;</span><span class="si">%s</span><span class="s1">&quot; ID=</span><span class="si">%d</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
@@ -659,31 +660,40 @@
 
         <span class="k">return</span> <span class="n">query</span></div>
 
-<div class="viewcode-block" id="Collection.works_updated_since"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.works_updated_since">[docs]</a>    <span class="k">def</span> <span class="nf">works_updated_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Finds all works in a collection&#39;s catalog that have been updated</span>
-<span class="sd">           since the timestamp. Used in the metadata wrangler.</span>
+<div class="viewcode-block" id="Collection.licensepools_with_works_updated_since"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Collection.licensepools_with_works_updated_since">[docs]</a>    <span class="k">def</span> <span class="nf">licensepools_with_works_updated_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Finds all LicensePools in a collection&#39;s catalog whose Works&#39; OPDS</span>
+<span class="sd">        entries have been updated since the timestamp. Used by the</span>
+<span class="sd">        metadata wrangler.</span>
 
-<span class="sd">           :return: a Query that yields (Work, LicensePool,</span>
-<span class="sd">              Identifier) 3-tuples. This gives caller all the</span>
-<span class="sd">              information necessary to create full OPDS entries for</span>
-<span class="sd">              the works.</span>
+<span class="sd">        :param _db: A database connection,</span>
+<span class="sd">        :param timestamp: A datetime.timestamp object</span>
+
+<span class="sd">        :return: a Query that yields LicensePools. The Work and</span>
+<span class="sd">           Identifier associated with each LicensePool have been</span>
+<span class="sd">           pre-loaded, giving the caller all the information</span>
+<span class="sd">           necessary to create full OPDS entries for the works.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">opds_operation</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">GENERATE_OPDS_OPERATION</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-            <span class="n">Work</span><span class="p">,</span> <span class="n">LicensePool</span><span class="p">,</span> <span class="n">Identifier</span>
+            <span class="n">LicensePool</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">work</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
         <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="n">Work</span><span class="o">.</span><span class="n">coverage_records</span><span class="p">,</span>
         <span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">Identifier</span><span class="o">.</span><span class="n">collections</span><span class="p">,</span>
+            <span class="n">CollectionIdentifier</span><span class="p">,</span>
+            <span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">CollectionIdentifier</span><span class="o">.</span><span class="n">identifier_id</span>
         <span class="p">)</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span>
-            <span class="n">Work</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">work_id</span><span class="p">,</span>
-            <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
             <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">operation</span><span class="o">==</span><span class="n">opds_operation</span><span class="p">,</span>
-            <span class="n">CollectionIdentifier</span><span class="o">.</span><span class="n">identifier_id</span><span class="o">==</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
             <span class="n">CollectionIdentifier</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">joinedload</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">,</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">options</span><span class="p">(</span>
+            <span class="n">contains_eager</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">work</span><span class="p">),</span>
+            <span class="n">contains_eager</span><span class="p">(</span><span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier</span><span class="p">),</span>
+        <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">timestamp</span><span class="p">:</span>
             <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
@@ -802,7 +812,7 @@
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">search_index</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="kn">from</span> <span class="nn">..external_search</span> <span class="k">import</span> <span class="n">ExternalSearchIndex</span>
+                <span class="kn">from</span> <span class="nn">..external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
                 <span class="n">search_index</span> <span class="o">=</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># No search index is configured. This is fine -- just skip</span>

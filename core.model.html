@@ -1228,6 +1228,32 @@ the metadata wrangler.</p>
 <code class="descname">licensepools</code><a class="headerlink" href="#core.model.collection.Collection.licensepools" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="core.model.collection.Collection.licensepools_with_works_updated_since">
+<code class="descname">licensepools_with_works_updated_since</code><span class="sig-paren">(</span><em>_db</em>, <em>timestamp</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/collection.html#Collection.licensepools_with_works_updated_since"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.Collection.licensepools_with_works_updated_since" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds all LicensePools in a collection’s catalog whose Works’ OPDS
+entries have been updated since the timestamp. Used by the
+metadata wrangler.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>_db</strong> – A database connection,</li>
+<li><strong>timestamp</strong> – A datetime.timestamp object</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">a Query that yields LicensePools. The Work and
+Identifier associated with each LicensePool have been
+pre-loaded, giving the caller all the information
+necessary to create full OPDS entries for the works.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="attribute">
 <dt id="core.model.collection.Collection.marked_for_deletion">
 <code class="descname">marked_for_deletion</code><a class="headerlink" href="#core.model.collection.Collection.marked_for_deletion" title="Permalink to this definition">¶</a></dt>
@@ -1332,24 +1358,6 @@ metadata wrangler.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a sqlalchemy.Query</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="core.model.collection.Collection.works_updated_since">
-<code class="descname">works_updated_since</code><span class="sig-paren">(</span><em>_db</em>, <em>timestamp</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/collection.html#Collection.works_updated_since"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.collection.Collection.works_updated_since" title="Permalink to this definition">¶</a></dt>
-<dd><p>Finds all works in a collection’s catalog that have been updated
-since the timestamp. Used in the metadata wrangler.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a Query that yields (Work, LicensePool,
-Identifier) 3-tuples. This gives caller all the
-information necessary to create full OPDS entries for
-the works.</td>
 </tr>
 </tbody>
 </table>

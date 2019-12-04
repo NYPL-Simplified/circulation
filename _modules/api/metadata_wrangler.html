@@ -37,20 +37,20 @@
 <span class="c1"># and the metadata wrangler.</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">StringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">or_</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">aliased</span><span class="p">,</span>
     <span class="n">contains_eager</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">CannotLoadConfiguration</span>
-<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="k">import</span> <span class="n">CoverageFailure</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="n">TimestampData</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="kn">import</span> <span class="n">CoverageFailure</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="n">TimestampData</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
@@ -58,19 +58,19 @@
     <span class="n">Session</span><span class="p">,</span>
     <span class="n">Timestamp</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionMonitor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.opds</span> <span class="k">import</span> <span class="n">AcquisitionFeed</span>
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">AcquisitionFeed</span>
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span>
     <span class="n">OPDSImporter</span><span class="p">,</span>
     <span class="n">OPDSXMLParser</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="n">RemoteIntegrationException</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="n">RemoteIntegrationException</span>
 
-<span class="kn">from</span> <span class="nn">api.coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSImportCoverageProvider</span><span class="p">,</span>
     <span class="n">RegistrarImporter</span><span class="p">,</span>
     <span class="n">ReaperImporter</span><span class="p">,</span>
@@ -82,7 +82,7 @@
 <span class="sd">    with the Metadata Wrangler.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MetadataWranglerCollectionMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span>
         <span class="p">)</span>
@@ -264,7 +264,7 @@
     <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Metadata Wrangler Auxiliary Metadata Delivery&quot;</span>
     <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">CollectionMonitor</span><span class="o">.</span><span class="n">NEVER</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MWAuxiliaryMetadataMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup</span><span class="o">=</span><span class="n">lookup</span>
         <span class="p">)</span>
@@ -362,7 +362,7 @@
         <span class="n">Identifier</span><span class="o">.</span><span class="n">URI</span><span class="p">,</span>
     <span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">lookup_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Since we are processing a specific collection, we must be able to</span>
 <span class="sd">        get an _authenticated_ metadata wrangler lookup client for the</span>
 <span class="sd">        collection.</span>
@@ -544,7 +544,7 @@
     <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">CoverageRecord</span><span class="o">.</span><span class="n">METADATA_UPLOAD_OPERATION</span>
     <span class="n">DATA_SOURCE_NAME</span> <span class="o">=</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">INTERNAL_PROCESSING</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;registered_only&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;registered_only&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MetadataUploadCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 

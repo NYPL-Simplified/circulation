@@ -67,8 +67,8 @@
 <span class="kn">import</span> <span class="nn">socket</span>
 <span class="kn">import</span> <span class="nn">ssl</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
-<span class="kn">from</span> <span class="nn">api.sip.dialect</span> <span class="k">import</span> <span class="n">GenericILS</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">api.sip.dialect</span> <span class="kn">import</span> <span class="n">GenericILS</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <span class="c1"># SIP2 defines a large number of fields which are used in request and</span>
 <span class="c1"># response messages. This library focuses on defining the response</span>
@@ -78,7 +78,7 @@
 <div class="viewcode-block" id="fixed"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.fixed">[docs]</a><span class="k">class</span> <span class="nc">fixed</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A fixed-width field in a SIP2 response.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span> <span class="o">=</span> <span class="n">internal_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
 
@@ -116,7 +116,7 @@
 
 <div class="viewcode-block" id="named"><a class="viewcode-back" href="../../../api.sip.html#api.sip.client.named">[docs]</a><span class="k">class</span> <span class="nc">named</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A variable-length field in a SIP2 response.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">sip_code</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">internal_name</span><span class="p">,</span> <span class="n">sip_code</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                  <span class="n">length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allow_multiple</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sip_code</span> <span class="o">=</span> <span class="n">sip_code</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">internal_name</span> <span class="o">=</span> <span class="n">internal_name</span>
@@ -273,7 +273,7 @@
         <span class="n">TOO_MANY_ITEMS_BILLED</span>
     <span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_server</span><span class="p">,</span> <span class="n">target_port</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_server</span><span class="p">,</span> <span class="n">target_port</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">use_ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ssl_cert</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssl_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">GenericILS</span>
     <span class="p">):</span>
@@ -873,7 +873,7 @@
 <span class="sd">    connection.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="s2">&quot;|&quot;</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">login_password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="s2">&quot;|&quot;</span><span class="p">,</span>
                  <span class="n">target_server</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">location_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">institution_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MockSIPClient</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">login_user_id</span><span class="o">=</span><span class="n">login_user_id</span><span class="p">,</span>

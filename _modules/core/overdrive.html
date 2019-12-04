@@ -33,7 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.overdrive</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">isbnlib</span>
 <span class="kn">import</span> <span class="nn">os</span>
@@ -43,19 +43,19 @@
 <span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">NoResultFound</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">temp_config</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
@@ -75,7 +75,7 @@
     <span class="n">Subject</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">ContributorData</span><span class="p">,</span>
     <span class="n">FormatData</span><span class="p">,</span>
@@ -86,20 +86,20 @@
     <span class="n">SubjectData</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BibliographicCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">testing</span> <span class="k">import</span> <span class="n">DatabaseTest</span>
+<span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
-<span class="kn">from</span> <span class="nn">util.http</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HTTP</span><span class="p">,</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="k">import</span> <span class="n">base64</span>
-<span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="k">import</span> <span class="n">RLock</span>
+<span class="kn">from</span> <span class="nn">util.string_helpers</span> <span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="kn">import</span> <span class="n">RLock</span>
 
-<span class="kn">from</span> <span class="nn">testing</span> <span class="k">import</span> <span class="n">MockRequestsResponse</span>
+<span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
 
 <div class="viewcode-block" id="OverdriveAPI"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI">[docs]</a><span class="k">class</span> <span class="nc">OverdriveAPI</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -157,7 +157,7 @@
     <span class="n">ILS_NAME_KEY</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;ils_name&quot;</span>
     <span class="n">ILS_NAME_DEFAULT</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;default&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Collection protocol is </span><span class="si">%s</span><span class="s2">, but passed into OverdriveAPI!&quot;</span> <span class="o">%</span>
@@ -518,7 +518,7 @@
         <span class="n">OverdriveAPI</span><span class="o">.</span><span class="n">ils_name_setting</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="s1">&#39;e&#39;</span>
         <span class="k">return</span> <span class="n">collection</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">access_token_requests</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1095,7 +1095,7 @@
     <span class="sd">&quot;&quot;&quot;Holder and parser for data associated with Overdrive Advantage.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent_library_id</span><span class="p">,</span> <span class="n">library_id</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent_library_id</span><span class="p">,</span> <span class="n">library_id</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param parent_library_id: The library ID of the parent Overdrive</span>
@@ -1175,7 +1175,7 @@
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OVERDRIVE</span>
     <span class="n">INPUT_IDENTIFIER_TYPES</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">OverdriveAPI</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">OverdriveAPI</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param collection: Provide bibliographic coverage to all</span>

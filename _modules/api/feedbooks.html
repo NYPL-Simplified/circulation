@@ -35,20 +35,20 @@
   <h1>Source code for api.feedbooks</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
-<span class="kn">from</span> <span class="nn">zipfile</span> <span class="k">import</span> <span class="n">ZipFile</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">StringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">zipfile</span> <span class="kn">import</span> <span class="n">ZipFile</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">core.opds</span> <span class="k">import</span> <span class="n">OPDSFeed</span>
-<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
+<span class="kn">from</span> <span class="nn">core.opds_import</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSImporter</span><span class="p">,</span>
     <span class="n">OPDSImportMonitor</span><span class="p">,</span>
     <span class="n">OPDSXMLParser</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
@@ -57,7 +57,7 @@
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">RightsStatus</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.epub</span> <span class="k">import</span> <span class="n">EpubAccessor</span>
+<span class="kn">from</span> <span class="nn">core.util.epub</span> <span class="kn">import</span> <span class="n">EpubAccessor</span>
 
 
 <div class="viewcode-block" id="FeedbooksOPDSImporter"><a class="viewcode-back" href="../../api.html#api.feedbooks.FeedbooksOPDSImporter">[docs]</a><span class="k">class</span> <span class="nc">FeedbooksOPDSImporter</span><span class="p">(</span><span class="n">OPDSImporter</span><span class="p">):</span>
@@ -106,7 +106,7 @@
 
     <span class="n">THIRTY_DAYS</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span>
         <span class="n">new_css_url</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">REPLACEMENT_CSS_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="k">if</span> <span class="n">new_css_url</span><span class="p">:</span>

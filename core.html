@@ -197,68 +197,104 @@
 <dt id="core.app_server.URNLookupController">
 <em class="property">class </em><code class="descclassname">core.app_server.</code><code class="descname">URNLookupController</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>A generic controller that takes URNs as input and looks up their
-OPDS entries.</p>
-<dl class="attribute">
-<dt id="core.app_server.URNLookupController.UNRECOGNIZED_IDENTIFIER">
-<code class="descname">UNRECOGNIZED_IDENTIFIER</code><em class="property"> = 'This work is not in the collection.'</em><a class="headerlink" href="#core.app_server.URNLookupController.UNRECOGNIZED_IDENTIFIER" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.app_server.URNLookupController.WORK_NOT_CREATED">
-<code class="descname">WORK_NOT_CREATED</code><em class="property"> = 'Identifier resolved but work not yet created.'</em><a class="headerlink" href="#core.app_server.URNLookupController.WORK_NOT_CREATED" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.app_server.URNLookupController.WORK_NOT_PRESENTATION_READY">
-<code class="descname">WORK_NOT_PRESENTATION_READY</code><em class="property"> = 'Work created but not yet presentation-ready.'</em><a class="headerlink" href="#core.app_server.URNLookupController.WORK_NOT_PRESENTATION_READY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="core.app_server.URNLookupController.add_entry">
-<code class="descname">add_entry</code><span class="sig-paren">(</span><em>entry</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.add_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.add_entry" title="Permalink to this definition">¶</a></dt>
-<dd><p>An identifier lookup succeeded in creating an OPDS entry.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="core.app_server.URNLookupController.add_message">
-<code class="descname">add_message</code><span class="sig-paren">(</span><em>urn</em>, <em>status_code</em>, <em>message</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.add_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.add_message" title="Permalink to this definition">¶</a></dt>
-<dd><p>An identifier lookup resulted in the creation of a message.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="core.app_server.URNLookupController.add_urn_failure_messages">
-<code class="descname">add_urn_failure_messages</code><span class="sig-paren">(</span><em>failures</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.add_urn_failure_messages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.add_urn_failure_messages" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="core.app_server.URNLookupController.add_work">
-<code class="descname">add_work</code><span class="sig-paren">(</span><em>identifier</em>, <em>work</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.add_work"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.add_work" title="Permalink to this definition">¶</a></dt>
-<dd><p>An identifier lookup succeeded in finding a Work.</p>
-</dd></dl>
-
+<p>A controller for looking up OPDS entries for specific books,
+identified in terms of their Identifier URNs.</p>
 <dl class="method">
 <dt id="core.app_server.URNLookupController.permalink">
 <code class="descname">permalink</code><span class="sig-paren">(</span><em>urn</em>, <em>annotator</em>, <em>route_name='work'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.permalink"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.permalink" title="Permalink to this definition">¶</a></dt>
 <dd><p>Look up a single identifier and generate an OPDS feed.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="core.app_server.URNLookupController.post_lookup_hook">
-<code class="descname">post_lookup_hook</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.post_lookup_hook"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.post_lookup_hook" title="Permalink to this definition">¶</a></dt>
-<dd><p>Run after looking up a number of Identifiers.</p>
-<p>By default, does nothing.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="core.app_server.URNLookupController.process_identifier">
-<code class="descname">process_identifier</code><span class="sig-paren">(</span><em>identifier</em>, <em>urn</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.process_identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.process_identifier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Turn a URN into a Work suitable for use in an OPDS feed.</p>
+<p>TODO: This method is tested, but it seems unused and it
+should be possible to remove it.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="core.app_server.URNLookupController.process_urns">
 <code class="descname">process_urns</code><span class="sig-paren">(</span><em>urns</em>, <em>**process_urn_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.process_urns"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.process_urns" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process a number of URNs by instantiating a URNLookupHandler
+and having it do the work.</p>
+<p>The information gathered by the URNLookupHandler can be used
+by the caller to generate an OPDS feed.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A URNLookupHandler, or a ProblemDetail if
+there’s a problem with the request.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupController.work_lookup">
+<code class="descname">work_lookup</code><span class="sig-paren">(</span><em>annotator</em>, <em>route_name='lookup'</em>, <em>**process_urn_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.work_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.work_lookup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate an OPDS feed describing works identified by identifier.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="core.app_server.URNLookupHandler">
+<em class="property">class </em><code class="descclassname">core.app_server.</code><code class="descname">URNLookupHandler</code><span class="sig-paren">(</span><em>_db</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A helper for URNLookupController that takes URNs as input and looks
+up their OPDS entries.</p>
+<p>This is a separate class from URNLookupController because
+URNLookupController is designed to not keep state.</p>
+<dl class="attribute">
+<dt id="core.app_server.URNLookupHandler.UNRECOGNIZED_IDENTIFIER">
+<code class="descname">UNRECOGNIZED_IDENTIFIER</code><em class="property"> = 'This work is not in the collection.'</em><a class="headerlink" href="#core.app_server.URNLookupHandler.UNRECOGNIZED_IDENTIFIER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.app_server.URNLookupHandler.WORK_NOT_CREATED">
+<code class="descname">WORK_NOT_CREATED</code><em class="property"> = 'Identifier resolved but work not yet created.'</em><a class="headerlink" href="#core.app_server.URNLookupHandler.WORK_NOT_CREATED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.app_server.URNLookupHandler.WORK_NOT_PRESENTATION_READY">
+<code class="descname">WORK_NOT_PRESENTATION_READY</code><em class="property"> = 'Work created but not yet presentation-ready.'</em><a class="headerlink" href="#core.app_server.URNLookupHandler.WORK_NOT_PRESENTATION_READY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupHandler.add_entry">
+<code class="descname">add_entry</code><span class="sig-paren">(</span><em>entry</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler.add_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler.add_entry" title="Permalink to this definition">¶</a></dt>
+<dd><p>An identifier lookup succeeded in creating an OPDS entry.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupHandler.add_message">
+<code class="descname">add_message</code><span class="sig-paren">(</span><em>urn</em>, <em>status_code</em>, <em>message</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler.add_message"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler.add_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>An identifier lookup resulted in the creation of a message.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupHandler.add_urn_failure_messages">
+<code class="descname">add_urn_failure_messages</code><span class="sig-paren">(</span><em>failures</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler.add_urn_failure_messages"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler.add_urn_failure_messages" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupHandler.add_work">
+<code class="descname">add_work</code><span class="sig-paren">(</span><em>identifier</em>, <em>work</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler.add_work"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler.add_work" title="Permalink to this definition">¶</a></dt>
+<dd><p>An identifier lookup succeeded in finding a Work.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupHandler.post_lookup_hook">
+<code class="descname">post_lookup_hook</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler.post_lookup_hook"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler.post_lookup_hook" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run after looking up a number of Identifiers.</p>
+<p>By default, does nothing.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupHandler.process_identifier">
+<code class="descname">process_identifier</code><span class="sig-paren">(</span><em>identifier</em>, <em>urn</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler.process_identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler.process_identifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Turn a URN into a Work suitable for use in an OPDS feed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.app_server.URNLookupHandler.process_urns">
+<code class="descname">process_urns</code><span class="sig-paren">(</span><em>urns</em>, <em>**process_urn_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupHandler.process_urns"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupHandler.process_urns" title="Permalink to this definition">¶</a></dt>
 <dd><p>Processes a list of URNs for a lookup request.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -269,12 +305,6 @@ or Response.</td>
 </tr>
 </tbody>
 </table>
-</dd></dl>
-
-<dl class="method">
-<dt id="core.app_server.URNLookupController.work_lookup">
-<code class="descname">work_lookup</code><span class="sig-paren">(</span><em>annotator</em>, <em>route_name='lookup'</em>, <em>**process_urn_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#URNLookupController.work_lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.URNLookupController.work_lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate an OPDS feed describing works identified by identifier.</p>
 </dd></dl>
 
 </dd></dl>
@@ -4979,7 +5009,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-e125db4c-de04-4ca9-b600-311c7f47b5b4'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-4cad5842-de0b-4a9c-b93f-4d60d33c03f4'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -11141,7 +11171,7 @@ Be careful of leaving it in code and potentially outputting
 vast tracts of data into your output stream on production.</p>
 <p>Call like this:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">set_trace</span><span class="p">()</span>
-<span class="kn">from</span> <span class="nn">testing</span> <span class="k">import</span> <span class="p">(</span><span class="n">l</span><span class="o">=</span>
+<span class="kn">from</span> <span class="nn">testing</span> <span class="kn">import</span> <span class="p">(</span><span class="n">l</span><span class="o">=</span>
     <span class="n">DatabaseTest</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>

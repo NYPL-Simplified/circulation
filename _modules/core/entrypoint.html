@@ -33,7 +33,7 @@
           <div class="body" role="main">
             
   <h1>Source code for core.entrypoint</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <div class="viewcode-block" id="EntryPoint"><a class="viewcode-back" href="../../core.html#core.config.EntryPoint">[docs]</a><span class="k">class</span> <span class="nc">EntryPoint</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -152,7 +152,7 @@
         <span class="sd">&quot;&quot;&quot;Modify a query against Work+LicensePool+Edition</span>
 <span class="sd">        to match only items with the right medium.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="n">Edition</span>
+        <span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="n">Edition</span>
         <span class="k">return</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Edition</span><span class="o">.</span><span class="n">medium</span><span class="o">==</span><span class="bp">cls</span><span class="o">.</span><span class="n">INTERNAL_NAME</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MediumEntryPoint.modify_search_filter"><a class="viewcode-back" href="../../core.html#core.config.MediumEntryPoint.modify_search_filter">[docs]</a>    <span class="nd">@classmethod</span>

@@ -35,9 +35,9 @@
   <h1>Source code for core.model.work</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># WorkGenre, Work</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">flush</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
@@ -46,34 +46,34 @@
     <span class="n">PresentationCalculationPolicy</span><span class="p">,</span>
     <span class="n">tuple_to_numericrange</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageRecord</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">contributor</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">contributor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Contribution</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">..classifier</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">..classifier</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classifier</span><span class="p">,</span>
     <span class="n">WorkClassifier</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DataSourceConstants</span><span class="p">,</span>
     <span class="n">LinkRelations</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">edition</span> <span class="k">import</span> <span class="n">Edition</span>
-<span class="kn">from</span> <span class="nn">identifier</span> <span class="k">import</span> <span class="n">Identifier</span>
-<span class="kn">from</span> <span class="nn">measurement</span> <span class="k">import</span> <span class="n">Measurement</span>
-<span class="kn">from</span> <span class="nn">..util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">edition</span> <span class="kn">import</span> <span class="n">Edition</span>
+<span class="kn">from</span> <span class="nn">identifier</span> <span class="kn">import</span> <span class="n">Identifier</span>
+<span class="kn">from</span> <span class="nn">measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
+<span class="kn">from</span> <span class="nn">..util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">random</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Binary</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
@@ -89,16 +89,16 @@
     <span class="n">Table</span><span class="p">,</span>
     <span class="n">Unicode</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="k">import</span> <span class="n">INT4RANGE</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.associationproxy</span> <span class="k">import</span> <span class="n">association_proxy</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.dialects.postgresql</span> <span class="kn">import</span> <span class="n">INT4RANGE</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.associationproxy</span> <span class="kn">import</span> <span class="n">association_proxy</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">contains_eager</span><span class="p">,</span>
     <span class="n">relationship</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
     <span class="n">extract</span><span class="p">,</span>
     <span class="n">or_</span><span class="p">,</span>
@@ -123,7 +123,7 @@
         <span class="n">wg</span><span class="o">.</span><span class="n">genre</span> <span class="o">=</span> <span class="n">genre</span>
         <span class="k">return</span> <span class="n">wg</span></div>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> (</span><span class="si">%d%%</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">genre</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">affinity</span><span class="o">*</span><span class="mi">100</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Work"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work">[docs]</a><span class="k">class</span> <span class="nc">Work</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
@@ -349,7 +349,7 @@
         <span class="p">[</span><span class="n">complaints</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">complaints</span><span class="p">)</span> <span class="k">for</span> <span class="n">pool</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pools</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">complaints</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">native_string</span><span class="p">(</span>
             <span class="sa">u</span><span class="s1">&#39;&lt;Work #</span><span class="si">%s</span><span class="s1"> &quot;</span><span class="si">%s</span><span class="s1">&quot; (by </span><span class="si">%s</span><span class="s1">) </span><span class="si">%s</span><span class="s1"> lang=</span><span class="si">%s</span><span class="s1"> (</span><span class="si">%s</span><span class="s1"> lp)&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">author</span><span class="p">,</span>
@@ -379,11 +379,11 @@
 
 <div class="viewcode-block" id="Work.for_unchecked_subjects"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.for_unchecked_subjects">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">for_unchecked_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Classification</span><span class="p">,</span>
             <span class="n">Subject</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="sd">&quot;&quot;&quot;Find all Works whose LicensePools have an Identifier that</span>
 <span class="sd">        is classified under an unchecked Subject.</span>
 <span class="sd">        This is a good indicator that the Work needs to be</span>
@@ -407,7 +407,7 @@
 <span class="sd">        Counter tallying the number of affected LicensePools</span>
 <span class="sd">        associated with a given work.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">LicensePool</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
                 <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">==</span><span class="kc">True</span>
@@ -627,7 +627,7 @@
 <div class="viewcode-block" id="Work.with_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.with_genre">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">with_genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find all Works classified under the given genre.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="n">Genre</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Genre</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genre</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
             <span class="n">genre</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">Genre</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">genre</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">WorkGenre</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">genre</span><span class="o">==</span><span class="n">genre</span><span class="p">)</span></div>
@@ -652,7 +652,7 @@
 <span class="sd">           Identifiers. By default, this method will be very strict</span>
 <span class="sd">           about equivalencies.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">identifier</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier_ids</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -680,8 +680,8 @@
     <span class="k">def</span> <span class="nf">reject_covers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">works_or_identifiers</span><span class="p">,</span>
                         <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Suppresses the currently visible covers of a number of Works&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Resource</span><span class="p">,</span>
             <span class="n">Hyperlink</span><span class="p">,</span>
         <span class="p">)</span>
@@ -760,7 +760,7 @@
 <span class="sd">           determine how far to go when looking for equivalent</span>
 <span class="sd">           Identifiers.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">identifier_ids_subquery</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">recursively_equivalent_identifier_ids_query</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">identifier_id</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span>
@@ -1096,7 +1096,7 @@
         <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Work.calculate_opds_entries"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_opds_entries">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_opds_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">..opds</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">..opds</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">AcquisitionFeed</span><span class="p">,</span>
             <span class="n">Annotator</span><span class="p">,</span>
             <span class="n">VerboseAnnotator</span><span class="p">,</span>
@@ -1114,7 +1114,7 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Work.calculate_marc_record"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.calculate_marc_record">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_marc_record</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">..marc</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">..marc</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Annotator</span><span class="p">,</span>
             <span class="n">MARCExporter</span>
         <span class="p">)</span>
@@ -1293,7 +1293,7 @@
 
 <div class="viewcode-block" id="Work.assign_genres_from_weights"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.assign_genres_from_weights">[docs]</a>    <span class="k">def</span> <span class="nf">assign_genres_from_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">genre_weights</span><span class="p">):</span>
         <span class="c1"># Assign WorkGenre objects to the remainder.</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="n">Genre</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Genre</span>
         <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">total_genre_weight</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">genre_weights</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
@@ -1456,12 +1456,12 @@
 
         <span class="c1"># This subquery gets Collection IDs for collections</span>
         <span class="c1"># that own more than zero licenses for this book.</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Genre</span><span class="p">,</span>
             <span class="n">Subject</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">customlist</span> <span class="k">import</span> <span class="n">CustomListEntry</span>
-        <span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="n">LicensePool</span><span class="p">,</span> <span class="n">LicensePoolDeliveryMechanism</span>
+        <span class="kn">from</span> <span class="nn">customlist</span> <span class="kn">import</span> <span class="n">CustomListEntry</span>
+        <span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="n">LicensePool</span><span class="p">,</span> <span class="n">LicensePoolDeliveryMechanism</span>
 
         <span class="c1"># We need information about LicensePools for a few reasons:</span>
         <span class="c1">#</span>
@@ -1589,7 +1589,7 @@
         <span class="n">term_column</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">case</span><span class="p">([(</span><span class="n">Subject</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Subject</span><span class="o">.</span><span class="n">name</span><span class="p">)],</span> <span class="n">else_</span><span class="o">=</span><span class="n">Subject</span><span class="o">.</span><span class="n">identifier</span><span class="p">),</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
 
         <span class="c1"># Normalize by dividing each weight by the sum of the weights for that Identifier&#39;s Classifications.</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="n">Classification</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Classification</span>
         <span class="n">weight_column</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span> <span class="o">/</span> <span class="n">func</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">weight</span><span class="p">))</span><span class="o">.</span><span class="n">over</span><span class="p">()</span>
 
         <span class="c1"># The subquery for Subjects, with those three columns. The labels will become keys in json objects.</span>
@@ -1770,7 +1770,7 @@
         <span class="k">return</span> <span class="n">qu</span>
 
 <div class="viewcode-block" id="Work.classifications_with_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.classifications_with_genre">[docs]</a>    <span class="k">def</span> <span class="nf">classifications_with_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Classification</span><span class="p">,</span>
             <span class="n">Subject</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1783,7 +1783,7 @@
             <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">Classification</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="Work.top_genre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.top_genre">[docs]</a>    <span class="k">def</span> <span class="nf">top_genre</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="n">Genre</span>
+        <span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="n">Genre</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">genre</span> <span class="o">=</span> <span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Genre</span><span class="p">)</span> \
             <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">WorkGenre</span><span class="p">)</span> \

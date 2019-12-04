@@ -35,9 +35,9 @@
   <h1>Source code for core.model.cachedfeed</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># CachedFeed, WillNotGenerateExpensiveFeed</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">flush</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
@@ -45,7 +45,7 @@
 
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">DateTime</span><span class="p">,</span>
     <span class="n">ForeignKey</span><span class="p">,</span>
@@ -53,7 +53,7 @@
     <span class="n">Integer</span><span class="p">,</span>
     <span class="n">Unicode</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -115,8 +115,8 @@
               <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="c1"># TODO: It would be good to pull type from the Lane and/or Facets</span>
         <span class="c1"># class instead of needing a separate argument.</span>
-        <span class="kn">from</span> <span class="nn">..opds</span> <span class="k">import</span> <span class="n">AcquisitionFeed</span>
-        <span class="kn">from</span> <span class="nn">..lane</span> <span class="k">import</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">WorkList</span>
+        <span class="kn">from</span> <span class="nn">..opds</span> <span class="kn">import</span> <span class="n">AcquisitionFeed</span>
+        <span class="kn">from</span> <span class="nn">..lane</span> <span class="kn">import</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">WorkList</span>
         <span class="k">if</span> <span class="n">max_age</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Figure out the default max age for a feed of this type</span>
             <span class="c1"># for this lane.</span>
@@ -212,7 +212,7 @@
         <span class="sd">&quot;&quot;&quot;Helper method to calculate the proper cache time for</span>
 <span class="sd">        a WorkList.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">..lane</span> <span class="k">import</span> <span class="n">Lane</span>
+        <span class="kn">from</span> <span class="nn">..lane</span> <span class="kn">import</span> <span class="n">Lane</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">type</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">GROUPS_TYPE</span><span class="p">:</span>
             <span class="c1"># It&#39;s too expensive to generate grouped feeds for</span>
             <span class="c1"># Lanes on the fly. To generate these you will</span>
@@ -228,7 +228,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="n">flush</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
             <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>

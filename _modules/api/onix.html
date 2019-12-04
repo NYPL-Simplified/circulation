@@ -34,17 +34,17 @@
             
   <h1>Source code for api.onix</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Metadata</span><span class="p">,</span>
     <span class="n">IdentifierData</span><span class="p">,</span>
     <span class="n">SubjectData</span><span class="p">,</span>
     <span class="n">ContributorData</span><span class="p">,</span>
     <span class="n">LinkData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
@@ -53,9 +53,9 @@
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="k">import</span> <span class="n">XMLParser</span>
+<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
 
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
 <div class="viewcode-block" id="ONIXExtractor"><a class="viewcode-back" href="../../api.html#api.onix.ONIXExtractor">[docs]</a><span class="k">class</span> <span class="nc">ONIXExtractor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Transform an ONIX file into a list of Metadata objects.&quot;&quot;&quot;</span>

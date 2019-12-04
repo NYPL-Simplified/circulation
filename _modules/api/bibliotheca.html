@@ -34,11 +34,11 @@
             
   <h1>Source code for api.bibliotheca</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 
-<span class="kn">from</span> <span class="nn">cStringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">cStringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -48,29 +48,29 @@
 <span class="kn">import</span> <span class="nn">hmac</span>
 <span class="kn">import</span> <span class="nn">hashlib</span>
 
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="n">or_</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">or_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">web_publication_manifest</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">web_publication_manifest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">FindawayManifest</span><span class="p">,</span>
     <span class="n">SpineItem</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">circulation</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">circulation</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">FulfillmentInfo</span><span class="p">,</span>
     <span class="n">HoldInfo</span><span class="p">,</span>
     <span class="n">LoanInfo</span><span class="p">,</span>
     <span class="n">BaseCirculationAPI</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">selftest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HasSelfTests</span><span class="p">,</span>
     <span class="n">SelfTestResult</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -95,31 +95,31 @@
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">temp_config</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BibliographicCoverageProvider</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.monitor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionMonitor</span><span class="p">,</span>
     <span class="n">IdentifierSweepMonitor</span><span class="p">,</span>
     <span class="n">TimelineMonitor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="k">import</span> <span class="n">XMLParser</span>
-<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.util.xmlparser</span> <span class="kn">import</span> <span class="n">XMLParser</span>
+<span class="kn">from</span> <span class="nn">core.util.http</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BadResponseException</span><span class="p">,</span>
     <span class="n">HTTP</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="k">import</span> <span class="n">Analytics</span>
+<span class="kn">from</span> <span class="nn">circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">core.analytics</span> <span class="kn">import</span> <span class="n">Analytics</span>
 
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ContributorData</span><span class="p">,</span>
     <span class="n">CirculationData</span><span class="p">,</span>
     <span class="n">Metadata</span><span class="p">,</span>
@@ -131,7 +131,7 @@
     <span class="n">SubjectData</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">DatabaseTest</span>
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
 <div class="viewcode-block" id="BibliothecaAPI"><a class="viewcode-back" href="../../api.html#api.bibliotheca.BibliothecaAPI">[docs]</a><span class="k">class</span> <span class="nc">BibliothecaAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">,</span> <span class="n">HasSelfTests</span><span class="p">):</span>
 
@@ -178,7 +178,7 @@
         <span class="p">[</span><span class="n">v</span><span class="p">,</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">delivery_mechanism_to_internal_format</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
     <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
 
         <span class="k">if</span> <span class="n">collection</span><span class="o">.</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">BIBLIOTHECA</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -621,7 +621,7 @@
 
 <div class="viewcode-block" id="DummyBibliothecaAPIResponse"><a class="viewcode-back" href="../../api.html#api.bibliotheca.DummyBibliothecaAPIResponse">[docs]</a><span class="k">class</span> <span class="nc">DummyBibliothecaAPIResponse</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">response_code</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="n">headers</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span></div>
@@ -647,7 +647,7 @@
         <span class="n">library</span><span class="o">.</span><span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">collection</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MockBibliothecaAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
@@ -661,7 +661,7 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="MockBibliothecaAPI.queue_response"><a class="viewcode-back" href="../../api.html#api.bibliotheca.MockBibliothecaAPI.queue_response">[docs]</a>    <span class="k">def</span> <span class="nf">queue_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{},</span> <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">MockRequestsResponse</span>
+        <span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">MockRequestsResponse</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
             <span class="mi">0</span><span class="p">,</span> <span class="n">MockRequestsResponse</span><span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
         <span class="p">)</span></div>
@@ -952,11 +952,11 @@
 
 
 <div class="viewcode-block" id="WorkflowException"><a class="viewcode-back" href="../../api.html#api.bibliotheca.WorkflowException">[docs]</a><span class="k">class</span> <span class="nc">WorkflowException</span><span class="p">(</span><span class="n">BibliothecaException</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actual_status</span><span class="p">,</span> <span class="n">statuses_that_would_work</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actual_status</span><span class="p">,</span> <span class="n">statuses_that_would_work</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">actual_status</span> <span class="o">=</span> <span class="n">actual_status</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">statuses_that_would_work</span> <span class="o">=</span> <span class="n">statuses_that_would_work</span>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;Book status is </span><span class="si">%s</span><span class="s2">, must be: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">actual_status</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">statuses_that_would_work</span><span class="p">))</span></div>
 
@@ -1068,7 +1068,7 @@
 
     <span class="n">id_type</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">BIBLIOTHECA_ID</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">PatronCirculationParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span>
 
@@ -1213,7 +1213,7 @@
     <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">25</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">BIBLIOTHECA</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaCirculationSweep</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
@@ -1308,7 +1308,7 @@
     <span class="n">DEFAULT_START_TIME</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="mi">365</span><span class="o">*</span><span class="mi">3</span><span class="p">)</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">BIBLIOTHECA</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span>
                  <span class="n">cli_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">analytics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">analytics</span> <span class="o">=</span> <span class="n">analytics</span> <span class="ow">or</span> <span class="n">Analytics</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">BibliothecaEventMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">)</span>
@@ -1456,7 +1456,7 @@
     <span class="c1"># 25 is the maximum batch size for the Bibliotheca API.</span>
     <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">25</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">api_class</span><span class="o">=</span><span class="n">BibliothecaAPI</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param collection: Provide bibliographic coverage to all</span>

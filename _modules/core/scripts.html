@@ -45,7 +45,7 @@
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
-<span class="kn">from</span> <span class="nn">requests.exceptions</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">requests.exceptions</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="ne">ConnectionError</span><span class="p">,</span>
     <span class="n">HTTPError</span><span class="p">,</span>
 <span class="p">)</span>
@@ -53,45 +53,45 @@
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">unicodedata</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">external_search</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ExternalSearchIndex</span><span class="p">,</span>
     <span class="n">Filter</span><span class="p">,</span>
     <span class="n">SearchIndexCoverageProvider</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">create_engine</span><span class="p">,</span>
     <span class="n">exists</span><span class="p">,</span>
     <span class="n">and_</span><span class="p">,</span>
     <span class="n">or_</span><span class="p">,</span>
     <span class="n">text</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="k">import</span> <span class="n">ProgrammingError</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="k">import</span> <span class="n">func</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="kn">import</span> <span class="n">ProgrammingError</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.functions</span> <span class="kn">import</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.exc</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">NoResultFound</span><span class="p">,</span>
     <span class="n">MultipleResultsFound</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">Session</span>
 
-<span class="kn">from</span> <span class="nn">app_server</span> <span class="k">import</span> <span class="n">ComplaintController</span>
+<span class="kn">from</span> <span class="nn">app_server</span> <span class="kn">import</span> <span class="n">ComplaintController</span>
 <span class="c1"># from axis import Axis360BibliographicCoverageProvider</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span><span class="p">,</span> <span class="n">CannotLoadConfiguration</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span><span class="p">,</span> <span class="n">CannotLoadConfiguration</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionCoverageProviderJob</span><span class="p">,</span>
     <span class="n">CoverageProviderProgress</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="n">Lane</span>
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">Lane</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">LinkData</span><span class="p">,</span>
     <span class="n">ReplacementPolicy</span><span class="p">,</span>
     <span class="n">MetaToModelUtility</span><span class="p">,</span>
     <span class="n">TimestampData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">create</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
@@ -123,31 +123,31 @@
     <span class="n">WorkGenre</span><span class="p">,</span>
     <span class="n">site_configuration_has_changed</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
-<span class="kn">from</span> <span class="nn">monitor</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">monitor</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CollectionMonitor</span><span class="p">,</span>
     <span class="n">ReaperMonitor</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">opds_import</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">opds_import</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSImportMonitor</span><span class="p">,</span>
     <span class="n">OPDSImporter</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="c1"># from oneclick import (</span>
 <span class="c1">#     OneClickBibliographicCoverageProvider,</span>
 <span class="c1"># )</span>
-<span class="kn">from</span> <span class="nn">overdrive</span> <span class="k">import</span> <span class="n">OverdriveBibliographicCoverageProvider</span>
-<span class="kn">from</span> <span class="nn">util</span> <span class="k">import</span> <span class="n">fast_query_count</span>
-<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="k">import</span> <span class="n">OPDSFeed</span>
-<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">overdrive</span> <span class="kn">import</span> <span class="n">OverdriveBibliographicCoverageProvider</span>
+<span class="kn">from</span> <span class="nn">util</span> <span class="kn">import</span> <span class="n">fast_query_count</span>
+<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
+<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">contributor_name_match_ratio</span><span class="p">,</span>
     <span class="n">display_name_to_sort_name</span><span class="p">,</span>
     <span class="n">is_corporate_name</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">util.worker_pools</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DatabaseWorker</span><span class="p">,</span>
     <span class="n">DatabasePool</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">cmp_to_key</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">cmp_to_key</span>
 
 <div class="viewcode-block" id="Script"><a class="viewcode-back" href="../../core.html#core.scripts.Script">[docs]</a><span class="k">class</span> <span class="nc">Script</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -202,7 +202,7 @@
                     <span class="k">continue</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not parse time: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">time_string</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Basic constructor.</span>
 
 <span class="sd">        :_db: A database session to be used instead of</span>
@@ -252,7 +252,7 @@
 <div class="viewcode-block" id="TimestampScript"><a class="viewcode-back" href="../../core.html#core.scripts.TimestampScript">[docs]</a><span class="k">class</span> <span class="nc">TimestampScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A script that automatically records a timestamp whenever it runs.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">TimestampScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_collection</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -281,7 +281,7 @@
 
 <div class="viewcode-block" id="RunMonitorScript"><a class="viewcode-back" href="../../core.html#core.scripts.RunMonitorScript">[docs]</a><span class="k">class</span> <span class="nc">RunMonitorScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">monitor</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">monitor</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RunMonitorScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">monitor</span><span class="p">,</span> <span class="n">CollectionMonitor</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">collection_monitor</span> <span class="o">=</span> <span class="n">monitor</span>
@@ -318,7 +318,7 @@
 <span class="sd">    system.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param kwargs: Keyword arguments to pass into the `monitors` method</span>
@@ -356,7 +356,7 @@
     <span class="sd">&quot;&quot;&quot;Run a CollectionMonitor on every Collection that comes through a</span>
 <span class="sd">    certain protocol.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">monitor_class</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">monitor_class</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param monitor_class: A class object that derives from</span>
@@ -383,7 +383,7 @@
 
 <div class="viewcode-block" id="RunCoverageProvidersScript"><a class="viewcode-back" href="../../core.html#core.scripts.RunCoverageProvidersScript">[docs]</a><span class="k">class</span> <span class="nc">RunCoverageProvidersScript</span><span class="p">(</span><span class="n">Script</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Alternate between multiple coverage providers.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">providers</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">providers</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RunCoverageProvidersScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">providers</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">providers</span><span class="p">:</span>
@@ -420,7 +420,7 @@
     <span class="sd">&quot;&quot;&quot;Run the same CoverageProvider code for all Collections that</span>
 <span class="sd">    get their licenses from the appropriate place.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
         <span class="n">providers</span> <span class="o">=</span> <span class="n">providers</span> <span class="ow">or</span> <span class="nb">list</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">provider_class</span><span class="p">:</span>
@@ -436,7 +436,7 @@
 
     <span class="n">DEFAULT_WORKER_SIZE</span> <span class="o">=</span> <span class="mi">5</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="n">worker_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_class</span><span class="p">,</span> <span class="n">worker_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">provider_kwargs</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RunThreadedCollectionCoverageProviderScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
@@ -813,7 +813,7 @@
     <span class="sd">&quot;&quot;&quot;Do something to each lane in a library.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="LaneSweeperScript.process_library"><a class="viewcode-back" href="../../core.html#core.scripts.LaneSweeperScript.process_library">[docs]</a>    <span class="k">def</span> <span class="nf">process_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="n">WorkList</span>
+        <span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">WorkList</span>
         <span class="n">top_level</span> <span class="o">=</span> <span class="n">WorkList</span><span class="o">.</span><span class="n">top_level_for_library</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">)</span>
         <span class="n">queue</span> <span class="o">=</span> <span class="p">[</span><span class="n">top_level</span><span class="p">]</span>
         <span class="k">while</span> <span class="n">queue</span><span class="p">:</span>
@@ -892,7 +892,7 @@
             <span class="n">parsed</span><span class="o">.</span><span class="n">cutoff_time</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">parse_time</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">cutoff_time</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">parsed</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">provider_args</span><span class="p">,</span> <span class="o">**</span><span class="n">provider_kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">provider_args</span><span class="p">,</span> <span class="o">**</span><span class="n">provider_kwargs</span><span class="p">):</span>
 
         <span class="nb">super</span><span class="p">(</span><span class="n">RunCoverageProviderScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">parsed_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="p">)</span>
@@ -1015,7 +1015,7 @@
 <div class="viewcode-block" id="ConfigureSiteScript"><a class="viewcode-back" href="../../core.html#core.scripts.ConfigureSiteScript">[docs]</a><span class="k">class</span> <span class="nc">ConfigureSiteScript</span><span class="p">(</span><span class="n">ConfigurationSettingScript</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;View or update site-wide configuration.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Configuration</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Configuration</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ConfigureSiteScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
 
@@ -1556,7 +1556,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">parser</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">AddClassificationScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="n">cmd_args</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">stdin</span>
@@ -1608,7 +1608,7 @@
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Work processing script&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">WorkProcessingScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
@@ -1769,7 +1769,7 @@
 
     <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">100</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">_db</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="o">=</span> <span class="n">_db</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">query</span> <span class="o">=</span> <span class="n">Work</span><span class="o">.</span><span class="n">for_unchecked_subjects</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span></div>
@@ -1803,7 +1803,7 @@
 <span class="sd">    MembershipManager.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager_class</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager_class</span><span class="p">,</span>
                  <span class="n">data_source_name</span><span class="p">,</span> <span class="n">list_identifier</span><span class="p">,</span> <span class="n">list_name</span><span class="p">,</span>
                  <span class="n">primary_language</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span>
                  <span class="o">**</span><span class="n">manager_kwargs</span>
@@ -1868,7 +1868,7 @@
     <span class="n">MONITOR_CLASS</span> <span class="o">=</span> <span class="n">OPDSImportMonitor</span>
     <span class="n">PROTOCOL</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">OPDS_IMPORT</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">importer_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">monitor_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">importer_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">monitor_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">OPDSImportScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">importer_class</span> <span class="o">=</span> <span class="n">importer_class</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">IMPORTER_CLASS</span>
@@ -2124,7 +2124,7 @@
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span></div>
 
-        <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">finish</span><span class="p">,</span> <span class="n">counter</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">finish</span><span class="p">,</span> <span class="n">counter</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">service</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">finish</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
                 <span class="n">finish</span> <span class="o">=</span> <span class="n">Script</span><span class="o">.</span><span class="n">parse_time</span><span class="p">(</span><span class="n">finish</span><span class="p">)</span>
@@ -2276,7 +2276,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">TimestampInfo</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PY_TIMESTAMP_SERVICE_NAME</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">DatabaseMigrationScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">python_only</span> <span class="o">=</span> <span class="kc">False</span>
 
@@ -2655,7 +2655,7 @@
     <span class="n">COMPLAINT_TYPE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/problem/wrong-author&quot;</span><span class="p">;</span>
 
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmd_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">CheckContributorNamesInDB</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">parsed_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_command_line</span><span class="p">(</span>
@@ -3028,7 +3028,7 @@
 <span class="sd">    This is a common problem on a new installation or when a new collection</span>
 <span class="sd">    is being configured.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">WhereAreMyBooksScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">output</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
@@ -3152,7 +3152,7 @@
 <span class="sd">    This script is helpful for accounting for and tracking collections on</span>
 <span class="sd">    the metadata wrangler.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">_db</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ListCollectionMetadataIdentifiersScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">output</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
@@ -3235,7 +3235,7 @@
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Completely delete the search index and recreate it.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">search</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;search_index_client&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">search</span> <span class="o">=</span> <span class="n">search</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RebuildSearchIndexScript</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
@@ -3273,7 +3273,7 @@
 
 <div class="viewcode-block" id="MockStdin"><a class="viewcode-back" href="../../core.html#core.scripts.MockStdin">[docs]</a><span class="k">class</span> <span class="nc">MockStdin</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Mock a list of identifiers passed in on standard input.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">lines</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">lines</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span>
 
 <div class="viewcode-block" id="MockStdin.readlines"><a class="viewcode-back" href="../../core.html#core.scripts.MockStdin.readlines">[docs]</a>    <span class="k">def</span> <span class="nf">readlines</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

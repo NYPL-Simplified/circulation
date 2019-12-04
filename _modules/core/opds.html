@@ -34,11 +34,11 @@
             
   <h1>Source code for core.opds</h1><div class="highlight"><pre>
 <span></span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">defaultdict</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">urlparse</span> <span class="k">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urljoin</span>
+<span class="kn">from</span> <span class="nn">urlparse</span> <span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urljoin</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">feedparser</span>
@@ -51,22 +51,22 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.query</span> <span class="k">import</span> <span class="n">Query</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="n">func</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.query</span> <span class="kn">import</span> <span class="n">Query</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
 
-<span class="kn">from</span> <span class="nn">lxml</span> <span class="k">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
 
-<span class="kn">from</span> <span class="nn">cdn</span> <span class="k">import</span> <span class="n">cdnify</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="n">Configuration</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="n">Classifier</span>
-<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="k">import</span> <span class="n">EntryPoint</span>
-<span class="kn">from</span> <span class="nn">facets</span> <span class="k">import</span> <span class="n">FacetConstants</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">cdn</span> <span class="kn">import</span> <span class="n">cdnify</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="n">Classifier</span>
+<span class="kn">from</span> <span class="nn">entrypoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
+<span class="kn">from</span> <span class="nn">facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CachedFeed</span><span class="p">,</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
@@ -83,7 +83,7 @@
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Facets</span><span class="p">,</span>
     <span class="n">FacetsWithEntryPoint</span><span class="p">,</span>
     <span class="n">FeaturedFacets</span><span class="p">,</span>
@@ -92,7 +92,7 @@
     <span class="n">SearchFacets</span><span class="p">,</span>
     <span class="n">WorkList</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AtomFeed</span><span class="p">,</span>
     <span class="n">OPDSFeed</span><span class="p">,</span>
     <span class="n">OPDSMessage</span><span class="p">,</span>
@@ -1078,7 +1078,7 @@
                 <span class="n">url</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">facet_title</span><span class="p">),</span> <span class="n">unicode</span><span class="p">(</span><span class="n">group_title</span><span class="p">),</span> <span class="n">selected</span>
             <span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">precomposed_entries</span><span class="o">=</span><span class="p">[]):</span>
         <span class="sd">&quot;&quot;&quot;Turn a list of works, messages, and precomposed &lt;opds&gt; entries</span>
 <span class="sd">        into a feed.</span>
@@ -1766,7 +1766,7 @@
 
 <div class="viewcode-block" id="TestAnnotator"><a class="viewcode-back" href="../../core.html#core.opds.TestAnnotator">[docs]</a><span class="k">class</span> <span class="nc">TestAnnotator</span><span class="p">(</span><span class="n">Annotator</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lanes_by_work</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
 
 <div class="viewcode-block" id="TestAnnotator.lane_url"><a class="viewcode-back" href="../../core.html#core.opds.TestAnnotator.lane_url">[docs]</a>    <span class="nd">@classmethod</span>

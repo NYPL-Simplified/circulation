@@ -33,42 +33,42 @@
           <div class="body" role="main">
             
   <h1>Source code for api.admin.controller.work_editor</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="k">import</span> <span class="n">Response</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">AdminCirculationManagerController</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span>
-<span class="kn">from</span> <span class="nn">core.opds</span> <span class="k">import</span> <span class="n">AcquisitionFeed</span>
-<span class="kn">from</span> <span class="nn">api.admin.opds</span> <span class="k">import</span> <span class="n">AdminAnnotator</span><span class="p">,</span> <span class="n">AdminFeed</span>
-<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">api.config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">AdminCirculationManagerController</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="n">AcquisitionFeed</span>
+<span class="kn">from</span> <span class="nn">api.admin.opds</span> <span class="kn">import</span> <span class="n">AdminAnnotator</span><span class="p">,</span> <span class="n">AdminFeed</span>
+<span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.metadata_wrangler</span> <span class="k">import</span> <span class="n">MetadataWranglerCollectionRegistrar</span>
-<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="k">import</span> <span class="n">Validator</span>
-<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.metadata_wrangler</span> <span class="kn">import</span> <span class="n">MetadataWranglerCollectionRegistrar</span>
+<span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
+<span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">entry_response</span><span class="p">,</span>
     <span class="n">feed_response</span><span class="p">,</span>
     <span class="n">load_pagination_from_request</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">genres</span><span class="p">,</span>
     <span class="n">SimplifiedGenreClassifier</span><span class="p">,</span>
     <span class="n">NO_NUMBER</span><span class="p">,</span>
     <span class="n">NO_VALUE</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="k">import</span> <span class="n">MirrorUploader</span>
-<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>
+<span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">core.metadata_layer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Metadata</span><span class="p">,</span>
     <span class="n">LinkData</span><span class="p">,</span>
     <span class="n">ReplacementPolicy</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="p">(</span><span class="n">Lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">create</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
@@ -88,13 +88,13 @@
     <span class="n">Subject</span><span class="p">,</span>
     <span class="n">Work</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="k">import</span> <span class="n">ExternalIntegrationLink</span>
+<span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">import</span> <span class="nn">base64</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">PIL</span> <span class="k">import</span> <span class="n">Image</span><span class="p">,</span> <span class="n">ImageDraw</span><span class="p">,</span> <span class="n">ImageFont</span>
-<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span><span class="p">,</span> <span class="n">ImageDraw</span><span class="p">,</span> <span class="n">ImageFont</span>
+<span class="kn">from</span> <span class="nn">StringIO</span> <span class="kn">import</span> <span class="n">StringIO</span>
 <span class="kn">import</span> <span class="nn">textwrap</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 

@@ -33,24 +33,24 @@
           <div class="body" role="main">
             
   <h1>Source code for core.external_search</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">import</span> <span class="nn">contextlib</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">elasticsearch</span> <span class="k">import</span> <span class="n">Elasticsearch</span>
-<span class="kn">from</span> <span class="nn">elasticsearch.helpers</span> <span class="k">import</span> <span class="n">bulk</span> <span class="k">as</span> <span class="n">elasticsearch_bulk</span>
-<span class="kn">from</span> <span class="nn">elasticsearch.exceptions</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">elasticsearch</span> <span class="kn">import</span> <span class="n">Elasticsearch</span>
+<span class="kn">from</span> <span class="nn">elasticsearch.helpers</span> <span class="kn">import</span> <span class="n">bulk</span> <span class="k">as</span> <span class="n">elasticsearch_bulk</span>
+<span class="kn">from</span> <span class="nn">elasticsearch.exceptions</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">RequestError</span><span class="p">,</span>
     <span class="n">ElasticsearchException</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">elasticsearch_dsl</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">elasticsearch_dsl</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Index</span><span class="p">,</span>
     <span class="n">MultiSearch</span><span class="p">,</span>
     <span class="n">Search</span><span class="p">,</span>
     <span class="n">SF</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">elasticsearch_dsl.query</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">elasticsearch_dsl.query</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Bool</span><span class="p">,</span>
     <span class="n">DisMax</span><span class="p">,</span>
     <span class="n">Exists</span><span class="p">,</span>
@@ -66,21 +66,21 @@
     <span class="n">Term</span><span class="p">,</span>
     <span class="n">Terms</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">spellchecker</span> <span class="k">import</span> <span class="n">SpellChecker</span>
+<span class="kn">from</span> <span class="nn">spellchecker</span> <span class="kn">import</span> <span class="n">SpellChecker</span>
 
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">classifier</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">classifier</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">KeywordBasedClassifier</span><span class="p">,</span>
     <span class="n">GradeLevelClassifier</span><span class="p">,</span>
     <span class="n">AgeClassifier</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">facets</span> <span class="k">import</span> <span class="n">FacetConstants</span>
-<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="k">import</span> <span class="n">IdentifierData</span>
-<span class="kn">from</span> <span class="nn">model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
+<span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="n">IdentifierData</span>
+<span class="kn">from</span> <span class="nn">model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">numericrange_to_tuple</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
     <span class="n">Contributor</span><span class="p">,</span>
@@ -93,20 +93,20 @@
     <span class="n">Work</span><span class="p">,</span>
     <span class="n">WorkCoverageRecord</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">lane</span> <span class="k">import</span> <span class="n">Pagination</span>
-<span class="kn">from</span> <span class="nn">monitor</span> <span class="k">import</span> <span class="n">WorkSweepMonitor</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">lane</span> <span class="kn">import</span> <span class="n">Pagination</span>
+<span class="kn">from</span> <span class="nn">monitor</span> <span class="kn">import</span> <span class="n">WorkSweepMonitor</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CoverageFailure</span><span class="p">,</span>
     <span class="n">WorkPresentationProvider</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">problem_details</span> <span class="k">import</span> <span class="n">INVALID_INPUT</span>
-<span class="kn">from</span> <span class="nn">selftest</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">problem_details</span> <span class="kn">import</span> <span class="n">INVALID_INPUT</span>
+<span class="kn">from</span> <span class="nn">selftest</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">HasSelfTests</span><span class="p">,</span>
     <span class="n">SelfTestResult</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="k">import</span> <span class="n">display_name_to_sort_name</span>
-<span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="k">import</span> <span class="n">ProblemDetail</span>
-<span class="kn">from</span> <span class="nn">util.stopwords</span> <span class="k">import</span> <span class="n">ENGLISH_STOPWORDS</span>
+<span class="kn">from</span> <span class="nn">util.personal_names</span> <span class="kn">import</span> <span class="n">display_name_to_sort_name</span>
+<span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
+<span class="kn">from</span> <span class="nn">util.stopwords</span> <span class="kn">import</span> <span class="n">ENGLISH_STOPWORDS</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -217,7 +217,7 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">MOCK_IMPLEMENTATION</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">works_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">test_search_term</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">works_index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">test_search_term</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">in_testing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mapping</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor</span>
 
@@ -766,7 +766,7 @@
 <span class="sd">    created.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdocuments</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -890,7 +890,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="s2">&quot;simplified.</span><span class="si">%s</span><span class="s2">.</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">base_name</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">version_name</span><span class="p">())</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">Mapping</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">filters</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">char_filters</span> <span class="o">=</span> <span class="p">{}</span>
@@ -996,7 +996,7 @@
         <span class="n">CHAR_FILTERS</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">normalizer</span>
         <span class="n">AUTHOR_CHAR_FILTER_NAMES</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">CurrentMapping</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="c1"># Set up character filters.</span>
@@ -1440,7 +1440,7 @@
     <span class="c1"># a class-level instance.</span>
     <span class="n">SPELLCHECKER</span> <span class="o">=</span> <span class="n">SpellChecker</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_query_parser</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_string</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_query_parser</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Store a query string and filter.</span>
 
 <span class="sd">        :param query_string: A user typed this string into a search box.</span>
@@ -1987,7 +1987,7 @@
 <span class="sd">    these criteria to a greater or lesser extent.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_string</span><span class="p">,</span> <span class="n">query_class</span><span class="o">=</span><span class="n">Query</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_string</span><span class="p">,</span> <span class="n">query_class</span><span class="o">=</span><span class="n">Query</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Parse the query string and create a list of clauses</span>
 <span class="sd">        that will boost certain types of books.</span>
 
@@ -2205,7 +2205,7 @@
             <span class="n">allow_holds</span><span class="o">=</span><span class="n">allow_holds</span><span class="p">,</span> <span class="n">license_datasource</span><span class="o">=</span><span class="n">license_datasource_id</span>
         <span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collections</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">media</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collections</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">media</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audiences</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">genre_restriction_sets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">customlist_restriction_sets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">script_fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
@@ -2950,7 +2950,7 @@
 <span class="sd">    list.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">last_item_on_previous_page</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">last_item_on_previous_page</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">size</span><span class="o">=</span><span class="n">Pagination</span><span class="o">.</span><span class="n">DEFAULT_SIZE</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">last_item_on_previous_page</span> <span class="o">=</span> <span class="n">last_item_on_previous_page</span>
@@ -3083,11 +3083,11 @@
 <span class="sd">    obtained through Elasticsearch, such as its &#39;last modified&#39; date</span>
 <span class="sd">    the context of a specific lane.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">hit</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">hit</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_work</span> <span class="o">=</span> <span class="n">work</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hit</span> <span class="o">=</span> <span class="n">hit</span>
 
-    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_work</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span></div>
 
 
@@ -3095,7 +3095,7 @@
 
     <span class="n">work_document_type</span> <span class="o">=</span> <span class="s1">&#39;work-type&#39;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">docs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">works_index</span> <span class="o">=</span> <span class="s2">&quot;works&quot;</span>
@@ -3192,7 +3192,7 @@
 
 <div class="viewcode-block" id="MockSearchResult"><a class="viewcode-back" href="../../core.html#core.external_search.MockSearchResult">[docs]</a><span class="k">class</span> <span class="nc">MockSearchResult</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sort_title</span><span class="p">,</span> <span class="n">sort_author</span><span class="p">,</span> <span class="n">meta</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sort_title</span><span class="p">,</span> <span class="n">sort_author</span><span class="p">,</span> <span class="n">meta</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sort_title</span> <span class="o">=</span> <span class="n">sort_title</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sort_author</span> <span class="o">=</span> <span class="n">sort_author</span>
         <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">id</span>
@@ -3200,7 +3200,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">meta</span> <span class="o">=</span> <span class="n">MockMeta</span><span class="p">(</span><span class="n">meta</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">work_id</span> <span class="o">=</span> <span class="nb">id</span>
 
-    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">False</span>
 
 <div class="viewcode-block" id="MockSearchResult.to_dict"><a class="viewcode-back" href="../../core.html#core.external_search.MockSearchResult.to_dict">[docs]</a>    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3223,7 +3223,7 @@
 
     <span class="n">OPERATION</span> <span class="o">=</span> <span class="n">WorkCoverageRecord</span><span class="o">.</span><span class="n">UPDATE_SEARCH_INDEX_OPERATION</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">search_index_client</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;search_index_client&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">SearchIndexCoverageProvider</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">search_index_client</span> <span class="o">=</span> <span class="p">(</span>

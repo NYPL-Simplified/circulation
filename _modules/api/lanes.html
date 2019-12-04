@@ -33,32 +33,32 @@
           <div class="body" role="main">
             
   <h1>Source code for api.lanes</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
     <span class="n">func</span><span class="p">,</span>
     <span class="n">or_</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">aliased</span>
-<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="k">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">aliased</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">elasticsearch</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="kn">import</span> <span class="nn">core.classifier</span> <span class="k">as</span> <span class="nn">genres</span>
-<span class="kn">from</span> <span class="nn">config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CannotLoadConfiguration</span><span class="p">,</span>
     <span class="n">Configuration</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classifier</span><span class="p">,</span>
     <span class="n">fiction_genres</span><span class="p">,</span>
     <span class="n">nonfiction_genres</span><span class="p">,</span>
     <span class="n">GenreData</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core</span> <span class="k">import</span> <span class="n">classifier</span>
+<span class="kn">from</span> <span class="nn">core</span> <span class="kn">import</span> <span class="n">classifier</span>
 
-<span class="kn">from</span> <span class="nn">core.lane</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.lane</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BaseFacets</span><span class="p">,</span>
     <span class="n">DatabaseBackedWorkList</span><span class="p">,</span>
     <span class="n">DefaultSortOrderFacets</span><span class="p">,</span>
@@ -68,7 +68,7 @@
     <span class="n">Lane</span><span class="p">,</span>
     <span class="n">WorkList</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">create</span><span class="p">,</span>
     <span class="n">CachedFeed</span><span class="p">,</span>
@@ -83,8 +83,8 @@
     <span class="n">Work</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">core.util</span> <span class="k">import</span> <span class="n">LanguageCodes</span>
-<span class="kn">from</span> <span class="nn">novelist</span> <span class="k">import</span> <span class="n">NoveListAPI</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">LanguageCodes</span>
+<span class="kn">from</span> <span class="nn">novelist</span> <span class="kn">import</span> <span class="n">NoveListAPI</span>
 
 <div class="viewcode-block" id="load_lanes"><a class="viewcode-back" href="../../api.html#api.lanes.load_lanes">[docs]</a><span class="k">def</span> <span class="nf">load_lanes</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Return a WorkList that reflects the current lane structure of the</span>
@@ -817,7 +817,7 @@
     <span class="n">DISPLAY_NAME</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ROUTE</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">children</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="n">work</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">edition</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span>
@@ -885,7 +885,7 @@
     <span class="n">MAX_CACHE_AGE</span> <span class="o">=</span> <span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span>
     <span class="n">CACHED_FEED_TYPE</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">RECOMMENDATIONS_TYPE</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">novelist_api</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
@@ -966,7 +966,7 @@
     <span class="n">MAX_CACHE_AGE</span> <span class="o">=</span> <span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span>
     <span class="n">CACHED_FEED_TYPE</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">SERIES_TYPE</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">series_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">series_name</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">series_name</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;SeriesLane can&#39;t be created without series&quot;</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">SeriesLane</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span>
@@ -1026,7 +1026,7 @@
     <span class="n">MAX_CACHE_AGE</span> <span class="o">=</span> <span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span>
     <span class="n">CACHED_FEED_TYPE</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">CONTRIBUTOR_TYPE</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">contributor</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">contributor</span><span class="p">,</span>
                  <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audiences</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
@@ -1095,7 +1095,7 @@
                         <span class="n">SeriesLane</span><span class="o">.</span><span class="n">MAX_CACHE_AGE</span><span class="p">,</span>
                         <span class="n">RecommendationLane</span><span class="o">.</span><span class="n">MAX_CACHE_AGE</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">novelist_api</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RelatedBooksLane</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">library</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span>

@@ -35,16 +35,16 @@
   <h1>Source code for core.model.patron</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">credential</span> <span class="k">import</span> <span class="n">Credential</span>
+<span class="kn">from</span> <span class="nn">credential</span> <span class="kn">import</span> <span class="n">Credential</span>
 
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">Date</span><span class="p">,</span>
@@ -56,10 +56,10 @@
     <span class="n">Unicode</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="k">import</span> <span class="n">hybrid_property</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="n">relationship</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">..user_profile</span> <span class="k">import</span> <span class="n">ProfileStorage</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">..user_profile</span> <span class="kn">import</span> <span class="n">ProfileStorage</span>
 <span class="kn">import</span> <span class="nn">uuid</span>
 
 <div class="viewcode-block" id="LoanAndHoldMixin"><a class="viewcode-back" href="../../../core.model.html#api.monitor.LoanAndHoldMixin">[docs]</a><span class="k">class</span> <span class="nc">LoanAndHoldMixin</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -197,7 +197,7 @@
     <span class="c1"># than this time.</span>
     <span class="n">MAX_SYNC_TIME</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">date</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
             <span class="sd">&quot;&quot;&quot;Format an object that might be a datetime as a date.</span>
 
@@ -483,7 +483,7 @@
 <span class="sd">    Protocol.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">url_for</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">url_for</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set up a storage interface for a specific Patron.</span>
 <span class="sd">        :param patron: We are accessing the profile for this patron.</span>
 <span class="sd">        &quot;&quot;&quot;</span>

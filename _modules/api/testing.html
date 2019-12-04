@@ -36,12 +36,12 @@
 <span></span><span class="kn">import</span> <span class="nn">contextlib</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">core.testing</span> <span class="k">import</span> <span class="n">DatabaseTest</span>
+<span class="kn">from</span> <span class="nn">core.testing</span> <span class="kn">import</span> <span class="n">DatabaseTest</span>
 
-<span class="kn">from</span> <span class="nn">core.model</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ConfigurationSetting</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
@@ -51,21 +51,21 @@
     <span class="n">Hold</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.circulation</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.circulation</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BaseCirculationAPI</span><span class="p">,</span>
     <span class="n">CirculationAPI</span><span class="p">,</span>
     <span class="n">LoanInfo</span><span class="p">,</span>
     <span class="n">HoldInfo</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.shared_collection</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.shared_collection</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">SharedCollectionAPI</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">api.config</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Configuration</span><span class="p">,</span>
     <span class="n">temp_config</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="k">import</span> <span class="n">AuthdataUtility</span>
+<span class="kn">from</span> <span class="nn">api.adobe_vendor_id</span> <span class="kn">import</span> <span class="n">AuthdataUtility</span>
 
 <div class="viewcode-block" id="VendorIDTest"><a class="viewcode-back" href="../../api.html#api.testing.VendorIDTest">[docs]</a><span class="k">class</span> <span class="nc">VendorIDTest</span><span class="p">(</span><span class="n">DatabaseTest</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A DatabaseTest that knows how to set up an Adobe Vendor ID</span>
@@ -154,7 +154,7 @@
 
 
 <div class="viewcode-block" id="MockRemoteAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockRemoteAPI">[docs]</a><span class="k">class</span> <span class="nc">MockRemoteAPI</span><span class="p">(</span><span class="n">BaseCirculationAPI</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">set_delivery_mechanism_at</span><span class="p">,</span> <span class="n">can_revoke_hold_when_reserved</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">set_delivery_mechanism_at</span><span class="p">,</span> <span class="n">can_revoke_hold_when_reserved</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">SET_DELIVERY_MECHANISM_AT</span> <span class="o">=</span> <span class="n">set_delivery_mechanism_at</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">CAN_REVOKE_HOLD_WHEN_RESERVED</span> <span class="o">=</span> <span class="n">can_revoke_hold_when_reserved</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
@@ -224,7 +224,7 @@
 
 <div class="viewcode-block" id="MockCirculationAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockCirculationAPI">[docs]</a><span class="k">class</span> <span class="nc">MockCirculationAPI</span><span class="p">(</span><span class="n">CirculationAPI</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MockCirculationAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">remote_loans</span> <span class="o">=</span> <span class="p">[]</span>
@@ -282,7 +282,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">remotes</span><span class="p">[</span><span class="n">source</span><span class="p">]</span></div></div>
 
 <div class="viewcode-block" id="MockSharedCollectionAPI"><a class="viewcode-back" href="../../api.html#api.testing.MockSharedCollectionAPI">[docs]</a><span class="k">class</span> <span class="nc">MockSharedCollectionAPI</span><span class="p">(</span><span class="n">SharedCollectionAPI</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MockSharedCollectionAPI</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">responses</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
 

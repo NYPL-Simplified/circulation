@@ -45,10 +45,10 @@
 
 <span class="kn">import</span> <span class="nn">warnings</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">deque</span> <span class="k">as</span> <span class="n">_deque</span>
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">count</span> <span class="k">as</span> <span class="n">_count</span>
-<span class="kn">from</span> <span class="nn">time</span> <span class="k">import</span> <span class="n">time</span> <span class="k">as</span> <span class="n">_time</span><span class="p">,</span> <span class="n">sleep</span> <span class="k">as</span> <span class="n">_sleep</span>
-<span class="kn">from</span> <span class="nn">traceback</span> <span class="k">import</span> <span class="n">format_exc</span> <span class="k">as</span> <span class="n">_format_exc</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">deque</span> <span class="k">as</span> <span class="n">_deque</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span> <span class="k">as</span> <span class="n">_count</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span> <span class="k">as</span> <span class="n">_time</span><span class="p">,</span> <span class="n">sleep</span> <span class="k">as</span> <span class="n">_sleep</span>
+<span class="kn">from</span> <span class="nn">traceback</span> <span class="kn">import</span> <span class="n">format_exc</span> <span class="k">as</span> <span class="n">_format_exc</span>
 
 <span class="c1"># Note regarding PEP 8 compliant aliases</span>
 <span class="c1">#  This threading model was originally inspired by Java, and inherited</span>
@@ -91,7 +91,7 @@
 
     <span class="k">class</span> <span class="nc">_Verbose</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
-        <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">verbose</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">verbose</span> <span class="o">=</span> <span class="n">_VERBOSE</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">__verbose</span> <span class="o">=</span> <span class="n">verbose</span>
@@ -112,7 +112,7 @@
 <span class="k">else</span><span class="p">:</span>
     <span class="c1"># Disable this when using &quot;python -O&quot;</span>
     <span class="k">class</span> <span class="nc">_Verbose</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-        <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
             <span class="k">pass</span>
         <span class="k">def</span> <span class="nf">_note</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
             <span class="k">pass</span>
@@ -164,13 +164,13 @@
 <span class="sd">       has acquired it.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_Verbose</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__block</span> <span class="o">=</span> <span class="n">_allocate_lock</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__owner</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__count</span> <span class="o">=</span> <span class="mi">0</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">owner</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__owner</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">owner</span> <span class="o">=</span> <span class="n">_active</span><span class="p">[</span><span class="n">owner</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
@@ -247,7 +247,7 @@
             <span class="k">if</span> <span class="n">__debug__</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_note</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">.release(): non-final release&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">tb</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">tb</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
 
     <span class="c1"># Internal methods used by condition variables</span>
@@ -292,7 +292,7 @@
 <span class="sd">       notified by another thread.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_Verbose</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">lock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">lock</span> <span class="o">=</span> <span class="n">RLock</span><span class="p">()</span>
@@ -317,13 +317,13 @@
             <span class="k">pass</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__waiters</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__lock</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__lock</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;Condition(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__lock</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__waiters</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">_release_save</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -465,7 +465,7 @@
 
     <span class="c1"># After Tim Peters&#39; semaphore class, but not quite the same (no maximum)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;semaphore initial value must be &gt;= 0&quot;</span><span class="p">)</span>
         <span class="n">_Verbose</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
@@ -525,7 +525,7 @@
                         <span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__value</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">__cond</span><span class="o">.</span><span class="n">notify</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">tb</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">tb</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
 
 
@@ -553,7 +553,7 @@
 <span class="sd">       semaphores are used to guard resources with limited capacity.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_Semaphore</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initial_value</span> <span class="o">=</span> <span class="n">value</span>
 
@@ -593,7 +593,7 @@
 
     <span class="c1"># After Tim Peters&#39; event class (without is_posted())</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">_Verbose</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__cond</span> <span class="o">=</span> <span class="n">Condition</span><span class="p">(</span><span class="n">Lock</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__flag</span> <span class="o">=</span> <span class="kc">False</span>
@@ -679,7 +679,7 @@
     <span class="c1"># allowing .join() to return.</span>
     <span class="n">__exc_clear</span> <span class="o">=</span> <span class="n">_sys</span><span class="o">.</span><span class="n">exc_clear</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">args</span><span class="o">=</span><span class="p">(),</span> <span class="n">kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;This constructor should always be called with keyword arguments. Arguments are:</span>
 
@@ -736,7 +736,7 @@
         <span class="c1"># Overridden in _MainThread and _DummyThread</span>
         <span class="k">return</span> <span class="n">current_thread</span><span class="p">()</span><span class="o">.</span><span class="n">daemon</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">__initialized</span><span class="p">,</span> <span class="s2">&quot;Thread.__init__() was not called&quot;</span>
         <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;initial&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__started</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
@@ -1090,7 +1090,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interval</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">[],</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{}):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interval</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">[],</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{}):</span>
         <span class="n">Thread</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interval</span> <span class="o">=</span> <span class="n">interval</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">function</span> <span class="o">=</span> <span class="n">function</span>
@@ -1113,7 +1113,7 @@
 
 <span class="k">class</span> <span class="nc">_MainThread</span><span class="p">(</span><span class="n">Thread</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">Thread</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MainThread&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_Thread__started</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_ident</span><span class="p">()</span>
@@ -1153,7 +1153,7 @@
 
 <span class="k">class</span> <span class="nc">_DummyThread</span><span class="p">(</span><span class="n">Thread</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">Thread</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">_newname</span><span class="p">(</span><span class="s2">&quot;Dummy-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">))</span>
 
         <span class="c1"># Thread.__block consumes an OS-level locking primitive, which</span>
@@ -1217,7 +1217,7 @@
     <span class="k">with</span> <span class="n">_active_limbo_lock</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_active</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="o">+</span> <span class="n">_limbo</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
 
-<span class="kn">from</span> <span class="nn">thread</span> <span class="k">import</span> <span class="n">stack_size</span>
+<span class="kn">from</span> <span class="nn">thread</span> <span class="kn">import</span> <span class="n">stack_size</span>
 
 <span class="c1"># Create the main thread object,</span>
 <span class="c1"># and make it available for the interpreter</span>
@@ -1229,9 +1229,9 @@
 <span class="c1"># module, or from the python fallback</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">thread</span> <span class="k">import</span> <span class="n">_local</span> <span class="k">as</span> <span class="n">local</span>
+    <span class="kn">from</span> <span class="nn">thread</span> <span class="kn">import</span> <span class="n">_local</span> <span class="k">as</span> <span class="n">local</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">_threading_local</span> <span class="k">import</span> <span class="n">local</span>
+    <span class="kn">from</span> <span class="nn">_threading_local</span> <span class="kn">import</span> <span class="n">local</span>
 
 
 <span class="k">def</span> <span class="nf">_after_fork</span><span class="p">():</span>
@@ -1275,7 +1275,7 @@
 
     <span class="k">class</span> <span class="nc">BoundedQueue</span><span class="p">(</span><span class="n">_Verbose</span><span class="p">):</span>
 
-        <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
             <span class="n">_Verbose</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">mon</span> <span class="o">=</span> <span class="n">RLock</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">rc</span> <span class="o">=</span> <span class="n">Condition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mon</span><span class="p">)</span>
@@ -1307,13 +1307,13 @@
 
     <span class="k">class</span> <span class="nc">ProducerThread</span><span class="p">(</span><span class="n">Thread</span><span class="p">):</span>
 
-        <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">quota</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">quota</span><span class="p">):</span>
             <span class="n">Thread</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Producer&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">queue</span> <span class="o">=</span> <span class="n">queue</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">quota</span> <span class="o">=</span> <span class="n">quota</span>
 
         <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-            <span class="kn">from</span> <span class="nn">random</span> <span class="k">import</span> <span class="n">random</span>
+            <span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">random</span>
             <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">while</span> <span class="n">counter</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">quota</span><span class="p">:</span>
                 <span class="n">counter</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span>
@@ -1323,7 +1323,7 @@
 
     <span class="k">class</span> <span class="nc">ConsumerThread</span><span class="p">(</span><span class="n">Thread</span><span class="p">):</span>
 
-        <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
             <span class="n">Thread</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Consumer&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">queue</span> <span class="o">=</span> <span class="n">queue</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="n">count</span>

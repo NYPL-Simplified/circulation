@@ -35,38 +35,38 @@
   <h1>Source code for core.model.identifier</h1><div class="highlight"><pre>
 <span></span><span class="c1"># encoding: utf-8</span>
 <span class="c1"># Identifier, Equivalency</span>
-<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="k">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Base</span><span class="p">,</span>
     <span class="n">create</span><span class="p">,</span>
     <span class="n">get_one</span><span class="p">,</span>
     <span class="n">get_one_or_create</span><span class="p">,</span>
     <span class="n">PresentationCalculationPolicy</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">coverage</span> <span class="k">import</span> <span class="n">CoverageRecord</span>
-<span class="kn">from</span> <span class="nn">classification</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">coverage</span> <span class="kn">import</span> <span class="n">CoverageRecord</span>
+<span class="kn">from</span> <span class="nn">classification</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Classification</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">constants</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">constants</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">IdentifierConstants</span><span class="p">,</span>
     <span class="n">LinkRelations</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">datasource</span> <span class="k">import</span> <span class="n">DataSource</span>
-<span class="kn">from</span> <span class="nn">licensing</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">datasource</span> <span class="kn">import</span> <span class="n">DataSource</span>
+<span class="kn">from</span> <span class="nn">licensing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">LicensePoolDeliveryMechanism</span><span class="p">,</span>
     <span class="n">RightsStatus</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">measurement</span> <span class="k">import</span> <span class="n">Measurement</span>
+<span class="kn">from</span> <span class="nn">measurement</span> <span class="kn">import</span> <span class="n">Measurement</span>
 
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">total_ordering</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">total_ordering</span>
 <span class="kn">import</span> <span class="nn">isbnlib</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">random</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Boolean</span><span class="p">,</span>
     <span class="n">Column</span><span class="p">,</span>
     <span class="n">Float</span><span class="p">,</span>
@@ -76,19 +76,19 @@
     <span class="n">String</span><span class="p">,</span>
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">joinedload</span><span class="p">,</span>
     <span class="n">relationship</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="k">import</span> <span class="n">Session</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="k">import</span> <span class="n">select</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql</span> <span class="kn">import</span> <span class="n">select</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
     <span class="n">or_</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="k">import</span> <span class="n">native_string</span>
-<span class="kn">from</span> <span class="nn">..util.summary</span> <span class="k">import</span> <span class="n">SummaryEvaluator</span>
+<span class="kn">from</span> <span class="nn">..util.string_helpers</span> <span class="kn">import</span> <span class="n">native_string</span>
+<span class="kn">from</span> <span class="nn">..util.summary</span> <span class="kn">import</span> <span class="n">SummaryEvaluator</span>
 
 
 <div class="viewcode-block" id="Identifier"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier">[docs]</a><span class="nd">@total_ordering</span>
@@ -116,7 +116,7 @@
     <span class="c1"># One Identifier may have many associated CoverageRecords.</span>
     <span class="n">coverage_records</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;CoverageRecord&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;identifier&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primarily_identifies</span>
         <span class="k">if</span> <span class="n">records</span> <span class="ow">and</span> <span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">title</span><span class="p">:</span>
             <span class="n">title</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; prim_ed=</span><span class="si">%d</span><span class="s1"> (&quot;</span><span class="si">%s</span><span class="s1">&quot;)&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
@@ -519,7 +519,7 @@
 <span class="sd">        fetching, mirroring and scaling Representations as links are</span>
 <span class="sd">        created. It might be good to move that code into here.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Resource</span><span class="p">,</span>
             <span class="n">Hyperlink</span><span class="p">,</span>
             <span class="n">Representation</span><span class="p">,</span>
@@ -647,7 +647,7 @@
 <div class="viewcode-block" id="Identifier.resources_for_identifier_ids"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Identifier.resources_for_identifier_ids">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">resources_for_identifier_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                                      <span class="n">data_source</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Resource</span><span class="p">,</span>
             <span class="n">Hyperlink</span><span class="p">,</span>
         <span class="p">)</span>
@@ -675,7 +675,7 @@
     <span class="k">def</span> <span class="nf">best_cover_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">identifier_ids</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="c1"># Find all image resources associated with any of</span>
         <span class="c1"># these identifiers.</span>
-        <span class="kn">from</span> <span class="nn">resource</span> <span class="k">import</span> <span class="p">(</span>
+        <span class="kn">from</span> <span class="nn">resource</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">Resource</span><span class="p">,</span>
             <span class="n">Hyperlink</span><span class="p">,</span>
         <span class="p">)</span>
@@ -828,14 +828,14 @@
             <span class="n">most_recent_update</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span>
 
         <span class="n">quality</span> <span class="o">=</span> <span class="n">Measurement</span><span class="o">.</span><span class="n">overall_quality</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">measurements</span><span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">..opds</span> <span class="k">import</span> <span class="n">AcquisitionFeed</span>
+        <span class="kn">from</span> <span class="nn">..opds</span> <span class="kn">import</span> <span class="n">AcquisitionFeed</span>
         <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">minimal_opds_entry</span><span class="p">(</span>
             <span class="n">identifier</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">cover</span><span class="o">=</span><span class="n">cover_image</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
             <span class="n">quality</span><span class="o">=</span><span class="n">quality</span><span class="p">,</span> <span class="n">most_recent_update</span><span class="o">=</span><span class="n">most_recent_update</span>
         <span class="p">)</span></div>
 
 
-    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Equality implementation for total_ordering.&quot;&quot;&quot;</span>
         <span class="c1"># We don&#39;t want an Identifier to be == an IdentifierData</span>
         <span class="c1"># with the same data.</span>
@@ -843,7 +843,7 @@
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Comparison implementation for total_ordering.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
@@ -884,7 +884,7 @@
     <span class="c1"># without actually deleting the data.</span>
     <span class="n">enabled</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Boolean</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">r</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2"> -&gt;</span><span class="se">\n</span><span class="s2"> </span><span class="si">%s</span><span class="se">\n</span><span class="s2"> source=</span><span class="si">%s</span><span class="s2"> strength=</span><span class="si">%.2f</span><span class="s2"> votes=</span><span class="si">%d</span><span class="s2">)]&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">),</span>
             <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf8&quot;</span><span class="p">),</span>
