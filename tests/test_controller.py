@@ -3788,14 +3788,6 @@ class TestMARCRecordController(CirculationControllerTest):
             assert '<a href="http://mirror1">Full file - last updated %s</a>' % now.strftime("%B %-d, %Y") in html
 
 
-
-
-            # The OPDS feed includes an open-access acquisition link
-            # -- something that only gets inserted by the
-            # CirculationManagerAnnotator.
-            assert LinkRelations.OPEN_ACCESS_DOWNLOAD in response.data
-
-
 class TestAnalyticsController(CirculationControllerTest):
     def setup(self):
         super(TestAnalyticsController, self).setup()
