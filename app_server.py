@@ -266,8 +266,76 @@ class HeartbeatController(object):
 
 
 class URNLookupController(object):
-    """A generic controller that takes URNs as input and looks up their
-    OPDS entries.
+    """A controller for looking up OPDS entries for specific books,
+    identified in terms of their Identifier URNs.
+    """
+
+    def __init__(self, _db):
+        """Constructor.
+
+        :param _db: A database connection.
+        """
+        self._db = _db
+
+    def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
+        """Generate an OPDS feed describing works identified by identifier."""
+        urns = flask.request.args.getlist('urn')
+
+        this_url = cdn_url_for(route_name, _external=True, urn=urns)
+        handler = self.process_urns(urns, **process_urn_kwargs)
+
+        if isinstance(handler, ProblemDetail):
+            # In a subclass, self.process_urns may return a ProblemDetail
+            return handler
+
+        opds_feed = LookupAcquisitionFeed(
+            self._db, "Lookup results", this_url, handler.works, annotator,
+            precomposed_entries=handler.precomposed_entries,
+        )
+        return feed_response(opds_feed)
+
+    def process_urns(self, urns, **process_urn_kwargs):
+        """Process a number of URNs by instantiating a URNLookupHandler
+        and having it do the work.
+
+        The information gathered by the URNLookupHandler can be used
+        by the caller to generate an OPDS feed.
+
+        :return: A URNLookupHandler, or a ProblemDetail if
+            there's a problem with the request.
+        """
+        handler = URNLookupHandler(self._db)
+        handler.process_urns(urns, **process_urn_kwargs)
+        return handler
+
+    def permalink(self, urn, annotator, route_name='work'):
+        """Look up a single identifier and generate an OPDS feed.
+
+        TODO: This method is tested, but it seems unused and it
+        should be possible to remove it.
+        """
+        handler = URNLookupHandler(self._db)
+        this_url = cdn_url_for(route_name, _external=True, urn=urn)
+        handler.process_urns([urn])
+
+        # A LookupAcquisitionFeed's .works is a list of (identifier,
+        # work) tuples, but an AcquisitionFeed's .works is just a
+        # list of works.
+        works = [work for (identifier, work) in handler.works]
+        opds_feed = AcquisitionFeed(
+            self._db, urn, this_url, works, annotator,
+            precomposed_entries=handler.precomposed_entries
+        )
+
+        return feed_response(opds_feed)
+
+
+class URNLookupHandler(object):
+    """A helper for URNLookupController that takes URNs as input and looks
+    up their OPDS entries.
+
+    This is a separate class from URNLookupController because
+    URNLookupController is designed to not keep state.
     """
 
     UNRECOGNIZED_IDENTIFIER = "This work is not in the collection."
@@ -279,41 +347,6 @@ class URNLookupController(object):
         self.works = []
         self.precomposed_entries = []
         self.unresolved_identifiers = []
-
-    def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
-        """Generate an OPDS feed describing works identified by identifier."""
-        urns = flask.request.args.getlist('urn')
-
-        this_url = cdn_url_for(route_name, _external=True, urn=urns)
-        response = self.process_urns(urns, **process_urn_kwargs)
-        self.post_lookup_hook()
-
-        if response:
-            # In a subclass, self.process_urns may return a ProblemDetail
-            return response
-
-        opds_feed = LookupAcquisitionFeed(
-            self._db, "Lookup results", this_url, self.works, annotator,
-            precomposed_entries=self.precomposed_entries,
-        )
-        return feed_response(opds_feed)
-
-    def permalink(self, urn, annotator, route_name='work'):
-        """Look up a single identifier and generate an OPDS feed."""
-        this_url = cdn_url_for(route_name, _external=True, urn=urn)
-        self.process_urns([urn])
-        self.post_lookup_hook()
-
-        # A LookupAcquisitionFeed's .works is a list of (identifier,
-        # work) tuples, but an AcquisitionFeed's .works is just a
-        # list of works.
-        works = [work for (identifier, work) in self.works]
-        opds_feed = AcquisitionFeed(
-            self._db, urn, this_url, works, annotator,
-            precomposed_entries=self.precomposed_entries
-        )
-
-        return feed_response(opds_feed)
 
     def process_urns(self, urns, **process_urn_kwargs):
         """Processes a list of URNs for a lookup request.
@@ -327,6 +360,7 @@ class URNLookupController(object):
 
         for urn, identifier in identifiers_by_urn.items():
             self.process_identifier(identifier, urn, **process_urn_kwargs)
+        self.post_lookup_hook()
 
     def add_urn_failure_messages(self, failures):
         for urn in failures:
@@ -336,7 +370,7 @@ class URNLookupController(object):
         """Turn a URN into a Work suitable for use in an OPDS feed.
         """
         if not identifier.licensed_through:
-            # The default URNLookupController cannot look up an
+            # The default URNLookupHandler cannot look up an
             # Identifier that has no associated LicensePool.
             return self.add_message(urn, 404, self.UNRECOGNIZED_IDENTIFIER)
 
