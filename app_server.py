@@ -311,8 +311,8 @@ class URNLookupController(object):
     def permalink(self, urn, annotator, route_name='work'):
         """Look up a single identifier and generate an OPDS feed.
 
-        TODO: This method is tested, but it might not be used and it
-        may be possible to remove it.
+        TODO: This method is tested, but it seems unused and it
+        should be possible to remove it.
         """
         handler = URNLookupHandler(self._db)
         this_url = cdn_url_for(route_name, _external=True, urn=urn)
