@@ -105,7 +105,7 @@ class TestURNLookupHandler(DatabaseTest):
     def setup(self):
         super(TestURNLookupHandler, self).setup()
         self.handler = URNLookupHandler(self._db)
-    
+
     def assert_one_message(self, urn, code, message):
         """Assert that the given message is the only thing
         in the feed.
@@ -127,7 +127,7 @@ class TestURNLookupHandler(DatabaseTest):
         handler = Mock(self._db)
         handler.process_urns([])
         eq_(True, handler.called)
-    
+
     def test_process_urns_invalid_urn(self):
         urn = "not even a URN"
         self.handler.process_urns([urn])
@@ -207,9 +207,7 @@ class TestURNLookupController(DatabaseTest):
         # the second request.
         for i in range(2):
             with self.app.test_request_context("/?urn=%s" % identifier.urn):
-                response = self.controller.work_lookup(
-                    annotator=annotator
-                )
+                response = self.controller.work_lookup(annotator=annotator)
 
                 # We got an OPDS feed that includes an entry for the work.
                 eq_(200, response.status_code)
@@ -218,6 +216,17 @@ class TestURNLookupController(DatabaseTest):
                 response_data = response.data.decode("utf8")
                 assert identifier.urn in response_data
                 eq_(1, response_data.count(work.title))
+
+    def test_process_urns_problem_detail(self):
+        # Verify the behavior of work_lookup in the case where
+        # process_urns returns a problem detail.
+        class Mock(URNLookupController):
+            def process_urns(self, urns, **kwargs):
+                return INVALID_INPUT
+        controller = Mock(self._db)
+        with self.app.test_request_context("/?urn=foobar"):
+            response = controller.work_lookup(annotator=object())
+            eq_(INVALID_INPUT, response)
 
     def test_permalink(self):
         work = self._work(with_license_pool=True)

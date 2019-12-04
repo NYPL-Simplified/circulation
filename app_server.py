@@ -266,8 +266,15 @@ class HeartbeatController(object):
 
 
 class URNLookupController(object):
+    """A controller for looking up OPDS entries for specific books,
+    identified in terms of their Identifier URNs.
+    """
 
     def __init__(self, _db):
+        """Constructor.
+
+        :param _db: A database connection.
+        """
         self._db = _db
 
     def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
@@ -286,16 +293,27 @@ class URNLookupController(object):
             precomposed_entries=handler.precomposed_entries,
         )
         return feed_response(opds_feed)
-    
+
     def process_urns(self, urns, **process_urn_kwargs):
+        """Process a number of URNs by instantiating a URNLookupHandler
+        and having it do the work.
+
+        The information gathered by the URNLookupHandler can be used
+        by the caller to generate an OPDS feed.
+
+        :return: A URNLookupHandler, or a ProblemDetail if
+            there's a problem with the request.
+        """
         handler = URNLookupHandler(self._db)
         handler.process_urns(urns, **process_urn_kwargs)
         return handler
 
     def permalink(self, urn, annotator, route_name='work'):
+        """Look up a single identifier and generate an OPDS feed.
+
+        TODO: This method is tested, but it might not be used and it
+        may be possible to remove it.
         """
-        TODO: Check if this method is being used.
-        Look up a single identifier and generate an OPDS feed."""
         handler = URNLookupHandler(self._db)
         this_url = cdn_url_for(route_name, _external=True, urn=urn)
         handler.process_urns([urn])
@@ -352,7 +370,7 @@ class URNLookupHandler(object):
         """Turn a URN into a Work suitable for use in an OPDS feed.
         """
         if not identifier.licensed_through:
-            # The default URNLookupController cannot look up an
+            # The default URNLookupHandler cannot look up an
             # Identifier that has no associated LicensePool.
             return self.add_message(urn, 404, self.UNRECOGNIZED_IDENTIFIER)
 
@@ -382,14 +400,13 @@ class URNLookupHandler(object):
         self.precomposed_entries.append(
             OPDSMessage(urn, status_code, message)
         )
-    
+
     def post_lookup_hook(self):
         """Run after looking up a number of Identifiers.
 
         By default, does nothing.
         """
         pass
-
 
 
 class ComplaintController(object):
