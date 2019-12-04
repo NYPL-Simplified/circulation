@@ -313,8 +313,11 @@ class URNLookupController(object):
 
 
 class URNLookupHandler(object):
-    """A generic controller that takes URNs as input and looks up their
-    OPDS entries.
+    """A helper for URNLookupController that takes URNs as input and looks
+    up their OPDS entries.
+
+    This is a separate class from URNLookupController because
+    URNLookupController is designed to not keep state.
     """
 
     UNRECOGNIZED_IDENTIFIER = "This work is not in the collection."

@@ -201,18 +201,23 @@ class TestURNLookupController(DatabaseTest):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
         annotator = TestAnnotator()
-        with self.app.test_request_context("/?urn=%s" % identifier.urn):
-            response = self.controller.work_lookup(
-                annotator=annotator
-            )
+        # NOTE: We run this test twice to verify that the controller
+        # doesn't keep any state between requests. At one point there
+        # was a bug which would have caused a book to show up twice on
+        # the second request.
+        for i in range(2):
+            with self.app.test_request_context("/?urn=%s" % identifier.urn):
+                response = self.controller.work_lookup(
+                    annotator=annotator
+                )
 
-            # We got an OPDS feed that includes an entry for the work.
-            eq_(200, response.status_code)
-            eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
-                response.headers['Content-Type'])
-            response_data = response.data.decode("utf8")
-            assert identifier.urn in response_data
-            assert work.title in response_data
+                # We got an OPDS feed that includes an entry for the work.
+                eq_(200, response.status_code)
+                eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
+                    response.headers['Content-Type'])
+                response_data = response.data.decode("utf8")
+                assert identifier.urn in response_data
+                eq_(1, response_data.count(work.title))
 
     def test_permalink(self):
         work = self._work(with_license_pool=True)
