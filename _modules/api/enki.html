@@ -181,7 +181,7 @@
             <span class="sd">&quot;&quot;&quot;Count recent circulation events that affected loans or holds.</span>
 <span class="sd">            &quot;&quot;&quot;</span>
             <span class="n">one_hour_ago</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recent_activity</span><span class="p">(</span><span class="n">since</span><span class="o">=</span><span class="n">one_hour_ago</span><span class="p">)))</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recent_activity</span><span class="p">(</span><span class="n">one_hour_ago</span><span class="p">,</span> <span class="n">now</span><span class="p">)))</span>
             <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> circulation events in the last hour&quot;</span> <span class="o">%</span> <span class="n">count</span>
 
         <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_test</span><span class="p">(</span>
