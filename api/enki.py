@@ -146,7 +146,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             """Count recent circulation events that affected loans or holds.
             """
             one_hour_ago = now - datetime.timedelta(hours=1)
-            count = len(list(self.recent_activity(since=one_hour_ago)))
+            count = len(list(self.recent_activity(one_hour_ago, now)))
             return "%s circulation events in the last hour" % count
 
         yield self.run_test(
