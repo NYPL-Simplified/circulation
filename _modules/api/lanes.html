@@ -316,8 +316,6 @@
     <span class="k">if</span> <span class="n">nyt_integration</span><span class="p">:</span>
         <span class="n">include_best_sellers</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="n">language_identifier</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">name_for_languageset</span><span class="p">(</span><span class="n">languages</span><span class="p">)</span>
-
     <span class="n">sublanes</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">include_best_sellers</span><span class="p">:</span>
         <span class="n">best_sellers</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
@@ -718,7 +716,8 @@
     <span class="k">return</span> <span class="n">priority</span></div>
 
 <div class="viewcode-block" id="create_lane_for_small_collection"><a class="viewcode-back" href="../../api.html#api.lanes.create_lane_for_small_collection">[docs]</a><span class="k">def</span> <span class="nf">create_lane_for_small_collection</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">languages</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Create a lane (with sublanes) for a small collection based on language.</span>
+    <span class="sd">&quot;&quot;&quot;Create a lane (with sublanes) for a small collection based on language,</span>
+<span class="sd">    if the language exists in the lookup table.</span>
 
 <span class="sd">    :param parent: The parent of the new lane.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -733,7 +732,15 @@
         <span class="n">media</span><span class="o">=</span><span class="p">[</span><span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">],</span>
         <span class="n">genres</span><span class="o">=</span><span class="p">[],</span>
     <span class="p">)</span>
-    <span class="n">language_identifier</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">name_for_languageset</span><span class="p">(</span><span class="n">languages</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">language_identifier</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">name_for_languageset</span><span class="p">(</span><span class="n">languages</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;Could not create a lane for small collection with languages </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">languages</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
     <span class="n">sublane_priority</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="n">adult_fiction</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
@@ -778,7 +785,8 @@
     <span class="k">return</span> <span class="n">priority</span></div>
 
 <div class="viewcode-block" id="create_lane_for_tiny_collection"><a class="viewcode-back" href="../../api.html#api.lanes.create_lane_for_tiny_collection">[docs]</a><span class="k">def</span> <span class="nf">create_lane_for_tiny_collection</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">languages</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Create a single lane for a tiny collection based on language.</span>
+    <span class="sd">&quot;&quot;&quot;Create a single lane for a tiny collection based on language,</span>
+<span class="sd">    if the language exists in the lookup table.</span>
 
 <span class="sd">    :param parent: The parent of the new lane.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -787,8 +795,15 @@
 
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">languages</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
         <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">languages</span><span class="p">]</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">name_for_languageset</span><span class="p">(</span><span class="n">languages</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;Could not create a lane for tiny collection with languages </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">languages</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
 
-    <span class="n">name</span> <span class="o">=</span> <span class="n">LanguageCodes</span><span class="o">.</span><span class="n">name_for_languageset</span><span class="p">(</span><span class="n">languages</span><span class="p">)</span>
     <span class="n">language_lane</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="n">create</span><span class="p">(</span>
         <span class="n">_db</span><span class="p">,</span> <span class="n">Lane</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="n">library</span><span class="p">,</span>
         <span class="n">display_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
