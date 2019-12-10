@@ -697,9 +697,15 @@ def create_lane_for_small_collection(_db, library, parent, languages, priority=0
         media=[Edition.BOOK_MEDIUM],
         genres=[],
     )
-    language_identifier = LanguageCodes.name_for_languageset(languages)
-    if not language_identifier:
+
+    try:
+        language_identifier = LanguageCodes.name_for_languageset(languages)
+    except ValueError as e:
+        logging.getLogger().warn(
+            "Could not create a lane for small collection with languages %s", languages
+        )
         return 0
+
     sublane_priority = 0
 
     adult_fiction, ignore = create(
@@ -754,9 +760,13 @@ def create_lane_for_tiny_collection(_db, library, parent, languages, priority=0)
 
     if isinstance(languages, basestring):
         languages = [languages]
-
-    name = LanguageCodes.name_for_languageset(languages)
-    if not name:
+    
+    try:
+        name = LanguageCodes.name_for_languageset(languages)
+    except ValueError as e:
+        logging.getLogger().warn(
+            "Could not create a lane for tiny collection with languages %s", languages
+        )
         return 0
 
     language_lane, ignore = create(
