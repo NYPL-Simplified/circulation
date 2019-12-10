@@ -226,6 +226,28 @@ class TestLaneCreation(DatabaseTest):
             [x.fiction for x in sublanes]
         )
 
+        # Even if a language name is not found, create the lane
+        # if other languages are found
+        languages = ['eng', 'mul', 'chi']
+        parent = self._lane()
+        priority = create_lane_for_small_collection(
+            self._db, self._default_library, parent, languages, priority=2
+        )
+        lane = self._db.query(Lane).filter(Lane.parent==parent).one()
+        eq_(u"English/Chinese", lane.display_name)
+        eq_(priority, 3)
+
+        # If the language does not have a name, don't create the lane
+        languages = ['gaa']
+        parent = self._lane()
+        priority = create_lane_for_small_collection(
+            self._db, self._default_library, parent, languages, priority=2
+        )
+        lane = self._db.query(Lane).filter(Lane.parent==parent)
+        eq_(lane.count(), 0)
+        eq_(priority, 0)
+
+
     def test_lane_for_tiny_collection(self):
         parent = self._lane()
         new_priority = create_lane_for_tiny_collection(
@@ -239,6 +261,26 @@ class TestLaneCreation(DatabaseTest):
         eq_(['ger'], lane.languages)
         eq_(u'Deutsch', lane.display_name)
         eq_([], lane.children)
+
+        # No lane should be created when the language has no name
+        new_parent = self._lane()
+        new_priority = create_lane_for_tiny_collection(
+            self._db, self._default_library, new_parent, 'gaa',
+            priority=3
+        )
+        eq_(0, new_priority)
+        lane = self._db.query(Lane).filter(Lane.parent==new_parent)
+        eq_(lane.count(), 0)
+
+        # Don't include a language that has no name in the lane display name
+        new_parent = self._lane()
+        new_priority = create_lane_for_tiny_collection(
+            self._db, self._default_library, new_parent, ['spa', 'gaa', 'eng'],
+            priority=3
+        )
+        eq_(4, new_priority)
+        lane = self._db.query(Lane).filter(Lane.parent==new_parent).one()
+        eq_(u'español/English', lane.display_name)
 
     def test_create_default_lanes(self):
         library = self._default_library

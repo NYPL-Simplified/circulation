@@ -50,6 +50,7 @@ from core.model import (
 
 from core.util import LanguageCodes
 from novelist import NoveListAPI
+from core.util.problem_detail import ProblemDetail
 
 def load_lanes(_db, library):
     """Return a WorkList that reflects the current lane structure of the
@@ -280,8 +281,6 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
     )
     if nyt_integration:
         include_best_sellers = True
-
-    language_identifier = LanguageCodes.name_for_languageset(languages)
 
     sublanes = []
     if include_best_sellers:
@@ -683,7 +682,8 @@ def create_world_languages_lane(
     return priority
 
 def create_lane_for_small_collection(_db, library, parent, languages, priority=0):
-    """Create a lane (with sublanes) for a small collection based on language.
+    """Create a lane (with sublanes) for a small collection based on language,
+    if the language exists in the lookup table.
 
     :param parent: The parent of the new lane.
     """
@@ -699,6 +699,8 @@ def create_lane_for_small_collection(_db, library, parent, languages, priority=0
         genres=[],
     )
     language_identifier = LanguageCodes.name_for_languageset(languages)
+    if not language_identifier:
+        return 0
     sublane_priority = 0
 
     adult_fiction, ignore = create(
@@ -743,7 +745,8 @@ def create_lane_for_small_collection(_db, library, parent, languages, priority=0
     return priority
 
 def create_lane_for_tiny_collection(_db, library, parent, languages, priority=0):
-    """Create a single lane for a tiny collection based on language.
+    """Create a single lane for a tiny collection based on language,
+    if the language exists in the lookup table.
 
     :param parent: The parent of the new lane.
     """
@@ -754,6 +757,9 @@ def create_lane_for_tiny_collection(_db, library, parent, languages, priority=0)
         languages = [languages]
 
     name = LanguageCodes.name_for_languageset(languages)
+    if not name:
+        return 0
+
     language_lane, ignore = create(
         _db, Lane, library=library,
         display_name=name,
