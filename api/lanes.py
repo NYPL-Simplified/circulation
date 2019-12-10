@@ -50,7 +50,6 @@ from core.model import (
 
 from core.util import LanguageCodes
 from novelist import NoveListAPI
-from core.util.problem_detail import ProblemDetail
 
 def load_lanes(_db, library):
     """Return a WorkList that reflects the current lane structure of the
