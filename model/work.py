@@ -1028,8 +1028,9 @@ class Work(Base):
             Work. Summaries associated with these IDs will be
             used only if none are found from direct_identifier_ids.
 
-        :param licensed_data_sources: A list of DataSources that provide
-            LicensePools
+        :param licensed_data_sources: A list of DataSources that should be
+            given priority -- either because they provided the books or because
+            they are trusted sources such as library staff.
         """
         _db = Session.object_session(self)
         staff_data_source = DataSource.lookup(

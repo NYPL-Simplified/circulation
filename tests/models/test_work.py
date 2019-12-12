@@ -82,8 +82,20 @@ class TestWork(DatabaseTest):
 
         all_identifier_ids = work.all_identifier_ids()
         eq_(3, len(all_identifier_ids))
-        eq_(set([lp.identifier.id, lp2.identifier.id, identifier.id]),
-            set(all_identifier_ids))
+        expect_all_ids = set(
+            [lp.identifier.id, lp2.identifier.id, identifier.id]
+        )
+
+        eq_(expect_all_ids, all_identifier_ids)
+
+        # If we don't ask for a unified list, we get two lists.  The
+        # first list contains IDs for Identifiers directly associated
+        # with the Work's LicensePools. The second list contains
+        # _all_ relevant IDs.
+        direct_ids, all_ids = work.all_identifier_ids(unified=False)
+        eq_(set([x.identifier.id for x in work.license_pools]),
+            set(direct_ids))
+        eq_(expect_all_ids, all_ids)
 
     def test_from_identifiers(self):
         # Prep a work to be identified and a work to be ignored.
