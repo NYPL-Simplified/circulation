@@ -88,10 +88,10 @@ class TestWork(DatabaseTest):
 
         eq_(expect_all_ids, all_identifier_ids)
 
-        # If we don't ask for a unified list, we get two lists.  The
-        # first list contains IDs for Identifiers directly associated
-        # with the Work's LicensePools. The second list contains
-        # _all_ relevant IDs.
+        # The default is to get one unified list of Identifier IDs,
+        # but we can instead get a list and a set. The list contains
+        # IDs for Identifiers directly associated with the Work's
+        # LicensePools. The set contains _all_ relevant IDs.
         direct_ids, all_ids = work.all_identifier_ids(unified=False)
         eq_(set([x.identifier.id for x in work.license_pools]),
             set(direct_ids))
@@ -184,7 +184,50 @@ class TestWork(DatabaseTest):
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
+        # Create three summaries.
+
+        # This summary is associated with one of the work's
+        # LicensePools, and it comes from a good source -- Library
+        # Staff. It will be chosen even though it doesn't look great,
+        # textually.
+        library_staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        chosen_summary = "direct"
+        pool1.identifier.add_link(
+            Hyperlink.DESCRIPTION, None, library_staff, content=chosen_summary
+        )
+
+        # This summary is associated with one of the work's
+        # LicensePools, but it comes from a less reliable source, so
+        # it won't be chosen.
+        less_reliable_summary_source = DataSource.lookup(
+            self._db, DataSource.OCLC
+        )
+        pool2.identifier.add_link(
+            Hyperlink.DESCRIPTION, None, less_reliable_summary_source,
+            content="less reliable summary"
+        )
+
+        # This summary looks really nice, and it's associated with the
+        # same source as the LicensePool, which is good, but it's not
+        # directly associated with any of the LicensePools, so it
+        # won't be chosen.
+        related_identifier = self._identifier()
+        pool3.identifier.equivalent_to(
+            pool3.data_source, related_identifier, strength=1
+        )
+        related_identifier.add_link(
+            Hyperlink.DESCRIPTION, None, pool3.data_source,
+            content="This is an indirect summary. It's much longer, and looks more 'real', so you'd think it would be prefered, but it won't be."
+        )
+
         work = self._slow_work(presentation_edition=edition2)
+
+        # The work starts out with no description, even though its
+        # presentation was calculated, because a description can only
+        # come from an Identifier associated with a LicensePool, and
+        # this Work has no LicensePools.
+        eq_(None, work.summary)
+
         # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
         for p in pool3, pool1:
@@ -237,6 +280,9 @@ class TestWork(DatabaseTest):
         # The author of the Work is the author of its primary work record.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+        # The summary has now been chosen.
+        eq_(chosen_summary, work.summary.representation.content)
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
