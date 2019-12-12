@@ -59,6 +59,11 @@ class MetadataServicesController(SitewideRegistrationController):
                 NYTBestSellerAPI,
                 (NYTBestSellerAPI.from_config, self._db)
             )
+        elif integration.protocol == ExternalIntegration.NOVELIST:
+            return (
+                NoveListAPI,
+                (NoveListAPI.from_config, self._db)
+            )
         raise NotImplementedError(
             "No metadata self-test class for protocol %s" % integration.protocol
         )
