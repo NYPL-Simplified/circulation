@@ -261,7 +261,7 @@ class CollectionSettingsController(SettingsController):
                 result = self._set_integration_setting(collection.external_integration, setting)
                 if isinstance(result, ProblemDetail):
                     return result
-    
+
     def _set_external_integration_link(
             self, _db, key, value, collection,
     ):
