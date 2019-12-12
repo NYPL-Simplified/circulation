@@ -737,7 +737,18 @@ class Work(Base):
         )
         return q
 
-    def all_identifier_ids(self, policy=None):
+    def all_identifier_ids(self, policy=None, unified=True):
+        """Return all Identifier IDs associated with this Work.
+
+        :param policy: A `PresentationCalculationPolicy`.
+        :return: If unified=False, a 2-tuple (`direct_ids`, `all_ids`).
+           `direct_ids` is a list of Identifier IDs associated with
+             the Work's LicensePools.
+           `all_ids` is a set containing those Identifier IDs, plus
+             IDs of any Identifiers indirectly associated with them (
+             as per the rules set down in `policy`).
+           If unified=True, only `all_ids` is returned.
+        """
         _db = Session.object_session(self)
         primary_identifier_ids = [
             lp.identifier.id for lp in self.license_pools
@@ -748,10 +759,12 @@ class Work(Base):
             _db, primary_identifier_ids, policy=policy
         )
 
-        identifier_ids = set()
+        all_identifier_ids = set()
         for equivs in equivalent_lists.values():
-            identifier_ids.update(equivs)
-        return identifier_ids
+            all_identifier_ids.update(equivs)
+        if unified:
+            return all_identifier_ids
+        return primary_identifier_ids, all_identifier_ids
 
     @property
     def language_code(self):
@@ -901,25 +914,28 @@ class Work(Base):
             # classifications, or measurements.
             _db = Session.object_session(self)
 
-            identifier_ids = self.all_identifier_ids(policy=policy)
+            direct_identifier_ids, all_identifier_ids = self.all_identifier_ids(
+                policy=policy, unified=False
+            )
         else:
-            identifier_ids = []
+            # Don't bother.
+            direct_identifier_ids = all_identifier_ids = []
 
         if policy.classify:
-            classification_changed = self.assign_genres(identifier_ids,
-                                                        default_fiction=default_fiction,
-                                                        default_audience=default_audience)
+            classification_changed = self.assign_genres(
+                all_identifier_ids,
+                default_fiction=default_fiction,
+                default_audience=default_audience
+            )
             WorkCoverageRecord.add_for(
                 self, operation=WorkCoverageRecord.CLASSIFY_OPERATION
             )
 
         if policy.choose_summary:
-            staff_data_source = DataSource.lookup(_db, DataSourceConstants.LIBRARY_STAFF)
-            summary, summaries = Identifier.evaluate_summary_quality(
-                _db, identifier_ids, [staff_data_source, licensed_data_sources]
+            self._choose_summary(
+                direct_identifier_ids, all_identifier_ids,
+                licensed_data_sources
             )
-            # TODO: clean up the content
-            self.set_summary(summary)
 
         if policy.calculate_quality:
             # In the absense of other data, we will make a rough
@@ -941,7 +957,9 @@ class Work(Base):
                 # if we still haven't found anything of a quality measurement,
                 # then at least make it an integer zero, not none.
                 default_quality = 0
-            self.calculate_quality(identifier_ids, default_quality)
+            self.calculate_quality(
+                all_identifier_ids, default_quality
+            )
 
         if self.summary_text:
             if isinstance(self.summary_text, unicode):
@@ -989,6 +1007,44 @@ class Work(Base):
         # unless they are missing crucial information like language or
         # title.
         self.set_presentation_ready_based_on_content()
+
+    def _choose_summary(
+        self, direct_identifier_ids, all_identifier_ids,
+        licensed_data_sources
+    ):
+        """Helper method for choosing a summary as part of presentation
+        calculation.
+
+        Summaries closer to a LicensePool, or from a more trusted source
+        will be preferred.
+
+        :param direct_identifier_ids: All IDs of Identifiers of LicensePools
+            directly associated with this Work. Summaries associated with
+            these IDs will be preferred. In the real world, this will happen
+            almost all the time.
+
+        :param all_identifier_ids: All IDs of Identifiers of
+            LicensePools associated (directly or indirectly) with this
+            Work. Summaries associated with these IDs will be
+            used only if none are found from direct_identifier_ids.
+
+        :param licensed_data_sources: A list of DataSources that provide
+            LicensePools
+        """
+        _db = Session.object_session(self)
+        staff_data_source = DataSource.lookup(
+            _db, DataSourceConstants.LIBRARY_STAFF
+        )
+        data_sources = [staff_data_source, licensed_data_sources]
+        summary = None
+        for id_set in (direct_identifier_ids, all_identifier_ids):
+            summary, summaries = Identifier.evaluate_summary_quality(
+                _db, id_set, data_sources
+            )
+            if summary:
+                # We found a summary.
+                break
+        self.set_summary(summary)
 
     @property
     def detailed_representation(self):
