@@ -28,7 +28,6 @@ class MetadataServicesController(SitewideRegistrationController):
         self.protocols = self._get_integration_protocols(self.provider_apis, protocol_name_attr="PROTOCOL")
         self.goal = ExternalIntegration.METADATA_GOAL
         self.type = _("metadata service")
-        self.x = [ExternalIntegration.BIBBLIO, ExternalIntegration.CONTENT_CAFE, ExternalIntegration.NOVELIST, ExternalIntegration.NYPL_SHADOWCAT, ExternalIntegration.NYT, ExternalIntegration.METADATA_WRANGLER, ExternalIntegration.CONTENT_SERVER]
 
     def process_metadata_services(self):
         self.require_system_admin()
