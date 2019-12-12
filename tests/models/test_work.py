@@ -31,6 +31,7 @@ from ...model.licensing import LicensePool
 from ...model.resource import (
     Hyperlink,
     Representation,
+    Resource,
 )
 from ...model.work import (
     Work,
@@ -402,6 +403,74 @@ class TestWork(DatabaseTest):
         edition.language = "eng"
         work.calculate_presentation()
         eq_(True, work.presentation_ready)
+
+    def test__choose_summary(self):
+        # Test the _choose_summary helper method, called by
+        # calculate_presentation().
+
+        class Mock(Work):
+            def set_summary(self, summary):
+                if isinstance(summary, Resource):
+                    self.summary_text = summary.representation.content
+                else:
+                    self.summary_text = summary
+
+        w = Mock()
+        w.the_summary = "old summary"
+        self._db.add(w)
+        m = w._choose_summary
+
+        # If no summaries are available, any old summary is cleared out.
+        m([], [], [])
+        eq_(None, w.summary_text)
+
+        # Create three summaries on two identifiers.
+        source1 = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        source2 = DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
+
+        i1 = self._identifier()
+        i1.add_link(
+            Hyperlink.DESCRIPTION, None, source1,
+            content="ok summary"
+        )
+        good_summary = "This summary is great! It's more than one sentence long and features some noun phrases."
+        i1.add_link(
+            Hyperlink.DESCRIPTION, None, source2,
+            content=good_summary
+        )
+
+        i2 = self._identifier()
+        i2.add_link(
+            Hyperlink.DESCRIPTION, None, source2,
+            content="not too bad"
+        )
+
+        # Now we can test out the rules for choosing summaries.
+
+        # In a choice between all three summaries, good_summary is
+        # chosen based on textual characteristics.
+        m([], [i1.id, i2.id], [])
+        eq_(good_summary, w.summary_text)
+
+        m([i1.id, i2.id], [], [])
+        eq_(good_summary, w.summary_text)
+
+        # If an identifier is associated directly with the work, its
+        # summaries are considered first, and the other identifiers
+        # are not considered at all.
+        m([i2.id], [object(), i1.id], [])
+        eq_("not too bad", w.summary_text)
+
+        # A summary that comes from a preferred data source will be
+        # chosen over some other summary.
+        m([i1.id, i2.id], [], [source1])
+        eq_("ok summary", w.summary_text)
+
+        # But if there is no summary from a preferred data source, the
+        # normal rules apply.
+        source3 = DataSource.lookup(self._db, DataSource.AXIS_360)
+        m([i1.id], [], [source3])
+        eq_(good_summary, w.summary_text)
 
     def test_set_presentation_ready(self):
 
