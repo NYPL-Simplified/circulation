@@ -169,7 +169,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
                 "No ExternalIntegration found for the Metadata Wrangler.")
 
         if not integration.url:
-            raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+            raise CannotLoadConfiguration("Metadata Wrangler improperly configured.")
 
         return cls(
             integration.url, shared_secret=integration.password,
