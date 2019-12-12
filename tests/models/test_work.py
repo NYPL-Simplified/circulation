@@ -429,7 +429,7 @@ class TestWork(DatabaseTest):
         source2 = DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
 
         i1 = self._identifier()
-        i1.add_link(
+        l1, ignore = i1.add_link(
             Hyperlink.DESCRIPTION, None, source1,
             content="ok summary"
         )
@@ -471,6 +471,14 @@ class TestWork(DatabaseTest):
         source3 = DataSource.lookup(self._db, DataSource.AXIS_360)
         m([i1.id], [], [source3])
         eq_(good_summary, w.summary_text)
+
+        # LIBRARY_STAFF is always considered a good source of
+        # descriptions.
+        l1.data_source = DataSource.lookup(
+            self._db, DataSource.LIBRARY_STAFF
+        )
+        m([i1.id, i2.id], [], [])
+        eq_(l1.resource.representation.content, w.summary_text)
 
     def test_set_presentation_ready(self):
 
