@@ -89,15 +89,6 @@ class TestWork(DatabaseTest):
 
         eq_(expect_all_ids, all_identifier_ids)
 
-        # The default is to get one unified list of Identifier IDs,
-        # but we can instead get a list and a set. The list contains
-        # IDs for Identifiers directly associated with the Work's
-        # LicensePools. The set contains _all_ relevant IDs.
-        direct_ids, all_ids = work.all_identifier_ids(unified=False)
-        eq_(set([x.identifier.id for x in work.license_pools]),
-            set(direct_ids))
-        eq_(expect_all_ids, all_ids)
-
     def test_from_identifiers(self):
         # Prep a work to be identified and a work to be ignored.
         work = self._work(with_license_pool=True, with_open_access_download=True)

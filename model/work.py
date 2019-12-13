@@ -737,34 +737,33 @@ class Work(Base):
         )
         return q
 
-    def all_identifier_ids(self, policy=None, unified=True):
-        """Return all Identifier IDs associated with this Work.
-
-        :param policy: A `PresentationCalculationPolicy`.
-        :return: If unified=False, a 2-tuple (`direct_ids`, `all_ids`).
-           `direct_ids` is a list of Identifier IDs associated with
-             the Work's LicensePools.
-           `all_ids` is a set containing those Identifier IDs, plus
-             IDs of any Identifiers indirectly associated with them (
-             as per the rules set down in `policy`).
-           If unified=True, only `all_ids` is returned.
+    @property
+    def _direct_identifier_ids(self):
+        """Return all Identifier IDs associated with one of this
+        Work's LicensePools.
         """
-        _db = Session.object_session(self)
-        primary_identifier_ids = [
+        return [
             lp.identifier.id for lp in self.license_pools
             if lp.identifier
         ]
+
+    def all_identifier_ids(self, policy=None):
+        """Return all Identifier IDs associated with this Work.
+
+        :param policy: A `PresentationCalculationPolicy`.
+        :return: A set containing all Identifier IDs associated
+             with this Work (as per the rules set down in `policy`).
+        """
+        _db = Session.object_session(self)
         # Get a dict that maps identifier ids to lists of their equivalents.
         equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, policy=policy
+            _db, self._direct_identifier_ids, policy=policy
         )
 
         all_identifier_ids = set()
         for equivs in equivalent_lists.values():
             all_identifier_ids.update(equivs)
-        if unified:
-            return all_identifier_ids
-        return primary_identifier_ids, all_identifier_ids
+        return all_identifier_ids
 
     @property
     def language_code(self):
@@ -914,9 +913,8 @@ class Work(Base):
             # classifications, or measurements.
             _db = Session.object_session(self)
 
-            direct_identifier_ids, all_identifier_ids = self.all_identifier_ids(
-                policy=policy, unified=False
-            )
+            direct_identifier_ids = self._direct_identifier_ids
+            all_identifier_ids = self.all_identifier_ids(policy=policy)
         else:
             # Don't bother.
             direct_identifier_ids = all_identifier_ids = []
