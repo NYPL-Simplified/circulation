@@ -157,7 +157,7 @@ def display_name_to_sort_name(display_name):
 
     # This might go after a comma, or it might be someone's entire
     # name.
-    base_name = u' '.join([name.first, name.middle, name.suffix]).strip()
+    base_name = u' '.join([name.title, name.first, name.middle, name.suffix]).strip()
     if not name.last:
         # Examples: 'Pope Francis', 'Prince'.
         sort_name = base_name
@@ -174,8 +174,6 @@ def display_name_to_sort_name(display_name):
     # start of the name and a nickname goes at the end, in parentheses.
     if name.nickname:
         sort_name += ' (' + name.nickname + ')'
-    if name.title:
-        sort_name = name.title + ' ' + sort_name
 
     # Remove excess spaces and the like.
     sort_name = name_tidy(sort_name)

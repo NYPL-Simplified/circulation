@@ -58,9 +58,10 @@ class TestNameConversions(DatabaseTest):
         unchanged(u"Bitshifter, Bob")
         unchanged(u"Prince")
         unchanged(u"Pope Francis")
-        unchanged(u"Lord Byron")
         unchanged(u"Heliodorus (bp. of Tricca.)")
         unchanged(u"谢新源 (Xie Xinyuan)")
+        unchanged(u"Alfred, Lord Tennyson")
+        unchanged(u"Bob, The Grant Duke of Awesomeness")
 
         sort_name = m(u"Bob Bitshifter")
         eq_(u"Bitshifter, Bob", sort_name)
@@ -98,11 +99,8 @@ class TestNameConversions(DatabaseTest):
         unchanged(u"(C) 2006 Vanguard")
 
         # NOTE: These results are not the best.
-        eq_("Pope XVI, Benedict", m(u"Pope Benedict XVI"))
-        eq_("Lord Alfred, Tennyson", m(u"Alfred, Lord Tennyson"))
-        eq_("Lord Lennox, William", m("Lord William Lennox"))
-        sort_name = m(u"Bob, The Grand Duke of Awesomeness")
-        eq_(u"The Grand Bob, Duke of Awesomeness", sort_name)
+        eq_("XVI, Pope Benedict", m(u"Pope Benedict XVI"))
+        eq_("Byron, Lord", m(u"Lord Byron"))
 
     def test_name_tidy(self):
         # remove improper comma
