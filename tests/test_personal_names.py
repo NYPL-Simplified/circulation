@@ -61,7 +61,7 @@ class TestNameConversions(DatabaseTest):
         unchanged(u"Heliodorus (bp. of Tricca.)")
         unchanged(u"谢新源 (Xie Xinyuan)")
         unchanged(u"Alfred, Lord Tennyson")
-        unchanged(u"Bob, The Grant Duke of Awesomeness")
+        unchanged(u"Bob, The Grand Duke of Awesomeness")
 
         sort_name = m(u"Bob Bitshifter")
         eq_(u"Bitshifter, Bob", sort_name)
