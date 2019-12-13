@@ -170,8 +170,8 @@ def display_name_to_sort_name(display_name):
             # This person has _only_ a last name.
             sort_name = name.last
 
-    # Regardless of how the name was processed, a title goes at the
-    # start of the name and a nickname goes at the end, in parentheses.
+    # Regardless of how the name was processed, a nickname goes at the
+    # end, in parentheses.
     if name.nickname:
         sort_name += ' (' + name.nickname + ')'
 
