@@ -31,6 +31,7 @@ from ...model.licensing import LicensePool
 from ...model.resource import (
     Hyperlink,
     Representation,
+    Resource,
 )
 from ...model.work import (
     Work,
@@ -82,8 +83,11 @@ class TestWork(DatabaseTest):
 
         all_identifier_ids = work.all_identifier_ids()
         eq_(3, len(all_identifier_ids))
-        eq_(set([lp.identifier.id, lp2.identifier.id, identifier.id]),
-            set(all_identifier_ids))
+        expect_all_ids = set(
+            [lp.identifier.id, lp2.identifier.id, identifier.id]
+        )
+
+        eq_(expect_all_ids, all_identifier_ids)
 
     def test_from_identifiers(self):
         # Prep a work to be identified and a work to be ignored.
@@ -172,7 +176,50 @@ class TestWork(DatabaseTest):
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
+        # Create three summaries.
+
+        # This summary is associated with one of the work's
+        # LicensePools, and it comes from a good source -- Library
+        # Staff. It will be chosen even though it doesn't look great,
+        # textually.
+        library_staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        chosen_summary = "direct"
+        pool1.identifier.add_link(
+            Hyperlink.DESCRIPTION, None, library_staff, content=chosen_summary
+        )
+
+        # This summary is associated with one of the work's
+        # LicensePools, but it comes from a less reliable source, so
+        # it won't be chosen.
+        less_reliable_summary_source = DataSource.lookup(
+            self._db, DataSource.OCLC
+        )
+        pool2.identifier.add_link(
+            Hyperlink.DESCRIPTION, None, less_reliable_summary_source,
+            content="less reliable summary"
+        )
+
+        # This summary looks really nice, and it's associated with the
+        # same source as the LicensePool, which is good, but it's not
+        # directly associated with any of the LicensePools, so it
+        # won't be chosen.
+        related_identifier = self._identifier()
+        pool3.identifier.equivalent_to(
+            pool3.data_source, related_identifier, strength=1
+        )
+        related_identifier.add_link(
+            Hyperlink.DESCRIPTION, None, pool3.data_source,
+            content="This is an indirect summary. It's much longer, and looks more 'real', so you'd think it would be prefered, but it won't be."
+        )
+
         work = self._slow_work(presentation_edition=edition2)
+
+        # The work starts out with no description, even though its
+        # presentation was calculated, because a description can only
+        # come from an Identifier associated with a LicensePool, and
+        # this Work has no LicensePools.
+        eq_(None, work.summary)
+
         # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
         for p in pool3, pool1:
@@ -225,6 +272,9 @@ class TestWork(DatabaseTest):
         # The author of the Work is the author of its primary work record.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+        # The summary has now been chosen.
+        eq_(chosen_summary, work.summary.representation.content)
 
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
@@ -344,6 +394,82 @@ class TestWork(DatabaseTest):
         edition.language = "eng"
         work.calculate_presentation()
         eq_(True, work.presentation_ready)
+
+    def test__choose_summary(self):
+        # Test the _choose_summary helper method, called by
+        # calculate_presentation().
+
+        class Mock(Work):
+            def set_summary(self, summary):
+                if isinstance(summary, Resource):
+                    self.summary_text = summary.representation.content
+                else:
+                    self.summary_text = summary
+
+        w = Mock()
+        w.the_summary = "old summary"
+        self._db.add(w)
+        m = w._choose_summary
+
+        # If no summaries are available, any old summary is cleared out.
+        m([], [], [])
+        eq_(None, w.summary_text)
+
+        # Create three summaries on two identifiers.
+        source1 = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        source2 = DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
+
+        i1 = self._identifier()
+        l1, ignore = i1.add_link(
+            Hyperlink.DESCRIPTION, None, source1,
+            content="ok summary"
+        )
+        good_summary = "This summary is great! It's more than one sentence long and features some noun phrases."
+        i1.add_link(
+            Hyperlink.DESCRIPTION, None, source2,
+            content=good_summary
+        )
+
+        i2 = self._identifier()
+        i2.add_link(
+            Hyperlink.DESCRIPTION, None, source2,
+            content="not too bad"
+        )
+
+        # Now we can test out the rules for choosing summaries.
+
+        # In a choice between all three summaries, good_summary is
+        # chosen based on textual characteristics.
+        m([], [i1.id, i2.id], [])
+        eq_(good_summary, w.summary_text)
+
+        m([i1.id, i2.id], [], [])
+        eq_(good_summary, w.summary_text)
+
+        # If an identifier is associated directly with the work, its
+        # summaries are considered first, and the other identifiers
+        # are not considered at all.
+        m([i2.id], [object(), i1.id], [])
+        eq_("not too bad", w.summary_text)
+
+        # A summary that comes from a preferred data source will be
+        # chosen over some other summary.
+        m([i1.id, i2.id], [], [source1])
+        eq_("ok summary", w.summary_text)
+
+        # But if there is no summary from a preferred data source, the
+        # normal rules apply.
+        source3 = DataSource.lookup(self._db, DataSource.AXIS_360)
+        m([i1.id], [], [source3])
+        eq_(good_summary, w.summary_text)
+
+        # LIBRARY_STAFF is always considered a good source of
+        # descriptions.
+        l1.data_source = DataSource.lookup(
+            self._db, DataSource.LIBRARY_STAFF
+        )
+        m([i1.id, i2.id], [], [])
+        eq_(l1.resource.representation.content, w.summary_text)
 
     def test_set_presentation_ready(self):
 
