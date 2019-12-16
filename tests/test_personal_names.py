@@ -44,56 +44,63 @@ class TestNameConversions(DatabaseTest):
         # Make sure the sort name algorithm processes the messy reality of contributor
         # names in a way we expect.
 
+        m = display_name_to_sort_name
+
         # no input means don't do anything
-        sort_name = display_name_to_sort_name(None)
+        sort_name = m(None)
         eq_(None, sort_name)
 
-        # already sort-ready input means don't do anything
-        sort_name = display_name_to_sort_name(u"Bitshifter, Bob")
-        eq_(u"Bitshifter, Bob", sort_name)
+        def unchanged(x):
+            # Verify that the input is already a sort name -- either
+            # because it's in "Family, Given" format or for some other
+            # reason.
+            eq_(x, m(x))
+        unchanged(u"Bitshifter, Bob")
+        unchanged(u"Prince")
+        unchanged(u"Pope Francis")
+        unchanged(u"Heliodorus (bp. of Tricca.)")
+        unchanged(u"谢新源 (Xie Xinyuan)")
+        unchanged(u"Alfred, Lord Tennyson")
+        unchanged(u"Bob, The Grand Duke of Awesomeness")
 
-        sort_name = display_name_to_sort_name(u"Prince")
-        eq_(u"Prince", sort_name)
-
-        sort_name = display_name_to_sort_name(u"Pope Francis")
-        eq_(u"Pope, Francis", sort_name)
-
-        sort_name = display_name_to_sort_name(u"Bob Bitshifter")
+        sort_name = m(u"Bob Bitshifter")
         eq_(u"Bitshifter, Bob", sort_name)
 
         # foreign characters don't confuse the algorithm
-        sort_name = display_name_to_sort_name(u"Боб Битшифтер")
+        sort_name = m(u"Боб Битшифтер")
         eq_(u"Битшифтер, Боб", sort_name)
 
-        sort_name = display_name_to_sort_name(u"Bob Bitshifter, Jr.")
+        sort_name = m(u"Bob Bitshifter, Jr.")
         eq_(u"Bitshifter, Bob Jr.", sort_name)
 
-        sort_name = display_name_to_sort_name(u"Bob Bitshifter, III")
+        sort_name = m(u"Bob Bitshifter, III")
         eq_(u"Bitshifter, Bob III", sort_name)
 
-        # already having a comma still gets good results
-        sort_name = display_name_to_sort_name(u"Bob, The Grand Duke of Awesomeness")
-        eq_(u"Bob, Duke of Awesomeness The Grand", sort_name)
+        eq_("Beck, James M. (James Montgomery)",
+            m("James M. (James Montgomery) Beck"))
 
         # all forms of PhD are recognized
-        sort_name = display_name_to_sort_name(u"John Doe, PhD")
+        sort_name = m(u"John Doe, PhD")
         eq_(u"Doe, John PhD", sort_name)
-        sort_name = display_name_to_sort_name(u"John Doe, Ph.D.")
+        sort_name = m(u"John Doe, Ph.D.")
         eq_(u"Doe, John PhD", sort_name)
-        sort_name = display_name_to_sort_name(u"John Doe, Ph D")
+        sort_name = m(u"John Doe, Ph D")
         eq_(u"Doe, John PhD", sort_name)
-        sort_name = display_name_to_sort_name(u"John Doe, Ph. D.")
+        sort_name = m(u"John Doe, Ph. D.")
         eq_(u"Doe, John PhD", sort_name)
-        sort_name = display_name_to_sort_name(u"John Doe, PHD")
+        sort_name = m(u"John Doe, PHD")
         eq_(u"Doe, John PhD", sort_name)
 
-        sort_name = display_name_to_sort_name(u"John Doe, M.D.")
+        sort_name = m(u"John Doe, M.D.")
         eq_(u"Doe, John MD", sort_name)
 
-        # corporate name is unchanged
-        sort_name = display_name_to_sort_name(u"Church of Jesus Christ of Latter-day Saints")
-        eq_(u"Church of Jesus Christ of Latter-day Saints", sort_name)
+        # corporate names are unchanged
+        unchanged(u"Church of Jesus Christ of Latter-day Saints")
+        unchanged(u"(C) 2006 Vanguard")
 
+        # NOTE: These results are not the best.
+        eq_("XVI, Pope Benedict", m(u"Pope Benedict XVI"))
+        eq_("Byron, Lord", m(u"Lord Byron"))
 
     def test_name_tidy(self):
         # remove improper comma
