@@ -149,24 +149,34 @@ def display_name_to_sort_name(display_name):
     # name has title, first, middle, last, suffix, nickname
     name = HumanName(display_name)
 
-    if name.nickname:
-        name.nickname = '(' + name.nickname + ')'
 
     # Note: When the first and middle names are initials that have come in with a space between them,
     # let them keep that space, to be consistent with initials with no periods, which would be more
     # easily algorithm-recognized if they were placed separately. So:
     # 'Classy, A. B.' and 'Classy Abe B.' and 'Classy A. Barney' and 'Classy, Abe Barney' and 'Classy, A B'.
+
+    # This might go after a comma, or it might be someone's entire
+    # name.
+    base_name = u' '.join([name.title, name.first, name.middle, name.suffix]).strip()
     if not name.last:
         # Examples: 'Pope Francis', 'Prince'.
-        sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname])
-        if name.title:
-            sort_name = u''.join([name.title, ", ", sort_name])
+        sort_name = base_name
     else:
-        sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname, name.title])
-        sort_name = u''.join([name.last, ", ", sort_name])
+        if base_name:
+            # A comma is used to separate the family name from the other
+            # parts of the name.
+            sort_name = name.last + ', ' + base_name
+        else:
+            # This person has _only_ a last name.
+            sort_name = name.last
 
+    # Regardless of how the name was processed, a nickname goes at the
+    # end, in parentheses.
+    if name.nickname:
+        sort_name += ' (' + name.nickname + ')'
+
+    # Remove excess spaces and the like.
     sort_name = name_tidy(sort_name)
-
     return sort_name
 
 
