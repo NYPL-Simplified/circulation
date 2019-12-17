@@ -67,7 +67,7 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
             protocol=ExternalIntegration.ELASTICSEARCH,
             goal=ExternalIntegration.SEARCH_GOAL
         )
-        m = self.manager.admin_search_service_self_tests_controller.process_post
+        m = self.manager.admin_search_service_self_tests_controller.self_tests_process_post
         with self.request_context_with_admin("/", method="POST"):
             response = m(search_service.id)
             eq_(response._status, "200 OK")
