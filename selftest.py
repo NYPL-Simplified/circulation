@@ -4,6 +4,7 @@ from nose.tools import set_trace
 from util.http import IntegrationException
 import datetime
 import json
+import logging
 import traceback
 from util.opds_writer import AtomFeed
 
@@ -196,6 +197,7 @@ class HasSelfTests(object):
             integration.setting(
                 cls.SELF_TEST_RESULTS_SETTING
             ).value = json.dumps(value)
+
         return value, results
 
     @classmethod
@@ -224,6 +226,10 @@ class HasSelfTests(object):
         By default, there is no way to get from an object to its
         ExternalIntegration, and self-test status will not be stored.
         """
+        logger = logging.getLogger("Self-test system")
+        logger.error(
+            "No ExternalIntegration was found.  Self-test results will not be stored."
+        )
         return None
 
     def _run_self_tests(self, _db):

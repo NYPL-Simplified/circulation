@@ -169,11 +169,18 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
                 "No ExternalIntegration found for the Metadata Wrangler.")
 
         if not integration.url:
-            raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+            raise CannotLoadConfiguration("Metadata Wrangler improperly configured.")
 
         return cls(
             integration.url, shared_secret=integration.password,
             collection=collection
+        )
+
+    @classmethod
+    def external_integration(cls, _db):
+        return ExternalIntegration.lookup(
+            _db, ExternalIntegration.METADATA_WRANGLER,
+            ExternalIntegration.METADATA_GOAL
         )
 
     def _run_self_tests(self, _db, lookup_class=None):
@@ -221,7 +228,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
         one_day_ago = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         for title, m, args in (
             (
-                "Metadata updates in last 24 hours", 
+                "Metadata updates in last 24 hours",
                 self.updates, [one_day_ago]
             ),
             (
@@ -232,7 +239,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup, HasSelfTests):
             yield self._feed_self_test(title, m, *args)
 
     def _feed_self_test(self, name, method, *args):
-        """Retrieve a feed from the metadata wrangler and 
+        """Retrieve a feed from the metadata wrangler and
         turn it into a SelfTestResult.
         """
         result = SelfTestResult(name)
@@ -1477,7 +1484,7 @@ class OPDSImporter(object):
             elif link.media_type == MediaTypes.EPUB_MEDIA_TYPE:
                 derived_medium = Edition.BOOK_MEDIUM
                 break
-        
+
         return derived_medium
 
     @classmethod

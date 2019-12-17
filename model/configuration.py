@@ -296,7 +296,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     @classmethod
     def for_collection_and_purpose(cls, _db, collection, purpose):
         """Find the ExternalIntegration for the collection.
-         
+
         :param collection: Use the mirror configuration for this Collection.
         :param purpose: Use the purpose of the mirror configuration.
         """

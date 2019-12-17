@@ -412,6 +412,10 @@ class TestMetadataWranglerOPDSLookup(OPDSTest):
             'Status code: 401',
         ], test_result.result)
 
+    def test_external_integration(self):
+        result = MetadataWranglerOPDSLookup.external_integration(self._db)
+        eq_(result.protocol, ExternalIntegration.METADATA_WRANGLER)
+        eq_(result.goal, ExternalIntegration.METADATA_GOAL)
 
 class OPDSImporterTest(OPDSTest):
 
@@ -1678,11 +1682,11 @@ class TestOPDSImporter(OPDSImporterTest):
         http.queue_response(404, content=enough_content)
         monitor = OPDSImporter(self._db, None, http_get=http.do_get)
         eq_(False, monitor._is_open_access_link(url, None))
-    
+
     def test_import_open_access_audiobook(self):
         feed = self.audiobooks_opds
         download_manifest_url = 'https://api.archivelab.org/books/kniga_zitij_svjatyh_na_mesjac_avgust_eu_0811_librivox/opds_audio_manifest'
-        
+
         importer = OPDSImporter(
             self._db,
             collection=self._default_collection,
@@ -2440,7 +2444,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # Every page of the import had two successes and one failure.
         eq_("Items imported: 6. Failures: 3.", progress.achievements)
-        
+
         # The TimestampData returned by run_once does not include any
         # timing information; that's provided by run().
         eq_(None, progress.start)
