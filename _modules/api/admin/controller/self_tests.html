@@ -47,9 +47,9 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">MISSING_IDENTIFIER</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;GET&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_get</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_tests_process_get</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_post</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_tests_process_post</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
 
 <div class="viewcode-block" id="SelfTestsController.find_protocol_class"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.find_protocol_class">[docs]</a>    <span class="k">def</span> <span class="nf">find_protocol_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Given an ExternalIntegration, find the class on which run_tests()</span>
@@ -83,7 +83,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">value</span></div>
 
-<div class="viewcode-block" id="SelfTestsController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+<div class="viewcode-block" id="SelfTestsController.self_tests_process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.self_tests_process_get">[docs]</a>    <span class="k">def</span> <span class="nf">self_tests_process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integration</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">integration</span>
@@ -94,7 +94,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">self_test_results</span><span class="o">=</span><span class="n">info</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SelfTestsController.process_post"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.process_post">[docs]</a>    <span class="k">def</span> <span class="nf">process_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+<div class="viewcode-block" id="SelfTestsController.self_tests_process_post"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.self_tests.SelfTestsController.self_tests_process_post">[docs]</a>    <span class="k">def</span> <span class="nf">self_tests_process_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="n">integration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">look_up_by_id</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span> <span class="p">(</span><span class="n">integration</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">integration</span>

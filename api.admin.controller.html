@@ -677,7 +677,7 @@ color go together.</p>
 <dl class="class">
 <dt id="api.admin.controller.metadata_service_self_tests.MetadataServiceSelfTestsController">
 <em class="property">class </em><code class="descclassname">api.admin.controller.metadata_service_self_tests.</code><code class="descname">MetadataServiceSelfTestsController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/metadata_service_self_tests.html#MetadataServiceSelfTestsController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.metadata_service_self_tests.MetadataServiceSelfTestsController" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.admin.controller.self_tests.SelfTestsController" title="api.admin.controller.self_tests.SelfTestsController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.self_tests.SelfTestsController</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#api.admin.controller.metadata_services.MetadataServicesController" title="api.admin.controller.metadata_services.MetadataServicesController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.metadata_services.MetadataServicesController</span></code></a>, <a class="reference internal" href="#api.admin.controller.self_tests.SelfTestsController" title="api.admin.controller.self_tests.SelfTestsController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.self_tests.SelfTestsController</span></code></a></p>
 <dl class="method">
 <dt id="api.admin.controller.metadata_service_self_tests.MetadataServiceSelfTestsController.look_up_by_id">
 <code class="descname">look_up_by_id</code><span class="sig-paren">(</span><em>id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/metadata_service_self_tests.html#MetadataServiceSelfTestsController.look_up_by_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.metadata_service_self_tests.MetadataServiceSelfTestsController.look_up_by_id" title="Permalink to this definition">¶</a></dt>
@@ -697,6 +697,11 @@ color go together.</p>
 <dt id="api.admin.controller.metadata_services.MetadataServicesController">
 <em class="property">class </em><code class="descclassname">api.admin.controller.metadata_services.</code><code class="descname">MetadataServicesController</code><span class="sig-paren">(</span><em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/metadata_services.html#MetadataServicesController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.metadata_services.MetadataServicesController" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.admin.controller.SitewideRegistrationController" title="api.admin.controller.SitewideRegistrationController"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.admin.controller.SitewideRegistrationController</span></code></a></p>
+<dl class="method">
+<dt id="api.admin.controller.metadata_services.MetadataServicesController.find_protocol_class">
+<code class="descname">find_protocol_class</code><span class="sig-paren">(</span><em>integration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/metadata_services.html#MetadataServicesController.find_protocol_class"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.metadata_services.MetadataServicesController.find_protocol_class" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="api.admin.controller.metadata_services.MetadataServicesController.process_delete">
 <code class="descname">process_delete</code><span class="sig-paren">(</span><em>service_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/metadata_services.html#MetadataServicesController.process_delete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.metadata_services.MetadataServicesController.process_delete" title="Permalink to this definition">¶</a></dt>
@@ -869,18 +874,18 @@ arguments that should be passed into the call.</p>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="api.admin.controller.self_tests.SelfTestsController.process_get">
-<code class="descname">process_get</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/self_tests.html#SelfTestsController.process_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.self_tests.SelfTestsController.process_get" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="api.admin.controller.self_tests.SelfTestsController.process_post">
-<code class="descname">process_post</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/self_tests.html#SelfTestsController.process_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.self_tests.SelfTestsController.process_post" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
 <dt id="api.admin.controller.self_tests.SelfTestsController.run_tests">
 <code class="descname">run_tests</code><span class="sig-paren">(</span><em>integration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/self_tests.html#SelfTestsController.run_tests"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.self_tests.SelfTestsController.run_tests" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.controller.self_tests.SelfTestsController.self_tests_process_get">
+<code class="descname">self_tests_process_get</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/self_tests.html#SelfTestsController.self_tests_process_get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.self_tests.SelfTestsController.self_tests_process_get" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.admin.controller.self_tests.SelfTestsController.self_tests_process_post">
+<code class="descname">self_tests_process_post</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/admin/controller/self_tests.html#SelfTestsController.self_tests_process_post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.admin.controller.self_tests.SelfTestsController.self_tests_process_post" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

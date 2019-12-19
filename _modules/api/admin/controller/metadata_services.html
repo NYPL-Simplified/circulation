@@ -36,6 +36,7 @@
 <span></span><span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">api.nyt</span> <span class="kn">import</span> <span class="n">NYTBestSellerAPI</span>
 <span class="kn">from</span> <span class="nn">api.novelist</span> <span class="kn">import</span> <span class="n">NoveListAPI</span>
@@ -53,14 +54,15 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MetadataServicesController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
-        <span class="n">provider_apis</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">provider_apis</span> <span class="o">=</span> <span class="p">[</span>
                             <span class="n">NYTBestSellerAPI</span><span class="p">,</span>
                             <span class="n">NoveListAPI</span><span class="p">,</span>
                             <span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span>
                         <span class="p">]</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span><span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;PROTOCOL&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_protocols</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">provider_apis</span><span class="p">,</span> <span class="n">protocol_name_attr</span><span class="o">=</span><span class="s2">&quot;PROTOCOL&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">goal</span> <span class="o">=</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">METADATA_GOAL</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;metadata service&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="MetadataServicesController.process_metadata_services"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_services.MetadataServicesController.process_metadata_services">[docs]</a>    <span class="k">def</span> <span class="nf">process_metadata_services</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_system_admin</span><span class="p">()</span>
@@ -71,9 +73,34 @@
 
 <div class="viewcode-block" id="MetadataServicesController.process_get"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_services.MetadataServicesController.process_get">[docs]</a>    <span class="k">def</span> <span class="nf">process_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">metadata_services</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_integration_info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">goal</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protocols</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">service</span> <span class="ow">in</span> <span class="n">metadata_services</span><span class="p">:</span>
+            <span class="n">service_object</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">service</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">),</span> <span class="n">goal</span><span class="o">=</span><span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">METADATA_GOAL</span><span class="p">)</span>
+            <span class="n">protocol_class</span><span class="p">,</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_protocol_class</span><span class="p">(</span><span class="n">service_object</span><span class="p">)</span>
+            <span class="n">service</span><span class="p">[</span><span class="s2">&quot;self_test_results&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_prior_test_results</span><span class="p">(</span><span class="n">service_object</span><span class="p">,</span> <span class="n">protocol_class</span><span class="p">,</span> <span class="o">*</span><span class="nb">tuple</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
             <span class="n">metadata_services</span><span class="o">=</span><span class="n">metadata_services</span><span class="p">,</span>
             <span class="n">protocols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">protocols</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="MetadataServicesController.find_protocol_class"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_services.MetadataServicesController.find_protocol_class">[docs]</a>    <span class="k">def</span> <span class="nf">find_protocol_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">METADATA_WRANGLER</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">MetadataWranglerOPDSLookup</span><span class="o">.</span><span class="n">from_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">NYT</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">NYTBestSellerAPI</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">NYTBestSellerAPI</span><span class="o">.</span><span class="n">from_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">NOVELIST</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">NoveListAPI</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">NoveListAPI</span><span class="o">.</span><span class="n">from_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;No metadata self-test class for protocol </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="MetadataServicesController.process_post"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_services.MetadataServicesController.process_post">[docs]</a>    <span class="k">def</span> <span class="nf">process_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">debuggable_get</span><span class="p">,</span> <span class="n">do_post</span><span class="o">=</span><span class="n">HTTP</span><span class="o">.</span><span class="n">debuggable_post</span><span class="p">):</span>
@@ -126,7 +153,6 @@
 <div class="viewcode-block" id="MetadataServicesController.validate_form_fields"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_services.MetadataServicesController.validate_form_fields">[docs]</a>    <span class="k">def</span> <span class="nf">validate_form_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The &#39;name&#39; and &#39;protocol&#39; fields cannot be blank, and the protocol must</span>
 <span class="sd">        be selected from the list of recognized protocols.  The URL must be valid.&quot;&quot;&quot;</span>
-
         <span class="n">name</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span>
         <span class="n">protocol</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">)</span>
         <span class="n">url</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;url&quot;</span><span class="p">)</span>

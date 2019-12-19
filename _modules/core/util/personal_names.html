@@ -184,24 +184,34 @@
     <span class="c1"># name has title, first, middle, last, suffix, nickname</span>
     <span class="n">name</span> <span class="o">=</span> <span class="n">HumanName</span><span class="p">(</span><span class="n">display_name</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">:</span>
-        <span class="n">name</span><span class="o">.</span><span class="n">nickname</span> <span class="o">=</span> <span class="s1">&#39;(&#39;</span> <span class="o">+</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span> <span class="o">+</span> <span class="s1">&#39;)&#39;</span>
 
     <span class="c1"># Note: When the first and middle names are initials that have come in with a space between them,</span>
     <span class="c1"># let them keep that space, to be consistent with initials with no periods, which would be more</span>
     <span class="c1"># easily algorithm-recognized if they were placed separately. So:</span>
     <span class="c1"># &#39;Classy, A. B.&#39; and &#39;Classy Abe B.&#39; and &#39;Classy A. Barney&#39; and &#39;Classy, Abe Barney&#39; and &#39;Classy, A B&#39;.</span>
+
+    <span class="c1"># This might go after a comma, or it might be someone&#39;s entire</span>
+    <span class="c1"># name.</span>
+    <span class="n">base_name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span><span class="p">:</span>
         <span class="c1"># Examples: &#39;Pope Francis&#39;, &#39;Prince&#39;.</span>
-        <span class="n">sort_name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">:</span>
-            <span class="n">sort_name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="p">,</span> <span class="n">sort_name</span><span class="p">])</span>
+        <span class="n">sort_name</span> <span class="o">=</span> <span class="n">base_name</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">sort_name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">first</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">middle</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">suffix</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">,</span> <span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">])</span>
-        <span class="n">sort_name</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">name</span><span class="o">.</span><span class="n">last</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="p">,</span> <span class="n">sort_name</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">base_name</span><span class="p">:</span>
+            <span class="c1"># A comma is used to separate the family name from the other</span>
+            <span class="c1"># parts of the name.</span>
+            <span class="n">sort_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span> <span class="o">+</span> <span class="n">base_name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This person has _only_ a last name.</span>
+            <span class="n">sort_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">last</span>
 
+    <span class="c1"># Regardless of how the name was processed, a nickname goes at the</span>
+    <span class="c1"># end, in parentheses.</span>
+    <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span><span class="p">:</span>
+        <span class="n">sort_name</span> <span class="o">+=</span> <span class="s1">&#39; (&#39;</span> <span class="o">+</span> <span class="n">name</span><span class="o">.</span><span class="n">nickname</span> <span class="o">+</span> <span class="s1">&#39;)&#39;</span>
+
+    <span class="c1"># Remove excess spaces and the like.</span>
     <span class="n">sort_name</span> <span class="o">=</span> <span class="n">name_tidy</span><span class="p">(</span><span class="n">sort_name</span><span class="p">)</span>
-
     <span class="k">return</span> <span class="n">sort_name</span></div>
 
 

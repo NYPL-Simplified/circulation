@@ -42,31 +42,13 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">api.nyt</span> <span class="kn">import</span> <span class="n">NYTBestSellerAPI</span>
 <span class="kn">from</span> <span class="nn">api.admin.controller.self_tests</span> <span class="kn">import</span> <span class="n">SelfTestsController</span>
+<span class="kn">from</span> <span class="nn">api.admin.controller.metadata_services</span> <span class="kn">import</span> <span class="n">MetadataServicesController</span>
 
-<div class="viewcode-block" id="MetadataServiceSelfTestsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_service_self_tests.MetadataServiceSelfTestsController">[docs]</a><span class="k">class</span> <span class="nc">MetadataServiceSelfTestsController</span><span class="p">(</span><span class="n">SelfTestsController</span><span class="p">):</span>
+<div class="viewcode-block" id="MetadataServiceSelfTestsController"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_service_self_tests.MetadataServiceSelfTestsController">[docs]</a><span class="k">class</span> <span class="nc">MetadataServiceSelfTestsController</span><span class="p">(</span><span class="n">MetadataServicesController</span><span class="p">,</span> <span class="n">SelfTestsController</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">manager</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">MetadataServiceSelfTestsController</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">manager</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;metadata service&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_find_protocol_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integration</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Given an ExternalIntegration, find the class on which run_tests()</span>
-<span class="sd">        or prior_test_results() should be called, and any extra</span>
-<span class="sd">        arguments that should be passed into the call.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">METADATA_WRANGLER</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">(</span>
-                <span class="n">MetadataWranglerOPDSLookup</span><span class="p">,</span>
-                <span class="p">(</span><span class="n">MetadataWranglerOPDSLookup</span><span class="o">.</span><span class="n">from_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">elif</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">NYT</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">(</span>
-                <span class="n">NYTBestSellerAPI</span><span class="p">,</span>
-                <span class="p">(</span><span class="n">NYTBestSellerAPI</span><span class="o">.</span><span class="n">from_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;No metadata self-test class for protocol </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">integration</span><span class="o">.</span><span class="n">protocol</span>
-        <span class="p">)</span>
 
 <div class="viewcode-block" id="MetadataServiceSelfTestsController.process_metadata_service_self_tests"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.metadata_service_self_tests.MetadataServiceSelfTestsController.process_metadata_service_self_tests">[docs]</a>    <span class="k">def</span> <span class="nf">process_metadata_service_self_tests</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_manage_self_tests</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span></div>
