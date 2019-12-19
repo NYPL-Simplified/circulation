@@ -50,6 +50,7 @@ from core.metadata_layer import (
 from core.scripts import RunCollectionCoverageProviderScript
 from core.util.http import (
     BadResponseException,
+    RemoteIntegrationException,
     RequestTimedOut,
 )
 from core.testing import MockRequestsResponse
@@ -111,8 +112,8 @@ class TestEnkiAPI(BaseEnkiTest):
     def test__run_self_tests(self):
         # Mock every method that will be called by the self-test.
         class Mock(MockEnkiAPI):
-            def recent_activity(self, since):
-                self.recent_activity_called_with = since
+            def recent_activity(self, start, end):
+                self.recent_activity_called_with = (start, end)
                 yield 1
                 yield 2
 
@@ -156,7 +157,9 @@ class TestEnkiAPI(BaseEnkiTest):
         now = datetime.datetime.utcnow()
         one_hour_ago = now - datetime.timedelta(hours=1)
         one_day_ago = now - datetime.timedelta(hours=24)
-        assert (api.recent_activity_called_with - one_hour_ago).total_seconds() < 2
+        start, end = api.recent_activity_called_with
+        assert (start - one_hour_ago).total_seconds() < 2
+        assert (end - now).total_seconds() < 2
         eq_(True, circulation_changes.success)
         eq_("2 circulation events in the last hour", circulation_changes.result)
 
@@ -218,6 +221,26 @@ class TestEnkiAPI(BaseEnkiTest):
         # Only two requests were made.
         eq_(2, api.calls)
 
+    def test_request_error_indicator(self):
+        # A response that looks like Enki's HTML error message is
+        # turned into a RemoteIntegrationException.
+        class Oops(EnkiAPI):
+            timeout = True
+            called_with = []
+            def _request(self, *args, **kwargs):
+                self.called_with.append((args, kwargs))
+                return MockRequestsResponse(
+                    200,
+                    content="<html><title>oh no</title><body>%s</body>" % (
+                        EnkiAPI.ERROR_INDICATOR
+                    )
+                )
+        api = Oops(self._db, self.collection)
+        assert_raises_regexp(
+            RemoteIntegrationException, "An unknown error occured",
+            api.request, "url"
+        )
+
     def test__minutes_since(self):
         """Test the _minutes_since helper method."""
         an_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(
@@ -226,20 +249,21 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_(60, EnkiAPI._minutes_since(an_hour_ago))
 
     def test_recent_activity(self):
-        one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(
-            minutes=1
-        )
+        now = datetime.datetime.utcnow()
+        epoch = datetime.datetime(1970, 1, 1)
+        epoch_plus_one_hour = epoch + datetime.timedelta(hours=1)
         data = self.get_data("get_recent_activity.json")
         self.api.queue_response(200, content=data)
-        activity = list(self.api.recent_activity(one_minute_ago))
+        activity = list(self.api.recent_activity(epoch, epoch_plus_one_hour))
         eq_(43, len(activity))
         for i in activity:
             assert isinstance(i, CirculationData)
         [method, url, headers, data, params, kwargs] = self.api.requests.pop()
         eq_("get", method)
         eq_("https://enkilibrary.org/API/ItemAPI", url)
-        eq_("getRecentActivity", params['method'])
-        eq_(1, params['minutes'])
+        eq_("getRecentActivityTime", params['method'])
+        eq_('0', params['stime'])
+        eq_('3600', params['etime'])
 
         # Unlike some API calls, it's not necessary to pass 'lib' in here.
         assert 'lib' not in params
@@ -740,6 +764,47 @@ class TestEnkiImport(BaseEnkiTest):
         eq_([1,2], importer.processed)
 
     def test_update_circulation(self):
+        # update_circulation() makes two-hour slices out of time
+        # between the previous run and now, and passes each slice into
+        # _update_circulation, keeping track of the total number of
+        # circulation events encountered.
+        class Mock(EnkiImport):
+
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self._update_circulation_called_with = []
+                self.sizes = [1,2]
+
+            def _update_circulation(self, start, end):
+                # Pretend that one circulation event was discovered
+                # during the given time span.
+                self._update_circulation_called_with.append((start, end))
+                return self.sizes.pop()
+
+        # Call update_circulation() on a time three hours in the
+        # past. It will return a count of 3 -- the sum of the return
+        # values from our mocked _update_circulation().
+        now = datetime.datetime.utcnow()
+        one_hour_ago = now - datetime.timedelta(hours=1)
+        three_hours_ago = now - datetime.timedelta(hours=3)
+        monitor = Mock(self._db, self.collection, api_class=MockEnkiAPI)
+        eq_(3, monitor.update_circulation(three_hours_ago))
+
+        # slice_timespan() sliced up the timeline into two-hour
+        # chunks. It yielded up two chunks: "three hours ago" to "one
+        # hour ago" and "one hour ago" to "now".
+        #
+        # _update_circulation() was called on each chunk, and in each
+        # case the return value was an item popped from monitor.sizes.
+        chunk1, chunk2 = monitor._update_circulation_called_with
+        eq_((three_hours_ago, one_hour_ago), chunk1)
+        eq_(one_hour_ago, chunk2[0])
+        assert (chunk2[1] - now).total_seconds() < 2
+
+        # our mocked 'sizes' list is now empty.
+        eq_([], monitor.sizes)
+
+    def test__update_circulation(self):
 
         # Here's information about a book we didn't know about before.
         circ_data = {"result":{"records":1,"recentactivity":[{"historyid":"3738","id":"34278","recordId":"econtentRecord34278","time":"2018-06-26 10:08:23","action":"Checked Out","isbn":"9781618856050","availability":{"accessType":"acs","totalCopies":"1","availableCopies":0,"onHold":0}}]}}
@@ -756,16 +821,25 @@ class TestEnkiImport(BaseEnkiTest):
         analytics = MockAnalyticsProvider()
         monitor = EnkiImport(self._db, self.collection, api_class=api,
                              analytics=analytics)
-        since = datetime.datetime.utcnow()
-        monitor.update_circulation(since)
+        end = datetime.datetime.utcnow()
 
-        # Two requests were made -- one to getRecentActivity
+        # Ask for circulation events from one hour in 1970.
+        start = datetime.datetime(1970, 1, 1, 0, 0, 0)
+        end = datetime.datetime(1970, 1, 1, 1, 0, 0)
+        monitor._update_circulation(start, end)
+
+        # Two requests were made -- one to getRecentActivityTime
         # and one to getItem.
         [method, url, headers, data, params, kwargs] = api.requests.pop(0)
         eq_('get', method)
         eq_('https://enkilibrary.org/API/ItemAPI', url)
-        eq_('getRecentActivity', params['method'])
-        eq_(0, params['minutes'])
+        eq_('getRecentActivityTime', params['method'])
+
+        # The parameters passed to getRecentActivityTime show the
+        # start and end points of the request as seconds since the
+        # epoch.
+        eq_('0', params['stime'])
+        eq_('3600', params['etime'])
 
         [method, url, headers, data, params, kwargs] = api.requests.pop(0)
         eq_('get', method)
@@ -801,11 +875,11 @@ class TestEnkiImport(BaseEnkiTest):
         # EnkiImport won't ask for it.
 
         # Pump the monitor again.
-        monitor.update_circulation(since)
+        monitor._update_circulation(start, end)
 
-        # We made a single request, to getRecentActivity.
+        # We made a single request, to getRecentActivityTime.
         [method, url, headers, data, params, kwargs] = api.requests.pop(0)
-        eq_('getRecentActivity', params['method'])
+        eq_('getRecentActivityTime', params['method'])
 
         # The LicensePool was updated, but no new objects were created.
         eq_(10, licensepool.licenses_owned)

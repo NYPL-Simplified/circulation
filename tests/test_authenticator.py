@@ -432,6 +432,11 @@ class TestPatronData(AuthenticatorTest):
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
 
+        self.data.personal_name = None
+        params = self.data.to_response_parameters
+        eq_(dict(), params)
+
+
 class TestCirculationPatronProfileStorage(ControllerTest):
 
     def test_profile_document(self):

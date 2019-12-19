@@ -226,6 +226,16 @@ class TestLaneCreation(DatabaseTest):
             [x.fiction for x in sublanes]
         )
 
+        # If a language name is not found, don't create any lanes.
+        languages = ['eng', 'mul', 'chi']
+        parent = self._lane()
+        priority = create_lane_for_small_collection(
+            self._db, self._default_library, parent, languages, priority=2
+        )
+        lane = self._db.query(Lane).filter(Lane.parent==parent)
+        eq_(priority, 0)
+        eq_(lane.count(), 0)
+
     def test_lane_for_tiny_collection(self):
         parent = self._lane()
         new_priority = create_lane_for_tiny_collection(
@@ -239,6 +249,16 @@ class TestLaneCreation(DatabaseTest):
         eq_(['ger'], lane.languages)
         eq_(u'Deutsch', lane.display_name)
         eq_([], lane.children)
+
+        # No lane should be created when the language has no name.
+        new_parent = self._lane()
+        new_priority = create_lane_for_tiny_collection(
+            self._db, self._default_library, new_parent, ['spa', 'gaa', 'eng'],
+            priority=3
+        )
+        eq_(0, new_priority)
+        lane = self._db.query(Lane).filter(Lane.parent==new_parent)
+        eq_(lane.count(), 0)
 
     def test_create_default_lanes(self):
         library = self._default_library
@@ -533,7 +553,8 @@ class TestRecommendationLane(LaneTest):
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         filter = Filter()
         eq_(False, filter.match_nothing)
-        lane.modify_search_filter_hook(filter)
+        modified = lane.modify_search_filter_hook(filter)
+        eq_(modified, filter)
         eq_(True, filter.match_nothing)
 
         # When there are recommendations, the Filter is modified to
@@ -543,7 +564,8 @@ class TestRecommendationLane(LaneTest):
         lane.recommendations = [i1, i2]
         filter = Filter()
         eq_([], filter.identifiers)
-        lane.modify_search_filter_hook(filter)
+        modified = lane.modify_search_filter_hook(filter)
+        eq_(modified, filter)
         eq_([i1, i2], filter.identifiers)
         eq_(False, filter.match_nothing)
 

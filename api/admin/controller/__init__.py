@@ -85,7 +85,7 @@ from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdmi
 from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
-from api.coverage import MetadataWranglerCollectionRegistrar
+from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
 from core.app_server import (
     entry_response,
     feed_response,
@@ -107,7 +107,7 @@ from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, sele
 from api.admin.templates import admin as admin_template
 from api.authenticator import LibraryAuthenticator
 
-from core.opds_import import (OPDSImporter, OPDSImportMonitor)
+from core.opds_import import (MetadataWranglerOPDSLookup, OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
@@ -159,6 +159,8 @@ def setup_admin_controllers(manager):
     from api.admin.controller.metadata_services import MetadataServicesController
     manager.admin_metadata_services_controller = MetadataServicesController(manager)
     from api.admin.controller.patron_auth_services import PatronAuthServicesController
+    from api.admin.controller.metadata_service_self_tests import MetadataServiceSelfTestsController
+    manager.admin_metadata_service_self_tests_controller = MetadataServiceSelfTestsController(manager)
     manager.admin_patron_auth_services_controller = PatronAuthServicesController(manager)
     from api.admin.controller.patron_auth_service_self_tests import PatronAuthServiceSelfTestsController
     manager.admin_patron_auth_service_self_tests_controller = PatronAuthServiceSelfTestsController(manager)
@@ -1527,7 +1529,7 @@ class SettingsController(AdminCirculationManagerController):
 
         return protocols
 
-    def _get_prior_test_results(self, item, protocol_class=None):
+    def _get_prior_test_results(self, item, protocol_class=None, *extra_args):
         # :param item: An ExternalSearchIndex, an ExternalIntegration for patron authentication, or a Collection
         if not protocol_class and hasattr(self, "protocol_class"):
             protocol_class = self.protocol_class
@@ -1561,7 +1563,10 @@ class SettingsController(AdminCirculationManagerController):
                 self_test_results = ExternalSearchIndex.prior_test_results(
                     self._db, None, self._db, item
                 )
-
+            elif self.type == "metadata service" and protocol_class:
+                self_test_results = protocol_class.prior_test_results(
+                    self._db, *extra_args
+                )
             elif self.type == "patron authentication service":
                 library = None
                 if len(item.libraries):
@@ -1576,10 +1581,10 @@ class SettingsController(AdminCirculationManagerController):
                     )
 
         except Exception, e:
-            # This is bad, but not so bad that we should short-circuit
-            # this whole process -- that might prevent an admin from
-            # making the configuration changes necessary to fix
-            # this problem.
+        #     # This is bad, but not so bad that we should short-circuit
+        #     # this whole process -- that might prevent an admin from
+        #     # making the configuration changes necessary to fix
+        #     # this problem.
             message = _("Exception getting self-test results for %s %s: %s")
             args = (self.type, item.name, e.message)
             logging.warn(message, *args, exc_info=e)

@@ -25,6 +25,7 @@ from selftest import (
 
 from core.util.http import (
     HTTP,
+    RemoteIntegrationException,
     RequestTimedOut,
 )
 
@@ -101,6 +102,12 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         (epub, adobe_drm): 'acs',
     }
 
+    # Enki API serves all responses with a 200 error code and a
+    # text/html Content-Type. However, there's a string that
+    # reliably shows up in error pages which is unlikely to show up
+    # in normal API operation.
+    ERROR_INDICATOR = '<h1>Oops, an error occurred</h1>'
+
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
     SERVICE_NAME = "Enki"
     log = logging.getLogger("Enki API")
@@ -139,7 +146,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             """Count recent circulation events that affected loans or holds.
             """
             one_hour_ago = now - datetime.timedelta(hours=1)
-            count = len(list(self.recent_activity(since=one_hour_ago)))
+            count = len(list(self.recent_activity(one_hour_ago, now)))
             return "%s circulation events in the last hour" % count
 
         yield self.run_test(
@@ -178,8 +185,9 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 params=None, retry_on_timeout=True, **kwargs):
         """Make an HTTP request to the Enki API."""
         headers = dict(extra_headers)
+        response = None
         try:
-            return self._request(
+            response = self._request(
                 method, url, headers=headers, data=data,
                 params=params,
                 **kwargs
@@ -195,6 +203,12 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 data, params, retry_on_timeout=False,
                 **kwargs
             )
+
+        # Look for the error indicator and raise
+        # RemoteIntegrationException if it appears.
+        if response.content and self.ERROR_INDICATOR in response.content:
+            raise RemoteIntegrationException(url, "An unknown error occured")
+        return response
 
     def _request(self, method, url, headers, data, params, **kwargs):
         """Actually make an HTTP request.
@@ -217,17 +231,22 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         now = datetime.datetime.utcnow()
         return int((now - since).total_seconds() / 60)
 
-    def recent_activity(self, since):
-        """Find recent circulation events that affected loans or holds.
+    def recent_activity(self, start, end):
+        """Find circulation events from a certain timeframe that affected
+        loans or holds.
 
-        :param since: A DateTime
+        :param start: A DateTime
         :yield: A sequence of CirculationData objects.
         """
-        minutes = self._minutes_since(since)
+        epoch = datetime.datetime.utcfromtimestamp(0)
+        start = int((start - epoch).total_seconds())
+        end = int((end - epoch).total_seconds())
+
         url = self.base_url + self.item_endpoint
         args = dict(
-            method='getRecentActivity',
-            minutes=minutes,
+            method='getRecentActivityTime',
+            stime=str(start),
+            etime=str(end)
         )
         response = self.request(url, params=args)
         data = json.loads(response.content)
@@ -784,9 +803,31 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
         return new_titles, circulation_changes
 
     def update_circulation(self, since):
-        """Process circulation events that happened since `since`."""
+        """Process circulation events that happened since `since`.
+
+        :return: The total number of circulation events.
+        """
         circulation_changes = 0
-        for circulation in self.api.recent_activity(since):
+        # Slice the time since `since` into two-hour increments.
+        # Experimentation shows that the Enki API can grab about 60
+        # hours of activity at once before timing out, so this puts us
+        # well below that threshold.
+        now = datetime.datetime.utcnow()
+        for start, end, full_slice in self.slice_timespan(
+            since, now, datetime.timedelta(hours=2)
+        ):
+            circulation_changes += self._update_circulation(start, end)
+        return circulation_changes
+
+    def _update_circulation(self, start, end):
+        """Process circulation events that happened between
+        `start` and `end`.
+
+        :return: The number of circulation events between `start`
+        and `end`.
+        """
+        circulation_changes = 0
+        for circulation in self.api.recent_activity(start, end):
             circulation_changes += 1
             license_pool, is_new = circulation.license_pool(
                 self._db, self.collection

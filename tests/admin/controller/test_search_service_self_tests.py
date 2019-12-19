@@ -51,7 +51,10 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
             eq_(response_search_service.get("name"), search_service.name)
             eq_(response_search_service.get("protocol").get("label"), search_service.protocol)
             eq_(response_search_service.get("goal"), search_service.goal)
-            eq_(response_search_service.get("self_test_results"), self.self_test_results)
+            eq_(
+                response_search_service.get("self_test_results"),
+                HasSelfTests.prior_test_results()
+            )
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -64,15 +67,24 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
             protocol=ExternalIntegration.ELASTICSEARCH,
             goal=ExternalIntegration.SEARCH_GOAL
         )
-        m = self.manager.admin_search_service_self_tests_controller.process_post
+        m = self.manager.admin_search_service_self_tests_controller.self_tests_process_post
         with self.request_context_with_admin("/", method="POST"):
             response = m(search_service.id)
             eq_(response._status, "200 OK")
             eq_("Successfully ran new self tests", response.data)
 
-        # run_self_tests was called with the database twice (the
-        # second time to be used in the ExternalSearchIntegration
-        # constructor). There were no keyword arguments.
-        eq_(((self._db, None, self._db, None), {}), self.run_self_tests_called_with)
+        positional, keyword = self.run_self_tests_called_with
+        # run_self_tests was called with positional arguments:
+        # * The database connection
+        # * The method to call to instantiate a HasSelfTests implementation
+        #   (None -- this means to use the default ExternalSearchIndex
+        #   constructor.)
+        # * The database connection again (to be passed into
+        #   the ExternalSearchIndex constructor).
+        eq_((self._db, None, self._db), positional)
 
+        # run_self_tests was not called with any keyword arguments.
+        eq_({}, keyword)
+
+        # Undo the mock.
         HasSelfTests.run_self_tests = old_run_self_tests

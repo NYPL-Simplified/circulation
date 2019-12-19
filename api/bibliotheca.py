@@ -1330,22 +1330,6 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
             return default_start_time
         return None
 
-    def slice_timespan(self, start, cutoff, increment):
-        """Slice a span of time into segements no large than [increment].
-
-        This lets you divide up a task like "gather the entire
-        circulation history for a collection" into chunks of one day.
-        """
-        slice_start = start
-        while slice_start < cutoff:
-            full_slice = True
-            slice_cutoff = slice_start + increment
-            if slice_cutoff > cutoff:
-                slice_cutoff = cutoff
-                full_slice = False
-            yield slice_start, slice_cutoff, full_slice
-            slice_start = slice_start + increment
-
     def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
