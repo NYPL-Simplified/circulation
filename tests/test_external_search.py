@@ -90,6 +90,7 @@ from ..testing import (
     EndToEndSearchTest,
 )
 
+DEFAULT_AUDIENCE = Terms(audience=['youngadult', 'allages', 'adult', 'adultsonly', 'children'])
 
 class TestExternalSearch(ExternalSearchTest):
 
@@ -2215,9 +2216,10 @@ class TestQuery(DatabaseTest):
 
         # The filter we passed in was combined with the universal
         # base filter into a boolean query, with its own 'must'.
+        main_filter.must = main_filter.must + [MockFilter.universal_base_term]
         eq_(
             underlying_query.filter,
-            [Bool(must=[main_filter, MockFilter.universal_base_term])]
+            [main_filter]
         )
 
         # There are no nested filters, apart from the universal one.
@@ -2291,7 +2293,7 @@ class TestQuery(DatabaseTest):
         quality_range = Filter._match_range(
             'quality', 'gte', self._default_library.minimum_featured_quality
         )
-        eq_(Q('bool', must=quality_range), quality_filter)
+        eq_(Q('bool', must=[quality_range, DEFAULT_AUDIENCE]), quality_filter)
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
@@ -3061,7 +3063,7 @@ class TestFilter(DatabaseTest):
         media = object()
         languages = object()
         fiction = object()
-        audiences = object()
+        audiences = ["somestring"]
         author = object()
         match_nothing = object()
 
@@ -3252,7 +3254,7 @@ class TestFilter(DatabaseTest):
         eq_(parent.media, filter.media)
         eq_(parent.languages, filter.languages)
         eq_(parent.fiction, filter.fiction)
-        eq_(parent.audiences, filter.audiences)
+        eq_(parent.audiences + [Classifier.AUDIENCE_ALL_AGES], filter.audiences)
         eq_([parent.license_datasource_id], filter.license_datasources)
         eq_((parent.target_age.lower, parent.target_age.upper),
             filter.target_age)
@@ -3291,12 +3293,11 @@ class TestFilter(DatabaseTest):
         # is, itself, associated with a specific library.
         filter = Filter.from_worklist(self._db, does_not_inherit, facets)
 
-        built_filter, subfilters = filter.build()
+        built_filters, subfilters = self.assert_filter_builds_to([], filter)
 
         # The collection restriction is not reflected in the main
         # filter; rather it's in a subfilter that will be applied to the
         # 'licensepools' subdocument, where the collection ID lives.
-        eq_(None, built_filter)
 
         [subfilter] = subfilters.pop('licensepools')
         eq_({'terms': {'licensepools.collection_id': [self._default_collection.id]}},
@@ -3355,6 +3356,20 @@ class TestFilter(DatabaseTest):
         filter = Filter.from_worklist(self._db, for_other_library, None)
         eq_(True, filter.allow_holds)
 
+    def assert_filter_builds_to(self, expect, filter, _chain_filters=None):
+        """Helper method for the most common case, where a
+        Filter.build() returns a main filter and no nested filters.
+        """
+        
+        if expect:
+            expect = {'bool': {'must': expect + [DEFAULT_AUDIENCE.to_dict()]}}
+        else:
+            expect = DEFAULT_AUDIENCE.to_dict()
+        main, nested = filter.build(_chain_filters)
+        eq_(expect, main.to_dict())
+
+        return main, nested
+
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
         # filter object.
@@ -3368,39 +3383,34 @@ class TestFilter(DatabaseTest):
         # Let's try it with some simple cases before mocking
         # _chain_filters for a more detailed test.
 
-        def assert_filter(expect, filter, _chain_filters=None):
-            """Helper method for the most common case, where a
-            Filter.build() returns a main filter and no nested filters.
-            """
-            main, nested = filter.build(_chain_filters)
-            eq_(expect, main.to_dict())
-            eq_({}, nested)
-
         # Start with an empty filter. No filter is built and there are no
         # nested filters.
         filter = Filter()
-        eq_((None, {}), filter.build())
+        built_filters, subfilters = self.assert_filter_builds_to([], filter)
+        eq_({}, subfilters)
 
         # Add a medium clause to the filter.
         filter.media = "a medium"
         medium_built = {'terms': {'medium': ['amedium']}}
-        assert_filter(medium_built, filter)
+        built_filters, subfilters = self.assert_filter_builds_to([medium_built], filter)
+        eq_({}, subfilters)
 
         # Add a language clause to the filter.
         filter.languages = ["lang1", "LANG2"]
         language_built = {'terms': {'language': ['lang1', 'lang2']}}
 
         # Now both the medium clause and the language clause must match.
-        assert_filter(
-            {'bool': {'must': [medium_built, language_built]}},
+        built_filters, subfilters = self.assert_filter_builds_to(
+            [medium_built, language_built],
             filter
         )
+        eq_({}, subfilters)
 
         chain = self._mock_chain
 
         filter.collection_ids = [self._default_collection]
         filter.fiction = True
-        filter.audiences = 'CHILDREN'
+        filter._audiences = 'CHILDREN'
         filter.target_age = (2,3)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         filter.excluded_audiobook_data_sources = [overdrive.id]
@@ -3557,7 +3567,8 @@ class TestFilter(DatabaseTest):
         # We tried fiction; now try nonfiction.
         filter = Filter()
         filter.fiction = False
-        assert_filter({'term': {'fiction': 'nonfiction'}}, filter)
+        built_filters, subfilters = self.assert_filter_builds_to([{'term': {'fiction': 'nonfiction'}}], filter)
+        eq_({}, subfilters)
 
     def test_sort_order(self):
         # Test the Filter.sort_order property.

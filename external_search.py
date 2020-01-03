@@ -42,6 +42,7 @@ from classifier import (
     KeywordBasedClassifier,
     GradeLevelClassifier,
     AgeClassifier,
+    Classifier,
 )
 from facets import FacetConstants
 from metadata_layer import IdentifierData
@@ -2339,6 +2340,11 @@ class Filter(SearchBase):
         probably also include the 'All Ages' audience, and it may exclude
         the 'Research' audience.
         """
+
+        as_is = self._audiences
+        if isinstance(as_is, basestring):
+            as_is = [as_is]
+
         if not as_is:
             # An empty list of audiences means every audience _except_
             # for RESEARCH. RESEARCH must be explicitly specified to
@@ -2348,23 +2354,22 @@ class Filter(SearchBase):
         # At this point we know we have a specific list of audiences.
         # We're either going to return that list as-is, or we'll
         # return that list plus ALL_AGES.
-        as_is = self._audiences
-        with_all_ages = as_is + [all_ages]
+        with_all_ages = as_is + [Classifier.AUDIENCE_ALL_AGES]
 
-        if all_ages in as_is:
+        if Classifier.AUDIENCE_ALL_AGES in as_is:
             # ALL_AGES is explicitly included.
             return as_is
 
         # If YOUNG_ADULT or ADULT is an audience, then ALL_AGES is
         # always going to be an additional audience.
-        if any(x in as_is for x in [Classifier.YOUNG_ADULT_AUDIENCE,
-                                    Classifier.ADULT_AUDIENCE]):
+        if any(x in as_is for x in [Classifier.AUDIENCE_YOUNG_ADULT,
+                                    Classifier.AUDIENCE_ADULT]):
             return with_all_ages
 
         # At this point, if CHILDREN is _not_ included, we know that
         # ALL_AGES is not included. Specifically, ALL_AGES content
         # does _not_ belong in ADULTS_ONLY or RESEARCH.
-        if Classifier.CHILDREN_AUDIENCE not in as_is:
+        if Classifier.AUDIENCE_CHILDREN not in as_is:
             return as_is
 
         # Now we know that CHILDREN is an audience. It's going to come

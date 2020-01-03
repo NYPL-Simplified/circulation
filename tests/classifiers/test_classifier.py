@@ -438,8 +438,10 @@ class TestWorkClassifier(DatabaseTest):
         # The adult audiences have been reduced, to reduce the chance
         # that splitting up the weight between YA and Children will
         # cause the work to be mistakenly classified as Adult.
-        for aud in Classifier.AUDIENCES_ADULT:
-            eq_(-50, weights[aud])
+        eq_(-50, weights[Classifier.AUDIENCE_ADULT])
+        eq_(-50, weights[Classifier.AUDIENCE_ADULTS_ONLY])
+        # The juvenile classification doesn't make the all ages less likely.
+        eq_(0, weights[Classifier.AUDIENCE_ALL_AGES])
 
     def test_childrens_book_when_evidence_is_overwhelming(self):
         # There is some evidence in the 'adult' and 'adults only'
