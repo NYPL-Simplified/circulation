@@ -270,8 +270,8 @@ class Classifier(object):
             return cls.AUDIENCE_ADULT
         elif lower >= cls.YOUNG_ADULT_AGE_CUTOFF:
             return cls.AUDIENCE_YOUNG_ADULT
-        elif lower <= cls.ALL_AGES_CUTOFF and (
-            upper is not None and upper >= cls.ADULT_CUTOFF
+        elif lower <= cls.ALL_AGES_AGE_CUTOFF and (
+            upper is not None and upper >= cls.ADULT_AGE_CUTOFF
         ):
             # e.g. "for children ages 7-77". The 'all ages' reading
             # is here the most plausible.
@@ -1102,7 +1102,7 @@ class WorkClassifier(object):
                     self.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] += (weight * 0.6)
                     self.audience_weights[Classifier.AUDIENCE_CHILDREN] += (weight * 0.4)
                     for audience in Classifier.AUDIENCES_ADULT:
-                        if audience != Classifier.ALL_AGES:
+                        if audience != Classifier.AUDIENCE_ALL_AGES:
                             # 'All Ages' is considered an adult audience,
                             # but a generic 'juvenile' classification
                             # is not evidence against it.
