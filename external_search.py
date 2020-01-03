@@ -2341,15 +2341,12 @@ class Filter(SearchBase):
         the 'Research' audience.
         """
 
+        if not self._audiences:
+            return self._audiences
+
         as_is = self._audiences
         if isinstance(as_is, basestring):
             as_is = [as_is]
-
-        if not as_is:
-            # An empty list of audiences means every audience _except_
-            # for RESEARCH. RESEARCH must be explicitly specified to
-            # be included in lists or search results.
-            return Classifier.AUDIENCES_NO_RESEARCH
 
         # At this point we know we have a specific list of audiences.
         # We're either going to return that list as-is, or we'll
@@ -2446,6 +2443,8 @@ class Filter(SearchBase):
 
         if self.audiences:
             f = chain(f, Terms(audience=scrub_list(self.audiences)))
+        else:
+            f = chain(f, Bool(must_not=[Term(audience=Classifier.AUDIENCE_RESEARCH)]))
 
         target_age_filter = self.target_age_filter
         if target_age_filter:

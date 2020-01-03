@@ -90,7 +90,7 @@ from ..testing import (
     EndToEndSearchTest,
 )
 
-DEFAULT_AUDIENCE = Terms(audience=['youngadult', 'allages', 'adult', 'adultsonly', 'children'])
+RESEARCH = Term(audience=Classifier.AUDIENCE_RESEARCH)
 
 class TestExternalSearch(ExternalSearchTest):
 
@@ -539,7 +539,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         self.sherlock = _work(
             title="The Adventures of Sherlock Holmes",
-            with_open_access_download=True
+            with_open_access_download=True,
+            audience=Classifier.AUDIENCE_ADULT
         )
         self.sherlock.presentation_edition.language = "eng"
 
@@ -2293,7 +2294,7 @@ class TestQuery(DatabaseTest):
         quality_range = Filter._match_range(
             'quality', 'gte', self._default_library.minimum_featured_quality
         )
-        eq_(Q('bool', must=[quality_range, DEFAULT_AUDIENCE]), quality_filter)
+        eq_(Q('bool', must=[quality_range], must_not=[RESEARCH]), quality_filter)
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
@@ -3360,13 +3361,12 @@ class TestFilter(DatabaseTest):
         """Helper method for the most common case, where a
         Filter.build() returns a main filter and no nested filters.
         """
+        final_query = {'bool': {'must_not': [RESEARCH.to_dict()]}}
         
         if expect:
-            expect = {'bool': {'must': expect + [DEFAULT_AUDIENCE.to_dict()]}}
-        else:
-            expect = DEFAULT_AUDIENCE.to_dict()
+            final_query['bool']['must'] = expect
         main, nested = filter.build(_chain_filters)
-        eq_(expect, main.to_dict())
+        eq_(final_query, main.to_dict())
 
         return main, nested
 
