@@ -1737,7 +1737,7 @@
             <span class="n">page_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
             <span class="n">feed</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">page_url</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">sublane</span> <span class="ow">in</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">sublane</span> <span class="ow">in</span> <span class="n">lane</span><span class="o">.</span><span class="n">visible_children</span><span class="p">:</span>
             <span class="n">title</span> <span class="o">=</span> <span class="n">sublane</span><span class="o">.</span><span class="n">display_name</span>
             <span class="k">if</span> <span class="n">sublane</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
                 <span class="n">sublane_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">navigation_url</span><span class="p">(</span><span class="n">sublane</span><span class="p">)</span>
