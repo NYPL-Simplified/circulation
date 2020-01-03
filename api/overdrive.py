@@ -717,10 +717,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
            this patron's hold notifications, or None if there is
            no such address.
         """
-        # We do _not_ want to call the superclass here. That will find
-        # a per-library default that trashes all of its input, which
-        # we don't want to use.
-        #
+
+        # We're calling the superclass implementation, but we have no
+        # intention of actually using the result. This is a
+        # per-library default that trashes all of its input, and
+        # Overdrive has a better solution.
+        trash_everything_address = super(
+            OverdriveAPI, self
+        ).default_notification_email_address(patron, pin)
+
         # Instead, we will ask _Overdrive_ if this patron has a
         # preferred email address for notifications.
         address = None
@@ -730,6 +735,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         if response.status_code == 200:
             data = response.json()
             address = data.get('lastHoldEmail')
+
+            # Great! Except, it's possible that this address is the
+            # 'trash everything' address, because we _used_ to send
+            # that address to Overdrive. If so, ignore it.
+            if address == trash_everything_address:
+                address = None
         else:
             self.log.error(
                 "Unable to get patron information for %s: %s",
