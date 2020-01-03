@@ -752,10 +752,15 @@
 <span class="sd">           this patron&#39;s hold notifications, or None if there is</span>
 <span class="sd">           no such address.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># We do _not_ want to call the superclass here. That will find</span>
-        <span class="c1"># a per-library default that trashes all of its input, which</span>
-        <span class="c1"># we don&#39;t want to use.</span>
-        <span class="c1">#</span>
+
+        <span class="c1"># We&#39;re calling the superclass implementation, but we have no</span>
+        <span class="c1"># intention of actually using the result. This is a</span>
+        <span class="c1"># per-library default that trashes all of its input, and</span>
+        <span class="c1"># Overdrive has a better solution.</span>
+        <span class="n">trash_everything_address</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span>
+            <span class="n">OverdriveAPI</span><span class="p">,</span> <span class="bp">self</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">default_notification_email_address</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">)</span>
+
         <span class="c1"># Instead, we will ask _Overdrive_ if this patron has a</span>
         <span class="c1"># preferred email address for notifications.</span>
         <span class="n">address</span> <span class="o">=</span> <span class="kc">None</span>
@@ -765,6 +770,12 @@
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
             <span class="n">address</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lastHoldEmail&#39;</span><span class="p">)</span>
+
+            <span class="c1"># Great! Except, it&#39;s possible that this address is the</span>
+            <span class="c1"># &#39;trash everything&#39; address, because we _used_ to send</span>
+            <span class="c1"># that address to Overdrive. If so, ignore it.</span>
+            <span class="k">if</span> <span class="n">address</span> <span class="o">==</span> <span class="n">trash_everything_address</span><span class="p">:</span>
+                <span class="n">address</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;Unable to get patron information for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
