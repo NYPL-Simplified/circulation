@@ -1702,7 +1702,7 @@ class NavigationFeed(OPDSFeed):
             page_url = annotator.feed_url(lane)
             feed.add_entry(page_url, title, cls.ACQUISITION_FEED_TYPE)
 
-        for sublane in lane.children:
+        for sublane in lane.visible_children:
             title = sublane.display_name
             if sublane.children:
                 sublane_url = annotator.navigation_url(sublane)
