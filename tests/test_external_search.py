@@ -539,8 +539,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         self.sherlock = _work(
             title="The Adventures of Sherlock Holmes",
-            with_open_access_download=True,
-            audience=Classifier.AUDIENCE_ADULT
+            with_open_access_download=True
         )
         self.sherlock.presentation_edition.language = "eng"
 
@@ -3369,6 +3368,49 @@ class TestFilter(DatabaseTest):
         eq_(final_query, main.to_dict())
 
         return main, nested
+
+    def test_audiences(self):
+        filter = Filter()
+        eq_(filter.audiences, None)
+
+        # Should work whether audiences is a string
+        filter = Filter(audiences=Classifier.AUDIENCE_ALL_AGES)
+        eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
+        # or if audiences is a list
+        filter = Filter(audiences=[Classifier.AUDIENCE_ALL_AGES])
+        eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
+
+        # "all ages" should always be an audience if the audience is
+        # young adult or adult.
+        filter = Filter(audiences=Classifier.AUDIENCE_YOUNG_ADULT)
+        eq_(filter.audiences, [Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ALL_AGES])
+        filter = Filter(audiences=Classifier.AUDIENCE_ADULT)
+        eq_(filter.audiences, [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ALL_AGES])
+        filter = Filter(audiences=[Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_YOUNG_ADULT])
+        eq_(
+            filter.audiences,
+            [Classifier.AUDIENCE_ADULT,
+            Classifier.AUDIENCE_YOUNG_ADULT,
+            Classifier.AUDIENCE_ALL_AGES]
+        )
+
+        # If the audience is meant for adults, then "all ages" should not
+        # be included
+        filter = Filter(audiences=Classifier.AUDIENCE_ADULTS_ONLY)
+        assert(Classifier.AUDIENCE_ALL_AGES not in filter.audiences)
+        filter = Filter(audiences=Classifier.AUDIENCE_RESEARCH)
+        assert(Classifier.AUDIENCE_ALL_AGES not in filter.audiences)
+
+        # If the audience and target age is meant for children, then the
+        # audience should only be for children
+        filter = Filter(
+            audiences=Classifier.AUDIENCE_CHILDREN,
+            target_age=5
+        )
+        eq_(filter.audiences, [Classifier.AUDIENCE_CHILDREN])
+        # Otherwise, there's no target age and the audiences includes "all ages".
+        filter = Filter(audiences=Classifier.AUDIENCE_CHILDREN)
+        eq_(filter.audiences, [Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_ALL_AGES])
 
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch

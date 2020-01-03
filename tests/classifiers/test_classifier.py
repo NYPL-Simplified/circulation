@@ -20,6 +20,7 @@ from ...classifier import (
         fiction_genres,
         nonfiction_genres,
         GenreData,
+        FreeformAudienceClassifier,
     )
 
 from ...classifier.age import (
@@ -115,6 +116,10 @@ class TestClassifier(object):
 
         # Whereas this is unambiguously 'Children' as far as we're concerned.
         aud(12, 13, Classifier.AUDIENCE_CHILDREN)
+
+        # All ages for audiences that are younger than the "all ages
+        # age cutoff" and older than the "adult age cutoff".
+        aud(5, 25, Classifier.AUDIENCE_ALL_AGES)
 
     def test_and_up(self):
         """Test the code that determines what "x and up" actually means."""
@@ -256,6 +261,34 @@ class TestConsolidateWeights(object):
         w2 = WorkClassifier.consolidate_genre_weights(weights)
         eq_(100, w2[classifier.History])
         eq_(1, w2[classifier.Middle_East_History])
+
+class TestFreeformAudienceClassifier(DatabaseTest):
+    def test_audience(self):
+        def audience(aud):
+            # The second param, `name`, is not used in the audience method
+            return FreeformAudienceClassifier.audience(aud, None)
+
+        [eq_(Classifier.AUDIENCE_CHILDREN, audience(val))
+            for val in ['children', 'pre-adolescent', 'beginning reader']]
+        
+        [eq_(Classifier.AUDIENCE_YOUNG_ADULT, audience(val))
+            for val in ['young adult', 'ya', 'teenagers', 'adolescent', 'early adolescents']]
+
+        eq_(audience('adult'), Classifier.AUDIENCE_ADULT)
+        eq_(audience('adults only'), Classifier.AUDIENCE_ADULTS_ONLY)
+        eq_(audience('all ages'), Classifier.AUDIENCE_ALL_AGES)
+
+        eq_(audience('books for all ages'), None)
+
+    def test_target_age(self):
+        def target_age(age):
+            return FreeformAudienceClassifier.target_age(age, None)
+
+        eq_(target_age('beginning reader'), (5, 8))
+        eq_(target_age('pre-adolescent'), (9, 12))
+        eq_(target_age('all ages'), (Classifier.ALL_AGES_AGE_CUTOFF, Classifier.ADULT_AGE_CUTOFF))
+
+        eq_(target_age('babies'), (None, None))
 
 class TestWorkClassifier(DatabaseTest):
 

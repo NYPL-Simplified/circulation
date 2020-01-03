@@ -2337,8 +2337,7 @@ class Filter(SearchBase):
         """Return the appropriate audiences for this query.
 
         This will be whatever audiences were provided, but it will
-        probably also include the 'All Ages' audience, and it may exclude
-        the 'Research' audience.
+        probably also include the 'All Ages' audience.
         """
 
         if not self._audiences:
