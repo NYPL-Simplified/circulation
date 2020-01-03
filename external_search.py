@@ -2257,7 +2257,7 @@ class Filter(SearchBase):
         self.media = media
         self.languages = languages
         self.fiction = fiction
-        self.audiences = audiences
+        self._audiences = audiences
 
         if target_age:
             if isinstance(target_age, int):
@@ -2330,6 +2330,52 @@ class Filter(SearchBase):
             self.scoring_functions = facets.scoring_functions(self)
         else:
             self.scoring_functions = []
+
+    @property
+    def audiences(self):
+        """Return the appropriate audiences for this query.
+
+        This will be whatever audiences were provided, but it will
+        probably also include the 'All Ages' audience, and it may exclude
+        the 'Research' audience.
+        """
+        if not as_is:
+            # An empty list of audiences means every audience _except_
+            # for RESEARCH. RESEARCH must be explicitly specified to
+            # be included in lists or search results.
+            return Classifier.AUDIENCES_NO_RESEARCH
+
+        # At this point we know we have a specific list of audiences.
+        # We're either going to return that list as-is, or we'll
+        # return that list plus ALL_AGES.
+        as_is = self._audiences
+        with_all_ages = as_is + [all_ages]
+
+        if all_ages in as_is:
+            # ALL_AGES is explicitly included.
+            return as_is
+
+        # If YOUNG_ADULT or ADULT is an audience, then ALL_AGES is
+        # always going to be an additional audience.
+        if any(x in as_is for x in [Classifier.YOUNG_ADULT_AUDIENCE,
+                                    Classifier.ADULT_AUDIENCE]):
+            return with_all_ages
+
+        # At this point, if CHILDREN is _not_ included, we know that
+        # ALL_AGES is not included. Specifically, ALL_AGES content
+        # does _not_ belong in ADULTS_ONLY or RESEARCH.
+        if Classifier.CHILDREN_AUDIENCE not in as_is:
+            return as_is
+
+        # Now we know that CHILDREN is an audience. It's going to come
+        # down to the upper bound on the target age.
+        if (self.target_age and self.target_age[1] is not None
+            and self.target_age[1] < Classifier.ALL_AGES_AGE_CUTOFF):
+            # The audience for this query does not include any kids
+            # who are expected to have the reading fluency necessary
+            # for ALL_AGES books.
+            return as_is
+        return with_all_ages
 
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
