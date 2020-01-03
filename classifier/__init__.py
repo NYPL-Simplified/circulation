@@ -250,7 +250,7 @@ class Classifier(object):
             # likely the data is simply missing.
             return None
         if not lower:
-            if upper >= cls.AUDIENCE_ADULT:
+            if upper >= cls.AUDIENCE_ADULT_AGE_CUTOFF:
                 # e.g. "up to 20 years", though this doesn't
                 # really make sense.
                 #
