@@ -907,6 +907,8 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
             return cls.AUDIENCE_ADULTS_ONLY
         elif identifier == 'all ages':
             return cls.AUDIENCE_ALL_AGES
+        elif identifier == 'research':
+            return cls.AUDIENCE_RESEARCH
         return AgeOrGradeClassifier.audience(identifier, name)
 
     @classmethod

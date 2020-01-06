@@ -278,6 +278,7 @@ class TestFreeformAudienceClassifier(DatabaseTest):
         eq_(audience('adult'), Classifier.AUDIENCE_ADULT)
         eq_(audience('adults only'), Classifier.AUDIENCE_ADULTS_ONLY)
         eq_(audience('all ages'), Classifier.AUDIENCE_ALL_AGES)
+        eq_(audience('research'), Classifier.AUDIENCE_RESEARCH)
 
         eq_(audience('books for all ages'), None)
 
