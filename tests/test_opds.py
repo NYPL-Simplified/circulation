@@ -835,19 +835,19 @@ class TestLibraryAnnotator(VendorIDTest):
 
         work = self._work(language='spa', audience=Classifier.AUDIENCE_ADULT)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('spa', 'Adult,Adults+Only,All+Ages,Children,Research,Young+Adult'), result)
+        eq_(('spa', 'Adult,Adults+Only,All+Ages,Children,Young+Adult'), result)
 
         work = self._work(audience=Classifier.AUDIENCE_ADULTS_ONLY)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Research,Young+Adult'), result)
+        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Young+Adult'), result)
 
         work = self._work(audience=Classifier.AUDIENCE_RESEARCH)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'Research'), result)
+        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Research,Young+Adult'), result)
 
         work = self._work(audience=Classifier.AUDIENCE_ALL_AGES)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Research,Young+Adult'), result)
+        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Young+Adult'), result)
 
 
     def test_work_entry_includes_contributor_links(self):
