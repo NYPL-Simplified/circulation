@@ -721,6 +721,10 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             audiences = Classifier.AUDIENCES_JUVENILE
         elif work.audience in Classifier.AUDIENCES_ADULT:
             audiences = list(Classifier.AUDIENCES)
+        elif work.audience == Classifier.AUDIENCE_ALL_AGES:
+            audiences = [Classifier.AUDIENCE_ALL_AGES]
+        elif work.audience == Classifier.AUDIENCE_RESEARCH:
+            audiences = [Classifier.AUDIENCE_RESEARCH]
         else:
             audiences = []
 
