@@ -1294,6 +1294,8 @@ class WorkClassifier(object):
         ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
         adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
         adults_only_weight = w.get(Classifier.AUDIENCE_ADULTS_ONLY, 0)
+        all_ages_weight = w.get(Classifier.AUDIENCE_ALL_AGES, 0)
+        research_weight = w.get(Classifier.AUDIENCE_RESEARCH, 0)
 
         total_adult_weight = adult_weight + adults_only_weight
         total_weight = sum(w.values())
@@ -1323,6 +1325,10 @@ class WorkClassifier(object):
             audience = Classifier.AUDIENCE_YOUNG_ADULT
         elif total_adult_weight > 0:
             audience = Classifier.AUDIENCE_ADULT
+        elif all_ages_weight > 0:
+            audience = Classifier.AUDIENCE_ALL_AGES
+        elif research_weight > 0:
+            audience = Classifier.AUDIENCE_RESEARCH
 
         # If the 'adults only' weight is more than 1/4 of the total adult
         # weight, classify as 'adults only' to be safe.
