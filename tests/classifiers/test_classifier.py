@@ -531,6 +531,23 @@ class TestWorkClassifier(DatabaseTest):
         genres = { classifier.Erotica : 50,
                    classifier.Science_Fiction: 50}
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience(genres))
+    
+    def test_all_ages_audience(self):
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 0,
+            Classifier.AUDIENCE_ALL_AGES : 10,
+            Classifier.AUDIENCE_CHILDREN : 0,
+        }
+        eq_(Classifier.AUDIENCE_ALL_AGES, self.classifier.audience())
+    
+    def test_research_audience(self):
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 0,
+            Classifier.AUDIENCE_RESEARCH : 10,
+            Classifier.AUDIENCE_CHILDREN : 0,
+        }
+        eq_(Classifier.AUDIENCE_RESEARCH, self.classifier.audience())
+
 
     def test_format_classification_from_license_source_is_used(self):
         # This book will be classified as a comic book, because
@@ -560,6 +577,8 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULT : 0,
             Classifier.AUDIENCE_ADULTS_ONLY : 0,
             Classifier.AUDIENCE_CHILDREN : 1,
+            Classifier.AUDIENCE_RESEARCH : 0,
+            Classifier.AUDIENCE_ALL_AGES : 0,
         }
         eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience())
 
@@ -571,6 +590,8 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULT : 4,
             Classifier.AUDIENCE_ADULTS_ONLY : 2,
             Classifier.AUDIENCE_CHILDREN : 4,
+            Classifier.AUDIENCE_RESEARCH : 0,
+            Classifier.AUDIENCE_ALL_AGES : 0,
         }
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience())
 
