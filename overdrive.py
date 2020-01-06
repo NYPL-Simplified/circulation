@@ -73,23 +73,29 @@ class OverdriveAPI(object):
     # A lock for threaded usage.
     lock = RLock()
 
-    TOKEN_ENDPOINT = "https://oauth.overdrive.com/token"
-    PATRON_TOKEN_ENDPOINT = "https://oauth-patron.overdrive.com/patrontoken"
+    OAUTH_HOST = "https://oauth.overdrive.com"
+    OAUTH_PATRON_HOST = "https://oauth-patron.overdrive.com"
 
-    LIBRARY_ENDPOINT = "https://api.overdrive.com/v1/libraries/%(library_id)s"
-    ADVANTAGE_LIBRARY_ENDPOINT = "https://api.overdrive.com/v1/libraries/%(parent_library_id)s/advantageAccounts/%(library_id)s"
-    ALL_PRODUCTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?sort=%(sort)s"
-    METADATA_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
-    EVENTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
-    AVAILABILITY_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
+    HOST = "https://integration.api.overdrive.com"
+    PATRON_HOST = "https://integration-patron.api.overdrive.com"
 
-    PATRON_INFORMATION_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me"
-    CHECKOUTS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts"
-    CHECKOUT_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s"
-    FORMATS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
-    HOLDS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/holds"
-    HOLD_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/holds/%(product_id)s"
-    ME_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me"
+    TOKEN_ENDPOINT = OAUTH_HOST + "/token"
+    PATRON_TOKEN_ENDPOINT = OAUTH_PATRON_HOST + "/patrontoken"
+
+    LIBRARY_ENDPOINT = HOST + "/v1/libraries/%(library_id)s"
+    ADVANTAGE_LIBRARY_ENDPOINT = HOST + "/v1/libraries/%(parent_library_id)s/advantageAccounts/%(library_id)s"
+    ALL_PRODUCTS_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products?sort=%(sort)s"
+    METADATA_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
+    EVENTS_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
+    AVAILABILITY_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
+
+    PATRON_INFORMATION_ENDPOINT = PATRON_HOST + "/v1/patrons/me"
+    CHECKOUTS_ENDPOINT = PATRON_HOST + "/v1/patrons/me/checkouts"
+    CHECKOUT_ENDPOINT = PATRON_HOST + "/v1/patrons/me/checkouts/%(overdrive_id)s"
+    FORMATS_ENDPOINT = PATRON_HOST + "/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
+    HOLDS_ENDPOINT = PATRON_HOST + "/v1/patrons/me/holds"
+    HOLD_ENDPOINT = PATRON_HOST + "/v1/patrons/me/holds/%(product_id)s"
+    ME_ENDPOINT = PATRON_HOST + "/v1/patrons/me"
 
     MAX_CREDENTIAL_AGE = 50 * 60
 
