@@ -1955,7 +1955,8 @@ class TestWorkList(DatabaseTest):
 
         # A Filter object was created to match only works that belong
         # in the MockWorkList.
-        eq_([Classifier.AUDIENCE_CHILDREN], filter.audiences)
+        eq_([Classifier.AUDIENCE_CHILDREN, Classier.AUDIENCE_ALL_AGES],
+            filter.audiences)
 
         # A default Pagination object was created.
         eq_(0, pagination.offset)
