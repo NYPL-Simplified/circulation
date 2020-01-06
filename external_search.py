@@ -2443,7 +2443,8 @@ class Filter(SearchBase):
         if self.audiences:
             f = chain(f, Terms(audience=scrub_list(self.audiences)))
         else:
-            f = chain(f, Bool(must_not=[Term(audience=Classifier.AUDIENCE_RESEARCH)]))
+            research = self._scrub(Classifier.AUDIENCE_RESEARCH)
+            f = chain(f, Bool(must_not=[Term(audience=research)]))
 
         target_age_filter = self.target_age_filter
         if target_age_filter:

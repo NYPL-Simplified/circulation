@@ -119,6 +119,7 @@ class TestClassifier(object):
 
         # All ages for audiences that are younger than the "all ages
         # age cutoff" and older than the "adult age cutoff".
+        aud(5, 18, Classifier.AUDIENCE_ALL_AGES)
         aud(5, 25, Classifier.AUDIENCE_ALL_AGES)
 
     def test_and_up(self):

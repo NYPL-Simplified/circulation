@@ -90,7 +90,7 @@ from ..testing import (
     EndToEndSearchTest,
 )
 
-RESEARCH = Term(audience=Classifier.AUDIENCE_RESEARCH)
+RESEARCH = Term(audience=Classifier.AUDIENCE_RESEARCH.lower())
 
 class TestExternalSearch(ExternalSearchTest):
 
@@ -492,9 +492,16 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         self.children_work = _work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
 
+        self.all_ages_work = _work(title="The Annotated Alice", audience=Classifier.AUDIENCE_ALL_AGES)
+
         self.ya_work = _work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
 
         self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
+
+        self.research_work = _work(
+            title="Curiouser and Curiouser: Surrealism and Repression in 'Alice in Wonderland'",
+            audience=Classifier.AUDIENCE_RESEARCH
+        )
 
         self.ya_romance = _work(
             title="Gumby In Love",
@@ -813,13 +820,37 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             audiences=[Classifier.AUDIENCE_CHILDREN,
                        Classifier.AUDIENCE_YOUNG_ADULT]
         )
+        research = Filter(audiences=[Classifier.AUDIENCE_RESEARCH])
 
-        expect(self.adult_work, "alice", adult)
-        expect(self.ya_work, "alice", ya)
-        expect(self.children_work, "alice", children)
+        def expect_alice(expect_works, filter):
+            return expect(expect_works, "alice", filter, ordered=False)
 
-        expect([self.children_work, self.ya_work], "alice", ya_and_children,
-               ordered=False)
+        expect_alice([self.adult_work, self.all_ages_work], adult)
+        expect_alice([self.ya_work, self.all_ages_work], ya)
+        expect_alice([self.children_work, self.all_ages_work], children)
+        expect_alice([self.children_work, self.ya_work, self.all_ages_work],
+                     ya_and_children)
+
+        # The 'all ages' work appears except when the audience would make
+        # that inappropriate...
+        expect_alice([self.research_work], research)
+        expect_alice([], Filter(audiences=Classifier.AUDIENCE_ADULTS_ONLY))
+
+        # ...or when the target age does not include children expected
+        # to have the necessary reading fluency.
+        expect_alice(
+            [self.children_work],
+            Filter(audiences=Classifier.AUDIENCE_CHILDREN, target_age=(2,3))
+        )
+
+        # If there is no filter, the research work is excluded by
+        # default, but everything else is included.
+        default_filter = Filter()
+        expect_alice(
+            [self.children_work, self.ya_work, self.adult_work,
+             self.all_ages_work],
+            default_filter
+        )
 
         # Filters on age range
         age_8 = Filter(target_age=8)
@@ -3370,13 +3401,16 @@ class TestFilter(DatabaseTest):
         return main, nested
 
     def test_audiences(self):
+        # Verify that the .audiences property correctly represents the
+        # combination of what's in the ._audiences list and application
+        # policies.
         filter = Filter()
         eq_(filter.audiences, None)
 
-        # Should work whether audiences is a string
+        # The output is a list whether audiences is a string...
         filter = Filter(audiences=Classifier.AUDIENCE_ALL_AGES)
         eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
-        # or if audiences is a list
+        # ...or a list.
         filter = Filter(audiences=[Classifier.AUDIENCE_ALL_AGES])
         eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
 
@@ -3396,10 +3430,11 @@ class TestFilter(DatabaseTest):
 
         # If the audience is meant for adults, then "all ages" should not
         # be included
-        filter = Filter(audiences=Classifier.AUDIENCE_ADULTS_ONLY)
-        assert(Classifier.AUDIENCE_ALL_AGES not in filter.audiences)
-        filter = Filter(audiences=Classifier.AUDIENCE_RESEARCH)
-        assert(Classifier.AUDIENCE_ALL_AGES not in filter.audiences)
+        for audience in (
+                Classifier.AUDIENCE_ADULTS_ONLY, Classifier.AUDIENCE_RESEARCH
+        ):
+            filter = Filter(audiences=audience)
+            assert(Classifier.AUDIENCE_ALL_AGES not in filter.audiences)
 
         # If the audience and target age is meant for children, then the
         # audience should only be for children
@@ -3408,9 +3443,17 @@ class TestFilter(DatabaseTest):
             target_age=5
         )
         eq_(filter.audiences, [Classifier.AUDIENCE_CHILDREN])
-        # Otherwise, there's no target age and the audiences includes "all ages".
-        filter = Filter(audiences=Classifier.AUDIENCE_CHILDREN)
-        eq_(filter.audiences, [Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_ALL_AGES])
+
+        # If the children's target age includes children older than
+        # ALL_AGES_AGE_CUTOFF, or there is no target age, the
+        # audiences includes "all ages".
+        all_children = Filter(audiences=Classifier.AUDIENCE_CHILDREN)
+        nine_years = Filter(audiences=Classifier.AUDIENCE_CHILDREN, target_age=9)
+        for filter in (all_children, nine_years):
+            eq_(
+                filter.audiences,
+                [Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_ALL_AGES]
+            )
 
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
