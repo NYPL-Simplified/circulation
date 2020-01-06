@@ -288,7 +288,7 @@ class TestFreeformAudienceClassifier(DatabaseTest):
 
         eq_(target_age('beginning reader'), (5, 8))
         eq_(target_age('pre-adolescent'), (9, 12))
-        eq_(target_age('all ages'), (Classifier.ALL_AGES_AGE_CUTOFF, Classifier.ADULT_AGE_CUTOFF))
+        eq_(target_age('all ages'), (Classifier.ALL_AGES_AGE_CUTOFF, None))
 
         eq_(target_age('babies'), (None, None))
 

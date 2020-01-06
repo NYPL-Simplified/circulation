@@ -921,7 +921,7 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
             return cls.range_tuple(13, 15)
         if identifier == 'all ages':
             return cls.range_tuple(
-                cls.ALL_AGES_AGE_CUTOFF, cls.ADULT_AGE_CUTOFF
+                cls.ALL_AGES_AGE_CUTOFF, None
             )
         strict_age = AgeClassifier.target_age(identifier, name, True)
         if strict_age[0] or strict_age[1]:
