@@ -533,18 +533,28 @@ class TestWorkClassifier(DatabaseTest):
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience(genres))
     
     def test_all_ages_audience(self):
+        # If the All Ages weight is more than the total adult weight and
+        # the total juvenile weight, then assign all ages as the audience.
         self.classifier.audience_weights = {
-            Classifier.AUDIENCE_ADULT : 0,
-            Classifier.AUDIENCE_ALL_AGES : 10,
-            Classifier.AUDIENCE_CHILDREN : 0,
+            Classifier.AUDIENCE_ADULT : 50,
+            Classifier.AUDIENCE_ADULTS_ONLY : 30,
+            Classifier.AUDIENCE_ALL_AGES : 100,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 40,
         }
         eq_(Classifier.AUDIENCE_ALL_AGES, self.classifier.audience())
     
     def test_research_audience(self):
+        # If the research weight is larger than the total adult weight +
+        # all ages weight and larger than the total juvenile weight +
+        # all ages weight, then assign research as the audience
         self.classifier.audience_weights = {
-            Classifier.AUDIENCE_ADULT : 0,
-            Classifier.AUDIENCE_RESEARCH : 10,
-            Classifier.AUDIENCE_CHILDREN : 0,
+            Classifier.AUDIENCE_ADULT : 50,
+            Classifier.AUDIENCE_ADULTS_ONLY : 30,
+            Classifier.AUDIENCE_ALL_AGES : 10,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 40,
+            Classifier.AUDIENCE_RESEARCH : 100,
         }
         eq_(Classifier.AUDIENCE_RESEARCH, self.classifier.audience())
 
