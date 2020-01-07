@@ -847,7 +847,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         work = self._work(audience=Classifier.AUDIENCE_ALL_AGES)
         result = self.annotator.language_and_audience_key_from_work(work)
-        eq_(('eng', 'Adult,Adults+Only,All+Ages,Children,Young+Adult'), result)
+        eq_(('eng', 'All+Ages,Children'), result)
 
 
     def test_work_entry_includes_contributor_links(self):
