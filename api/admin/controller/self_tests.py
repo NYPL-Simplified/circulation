@@ -12,9 +12,9 @@ class SelfTestsController(SettingsController):
         if not identifier:
             return MISSING_IDENTIFIER
         if flask.request.method == "GET":
-            return self.process_get(identifier)
+            return self.self_tests_process_get(identifier)
         else:
-            return self.process_post(identifier)
+            return self.self_tests_process_post(identifier)
 
     def find_protocol_class(self, integration):
         """Given an ExternalIntegration, find the class on which run_tests()
@@ -48,7 +48,7 @@ class SelfTestsController(SettingsController):
         )
         return value
 
-    def process_get(self, identifier):
+    def self_tests_process_get(self, identifier):
         integration = self.look_up_by_id(identifier)
         if isinstance(integration, ProblemDetail):
             return integration
@@ -59,7 +59,7 @@ class SelfTestsController(SettingsController):
         )
         return dict(self_test_results=info)
 
-    def process_post(self, identifier):
+    def self_tests_process_post(self, identifier):
         integration = self.look_up_by_id(identifier)
         if isinstance (integration, ProblemDetail):
             return integration

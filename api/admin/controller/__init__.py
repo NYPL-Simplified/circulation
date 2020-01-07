@@ -107,7 +107,7 @@ from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, sele
 from api.admin.templates import admin as admin_template
 from api.authenticator import LibraryAuthenticator
 
-from core.opds_import import (OPDSImporter, OPDSImportMonitor)
+from core.opds_import import (MetadataWranglerOPDSLookup, OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
@@ -1563,7 +1563,7 @@ class SettingsController(AdminCirculationManagerController):
                 self_test_results = ExternalSearchIndex.prior_test_results(
                     self._db, None, self._db, item
                 )
-            elif self.type == "metadata service":
+            elif self.type == "metadata service" and protocol_class:
                 self_test_results = protocol_class.prior_test_results(
                     self._db, *extra_args
                 )
@@ -1581,10 +1581,10 @@ class SettingsController(AdminCirculationManagerController):
                     )
 
         except Exception, e:
-            # This is bad, but not so bad that we should short-circuit
-            # this whole process -- that might prevent an admin from
-            # making the configuration changes necessary to fix
-            # this problem.
+        #     # This is bad, but not so bad that we should short-circuit
+        #     # this whole process -- that might prevent an admin from
+        #     # making the configuration changes necessary to fix
+        #     # this problem.
             message = _("Exception getting self-test results for %s %s: %s")
             args = (self.type, item.name, e.message)
             logging.warn(message, *args, exc_info=e)
