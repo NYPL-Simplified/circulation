@@ -543,6 +543,17 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_YOUNG_ADULT : 40,
         }
         eq_(Classifier.AUDIENCE_ALL_AGES, self.classifier.audience())
+
+        # If the All Ages weight is smaller than the total adult weight,
+        # the audience is adults.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 70,
+            Classifier.AUDIENCE_ADULTS_ONLY : 10,
+            Classifier.AUDIENCE_ALL_AGES : 79,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 40,
+        }
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
     
     def test_research_audience(self):
         # If the research weight is larger than the total adult weight +
@@ -557,6 +568,19 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_RESEARCH : 100,
         }
         eq_(Classifier.AUDIENCE_RESEARCH, self.classifier.audience())
+
+        # If the research weight is not larger than either total adults weight
+        # and all ages weight or total juvenile weight and all ages weight,
+        # then we get those audience values instead.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 80,
+            Classifier.AUDIENCE_ADULTS_ONLY : 10,
+            Classifier.AUDIENCE_ALL_AGES : 20,
+            Classifier.AUDIENCE_CHILDREN : 35,
+            Classifier.AUDIENCE_YOUNG_ADULT : 40,
+            Classifier.AUDIENCE_RESEARCH : 100,
+        }
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
 
 
     def test_format_classification_from_license_source_is_used(self):
