@@ -55,6 +55,7 @@ class Configuration(CoreConfiguration):
     # The name of the per-library setting that sets the default email
     # address to use when notifying patrons of changes.
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
+    STANDARD_NOREPLY_EMAIL_ADDRESS = "noreply@librarysimplified.org"
 
     # The name of the per-library setting that sets the email address
     # of the Designated Agent for copyright complaints
@@ -225,8 +226,9 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
-            "label": _("Default email address to use when sending vendor hold notifications"),
-            "description": _('This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications" target="_blank">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.'),
+            "label": _("Write-only email address for vendor hold notifications"),
+            "description": _('This address must trash all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications" target="_blank">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.<br/>The default address will work, but for greater security, set up your own address that trashes all incoming email.'),
+            "default": STANDARD_NOREPLY_EMAIL_ADDRESS,
             "required": True,
             "format": "email",
         },
