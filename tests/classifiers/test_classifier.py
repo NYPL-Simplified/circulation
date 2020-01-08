@@ -564,8 +564,8 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULTS_ONLY : 30,
             Classifier.AUDIENCE_ALL_AGES : 10,
             Classifier.AUDIENCE_CHILDREN : 30,
-            Classifier.AUDIENCE_YOUNG_ADULT : 40,
-            Classifier.AUDIENCE_RESEARCH : 100,
+            Classifier.AUDIENCE_YOUNG_ADULT : 150,
+            Classifier.AUDIENCE_RESEARCH : 200,
         }
         eq_(Classifier.AUDIENCE_RESEARCH, self.classifier.audience())
 

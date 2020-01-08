@@ -1314,7 +1314,11 @@ class WorkClassifier(object):
         # If the 'children' weight passes the threshold on its own
         # we go with 'children'.
         total_juvenile_weight = children_weight + ya_weight
-        if children_weight > threshold and children_weight > ya_weight:
+        if (research_weight > (total_adult_weight + all_ages_weight) and
+            research_weight > (total_juvenile_weight + all_ages_weight) and
+            research_weight > threshold):
+            audience = Classifier.AUDIENCE_RESEARCH
+        elif children_weight > threshold and children_weight > ya_weight:
             audience = Classifier.AUDIENCE_CHILDREN
         elif ya_weight > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
@@ -1323,9 +1327,6 @@ class WorkClassifier(object):
             # combined they do pass the threshold. Go with
             # 'Young Adult' to be safe.
             audience = Classifier.AUDIENCE_YOUNG_ADULT
-        elif (research_weight > (total_adult_weight + all_ages_weight) and
-            research_weight > (total_juvenile_weight + all_ages_weight)):
-            audience = Classifier.AUDIENCE_RESEARCH
         elif (all_ages_weight > total_adult_weight and
             all_ages_weight > total_juvenile_weight):
             audience = Classifier.AUDIENCE_ALL_AGES
