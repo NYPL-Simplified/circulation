@@ -495,6 +495,7 @@ class TestWorkClassifier(DatabaseTest):
         # Now it's overwhelming. (the 'children' weight is more than twice
         # the combined 'adult' + 'adults only' weight.
         self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 23
+        self.classifier.audience_weights[Classifier.AUDIENCE_ALL_AGES] = 40
         eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience())
 
         # Now it's overwhelmingly likely to be a YA book.
