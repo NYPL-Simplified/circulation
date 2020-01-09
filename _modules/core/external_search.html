@@ -77,6 +77,7 @@
     <span class="n">KeywordBasedClassifier</span><span class="p">,</span>
     <span class="n">GradeLevelClassifier</span><span class="p">,</span>
     <span class="n">AgeClassifier</span><span class="p">,</span>
+    <span class="n">Classifier</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">facets</span> <span class="kn">import</span> <span class="n">FacetConstants</span>
 <span class="kn">from</span> <span class="nn">metadata_layer</span> <span class="kn">import</span> <span class="n">IdentifierData</span>
@@ -2292,7 +2293,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">media</span> <span class="o">=</span> <span class="n">media</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fiction</span> <span class="o">=</span> <span class="n">fiction</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">audiences</span> <span class="o">=</span> <span class="n">audiences</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_audiences</span> <span class="o">=</span> <span class="n">audiences</span>
 
         <span class="k">if</span> <span class="n">target_age</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
@@ -2366,6 +2367,52 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">scoring_functions</span> <span class="o">=</span> <span class="p">[]</span>
 
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">audiences</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the appropriate audiences for this query.</span>
+
+<span class="sd">        This will be whatever audiences were provided, but it will</span>
+<span class="sd">        probably also include the &#39;All Ages&#39; audience.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audiences</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audiences</span>
+
+        <span class="n">as_is</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audiences</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">as_is</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+            <span class="n">as_is</span> <span class="o">=</span> <span class="p">[</span><span class="n">as_is</span><span class="p">]</span>
+
+        <span class="c1"># At this point we know we have a specific list of audiences.</span>
+        <span class="c1"># We&#39;re either going to return that list as-is, or we&#39;ll</span>
+        <span class="c1"># return that list plus ALL_AGES.</span>
+        <span class="n">with_all_ages</span> <span class="o">=</span> <span class="n">as_is</span> <span class="o">+</span> <span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span> <span class="ow">in</span> <span class="n">as_is</span><span class="p">:</span>
+            <span class="c1"># ALL_AGES is explicitly included.</span>
+            <span class="k">return</span> <span class="n">as_is</span>
+
+        <span class="c1"># If YOUNG_ADULT or ADULT is an audience, then ALL_AGES is</span>
+        <span class="c1"># always going to be an additional audience.</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span> <span class="ow">in</span> <span class="n">as_is</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span>
+                                    <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="n">with_all_ages</span>
+
+        <span class="c1"># At this point, if CHILDREN is _not_ included, we know that</span>
+        <span class="c1"># ALL_AGES is not included. Specifically, ALL_AGES content</span>
+        <span class="c1"># does _not_ belong in ADULTS_ONLY or RESEARCH.</span>
+        <span class="k">if</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">as_is</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">as_is</span>
+
+        <span class="c1"># Now we know that CHILDREN is an audience. It&#39;s going to come</span>
+        <span class="c1"># down to the upper bound on the target age.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_age</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">ALL_AGES_AGE_CUTOFF</span><span class="p">):</span>
+            <span class="c1"># The audience for this query does not include any kids</span>
+            <span class="c1"># who are expected to have the reading fluency necessary</span>
+            <span class="c1"># for ALL_AGES books.</span>
+            <span class="k">return</span> <span class="n">as_is</span>
+        <span class="k">return</span> <span class="n">with_all_ages</span>
+
 <div class="viewcode-block" id="Filter.build"><a class="viewcode-back" href="../../core.html#core.external_search.Filter.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_chain_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Convert this object to an Elasticsearch Filter object.</span>
 
@@ -2430,6 +2477,9 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">:</span>
             <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Terms</span><span class="p">(</span><span class="n">audience</span><span class="o">=</span><span class="n">scrub_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">research</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scrub</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_RESEARCH</span><span class="p">)</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Bool</span><span class="p">(</span><span class="n">must_not</span><span class="o">=</span><span class="p">[</span><span class="n">Term</span><span class="p">(</span><span class="n">audience</span><span class="o">=</span><span class="n">research</span><span class="p">)]))</span>
 
         <span class="n">target_age_filter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_age_filter</span>
         <span class="k">if</span> <span class="n">target_age_filter</span><span class="p">:</span>

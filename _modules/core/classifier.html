@@ -109,6 +109,8 @@
     <span class="n">AUDIENCE_ADULTS_ONLY</span> <span class="o">=</span> <span class="s2">&quot;Adults Only&quot;</span>
     <span class="n">AUDIENCE_YOUNG_ADULT</span> <span class="o">=</span> <span class="s2">&quot;Young Adult&quot;</span>
     <span class="n">AUDIENCE_CHILDREN</span> <span class="o">=</span> <span class="s2">&quot;Children&quot;</span>
+    <span class="n">AUDIENCE_ALL_AGES</span> <span class="o">=</span> <span class="s2">&quot;All Ages&quot;</span>
+    <span class="n">AUDIENCE_RESEARCH</span> <span class="o">=</span> <span class="s2">&quot;Research&quot;</span>
 
     <span class="c1"># A book for a child younger than 14 is a children&#39;s book.</span>
     <span class="c1"># A book for a child 14 or older is a young adult book.</span>
@@ -116,10 +118,17 @@
 
     <span class="n">ADULT_AGE_CUTOFF</span> <span class="o">=</span> <span class="mi">18</span>
 
-    <span class="n">AUDIENCES_JUVENILE</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">]</span>
-    <span class="n">AUDIENCES_ADULT</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">]</span>
+    <span class="c1"># &quot;All ages&quot; actually means &quot;all ages with reading fluency&quot;.</span>
+    <span class="n">ALL_AGES_AGE_CUTOFF</span> <span class="o">=</span> <span class="mi">8</span>
+
+    <span class="n">AUDIENCES_JUVENILE</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span>
+                          <span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
+    <span class="n">AUDIENCES_ADULT</span> <span class="o">=</span> <span class="p">[</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
     <span class="n">AUDIENCES</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span>
-                     <span class="n">AUDIENCE_CHILDREN</span><span class="p">])</span>
+                     <span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span> <span class="n">AUDIENCE_ALL_AGES</span><span class="p">,</span> <span class="n">AUDIENCE_RESEARCH</span><span class="p">])</span>
+    <span class="n">AUDIENCES_NO_RESEARCH</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">AUDIENCES</span> <span class="k">if</span> <span class="n">x</span> <span class="o">!=</span> <span class="n">AUDIENCE_RESEARCH</span>
+    <span class="p">]</span>
 
     <span class="n">SIMPLIFIED_GENRE</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/genres/Simplified/&quot;</span>
     <span class="n">SIMPLIFIED_FICTION_STATUS</span> <span class="o">=</span> <span class="s2">&quot;http://librarysimplified.org/terms/fiction/&quot;</span>
@@ -272,11 +281,17 @@
         <span class="n">lower</span> <span class="o">=</span> <span class="nb">range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">upper</span> <span class="o">=</span> <span class="nb">range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">lower</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">upper</span><span class="p">:</span>
+            <span class="c1"># You could interpret this as &#39;all ages&#39; but it&#39;s more</span>
+            <span class="c1"># likely the data is simply missing.</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">lower</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">upper</span> <span class="o">&gt;</span> <span class="mi">18</span><span class="p">:</span>
-                <span class="c1"># e.g. &quot;up to 20 years&quot;, though that doesn&#39;t</span>
-                <span class="c1"># make much sense.</span>
+            <span class="k">if</span> <span class="n">upper</span> <span class="o">&gt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ADULT_AGE_CUTOFF</span><span class="p">:</span>
+                <span class="c1"># e.g. &quot;up to 20 years&quot;, though this doesn&#39;t</span>
+                <span class="c1"># really make sense.</span>
+                <span class="c1">#</span>
+                <span class="c1"># The &#39;all ages&#39; interpretation is more plausible here</span>
+                <span class="c1"># but it&#39;s still more likely that this is simply a</span>
+                <span class="c1"># book for grown-ups and no lower bound was provided.</span>
                 <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span>
             <span class="k">elif</span> <span class="n">upper</span> <span class="o">&gt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">YOUNG_ADULT_AGE_CUTOFF</span><span class="p">:</span>
                 <span class="c1"># e.g. &quot;up to 15 years&quot;</span>
@@ -290,6 +305,12 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span>
         <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">YOUNG_ADULT_AGE_CUTOFF</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>
+        <span class="k">elif</span> <span class="n">lower</span> <span class="o">&lt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ALL_AGES_AGE_CUTOFF</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">upper</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&gt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ADULT_AGE_CUTOFF</span>
+        <span class="p">):</span>
+            <span class="c1"># e.g. &quot;for children ages 7-77&quot;. The &#39;all ages&#39; reading</span>
+            <span class="c1"># is here the most plausible.</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span>
         <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;=</span> <span class="mi">12</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">upper</span> <span class="ow">or</span> <span class="n">upper</span> <span class="o">&gt;=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">YOUNG_ADULT_AGE_CUTOFF</span><span class="p">):</span>
             <span class="c1"># Although we treat &quot;Young Adult&quot; as starting at 14, many</span>
             <span class="c1"># outside sources treat it as starting at 12. As such we</span>
@@ -514,6 +535,7 @@
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">require_explicit_age_marker</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
         <span class="n">target_age</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">target_age</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">require_explicit_age_marker</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">default_audience_for_target_age</span><span class="p">(</span><span class="n">target_age</span><span class="p">)</span>
 
@@ -557,6 +579,7 @@
                     <span class="k">if</span> <span class="n">young</span> <span class="o">&gt;</span> <span class="n">old</span><span class="p">:</span>
                         <span class="n">young</span><span class="p">,</span> <span class="n">old</span> <span class="o">=</span> <span class="n">old</span><span class="p">,</span> <span class="n">young</span>
                     <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="n">young</span><span class="p">,</span> <span class="n">old</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
@@ -900,6 +923,12 @@
         <span class="k">return</span> <span class="n">age</span></div></div>
 
 <div class="viewcode-block" id="FreeformAudienceClassifier"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.FreeformAudienceClassifier">[docs]</a><span class="k">class</span> <span class="nc">FreeformAudienceClassifier</span><span class="p">(</span><span class="n">AgeOrGradeClassifier</span><span class="p">):</span>
+    <span class="c1"># NOTE: In practice, subjects like &quot;books for all ages&quot; tend to be</span>
+    <span class="c1"># more like advertising slogans than reliable indicators of an</span>
+    <span class="c1"># ALL_AGES audience. So the only subject of this type we handle is</span>
+    <span class="c1"># the literal string &quot;all ages&quot;, as it would appear, e.g., in the</span>
+    <span class="c1"># output of the metadata wrangler.</span>
+
 <div class="viewcode-block" id="FreeformAudienceClassifier.audience"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.FreeformAudienceClassifier.audience">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;children&#39;</span><span class="p">,</span> <span class="s1">&#39;pre-adolescent&#39;</span><span class="p">,</span> <span class="s1">&#39;beginning reader&#39;</span><span class="p">):</span>
@@ -911,6 +940,10 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span>
         <span class="k">elif</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;adults only&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span>
+        <span class="k">elif</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;all ages&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span>
+        <span class="k">elif</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;research&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_RESEARCH</span>
         <span class="k">return</span> <span class="n">AgeOrGradeClassifier</span><span class="o">.</span><span class="n">audience</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FreeformAudienceClassifier.target_age"><a class="viewcode-back" href="../../core.classifier.html#core.classifier.FreeformAudienceClassifier.target_age">[docs]</a>    <span class="nd">@classmethod</span>
@@ -921,7 +954,10 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;early adolescents&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
-
+        <span class="k">if</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;all ages&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">range_tuple</span><span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">ALL_AGES_AGE_CUTOFF</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span>
         <span class="n">strict_age</span> <span class="o">=</span> <span class="n">AgeClassifier</span><span class="o">.</span><span class="n">target_age</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">strict_age</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="n">strict_age</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
             <span class="k">return</span> <span class="n">strict_age</span>
@@ -1103,7 +1139,11 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">audience_weights</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">weight</span> <span class="o">*</span> <span class="mf">0.6</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">audience_weights</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">weight</span> <span class="o">*</span> <span class="mf">0.4</span><span class="p">)</span>
                     <span class="k">for</span> <span class="n">audience</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_ADULT</span><span class="p">:</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">audience_weights</span><span class="p">[</span><span class="n">audience</span><span class="p">]</span> <span class="o">-=</span> <span class="n">weight</span> <span class="o">*</span> <span class="mf">0.5</span>
+                        <span class="k">if</span> <span class="n">audience</span> <span class="o">!=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span><span class="p">:</span>
+                            <span class="c1"># &#39;All Ages&#39; is considered an adult audience,</span>
+                            <span class="c1"># but a generic &#39;juvenile&#39; classification</span>
+                            <span class="c1"># is not evidence against it.</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">audience_weights</span><span class="p">[</span><span class="n">audience</span><span class="p">]</span> <span class="o">-=</span> <span class="n">weight</span> <span class="o">*</span> <span class="mf">0.5</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">audience_weights</span><span class="p">[</span><span class="n">subject</span><span class="o">.</span><span class="n">audience</span><span class="p">]</span> <span class="o">+=</span> <span class="n">weight</span>
 
@@ -1289,6 +1329,8 @@
         <span class="n">ya_weight</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">adult_weight</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">adults_only_weight</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ADULTS_ONLY</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">all_ages_weight</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">research_weight</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_RESEARCH</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
         <span class="n">total_adult_weight</span> <span class="o">=</span> <span class="n">adult_weight</span> <span class="o">+</span> <span class="n">adults_only_weight</span>
         <span class="n">total_weight</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
@@ -1307,7 +1349,14 @@
         <span class="c1"># If the &#39;children&#39; weight passes the threshold on its own</span>
         <span class="c1"># we go with &#39;children&#39;.</span>
         <span class="n">total_juvenile_weight</span> <span class="o">=</span> <span class="n">children_weight</span> <span class="o">+</span> <span class="n">ya_weight</span>
-        <span class="k">if</span> <span class="n">children_weight</span> <span class="o">&gt;</span> <span class="n">threshold</span> <span class="ow">and</span> <span class="n">children_weight</span> <span class="o">&gt;</span> <span class="n">ya_weight</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">research_weight</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">total_adult_weight</span> <span class="o">+</span> <span class="n">all_ages_weight</span><span class="p">)</span> <span class="ow">and</span>
+            <span class="n">research_weight</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">total_juvenile_weight</span> <span class="o">+</span> <span class="n">all_ages_weight</span><span class="p">)</span> <span class="ow">and</span>
+            <span class="n">research_weight</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">):</span>
+            <span class="n">audience</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_RESEARCH</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">all_ages_weight</span> <span class="o">&gt;</span> <span class="n">total_adult_weight</span> <span class="ow">and</span>
+            <span class="n">all_ages_weight</span> <span class="o">&gt;</span> <span class="n">total_juvenile_weight</span><span class="p">):</span>
+            <span class="n">audience</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span>
+        <span class="k">elif</span> <span class="n">children_weight</span> <span class="o">&gt;</span> <span class="n">threshold</span> <span class="ow">and</span> <span class="n">children_weight</span> <span class="o">&gt;</span> <span class="n">ya_weight</span><span class="p">:</span>
             <span class="n">audience</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span>
         <span class="k">elif</span> <span class="n">ya_weight</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
             <span class="n">audience</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>

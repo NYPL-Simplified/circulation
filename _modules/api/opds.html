@@ -754,7 +754,12 @@
             <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">]</span>
         <span class="k">elif</span> <span class="n">work</span><span class="o">.</span><span class="n">audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span><span class="p">:</span>
             <span class="n">audiences</span> <span class="o">=</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_JUVENILE</span>
+        <span class="k">elif</span> <span class="n">work</span><span class="o">.</span><span class="n">audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span><span class="p">:</span>
+            <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span><span class="p">,</span>
+                <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_ALL_AGES</span><span class="p">]</span>
         <span class="k">elif</span> <span class="n">work</span><span class="o">.</span><span class="n">audience</span> <span class="ow">in</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_ADULT</span><span class="p">:</span>
+            <span class="n">audiences</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES_NO_RESEARCH</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">work</span><span class="o">.</span><span class="n">audience</span> <span class="o">==</span> <span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCE_RESEARCH</span><span class="p">:</span>
             <span class="n">audiences</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Classifier</span><span class="o">.</span><span class="n">AUDIENCES</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">audiences</span> <span class="o">=</span> <span class="p">[]</span>
