@@ -90,6 +90,7 @@ from ..testing import (
     EndToEndSearchTest,
 )
 
+RESEARCH = Term(audience=Classifier.AUDIENCE_RESEARCH.lower())
 
 class TestExternalSearch(ExternalSearchTest):
 
@@ -491,9 +492,16 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         self.children_work = _work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
 
+        self.all_ages_work = _work(title="The Annotated Alice", audience=Classifier.AUDIENCE_ALL_AGES)
+
         self.ya_work = _work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
 
         self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
+
+        self.research_work = _work(
+            title="Curiouser and Curiouser: Surrealism and Repression in 'Alice in Wonderland'",
+            audience=Classifier.AUDIENCE_RESEARCH
+        )
 
         self.ya_romance = _work(
             title="Gumby In Love",
@@ -812,13 +820,37 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             audiences=[Classifier.AUDIENCE_CHILDREN,
                        Classifier.AUDIENCE_YOUNG_ADULT]
         )
+        research = Filter(audiences=[Classifier.AUDIENCE_RESEARCH])
 
-        expect(self.adult_work, "alice", adult)
-        expect(self.ya_work, "alice", ya)
-        expect(self.children_work, "alice", children)
+        def expect_alice(expect_works, filter):
+            return expect(expect_works, "alice", filter, ordered=False)
 
-        expect([self.children_work, self.ya_work], "alice", ya_and_children,
-               ordered=False)
+        expect_alice([self.adult_work, self.all_ages_work], adult)
+        expect_alice([self.ya_work, self.all_ages_work], ya)
+        expect_alice([self.children_work, self.all_ages_work], children)
+        expect_alice([self.children_work, self.ya_work, self.all_ages_work],
+                     ya_and_children)
+
+        # The 'all ages' work appears except when the audience would make
+        # that inappropriate...
+        expect_alice([self.research_work], research)
+        expect_alice([], Filter(audiences=Classifier.AUDIENCE_ADULTS_ONLY))
+
+        # ...or when the target age does not include children expected
+        # to have the necessary reading fluency.
+        expect_alice(
+            [self.children_work],
+            Filter(audiences=Classifier.AUDIENCE_CHILDREN, target_age=(2,3))
+        )
+
+        # If there is no filter, the research work is excluded by
+        # default, but everything else is included.
+        default_filter = Filter()
+        expect_alice(
+            [self.children_work, self.ya_work, self.adult_work,
+             self.all_ages_work],
+            default_filter
+        )
 
         # Filters on age range
         age_8 = Filter(target_age=8)
@@ -2215,9 +2247,10 @@ class TestQuery(DatabaseTest):
 
         # The filter we passed in was combined with the universal
         # base filter into a boolean query, with its own 'must'.
+        main_filter.must = main_filter.must + [MockFilter.universal_base_term]
         eq_(
             underlying_query.filter,
-            [Bool(must=[main_filter, MockFilter.universal_base_term])]
+            [main_filter]
         )
 
         # There are no nested filters, apart from the universal one.
@@ -2291,7 +2324,7 @@ class TestQuery(DatabaseTest):
         quality_range = Filter._match_range(
             'quality', 'gte', self._default_library.minimum_featured_quality
         )
-        eq_(Q('bool', must=quality_range), quality_filter)
+        eq_(Q('bool', must=[quality_range], must_not=[RESEARCH]), quality_filter)
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
@@ -3061,7 +3094,7 @@ class TestFilter(DatabaseTest):
         media = object()
         languages = object()
         fiction = object()
-        audiences = object()
+        audiences = ["somestring"]
         author = object()
         match_nothing = object()
 
@@ -3252,7 +3285,7 @@ class TestFilter(DatabaseTest):
         eq_(parent.media, filter.media)
         eq_(parent.languages, filter.languages)
         eq_(parent.fiction, filter.fiction)
-        eq_(parent.audiences, filter.audiences)
+        eq_(parent.audiences + [Classifier.AUDIENCE_ALL_AGES], filter.audiences)
         eq_([parent.license_datasource_id], filter.license_datasources)
         eq_((parent.target_age.lower, parent.target_age.upper),
             filter.target_age)
@@ -3291,12 +3324,11 @@ class TestFilter(DatabaseTest):
         # is, itself, associated with a specific library.
         filter = Filter.from_worklist(self._db, does_not_inherit, facets)
 
-        built_filter, subfilters = filter.build()
+        built_filters, subfilters = self.assert_filter_builds_to([], filter)
 
         # The collection restriction is not reflected in the main
         # filter; rather it's in a subfilter that will be applied to the
         # 'licensepools' subdocument, where the collection ID lives.
-        eq_(None, built_filter)
 
         [subfilter] = subfilters.pop('licensepools')
         eq_({'terms': {'licensepools.collection_id': [self._default_collection.id]}},
@@ -3355,6 +3387,74 @@ class TestFilter(DatabaseTest):
         filter = Filter.from_worklist(self._db, for_other_library, None)
         eq_(True, filter.allow_holds)
 
+    def assert_filter_builds_to(self, expect, filter, _chain_filters=None):
+        """Helper method for the most common case, where a
+        Filter.build() returns a main filter and no nested filters.
+        """
+        final_query = {'bool': {'must_not': [RESEARCH.to_dict()]}}
+        
+        if expect:
+            final_query['bool']['must'] = expect
+        main, nested = filter.build(_chain_filters)
+        eq_(final_query, main.to_dict())
+
+        return main, nested
+
+    def test_audiences(self):
+        # Verify that the .audiences property correctly represents the
+        # combination of what's in the ._audiences list and application
+        # policies.
+        filter = Filter()
+        eq_(filter.audiences, None)
+
+        # The output is a list whether audiences is a string...
+        filter = Filter(audiences=Classifier.AUDIENCE_ALL_AGES)
+        eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
+        # ...or a list.
+        filter = Filter(audiences=[Classifier.AUDIENCE_ALL_AGES])
+        eq_(filter.audiences, [Classifier.AUDIENCE_ALL_AGES])
+
+        # "all ages" should always be an audience if the audience is
+        # young adult or adult.
+        filter = Filter(audiences=Classifier.AUDIENCE_YOUNG_ADULT)
+        eq_(filter.audiences, [Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ALL_AGES])
+        filter = Filter(audiences=Classifier.AUDIENCE_ADULT)
+        eq_(filter.audiences, [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ALL_AGES])
+        filter = Filter(audiences=[Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_YOUNG_ADULT])
+        eq_(
+            filter.audiences,
+            [Classifier.AUDIENCE_ADULT,
+            Classifier.AUDIENCE_YOUNG_ADULT,
+            Classifier.AUDIENCE_ALL_AGES]
+        )
+
+        # If the audience is meant for adults, then "all ages" should not
+        # be included
+        for audience in (
+                Classifier.AUDIENCE_ADULTS_ONLY, Classifier.AUDIENCE_RESEARCH
+        ):
+            filter = Filter(audiences=audience)
+            assert(Classifier.AUDIENCE_ALL_AGES not in filter.audiences)
+
+        # If the audience and target age is meant for children, then the
+        # audience should only be for children
+        filter = Filter(
+            audiences=Classifier.AUDIENCE_CHILDREN,
+            target_age=5
+        )
+        eq_(filter.audiences, [Classifier.AUDIENCE_CHILDREN])
+
+        # If the children's target age includes children older than
+        # ALL_AGES_AGE_CUTOFF, or there is no target age, the
+        # audiences includes "all ages".
+        all_children = Filter(audiences=Classifier.AUDIENCE_CHILDREN)
+        nine_years = Filter(audiences=Classifier.AUDIENCE_CHILDREN, target_age=9)
+        for filter in (all_children, nine_years):
+            eq_(
+                filter.audiences,
+                [Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_ALL_AGES]
+            )
+
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
         # filter object.
@@ -3368,39 +3468,34 @@ class TestFilter(DatabaseTest):
         # Let's try it with some simple cases before mocking
         # _chain_filters for a more detailed test.
 
-        def assert_filter(expect, filter, _chain_filters=None):
-            """Helper method for the most common case, where a
-            Filter.build() returns a main filter and no nested filters.
-            """
-            main, nested = filter.build(_chain_filters)
-            eq_(expect, main.to_dict())
-            eq_({}, nested)
-
         # Start with an empty filter. No filter is built and there are no
         # nested filters.
         filter = Filter()
-        eq_((None, {}), filter.build())
+        built_filters, subfilters = self.assert_filter_builds_to([], filter)
+        eq_({}, subfilters)
 
         # Add a medium clause to the filter.
         filter.media = "a medium"
         medium_built = {'terms': {'medium': ['amedium']}}
-        assert_filter(medium_built, filter)
+        built_filters, subfilters = self.assert_filter_builds_to([medium_built], filter)
+        eq_({}, subfilters)
 
         # Add a language clause to the filter.
         filter.languages = ["lang1", "LANG2"]
         language_built = {'terms': {'language': ['lang1', 'lang2']}}
 
         # Now both the medium clause and the language clause must match.
-        assert_filter(
-            {'bool': {'must': [medium_built, language_built]}},
+        built_filters, subfilters = self.assert_filter_builds_to(
+            [medium_built, language_built],
             filter
         )
+        eq_({}, subfilters)
 
         chain = self._mock_chain
 
         filter.collection_ids = [self._default_collection]
         filter.fiction = True
-        filter.audiences = 'CHILDREN'
+        filter._audiences = 'CHILDREN'
         filter.target_age = (2,3)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         filter.excluded_audiobook_data_sources = [overdrive.id]
@@ -3557,7 +3652,8 @@ class TestFilter(DatabaseTest):
         # We tried fiction; now try nonfiction.
         filter = Filter()
         filter.fiction = False
-        assert_filter({'term': {'fiction': 'nonfiction'}}, filter)
+        built_filters, subfilters = self.assert_filter_builds_to([{'term': {'fiction': 'nonfiction'}}], filter)
+        eq_({}, subfilters)
 
     def test_sort_order(self):
         # Test the Filter.sort_order property.

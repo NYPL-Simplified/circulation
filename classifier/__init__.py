@@ -74,6 +74,8 @@ class Classifier(object):
     AUDIENCE_ADULTS_ONLY = "Adults Only"
     AUDIENCE_YOUNG_ADULT = "Young Adult"
     AUDIENCE_CHILDREN = "Children"
+    AUDIENCE_ALL_AGES = "All Ages"
+    AUDIENCE_RESEARCH = "Research"
 
     # A book for a child younger than 14 is a children's book.
     # A book for a child 14 or older is a young adult book.
@@ -81,10 +83,17 @@ class Classifier(object):
 
     ADULT_AGE_CUTOFF = 18
 
-    AUDIENCES_JUVENILE = [AUDIENCE_CHILDREN, AUDIENCE_YOUNG_ADULT]
-    AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY]
+    # "All ages" actually means "all ages with reading fluency".
+    ALL_AGES_AGE_CUTOFF = 8
+
+    AUDIENCES_JUVENILE = [AUDIENCE_CHILDREN, AUDIENCE_YOUNG_ADULT,
+                          AUDIENCE_ALL_AGES]
+    AUDIENCES_ADULT = [AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_ALL_AGES]
     AUDIENCES = set([AUDIENCE_ADULT, AUDIENCE_ADULTS_ONLY, AUDIENCE_YOUNG_ADULT,
-                     AUDIENCE_CHILDREN])
+                     AUDIENCE_CHILDREN, AUDIENCE_ALL_AGES, AUDIENCE_RESEARCH])
+    AUDIENCES_NO_RESEARCH = [
+        x for x in AUDIENCES if x != AUDIENCE_RESEARCH
+    ]
 
     SIMPLIFIED_GENRE = "http://librarysimplified.org/terms/genres/Simplified/"
     SIMPLIFIED_FICTION_STATUS = "http://librarysimplified.org/terms/fiction/"
@@ -237,11 +246,17 @@ class Classifier(object):
         lower = range[0]
         upper = range[1]
         if not lower and not upper:
+            # You could interpret this as 'all ages' but it's more
+            # likely the data is simply missing.
             return None
         if not lower:
-            if upper > 18:
-                # e.g. "up to 20 years", though that doesn't
-                # make much sense.
+            if upper >= cls.ADULT_AGE_CUTOFF:
+                # e.g. "up to 20 years", though this doesn't
+                # really make sense.
+                #
+                # The 'all ages' interpretation is more plausible here
+                # but it's still more likely that this is simply a
+                # book for grown-ups and no lower bound was provided.
                 return cls.AUDIENCE_ADULT
             elif upper > cls.YOUNG_ADULT_AGE_CUTOFF:
                 # e.g. "up to 15 years"
@@ -255,6 +270,12 @@ class Classifier(object):
             return cls.AUDIENCE_ADULT
         elif lower >= cls.YOUNG_ADULT_AGE_CUTOFF:
             return cls.AUDIENCE_YOUNG_ADULT
+        elif lower <= cls.ALL_AGES_AGE_CUTOFF and (
+            upper is not None and upper >= cls.ADULT_AGE_CUTOFF
+        ):
+            # e.g. "for children ages 7-77". The 'all ages' reading
+            # is here the most plausible.
+            return cls.AUDIENCE_ALL_AGES
         elif lower >= 12 and (not upper or upper >= cls.YOUNG_ADULT_AGE_CUTOFF):
             # Although we treat "Young Adult" as starting at 14, many
             # outside sources treat it as starting at 12. As such we
@@ -479,6 +500,7 @@ class AgeClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name, require_explicit_age_marker=False):
+
         target_age = cls.target_age(identifier, name, require_explicit_age_marker)
         return cls.default_audience_for_target_age(target_age)
 
@@ -522,6 +544,7 @@ class AgeClassifier(Classifier):
                     if young > old:
                         young, old = old, young
                     return cls.range_tuple(young, old)
+
         return cls.range_tuple(None, None)
 
     @classmethod
@@ -865,6 +888,12 @@ class AgeOrGradeClassifier(Classifier):
         return age
 
 class FreeformAudienceClassifier(AgeOrGradeClassifier):
+    # NOTE: In practice, subjects like "books for all ages" tend to be
+    # more like advertising slogans than reliable indicators of an
+    # ALL_AGES audience. So the only subject of this type we handle is
+    # the literal string "all ages", as it would appear, e.g., in the
+    # output of the metadata wrangler.
+
     @classmethod
     def audience(cls, identifier, name):
         if identifier in ('children', 'pre-adolescent', 'beginning reader'):
@@ -876,6 +905,10 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
             return cls.AUDIENCE_ADULT
         elif identifier == 'adults only':
             return cls.AUDIENCE_ADULTS_ONLY
+        elif identifier == 'all ages':
+            return cls.AUDIENCE_ALL_AGES
+        elif identifier == 'research':
+            return cls.AUDIENCE_RESEARCH
         return AgeOrGradeClassifier.audience(identifier, name)
 
     @classmethod
@@ -886,7 +919,10 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
             return cls.range_tuple(9, 12)
         if identifier == 'early adolescents':
             return cls.range_tuple(13, 15)
-
+        if identifier == 'all ages':
+            return cls.range_tuple(
+                cls.ALL_AGES_AGE_CUTOFF, None
+            )
         strict_age = AgeClassifier.target_age(identifier, name, True)
         if strict_age[0] or strict_age[1]:
             return strict_age
@@ -1068,7 +1104,11 @@ class WorkClassifier(object):
                     self.audience_weights[Classifier.AUDIENCE_YOUNG_ADULT] += (weight * 0.6)
                     self.audience_weights[Classifier.AUDIENCE_CHILDREN] += (weight * 0.4)
                     for audience in Classifier.AUDIENCES_ADULT:
-                        self.audience_weights[audience] -= weight * 0.5
+                        if audience != Classifier.AUDIENCE_ALL_AGES:
+                            # 'All Ages' is considered an adult audience,
+                            # but a generic 'juvenile' classification
+                            # is not evidence against it.
+                            self.audience_weights[audience] -= weight * 0.5
                 else:
                     self.audience_weights[subject.audience] += weight
 
@@ -1254,6 +1294,8 @@ class WorkClassifier(object):
         ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
         adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
         adults_only_weight = w.get(Classifier.AUDIENCE_ADULTS_ONLY, 0)
+        all_ages_weight = w.get(Classifier.AUDIENCE_ALL_AGES, 0)
+        research_weight = w.get(Classifier.AUDIENCE_RESEARCH, 0)
 
         total_adult_weight = adult_weight + adults_only_weight
         total_weight = sum(w.values())
@@ -1272,7 +1314,14 @@ class WorkClassifier(object):
         # If the 'children' weight passes the threshold on its own
         # we go with 'children'.
         total_juvenile_weight = children_weight + ya_weight
-        if children_weight > threshold and children_weight > ya_weight:
+        if (research_weight > (total_adult_weight + all_ages_weight) and
+            research_weight > (total_juvenile_weight + all_ages_weight) and
+            research_weight > threshold):
+            audience = Classifier.AUDIENCE_RESEARCH
+        elif (all_ages_weight > total_adult_weight and
+            all_ages_weight > total_juvenile_weight):
+            audience = Classifier.AUDIENCE_ALL_AGES
+        elif children_weight > threshold and children_weight > ya_weight:
             audience = Classifier.AUDIENCE_CHILDREN
         elif ya_weight > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT

@@ -118,7 +118,8 @@ class Subject(Base):
     # the book's audience.
     audience = Column(
         Enum("Adult", "Young Adult", "Children", "Adults Only",
-             name="audience"),
+            "All Ages", "Research",
+            name="audience"),
         default=None, index=True)
 
     # For children's books, the target age implied by this subject.
