@@ -545,6 +545,17 @@ class TestWorkClassifier(DatabaseTest):
         }
         eq_(Classifier.AUDIENCE_ALL_AGES, self.classifier.audience())
 
+        # This works even if 'Children' looks much better than 'Adult'.
+        # 'All Ages' looks even better than that, so it wins.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 1,
+            Classifier.AUDIENCE_ADULTS_ONLY : 0,
+            Classifier.AUDIENCE_ALL_AGES : 1000,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 29,
+        }
+        eq_(Classifier.AUDIENCE_ALL_AGES, self.classifier.audience())
+
         # If the All Ages weight is smaller than the total adult weight,
         # the audience is adults.
         self.classifier.audience_weights = {
