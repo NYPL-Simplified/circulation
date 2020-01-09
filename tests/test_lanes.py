@@ -217,8 +217,8 @@ class TestLaneCreation(DatabaseTest):
             eq_([Edition.BOOK_MEDIUM], x.media)
 
         eq_(
-            [set(['Adults Only', 'Adult']),
-             set(['Adults Only', 'Adult']),
+            [set(['All Ages', 'Adults Only', 'Adult']),
+             set(['All Ages', 'Adults Only', 'Adult']),
              set(['Young Adult', 'Children'])],
             [set(x.audiences) for x in sublanes]
         )
