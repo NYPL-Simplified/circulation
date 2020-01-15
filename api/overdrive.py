@@ -72,7 +72,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             "type": "select",
             "options": [
                 dict(
-                    label=_("Production"), 
+                    label=_("Production"),
                     key=BaseOverdriveAPI.PRODUCTION_SERVERS
                 ),
                 dict(
