@@ -73,29 +73,52 @@ class OverdriveAPI(object):
     # A lock for threaded usage.
     lock = RLock()
 
-    OAUTH_HOST = "https://oauth.overdrive.com"
-    OAUTH_PATRON_HOST = "https://oauth-patron.overdrive.com"
+    # Production and testing have different host names for some of the
+    # API endpoints. This is configurable on the collection level.
+    SERVER_NICKNAME = "server_nickname"
+    PRODUCTION_SERVERS = "production"
+    TESTING_SERVERS = "testing"
+    HOSTS = {
+        PRODUCTION_SERVERS : dict(
+            host="https://api.overdrive.com",
+            patron_host="https://patron.api.overdrive.com",
+        ),
+        TESTING_SERVERS : dict(
+            host="https://integration.api.overdrive.com",
+            patron_host="https://integration-patron.api.overdrive.com",
+        )
+    }
 
-    HOST = "https://integration.api.overdrive.com"
-    PATRON_HOST = "https://integration-patron.api.overdrive.com"
+    # Production and testing setups use the same URLs for Client
+    # Authentication and Patron Authentication, but we use the same
+    # system as for other hostnames to give a consistent look to the
+    # templates.
+    for host in HOSTS.values():
+        host['oauth_patron_host'] = "https://oauth-patron.overdrive.com",
+        host['oauth_host'] = "https://oauth.overdrive.com",
 
-    TOKEN_ENDPOINT = OAUTH_HOST + "/token"
-    PATRON_TOKEN_ENDPOINT = OAUTH_PATRON_HOST + "/patrontoken"
+    # Each of these endpoint URLs has a slot to plug in one of the
+    # appropriate servers. This will be filled in either by a call to
+    # the url_args method (if there are other variables in the
+    # template), or by the _do_get or _do_post methods (if there are
+    # no other variables).
+    TOKEN_ENDPOINT = "%(oauth_host)s/token"
+    PATRON_TOKEN_ENDPOINT = "%(oauth_patron_host)s/patrontoken"
 
-    LIBRARY_ENDPOINT = HOST + "/v1/libraries/%(library_id)s"
-    ADVANTAGE_LIBRARY_ENDPOINT = HOST + "/v1/libraries/%(parent_library_id)s/advantageAccounts/%(library_id)s"
-    ALL_PRODUCTS_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products?sort=%(sort)s"
-    METADATA_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
-    EVENTS_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
-    AVAILABILITY_ENDPOINT = HOST + "/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
+    LIBRARY_ENDPOINT = "%(host)s/v1/libraries/%(library_id)s"
+    ADVANTAGE_LIBRARY_ENDPOINT = "%(host)s/v1/libraries/%(parent_library_id)s/advantageAccounts/%(library_id)s"
+    ALL_PRODUCTS_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products?sort=%(sort)s"
+    METADATA_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
+    EVENTS_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
+    AVAILABILITY_ENDPOINT = "%(host)s/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
 
-    PATRON_INFORMATION_ENDPOINT = PATRON_HOST + "/v1/patrons/me"
-    CHECKOUTS_ENDPOINT = PATRON_HOST + "/v1/patrons/me/checkouts"
-    CHECKOUT_ENDPOINT = PATRON_HOST + "/v1/patrons/me/checkouts/%(overdrive_id)s"
-    FORMATS_ENDPOINT = PATRON_HOST + "/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
-    HOLDS_ENDPOINT = PATRON_HOST + "/v1/patrons/me/holds"
-    HOLD_ENDPOINT = PATRON_HOST + "/v1/patrons/me/holds/%(product_id)s"
-    ME_ENDPOINT = PATRON_HOST + "/v1/patrons/me"
+    PATRON_INFORMATION_ENDPOINT = "%(patron_host)s/v1/patrons/me"
+    CHECKOUTS_ENDPOINT = "%(patron_host)s/v1/patrons/me/checkouts"
+    CHECKOUT_ENDPOINT = "%(patron_host)s/v1/patrons/me/checkouts/%(overdrive_id)s"
+    FORMATS_ENDPOINT = "%(patron_host)s/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
+    HOLDS_ENDPOINT = "%(patron_host)s/v1/patrons/me/holds"
+    HOLD_ENDPOINT = "%(patron_host)s/v1/patrons/me/holds/%(product_id)s"
+    ME_ENDPOINT = "%(patron_host)s/v1/patrons/me"
 
     MAX_CREDENTIAL_AGE = 50 * 60
 
@@ -148,14 +171,25 @@ class OverdriveAPI(object):
         else:
             self.parent_library_id = None
 
-        self.client_key = collection.external_integration.username
-        self.client_secret = collection.external_integration.password
-        self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value
+        integration = collection.external_integration
+        self.client_key = integration.username
+        self.client_secret = integration.password
+        self.website_id = integration.setting(self.WEBSITE_ID).value
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
             raise CannotLoadConfiguration(
                 "Overdrive configuration is incomplete."
             )
+
+        # Figure out which hostnames we'll be using when constructing
+        # endpoint URLs.
+        server_nickname = (
+            integration.setting(self.SERVER_NICKNAME).value
+            or self.PRODUCTION_SERVERS
+        )
+        if server_nickname not in self.HOSTS:
+            server_nickname = self.PRODUCTION_SERVERS
+        self.hosts = self.HOSTS[server_nickname]
 
         # Use utf8 instead of unicode encoding
         settings = [self.client_key, self.client_secret, self.website_id]
@@ -169,6 +203,10 @@ class OverdriveAPI(object):
 
         # This is set by an access to .collection_token
         self._collection_token = None
+
+    def url_args(self, **kwargs):
+        kwargs.update(self.hosts)
+        return kwargs
 
     @property
     def token(self):
@@ -296,7 +334,7 @@ class OverdriveAPI(object):
         If this is an Overdrive Advantage account, we get information
         from LIBRARY_ADVANTAGE_ENDPOINT.
         """
-        args = dict(library_id=self.library_id)
+        args = self.url_args(library_id=self.library_id)
         if self.parent_library_id:
             # This is an Overdrive advantage account.
             args['parent_library_id'] = self.parent_library_id
@@ -356,8 +394,8 @@ class OverdriveAPI(object):
 
     @property
     def _all_products_link(self):
-        params = dict(collection_token=self.collection_token,
-                      sort="dateAdded:desc")
+        params = self.url_args(collection_token=self.collection_token,
+                               sort="dateAdded:desc")
         return self.make_link_safe(self.ALL_PRODUCTS_ENDPOINT % params)
 
     def _get_book_list_page(self, link, rel_to_follow='next'):
@@ -401,10 +439,10 @@ class OverdriveAPI(object):
         )
         last_update = last_update_time.strftime(self.TIME_FORMAT)
 
-        params = dict(lastupdatetime=last_update,
-                      sort="popularity:desc",
-                      limit=self.PAGE_SIZE_LIMIT,
-                      collection_token=self.collection_token)
+        params = self.url_args(lastupdatetime=last_update,
+                               sort="popularity:desc",
+                               limit=self.PAGE_SIZE_LIMIT,
+                               collection_token=self.collection_token)
         next_link = self.make_link_safe(self.EVENTS_ENDPOINT % params)
         while next_link:
             page_inventory, next_link = self._get_book_list_page(next_link)
@@ -418,7 +456,7 @@ class OverdriveAPI(object):
     def metadata_lookup(self, identifier):
         """Look up metadata for an Overdrive identifier.
         """
-        url = self.METADATA_ENDPOINT % dict(
+        url = self.METADATA_ENDPOINT % self.url_args(
             collection_token=self.collection_token,
             item_id=identifier.identifier
         )
@@ -428,7 +466,7 @@ class OverdriveAPI(object):
         return content
 
     def metadata_lookup_obj(self, identifier):
-        url = self.METADATA_ENDPOINT % dict(
+        url = self.METADATA_ENDPOINT % self.url_args(
             collection_token=self.collection_token,
             item_id=identifier
         )
@@ -457,12 +495,14 @@ class OverdriveAPI(object):
 
     def _do_get(self, url, headers):
         """This method is overridden in MockOverdriveAPI."""
+        url = url % self.hosts
         return Representation.simple_http_get(
             url, headers
         )
 
     def _do_post(self, url, payload, headers, **kwargs):
         """This method is overridden in MockOverdriveAPI."""
+        url = url % self.hosts
         return HTTP.post_with_timeout(url, payload, headers=headers, **kwargs)
 
 
@@ -545,6 +585,7 @@ class MockOverdriveAPI(OverdriveAPI):
         return self._make_request(url, *args, **kwargs)
 
     def _make_request(self, url, *args, **kwargs):
+        url = url % self.hosts
         response = self.responses.pop()
         self.requests.append((url, args, kwargs))
         return HTTP._process_response(
