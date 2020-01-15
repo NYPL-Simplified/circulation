@@ -112,6 +112,27 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
             OverdriveAPI.make_link_safe("http://foo.com?q=+:{}"))
 
+    def test_hosts(self):
+        c = OverdriveAPI
+
+        # By default, OverdriveAPI is initialized with the production
+        # set of hostnames.
+        eq_(self.api.hosts, c.HOSTS[c.PRODUCTION_SERVERS])
+
+        # You can instead initialize it to use the testing set of
+        # hostnames.
+        def api_with_setting(x):
+            integration = self.collection.external_integration
+            integration.setting(c.SERVER_NICKNAME).value = x
+            return c(self._db, self.collection)
+        testing = api_with_setting(c.TESTING_SERVERS)
+        eq_(testing.hosts, c.HOSTS[c.TESTING_SERVERS])
+
+        # If the setting doesn't make sense, we default to production
+        # hostnames.
+        bad = api_with_setting("nonsensical")
+        eq_(bad.hosts, c.HOSTS[c.PRODUCTION_SERVERS])
+
     def test_endpoint(self):
         # The .endpoint() method performs string interpolation, including
         # the names of servers.

@@ -189,7 +189,10 @@ class OverdriveAPI(object):
         )
         if server_nickname not in self.HOSTS:
             server_nickname = self.PRODUCTION_SERVERS
-        self.hosts = self.HOSTS[server_nickname]
+
+        # Set the hostnames we'll be using. Make a new dictionary just
+        # to be safe.
+        self.hosts = dict(self.HOSTS[server_nickname])
 
         # Use utf8 instead of unicode encoding
         settings = [self.client_key, self.client_secret, self.website_id]
