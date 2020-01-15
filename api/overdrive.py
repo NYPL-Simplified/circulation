@@ -67,14 +67,18 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
         {
             "key": BaseOverdriveAPI.SERVER_NICKNAME,
-            "label": _("Server endpoints"),
+            "label": _("Server family"),
             "description": _("Unless you hear otherwise from Overdrive, your integration should use their production servers."),
             "type": "select",
             "options": [
-                dict(key=BaseOverdriveAPI.PRODUCTION_SERVERS,
-                     value="Production"),
-                dict(key=BaseOverdriveAPI.TESTING_SERVERS,
-                     value="Testing")
+                dict(
+                    label=_("Production"), 
+                    key=BaseOverdriveAPI.PRODUCTION_SERVERS
+                ),
+                dict(
+                    label=_("Testing"),
+                    key=BaseOverdriveAPI.TESTING_SERVERS,
+                )
             ],
             "default": BaseOverdriveAPI.PRODUCTION_SERVERS,
         },
