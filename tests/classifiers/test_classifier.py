@@ -288,7 +288,7 @@ class TestFreeformAudienceClassifier(DatabaseTest):
 
         eq_(target_age('beginning reader'), (5, 8))
         eq_(target_age('pre-adolescent'), (9, 12))
-        eq_(target_age('all ages'), (Classifier.ALL_AGES_AGE_CUTOFF, Classifier.ADULT_AGE_CUTOFF))
+        eq_(target_age('all ages'), (Classifier.ALL_AGES_AGE_CUTOFF, None))
 
         eq_(target_age('babies'), (None, None))
 
@@ -531,6 +531,68 @@ class TestWorkClassifier(DatabaseTest):
         genres = { classifier.Erotica : 50,
                    classifier.Science_Fiction: 50}
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience(genres))
+    
+    def test_all_ages_audience(self):
+        # If the All Ages weight is more than the total adult weight and
+        # the total juvenile weight, then assign all ages as the audience.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 50,
+            Classifier.AUDIENCE_ADULTS_ONLY : 30,
+            Classifier.AUDIENCE_ALL_AGES : 100,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 40,
+        }
+        eq_(Classifier.AUDIENCE_ALL_AGES, self.classifier.audience())
+
+        # This works even if 'Children' looks much better than 'Adult'.
+        # 'All Ages' looks even better than that, so it wins.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 1,
+            Classifier.AUDIENCE_ADULTS_ONLY : 0,
+            Classifier.AUDIENCE_ALL_AGES : 1000,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 29,
+        }
+        eq_(Classifier.AUDIENCE_ALL_AGES, self.classifier.audience())
+
+        # If the All Ages weight is smaller than the total adult weight,
+        # the audience is adults.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 70,
+            Classifier.AUDIENCE_ADULTS_ONLY : 10,
+            Classifier.AUDIENCE_ALL_AGES : 79,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 40,
+        }
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
+    
+    def test_research_audience(self):
+        # If the research weight is larger than the total adult weight +
+        # all ages weight and larger than the total juvenile weight +
+        # all ages weight, then assign research as the audience
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 50,
+            Classifier.AUDIENCE_ADULTS_ONLY : 30,
+            Classifier.AUDIENCE_ALL_AGES : 10,
+            Classifier.AUDIENCE_CHILDREN : 30,
+            Classifier.AUDIENCE_YOUNG_ADULT : 150,
+            Classifier.AUDIENCE_RESEARCH : 200,
+        }
+        eq_(Classifier.AUDIENCE_RESEARCH, self.classifier.audience())
+
+        # If the research weight is not larger than either total adults weight
+        # and all ages weight or total juvenile weight and all ages weight,
+        # then we get those audience values instead.
+        self.classifier.audience_weights = {
+            Classifier.AUDIENCE_ADULT : 80,
+            Classifier.AUDIENCE_ADULTS_ONLY : 10,
+            Classifier.AUDIENCE_ALL_AGES : 20,
+            Classifier.AUDIENCE_CHILDREN : 35,
+            Classifier.AUDIENCE_YOUNG_ADULT : 40,
+            Classifier.AUDIENCE_RESEARCH : 100,
+        }
+        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
+
 
     def test_format_classification_from_license_source_is_used(self):
         # This book will be classified as a comic book, because
@@ -560,6 +622,8 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULT : 0,
             Classifier.AUDIENCE_ADULTS_ONLY : 0,
             Classifier.AUDIENCE_CHILDREN : 1,
+            Classifier.AUDIENCE_RESEARCH : 0,
+            Classifier.AUDIENCE_ALL_AGES : 0,
         }
         eq_(Classifier.AUDIENCE_CHILDREN, self.classifier.audience())
 
@@ -571,6 +635,8 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_ADULT : 4,
             Classifier.AUDIENCE_ADULTS_ONLY : 2,
             Classifier.AUDIENCE_CHILDREN : 4,
+            Classifier.AUDIENCE_RESEARCH : 0,
+            Classifier.AUDIENCE_ALL_AGES : 0,
         }
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience())
 

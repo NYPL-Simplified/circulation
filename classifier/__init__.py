@@ -921,7 +921,7 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
             return cls.range_tuple(13, 15)
         if identifier == 'all ages':
             return cls.range_tuple(
-                cls.ALL_AGES_AGE_CUTOFF, cls.ADULT_AGE_CUTOFF
+                cls.ALL_AGES_AGE_CUTOFF, None
             )
         strict_age = AgeClassifier.target_age(identifier, name, True)
         if strict_age[0] or strict_age[1]:
@@ -1294,6 +1294,8 @@ class WorkClassifier(object):
         ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
         adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
         adults_only_weight = w.get(Classifier.AUDIENCE_ADULTS_ONLY, 0)
+        all_ages_weight = w.get(Classifier.AUDIENCE_ALL_AGES, 0)
+        research_weight = w.get(Classifier.AUDIENCE_RESEARCH, 0)
 
         total_adult_weight = adult_weight + adults_only_weight
         total_weight = sum(w.values())
@@ -1312,7 +1314,14 @@ class WorkClassifier(object):
         # If the 'children' weight passes the threshold on its own
         # we go with 'children'.
         total_juvenile_weight = children_weight + ya_weight
-        if children_weight > threshold and children_weight > ya_weight:
+        if (research_weight > (total_adult_weight + all_ages_weight) and
+            research_weight > (total_juvenile_weight + all_ages_weight) and
+            research_weight > threshold):
+            audience = Classifier.AUDIENCE_RESEARCH
+        elif (all_ages_weight > total_adult_weight and
+            all_ages_weight > total_juvenile_weight):
+            audience = Classifier.AUDIENCE_ALL_AGES
+        elif children_weight > threshold and children_weight > ya_weight:
             audience = Classifier.AUDIENCE_CHILDREN
         elif ya_weight > threshold:
             audience = Classifier.AUDIENCE_YOUNG_ADULT
