@@ -94,12 +94,12 @@ class OverdriveAPI(object):
     # system as for other hostnames to give a consistent look to the
     # templates.
     for host in HOSTS.values():
-        host['oauth_patron_host'] = "https://oauth-patron.overdrive.com",
-        host['oauth_host'] = "https://oauth.overdrive.com",
+        host['oauth_patron_host'] = "https://oauth-patron.overdrive.com"
+        host['oauth_host'] = "https://oauth.overdrive.com"
 
     # Each of these endpoint URLs has a slot to plug in one of the
     # appropriate servers. This will be filled in either by a call to
-    # the url_args method (if there are other variables in the
+    # the endpoint() method (if there are other variables in the
     # template), or by the _do_get or _do_post methods (if there are
     # no other variables).
     TOKEN_ENDPOINT = "%(oauth_host)s/token"
@@ -204,9 +204,16 @@ class OverdriveAPI(object):
         # This is set by an access to .collection_token
         self._collection_token = None
 
-    def url_args(self, **kwargs):
+    def endpoint(self, url, **kwargs):
+        """Create the URL to an Overdrive API endpoint.
+
+        :param url: A template for the URL.
+        :param kwargs: Arguments to be interpolated into the template.
+           The server hostname will be interpolated automatically; you
+           don't have to pass it in.
+        """
         kwargs.update(self.hosts)
-        return kwargs
+        return url % self.url_args(**kwargs)
 
     @property
     def token(self):
@@ -334,14 +341,14 @@ class OverdriveAPI(object):
         If this is an Overdrive Advantage account, we get information
         from LIBRARY_ADVANTAGE_ENDPOINT.
         """
-        args = self.url_args(library_id=self.library_id)
+        args = dict(library_id=self.library_id)
         if self.parent_library_id:
             # This is an Overdrive advantage account.
             args['parent_library_id'] = self.parent_library_id
             endpoint = self.ADVANTAGE_LIBRARY_ENDPOINT
         else:
             endpoint = self.LIBRARY_ENDPOINT
-        return endpoint % args
+        return self.endpoint(endpoint, **args)
 
     def get_library(self):
         """Get basic information about the collection, including
@@ -394,9 +401,12 @@ class OverdriveAPI(object):
 
     @property
     def _all_products_link(self):
-        params = self.url_args(collection_token=self.collection_token,
-                               sort="dateAdded:desc")
-        return self.make_link_safe(self.ALL_PRODUCTS_ENDPOINT % params)
+        url = self.endpoint(
+            self.ALL_PRODUCTS_ENDPOINT,
+            collection_token=self.collection_token,
+            sort="dateAdded:desc"
+        )
+        return self.make_link_safe(url)
 
     def _get_book_list_page(self, link, rel_to_follow='next'):
         """Process a page of inventory whose circulation we need to check.
@@ -439,11 +449,14 @@ class OverdriveAPI(object):
         )
         last_update = last_update_time.strftime(self.TIME_FORMAT)
 
-        params = self.url_args(lastupdatetime=last_update,
-                               sort="popularity:desc",
-                               limit=self.PAGE_SIZE_LIMIT,
-                               collection_token=self.collection_token)
-        next_link = self.make_link_safe(self.EVENTS_ENDPOINT % params)
+        next_link = self.endpoint(
+            self.EVENTS_ENDPOINT,
+            lastupdatetime=last_update,
+            sort="popularity:desc",
+            limit=self.PAGE_SIZE_LIMIT,
+            collection_token=self.collection_token
+        )
+        next_link = self.make_link_safe(next_link)
         while next_link:
             page_inventory, next_link = self._get_book_list_page(next_link)
             # We won't be sending out any events for these books yet,
@@ -456,7 +469,8 @@ class OverdriveAPI(object):
     def metadata_lookup(self, identifier):
         """Look up metadata for an Overdrive identifier.
         """
-        url = self.METADATA_ENDPOINT % self.url_args(
+        url = self.endpoint(
+            self.METADATA_ENDPOINT,
             collection_token=self.collection_token,
             item_id=identifier.identifier
         )
@@ -466,7 +480,8 @@ class OverdriveAPI(object):
         return content
 
     def metadata_lookup_obj(self, identifier):
-        url = self.METADATA_ENDPOINT % self.url_args(
+        url = self.endpoint(
+            self.METADATA_ENDPOINT,
             collection_token=self.collection_token,
             item_id=identifier
         )
@@ -560,6 +575,7 @@ class MockOverdriveAPI(OverdriveAPI):
         to this method separately we remove the need to figure out
         whether to queue a response in a given test.
         """
+        url = url % self.hosts
         self.access_token_requests.append((url, payload, headers, kwargs))
         response = self.access_token_response
         return HTTP._process_response(url, response, **kwargs)
