@@ -112,6 +112,24 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
             OverdriveAPI.make_link_safe("http://foo.com?q=+:{}"))
 
+    def test_endpoint(self):
+        # The .endpoint() method performs string interpolation, including
+        # the names of servers.
+        template = "%(host)s %(patron_host)s %(oauth_host)s %(oauth_patron_host)s %(extra)s"
+        result = self.api.endpoint(template, extra="val")
+
+        # The host names and the 'extra' argument have been used to
+        # fill in the string interpolations.
+        expect_args = dict(self.api.hosts)
+        expect_args['extra'] = 'val'
+        eq_(result, template % expect_args)
+
+        # The string has been completel interpolated.
+        assert '%' not in result
+
+        # Once interpolation has happened, doing it again has no effect.
+        eq_(result, self.api.endpoint(result, extra="something else"))
+
     def test_token_post_success(self):
         self.api.queue_response(200, content="some content")
         response = self.api.token_post(self._url, "the payload")
