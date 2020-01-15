@@ -213,7 +213,7 @@ class OverdriveAPI(object):
            don't have to pass it in.
         """
         kwargs.update(self.hosts)
-        return url % self.url_args(**kwargs)
+        return url % kwargs
 
     @property
     def token(self):
