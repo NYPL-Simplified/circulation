@@ -510,14 +510,14 @@ class OverdriveAPI(object):
 
     def _do_get(self, url, headers):
         """This method is overridden in MockOverdriveAPI."""
-        url = url % self.hosts
+        url = self.endpoint(url)
         return Representation.simple_http_get(
             url, headers
         )
 
     def _do_post(self, url, payload, headers, **kwargs):
         """This method is overridden in MockOverdriveAPI."""
-        url = url % self.hosts
+        url = self.endpoint(url)
         return HTTP.post_with_timeout(url, payload, headers=headers, **kwargs)
 
 
@@ -575,7 +575,7 @@ class MockOverdriveAPI(OverdriveAPI):
         to this method separately we remove the need to figure out
         whether to queue a response in a given test.
         """
-        url = url % self.hosts
+        url = self.endpoint(url)
         self.access_token_requests.append((url, payload, headers, kwargs))
         response = self.access_token_response
         return HTTP._process_response(url, response, **kwargs)
@@ -601,7 +601,7 @@ class MockOverdriveAPI(OverdriveAPI):
         return self._make_request(url, *args, **kwargs)
 
     def _make_request(self, url, *args, **kwargs):
-        url = url % self.hosts
+        url = self.endpoint(url)
         response = self.responses.pop()
         self.requests.append((url, args, kwargs))
         return HTTP._process_response(
