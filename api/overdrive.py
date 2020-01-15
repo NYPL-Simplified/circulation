@@ -349,9 +349,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         # The only case where this is likely to work is when the
         # loan exists but has not been locked to a delivery mechanism.
         overdrive_id = licensepool.identifier.identifier
-        url = self.CHECKOUT_ENDPOINT % self.url_args(
-            overdrive_id=overdrive_id
-        )
+        url = self.endpoint(self.CHECKOUT_ENDPOINT, overdrive_id=overdrive_id)
         return self.patron_request(patron, pin, url, method='DELETE')
 
     def perform_early_return(self, patron, pin, loan, http_get=None):
@@ -436,8 +434,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         return data
 
     def get_hold(self, patron, pin, overdrive_id):
-        url = self.HOLD_ENDPOINT % self.url_args(
-            product_id=overdrive_id.upper()
+        url = self.endpoint(
+            self.HOLD_ENDPOINT, product_id=overdrive_id.upper()
         )
         data = self.patron_request(patron, pin, url).json()
         self.raise_exception_on_error(data)
@@ -556,7 +554,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         overdrive_id = overdrive_id.upper()
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, formatType=format_type)
-        url = self.FORMATS_ENDPOINT % self.url_args(overdrive_id=overdrive_id)
+        url = self.endpoint(
+            self.FORMATS_ENDPOINT, overdrive_id=overdrive_id
+        )
         return self.patron_request(patron, pin, url, headers, document)
 
     @classmethod
@@ -859,7 +859,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             with Overdrive, or Overdrive refuses to release the hold for
             any reason.
         """
-        url = self.HOLD_ENDPOINT % self.url_args(
+        url = self.endpoint(
+            self.HOLD_ENDPOINT,
             product_id=licensepool.identifier.identifier
         )
         response = self.patron_request(patron, pin, url, method='DELETE')
@@ -878,7 +879,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
     def circulation_lookup(self, book):
         if isinstance(book, basestring):
             book_id = book
-            circulation_link = self.AVAILABILITY_ENDPOINT % self.url_args(
+            circulation_link = self.endpoint(
+                self.AVAILABILITY_ENDPOINT,
                 collection_token=self.collection_token,
                 product_id=book_id
             )
