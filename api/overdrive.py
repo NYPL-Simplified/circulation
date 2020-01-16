@@ -193,6 +193,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 method = 'post'
             else:
                 method = 'get'
+        url = self.endpoint(url)
         response = HTTP.request_with_timeout(
             method, url, headers=headers, data=data
         )
@@ -381,6 +382,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             patron, pin, loan.license_pool.identifier.identifier,
             internal_format
         )
+        # The URL comes from Overdrive, so it probably doesn't need
+        # interpolation, but just in case.
+        url = self.endpoint(url)
 
         # Make a regular, non-authenticated request to the fulfillment link.
         http_get = http_get or HTTP.get_with_timeout
