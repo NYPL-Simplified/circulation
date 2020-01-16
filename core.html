@@ -1908,7 +1908,7 @@ renders entry points as a set of tabs.</p>
 
 <dl class="attribute">
 <dt id="core.entrypoint.EntryPoint.DISPLAY_TITLES">
-<code class="descname">DISPLAY_TITLES</code><em class="property"> = {&lt;class 'core.entrypoint.EverythingEntryPoint'&gt;: 'All', &lt;class 'core.entrypoint.EbooksEntryPoint'&gt;: 'eBooks', &lt;class 'core.entrypoint.AudiobooksEntryPoint'&gt;: 'Audiobooks'}</em><a class="headerlink" href="#core.entrypoint.EntryPoint.DISPLAY_TITLES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DISPLAY_TITLES</code><em class="property"> = {&lt;class 'core.entrypoint.EbooksEntryPoint'&gt;: 'eBooks', &lt;class 'core.entrypoint.EverythingEntryPoint'&gt;: 'All', &lt;class 'core.entrypoint.AudiobooksEntryPoint'&gt;: 'Audiobooks'}</em><a class="headerlink" href="#core.entrypoint.EntryPoint.DISPLAY_TITLES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5017,7 +5017,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-e3c6fdd5-20da-4aa5-bbc5-5009946de619'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-3beb58ac-9898-4117-af98-cc714f42aa8f'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8722,27 +8722,27 @@ whether to queue a response in a given test.</p>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.ADVANTAGE_LIBRARY_ENDPOINT">
-<code class="descname">ADVANTAGE_LIBRARY_ENDPOINT</code><em class="property"> = 'https://api.overdrive.com/v1/libraries/%(parent_library_id)s/advantageAccounts/%(library_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ADVANTAGE_LIBRARY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ADVANTAGE_LIBRARY_ENDPOINT</code><em class="property"> = '%(host)s/v1/libraries/%(parent_library_id)s/advantageAccounts/%(library_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ADVANTAGE_LIBRARY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.ALL_PRODUCTS_ENDPOINT">
-<code class="descname">ALL_PRODUCTS_ENDPOINT</code><em class="property"> = 'https://api.overdrive.com/v1/collections/%(collection_token)s/products?sort=%(sort)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ALL_PRODUCTS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ALL_PRODUCTS_ENDPOINT</code><em class="property"> = '%(host)s/v1/collections/%(collection_token)s/products?sort=%(sort)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ALL_PRODUCTS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.AVAILABILITY_ENDPOINT">
-<code class="descname">AVAILABILITY_ENDPOINT</code><em class="property"> = 'https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(product_id)s/availability'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.AVAILABILITY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">AVAILABILITY_ENDPOINT</code><em class="property"> = '%(host)s/v1/collections/%(collection_token)s/products/%(product_id)s/availability'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.AVAILABILITY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.CHECKOUTS_ENDPOINT">
-<code class="descname">CHECKOUTS_ENDPOINT</code><em class="property"> = 'https://patron.api.overdrive.com/v1/patrons/me/checkouts'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.CHECKOUTS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">CHECKOUTS_ENDPOINT</code><em class="property"> = '%(patron_host)s/v1/patrons/me/checkouts'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.CHECKOUTS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.CHECKOUT_ENDPOINT">
-<code class="descname">CHECKOUT_ENDPOINT</code><em class="property"> = 'https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.CHECKOUT_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">CHECKOUT_ENDPOINT</code><em class="property"> = '%(patron_host)s/v1/patrons/me/checkouts/%(overdrive_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.CHECKOUT_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8752,7 +8752,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.EVENTS_ENDPOINT">
-<code class="descname">EVENTS_ENDPOINT</code><em class="property"> = 'https://api.overdrive.com/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&amp;sort=%(sort)s&amp;limit=%(limit)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.EVENTS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">EVENTS_ENDPOINT</code><em class="property"> = '%(host)s/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&amp;sort=%(sort)s&amp;limit=%(limit)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.EVENTS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8772,17 +8772,22 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.FORMATS_ENDPOINT">
-<code class="descname">FORMATS_ENDPOINT</code><em class="property"> = 'https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.FORMATS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">FORMATS_ENDPOINT</code><em class="property"> = '%(patron_host)s/v1/patrons/me/checkouts/%(overdrive_id)s/formats'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.FORMATS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.HOLDS_ENDPOINT">
-<code class="descname">HOLDS_ENDPOINT</code><em class="property"> = 'https://patron.api.overdrive.com/v1/patrons/me/holds'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.HOLDS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">HOLDS_ENDPOINT</code><em class="property"> = '%(patron_host)s/v1/patrons/me/holds'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.HOLDS_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.HOLD_ENDPOINT">
-<code class="descname">HOLD_ENDPOINT</code><em class="property"> = 'https://patron.api.overdrive.com/v1/patrons/me/holds/%(product_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.HOLD_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">HOLD_ENDPOINT</code><em class="property"> = '%(patron_host)s/v1/patrons/me/holds/%(product_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.HOLD_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.overdrive.OverdriveAPI.HOSTS">
+<code class="descname">HOSTS</code><em class="property"> = {'production': {'host': 'https://api.overdrive.com', 'oauth_host': 'https://oauth.overdrive.com', 'oauth_patron_host': 'https://oauth-patron.overdrive.com', 'patron_host': 'https://patron.api.overdrive.com'}, 'testing': {'host': 'https://integration.api.overdrive.com', 'oauth_host': 'https://oauth.overdrive.com', 'oauth_patron_host': 'https://oauth-patron.overdrive.com', 'patron_host': 'https://integration-patron.api.overdrive.com'}}</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.HOSTS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8802,7 +8807,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.LIBRARY_ENDPOINT">
-<code class="descname">LIBRARY_ENDPOINT</code><em class="property"> = 'https://api.overdrive.com/v1/libraries/%(library_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.LIBRARY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_ENDPOINT</code><em class="property"> = '%(host)s/v1/libraries/%(library_id)s'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.LIBRARY_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8812,12 +8817,12 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.METADATA_ENDPOINT">
-<code class="descname">METADATA_ENDPOINT</code><em class="property"> = 'https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(item_id)s/metadata'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.METADATA_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">METADATA_ENDPOINT</code><em class="property"> = '%(host)s/v1/collections/%(collection_token)s/products/%(item_id)s/metadata'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.METADATA_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.ME_ENDPOINT">
-<code class="descname">ME_ENDPOINT</code><em class="property"> = 'https://patron.api.overdrive.com/v1/patrons/me'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ME_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ME_ENDPOINT</code><em class="property"> = '%(patron_host)s/v1/patrons/me'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.ME_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8832,12 +8837,27 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.PATRON_INFORMATION_ENDPOINT">
-<code class="descname">PATRON_INFORMATION_ENDPOINT</code><em class="property"> = 'https://patron.api.overdrive.com/v1/patrons/me'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.PATRON_INFORMATION_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PATRON_INFORMATION_ENDPOINT</code><em class="property"> = '%(patron_host)s/v1/patrons/me'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.PATRON_INFORMATION_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.PATRON_TOKEN_ENDPOINT">
-<code class="descname">PATRON_TOKEN_ENDPOINT</code><em class="property"> = 'https://oauth-patron.overdrive.com/patrontoken'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.PATRON_TOKEN_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">PATRON_TOKEN_ENDPOINT</code><em class="property"> = '%(oauth_patron_host)s/patrontoken'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.PATRON_TOKEN_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.overdrive.OverdriveAPI.PRODUCTION_SERVERS">
+<code class="descname">PRODUCTION_SERVERS</code><em class="property"> = 'production'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.PRODUCTION_SERVERS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.overdrive.OverdriveAPI.SERVER_NICKNAME">
+<code class="descname">SERVER_NICKNAME</code><em class="property"> = 'server_nickname'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.SERVER_NICKNAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.overdrive.OverdriveAPI.TESTING_SERVERS">
+<code class="descname">TESTING_SERVERS</code><em class="property"> = 'testing'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.TESTING_SERVERS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8847,7 +8867,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.TOKEN_ENDPOINT">
-<code class="descname">TOKEN_ENDPOINT</code><em class="property"> = 'https://oauth.overdrive.com/token'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.TOKEN_ENDPOINT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">TOKEN_ENDPOINT</code><em class="property"> = '%(oauth_host)s/token'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.TOKEN_ENDPOINT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8889,6 +8909,26 @@ the Overdrive API.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="core.overdrive.OverdriveAPI.endpoint">
+<code class="descname">endpoint</code><span class="sig-paren">(</span><em>url</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveAPI.endpoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveAPI.endpoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create the URL to an Overdrive API endpoint.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>url</strong> – A template for the URL.</li>
+<li><strong>kwargs</strong> – Arguments to be interpolated into the template.
+The server hostname will be interpolated automatically; you
+don’t have to pass it in.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
 <dt id="core.overdrive.OverdriveAPI.get">
 <code class="descname">get</code><span class="sig-paren">(</span><em>url</em>, <em>extra_headers</em>, <em>exception_on_401=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveAPI.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveAPI.get" title="Permalink to this definition">¶</a></dt>
 <dd><p>Make an HTTP GET request using the active Bearer Token.</p>
@@ -8914,6 +8954,11 @@ the Overdrive API.</p>
 <dd><p>Get basic information about the collection, including
 a link to the titles in the collection.</p>
 </dd></dl>
+
+<dl class="attribute">
+<dt id="core.overdrive.OverdriveAPI.host">
+<code class="descname">host</code><em class="property"> = {'host': 'https://integration.api.overdrive.com', 'oauth_host': 'https://oauth.overdrive.com', 'oauth_patron_host': 'https://oauth-patron.overdrive.com', 'patron_host': 'https://integration-patron.api.overdrive.com'}</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.host" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="core.overdrive.OverdriveAPI.ils_name">

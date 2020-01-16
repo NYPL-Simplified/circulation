@@ -108,23 +108,52 @@
     <span class="c1"># A lock for threaded usage.</span>
     <span class="n">lock</span> <span class="o">=</span> <span class="n">RLock</span><span class="p">()</span>
 
-    <span class="n">TOKEN_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://oauth.overdrive.com/token&quot;</span>
-    <span class="n">PATRON_TOKEN_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://oauth-patron.overdrive.com/patrontoken&quot;</span>
+    <span class="c1"># Production and testing have different host names for some of the</span>
+    <span class="c1"># API endpoints. This is configurable on the collection level.</span>
+    <span class="n">SERVER_NICKNAME</span> <span class="o">=</span> <span class="s2">&quot;server_nickname&quot;</span>
+    <span class="n">PRODUCTION_SERVERS</span> <span class="o">=</span> <span class="s2">&quot;production&quot;</span>
+    <span class="n">TESTING_SERVERS</span> <span class="o">=</span> <span class="s2">&quot;testing&quot;</span>
+    <span class="n">HOSTS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">PRODUCTION_SERVERS</span> <span class="p">:</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">host</span><span class="o">=</span><span class="s2">&quot;https://api.overdrive.com&quot;</span><span class="p">,</span>
+            <span class="n">patron_host</span><span class="o">=</span><span class="s2">&quot;https://patron.api.overdrive.com&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">TESTING_SERVERS</span> <span class="p">:</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">host</span><span class="o">=</span><span class="s2">&quot;https://integration.api.overdrive.com&quot;</span><span class="p">,</span>
+            <span class="n">patron_host</span><span class="o">=</span><span class="s2">&quot;https://integration-patron.api.overdrive.com&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">}</span>
 
-    <span class="n">LIBRARY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://api.overdrive.com/v1/libraries/</span><span class="si">%(library_id)s</span><span class="s2">&quot;</span>
-    <span class="n">ADVANTAGE_LIBRARY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://api.overdrive.com/v1/libraries/</span><span class="si">%(parent_library_id)s</span><span class="s2">/advantageAccounts/</span><span class="si">%(library_id)s</span><span class="s2">&quot;</span>
-    <span class="n">ALL_PRODUCTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://api.overdrive.com/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products?sort=</span><span class="si">%(sort)s</span><span class="s2">&quot;</span>
-    <span class="n">METADATA_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://api.overdrive.com/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products/</span><span class="si">%(item_id)s</span><span class="s2">/metadata&quot;</span>
-    <span class="n">EVENTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://api.overdrive.com/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products?lastUpdateTime=</span><span class="si">%(lastupdatetime)s</span><span class="s2">&amp;sort=</span><span class="si">%(sort)s</span><span class="s2">&amp;limit=</span><span class="si">%(limit)s</span><span class="s2">&quot;</span>
-    <span class="n">AVAILABILITY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://api.overdrive.com/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products/</span><span class="si">%(product_id)s</span><span class="s2">/availability&quot;</span>
+    <span class="c1"># Production and testing setups use the same URLs for Client</span>
+    <span class="c1"># Authentication and Patron Authentication, but we use the same</span>
+    <span class="c1"># system as for other hostnames to give a consistent look to the</span>
+    <span class="c1"># templates.</span>
+    <span class="k">for</span> <span class="n">host</span> <span class="ow">in</span> <span class="n">HOSTS</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">host</span><span class="p">[</span><span class="s1">&#39;oauth_patron_host&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;https://oauth-patron.overdrive.com&quot;</span>
+        <span class="n">host</span><span class="p">[</span><span class="s1">&#39;oauth_host&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;https://oauth.overdrive.com&quot;</span>
 
-    <span class="n">PATRON_INFORMATION_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://patron.api.overdrive.com/v1/patrons/me&quot;</span>
-    <span class="n">CHECKOUTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://patron.api.overdrive.com/v1/patrons/me/checkouts&quot;</span>
-    <span class="n">CHECKOUT_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://patron.api.overdrive.com/v1/patrons/me/checkouts/</span><span class="si">%(overdrive_id)s</span><span class="s2">&quot;</span>
-    <span class="n">FORMATS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://patron.api.overdrive.com/v1/patrons/me/checkouts/</span><span class="si">%(overdrive_id)s</span><span class="s2">/formats&quot;</span>
-    <span class="n">HOLDS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://patron.api.overdrive.com/v1/patrons/me/holds&quot;</span>
-    <span class="n">HOLD_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://patron.api.overdrive.com/v1/patrons/me/holds/</span><span class="si">%(product_id)s</span><span class="s2">&quot;</span>
-    <span class="n">ME_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;https://patron.api.overdrive.com/v1/patrons/me&quot;</span>
+    <span class="c1"># Each of these endpoint URLs has a slot to plug in one of the</span>
+    <span class="c1"># appropriate servers. This will be filled in either by a call to</span>
+    <span class="c1"># the endpoint() method (if there are other variables in the</span>
+    <span class="c1"># template), or by the _do_get or _do_post methods (if there are</span>
+    <span class="c1"># no other variables).</span>
+    <span class="n">TOKEN_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(oauth_host)s</span><span class="s2">/token&quot;</span>
+    <span class="n">PATRON_TOKEN_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(oauth_patron_host)s</span><span class="s2">/patrontoken&quot;</span>
+
+    <span class="n">LIBRARY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/libraries/</span><span class="si">%(library_id)s</span><span class="s2">&quot;</span>
+    <span class="n">ADVANTAGE_LIBRARY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/libraries/</span><span class="si">%(parent_library_id)s</span><span class="s2">/advantageAccounts/</span><span class="si">%(library_id)s</span><span class="s2">&quot;</span>
+    <span class="n">ALL_PRODUCTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products?sort=</span><span class="si">%(sort)s</span><span class="s2">&quot;</span>
+    <span class="n">METADATA_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products/</span><span class="si">%(item_id)s</span><span class="s2">/metadata&quot;</span>
+    <span class="n">EVENTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products?lastUpdateTime=</span><span class="si">%(lastupdatetime)s</span><span class="s2">&amp;sort=</span><span class="si">%(sort)s</span><span class="s2">&amp;limit=</span><span class="si">%(limit)s</span><span class="s2">&quot;</span>
+    <span class="n">AVAILABILITY_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(host)s</span><span class="s2">/v1/collections/</span><span class="si">%(collection_token)s</span><span class="s2">/products/</span><span class="si">%(product_id)s</span><span class="s2">/availability&quot;</span>
+
+    <span class="n">PATRON_INFORMATION_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me&quot;</span>
+    <span class="n">CHECKOUTS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me/checkouts&quot;</span>
+    <span class="n">CHECKOUT_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me/checkouts/</span><span class="si">%(overdrive_id)s</span><span class="s2">&quot;</span>
+    <span class="n">FORMATS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me/checkouts/</span><span class="si">%(overdrive_id)s</span><span class="s2">/formats&quot;</span>
+    <span class="n">HOLDS_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me/holds&quot;</span>
+    <span class="n">HOLD_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me/holds/</span><span class="si">%(product_id)s</span><span class="s2">&quot;</span>
+    <span class="n">ME_ENDPOINT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(patron_host)s</span><span class="s2">/v1/patrons/me&quot;</span>
 
     <span class="n">MAX_CREDENTIAL_AGE</span> <span class="o">=</span> <span class="mi">50</span> <span class="o">*</span> <span class="mi">60</span>
 
@@ -177,14 +206,28 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">parent_library_id</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">client_key</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">username</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">password</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">website_id</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">WEBSITE_ID</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">integration</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">external_integration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">website_id</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">WEBSITE_ID</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_key</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">website_id</span>
             <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">library_id</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
                 <span class="s2">&quot;Overdrive configuration is incomplete.&quot;</span>
             <span class="p">)</span>
+
+        <span class="c1"># Figure out which hostnames we&#39;ll be using when constructing</span>
+        <span class="c1"># endpoint URLs.</span>
+        <span class="n">server_nickname</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SERVER_NICKNAME</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">PRODUCTION_SERVERS</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">server_nickname</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOSTS</span><span class="p">:</span>
+            <span class="n">server_nickname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">PRODUCTION_SERVERS</span>
+
+        <span class="c1"># Set the hostnames we&#39;ll be using. Make a new dictionary just</span>
+        <span class="c1"># to be safe.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hosts</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">HOSTS</span><span class="p">[</span><span class="n">server_nickname</span><span class="p">])</span>
 
         <span class="c1"># Use utf8 instead of unicode encoding</span>
         <span class="n">settings</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">client_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_secret</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">website_id</span><span class="p">]</span>
@@ -198,6 +241,17 @@
 
         <span class="c1"># This is set by an access to .collection_token</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_collection_token</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="OverdriveAPI.endpoint"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI.endpoint">[docs]</a>    <span class="k">def</span> <span class="nf">endpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create the URL to an Overdrive API endpoint.</span>
+
+<span class="sd">        :param url: A template for the URL.</span>
+<span class="sd">        :param kwargs: Arguments to be interpolated into the template.</span>
+<span class="sd">           The server hostname will be interpolated automatically; you</span>
+<span class="sd">           don&#39;t have to pass it in.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hosts</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">url</span> <span class="o">%</span> <span class="n">kwargs</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">token</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -332,7 +386,7 @@
             <span class="n">endpoint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ADVANTAGE_LIBRARY_ENDPOINT</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">endpoint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">LIBRARY_ENDPOINT</span>
-        <span class="k">return</span> <span class="n">endpoint</span> <span class="o">%</span> <span class="n">args</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span><span class="n">endpoint</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">)</span>
 
 <div class="viewcode-block" id="OverdriveAPI.get_library"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI.get_library">[docs]</a>    <span class="k">def</span> <span class="nf">get_library</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get basic information about the collection, including</span>
@@ -385,9 +439,12 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">_all_products_link</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">collection_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_token</span><span class="p">,</span>
-                      <span class="n">sort</span><span class="o">=</span><span class="s2">&quot;dateAdded:desc&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_link_safe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ALL_PRODUCTS_ENDPOINT</span> <span class="o">%</span> <span class="n">params</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ALL_PRODUCTS_ENDPOINT</span><span class="p">,</span>
+            <span class="n">collection_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_token</span><span class="p">,</span>
+            <span class="n">sort</span><span class="o">=</span><span class="s2">&quot;dateAdded:desc&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_link_safe</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_get_book_list_page</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">link</span><span class="p">,</span> <span class="n">rel_to_follow</span><span class="o">=</span><span class="s1">&#39;next&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Process a page of inventory whose circulation we need to check.</span>
@@ -430,11 +487,14 @@
         <span class="p">)</span>
         <span class="n">last_update</span> <span class="o">=</span> <span class="n">last_update_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TIME_FORMAT</span><span class="p">)</span>
 
-        <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">lastupdatetime</span><span class="o">=</span><span class="n">last_update</span><span class="p">,</span>
-                      <span class="n">sort</span><span class="o">=</span><span class="s2">&quot;popularity:desc&quot;</span><span class="p">,</span>
-                      <span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">PAGE_SIZE_LIMIT</span><span class="p">,</span>
-                      <span class="n">collection_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_token</span><span class="p">)</span>
-        <span class="n">next_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_link_safe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">EVENTS_ENDPOINT</span> <span class="o">%</span> <span class="n">params</span><span class="p">)</span>
+        <span class="n">next_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">EVENTS_ENDPOINT</span><span class="p">,</span>
+            <span class="n">lastupdatetime</span><span class="o">=</span><span class="n">last_update</span><span class="p">,</span>
+            <span class="n">sort</span><span class="o">=</span><span class="s2">&quot;popularity:desc&quot;</span><span class="p">,</span>
+            <span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">PAGE_SIZE_LIMIT</span><span class="p">,</span>
+            <span class="n">collection_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_token</span>
+        <span class="p">)</span>
+        <span class="n">next_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_link_safe</span><span class="p">(</span><span class="n">next_link</span><span class="p">)</span>
         <span class="k">while</span> <span class="n">next_link</span><span class="p">:</span>
             <span class="n">page_inventory</span><span class="p">,</span> <span class="n">next_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_book_list_page</span><span class="p">(</span><span class="n">next_link</span><span class="p">)</span>
             <span class="c1"># We won&#39;t be sending out any events for these books yet,</span>
@@ -447,7 +507,8 @@
 <div class="viewcode-block" id="OverdriveAPI.metadata_lookup"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI.metadata_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">metadata_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Look up metadata for an Overdrive identifier.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">METADATA_ENDPOINT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">METADATA_ENDPOINT</span><span class="p">,</span>
             <span class="n">collection_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_token</span><span class="p">,</span>
             <span class="n">item_id</span><span class="o">=</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span>
         <span class="p">)</span>
@@ -457,7 +518,8 @@
         <span class="k">return</span> <span class="n">content</span></div>
 
 <div class="viewcode-block" id="OverdriveAPI.metadata_lookup_obj"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveAPI.metadata_lookup_obj">[docs]</a>    <span class="k">def</span> <span class="nf">metadata_lookup_obj</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">METADATA_ENDPOINT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">METADATA_ENDPOINT</span><span class="p">,</span>
             <span class="n">collection_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_token</span><span class="p">,</span>
             <span class="n">item_id</span><span class="o">=</span><span class="n">identifier</span>
         <span class="p">)</span>
@@ -486,12 +548,14 @@
 
     <span class="k">def</span> <span class="nf">_do_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;This method is overridden in MockOverdriveAPI.&quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Representation</span><span class="o">.</span><span class="n">simple_http_get</span><span class="p">(</span>
             <span class="n">url</span><span class="p">,</span> <span class="n">headers</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_do_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;This method is overridden in MockOverdriveAPI.&quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">post_with_timeout</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
@@ -549,6 +613,7 @@
 <span class="sd">        to this method separately we remove the need to figure out</span>
 <span class="sd">        whether to queue a response in a given test.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">access_token_requests</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">))</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">access_token_response</span>
         <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">_process_response</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
@@ -574,6 +639,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_make_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
         <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">responses</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requests</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">url</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">HTTP</span><span class="o">.</span><span class="n">_process_response</span><span class="p">(</span>
