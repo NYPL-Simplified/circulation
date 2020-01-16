@@ -36,6 +36,7 @@ from model import (
     Identifier,
     Library,
     Measurement,
+    MediaTypes,
     Representation,
     Subject,
 )
@@ -686,11 +687,11 @@ class OverdriveRepresentationExtractor(object):
             "application/x-od-media", DeliveryMechanism.OVERDRIVE_DRM
         ),
         "ebook-overdrive" : (
-            DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+            MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE,
             DeliveryMechanism.OVERDRIVE_DRM
         ),
         "audiobook-overdrive" : (
-            DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE,
+            MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE,
             DeliveryMechanism.OVERDRIVE_DRM
         ),
         'video-streaming' : (
@@ -707,10 +708,7 @@ class OverdriveRepresentationExtractor(object):
         ),
     }
 
-    ignorable_overdrive_formats = set([
-        'ebook-overdrive',
-        'audiobook-overdrive',
-    ])
+    ignorable_overdrive_formats = set([])
 
     overdrive_role_to_simplified_role = {
         "actor" : Contributor.ACTOR_ROLE,

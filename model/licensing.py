@@ -1435,6 +1435,11 @@ class DeliveryMechanism(Base, HasFullTableCache):
         # Various audiobook formats
         (None, FINDAWAY_DRM),
         (MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE, NO_DRM),
+
+        # n.b. Overdrive uses the same media type for ebook manifests
+        # and audiobook manifests, but the default client currently
+        # supports only audiobook manifests.
+        (MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE, OVERDRIVE_DRM),
     ])
 
     # If the default client supports a given media type with no DRM,
