@@ -310,7 +310,6 @@ class HTTP(object):
                 or series in allowed_response_codes
         )):
             error_message = status_code_not_in_allowed
-
         if error_message:
             raise BadResponseException(
                 url,
