@@ -568,7 +568,6 @@ class CirculationAPI(object):
 
         content_link = content_expires = None
 
-        set_trace()
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
@@ -863,7 +862,6 @@ class CirculationAPI(object):
             loan.fulfillment = delivery_mechanism
             __transaction.commit()
 
-        set_trace()
         return fulfillment
 
     def fulfill_open_access(self, licensepool, delivery_mechanism):
@@ -1263,6 +1261,8 @@ class BaseCirculationAPI(object):
     def internal_format(self, delivery_mechanism):
         """Look up the internal format for this delivery mechanism or
         raise an exception.
+
+        :param delivery_mechanism: A LicensePoolDeliveryMechanism
         """
         if not delivery_mechanism:
             return None

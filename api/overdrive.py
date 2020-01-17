@@ -107,31 +107,30 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
     pdf = Representation.PDF_MEDIA_TYPE
     adobe_drm = DeliveryMechanism.ADOBE_DRM
     no_drm = DeliveryMechanism.NO_DRM
+    streaming_drm = DeliveryMechanism.STREAMING_DRM
     streaming_text = DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
     streaming_audio = DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE
-    overdrive_manifest = MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE
-    overdrive_drm = DeliveryMechanism.OVERDRIVE_DRM
+    overdrive_audiobook_manifest = MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE
+    libby_drm = DeliveryMechanism.LIBBY_DRM
 
-    # TODO: Some semi-big problems here: (overdrive_manifest,
-    # overdrive_drm) can map to either 'ebook-overdrive' or
-    # 'audiobook-overdrive'. It depends on the type of book. For now
-    # we only read audiobooks this way, so we can ignore this problem
-    # for the time being.
-    #
-    # Meanwhile, 'audiobook-overdrive' maps to both 'give me a manifest'
-    # and 'give me a link to Overdrive Listen'. This problem
-    # can't be ignored.
+    # These are not real Overdrive formats; we use them internally so
+    # we can distinguish between (e.g.) using "audiobook-overdrive"
+    # to get into Overdrive Read, and using it to get a link to a
+    # manifest file.
+    MANIFEST_INTERNAL_FORMATS = set(
+        ['audiobook-overdrive-manifest', 'ebook-overdrive-manifest']
+    )
 
-    MANIFEST_INTERNAL_FORMATS = ('audiobook-overdrive', 'ebook-overdrive')
-
+    # When a request comes in for a given DeliveryMechanism, what
+    # do we tell Overdrive?
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'ebook-epub-open',
         (epub, adobe_drm): 'ebook-epub-adobe',
         (pdf, no_drm): 'ebook-pdf-open',
         (pdf, adobe_drm): 'ebook-pdf-adobe',
-        (streaming_text, overdrive_drm): 'ebook-overdrive',
-        (streaming_audio, overdrive_drm): 'audiobook-overdrive',
-        (overdrive_manifest, overdrive_drm): 'audiobook-overdrive',
+        (streaming_text, streaming_drm): 'ebook-overdrive',
+        (streaming_audio, streaming_drm): 'audiobook-overdrive',
+        (overdrive_audiobook_manifest, libby_drm): 'audiobook-overdrive-manifest'
     }
 
     # Once you choose an Adobe format you're locked into it and can't
@@ -497,7 +496,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 patron, pin, licensepool.identifier.identifier, internal_format
             )
             if isinstance(result, FulfillmentInfo):
+                # The fulfillment process was short-circuited, probably
+                # by the creation of an OverdriveManifestFulfillmentInfo.
                 return result
+
             url, media_type = result 
             if internal_format in self.STREAMING_FORMATS:
                 media_type += DeliveryMechanism.STREAMING_PROFILE
@@ -572,7 +574,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 # credentials to fulfill this URL; we can't do it.
                 scope_string = self.scope_string(patron.library)
                 return OverdriveManifestFulfillmentInfo(
-                    self.collection, download_link, overdrive_id, scope_string
+                    self.collection, download_link, 
+                    overdrive_id, scope_string
                 )
                 
             return self.get_fulfillment_link_from_download_link(
@@ -747,14 +750,19 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             # Either the book has been locked into a specific format,
             # or only one usable format is available. We don't know
             # which case we're looking at, but for our purposes the
-            # book is locked.
-            [format] = usable_formats
-            media_type, drm_scheme = (
-                OverdriveRepresentationExtractor.format_data_for_overdrive_format.get(
-                    format, (None, None)
+            # book is locked -- unless, of course, what Overdrive
+            # considers "one format" corresponds to more than one
+            # format on our side.
+            [overdrive_format] = usable_formats
+
+            internal_formats = list(
+                OverdriveRepresentationExtractor.internal_formats(
+                    overdrive_format
                 )
             )
-            if media_type:
+
+            if len(internal_formats) == 1:
+                [(media_type, drm_scheme)] = internal_formats
                 # Make it clear that Overdrive will only deliver the content
                 # in one specific media type.
                 locked_to = DeliveryMechanismInfo(
@@ -1051,10 +1059,16 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         link = None
         format = None
         available_formats = []
+        if format_type in self.MANIFEST_INTERNAL_FORMATS:
+            use_format_type = format_type.replace("-manifest", "")
+            fetch_manifest = True
+        else:
+            use_format_type = format_type
+            fetch_manifest = False
         for f in checkout_response.get('formats', []):
             this_type = f['formatType']
             available_formats.append(this_type)
-            if this_type == format_type:
+            if this_type == use_format_type:
                 format = f
                 break
         if not format:
@@ -1070,13 +1084,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 format_list = ", ".join(available_formats)
                 msg = "Could not find specified format %s. Available formats: %s"
                 raise NoAcceptableFormat(
-                    msg % (format_type, ", ".join(available_formats))
+                    msg % (use_format_type, ", ".join(available_formats))
                 )
 
-        return self.extract_download_link(format, error_url)
+        return self.extract_download_link(format, error_url, fetch_manifest)
 
     @classmethod
-    def extract_download_link(cls, format, error_url):
+    def extract_download_link(cls, format, error_url, fetch_manifest=False):
         format_type = format.get('formatType', '(unknown)')
         if not 'linkTemplates' in format:
             raise IOError("No linkTemplates for format %s" % format_type)
@@ -1086,7 +1100,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         download_link = templates['downloadLink']['href']
         if download_link:
             download_link = download_link.replace("{errorpageurl}", error_url)
-            if format_type in cls.MANIFEST_INTERNAL_FORMATS:
+            if fetch_manifest:
                 download_link = cls.make_direct_download_link(download_link)
             return download_link
         else:
@@ -1367,7 +1381,7 @@ class OverdriveManifestFulfillmentInfo(FulfillmentInfo):
             identifier_type=Identifier.OVERDRIVE_ID,
             identifier=overdrive_identifier,
             content_link=content_link,
-            content_type=MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE,
+            content_type=None,
             content=None,
             content_expires=None,
         )
