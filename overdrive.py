@@ -727,13 +727,14 @@ class OverdriveRepresentationExtractor(object):
 
         :yield: A sequence of (content type, DRM system) 2-tuples
         """
-        result = format_data_for_overdrive_format.get(overdrive_format)
+        result = cls.format_data_for_overdrive_format.get(overdrive_format)
         if not result:
             return
-        if not isinstance(result, list):
+        if isinstance(result, list):
+            for i in result:
+                yield i
+        else:
             yield result
-        for i in result:
-            yield i
 
     ignorable_overdrive_formats = set([])
 
