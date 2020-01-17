@@ -194,10 +194,9 @@ class FulfillmentInfo(CirculationInfo):
             `content_type`).
         :param content_expires: A time after which the "next step"
             link or content will no longer be usable.
-
         """
         super(FulfillmentInfo, self).__init__(
-            collection, data_source_name, identifier_type, identifier
+            collection, data_source_name, identifier_type, identifier,
         )
         self.content_link = content_link
         self.content_type = content_type
@@ -212,6 +211,15 @@ class FulfillmentInfo(CirculationInfo):
         return "<FulfillmentInfo: content_link: %r, content_type: %r, content: %d bytes, expires: %r>" % (
             self.content_link, self.content_type, blength,
             self.fd(self.content_expires))
+
+    @property
+    def as_response(self):
+        """Bypass the normal process of creating a Flask Response.
+
+        :return: A Response object, or None if you're okay with the
+           normal process.
+        """
+        return None
 
 
 class APIAwareFulfillmentInfo(FulfillmentInfo):
@@ -560,6 +568,7 @@ class CirculationAPI(object):
 
         content_link = content_expires = None
 
+        set_trace()
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
@@ -854,6 +863,7 @@ class CirculationAPI(object):
             loan.fulfillment = delivery_mechanism
             __transaction.commit()
 
+        set_trace()
         return fulfillment
 
     def fulfill_open_access(self, licensepool, delivery_mechanism):
