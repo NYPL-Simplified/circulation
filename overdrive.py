@@ -128,11 +128,13 @@ class OverdriveAPI(object):
 
     EVENT_DELAY = datetime.timedelta(minutes=120)
 
-    # The ebook formats we care about.
-    FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open"
+    # The formats we care about.
+    FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open,audiobook-overdrive".split(",")
 
     # The formats that can be read by the default Library Simplified reader.
-    DEFAULT_READABLE_FORMATS = set(["ebook-epub-open", "ebook-epub-adobe"])
+    DEFAULT_READABLE_FORMATS = set(
+        ["ebook-epub-open", "ebook-epub-adobe", "audiobook-overdrive"]
+    )
 
     # The formats that indicate the book has been fulfilled on an
     # incompatible platform and just can't be fulfilled on Simplified

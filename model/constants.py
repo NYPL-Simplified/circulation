@@ -229,7 +229,7 @@ class MediaTypes(object):
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
-    OVERDRIVE_MANIFEST_MEDIA_TYPE = u"application/vnd.overdrive.circulation.api+json",
+    OVERDRIVE_MANIFEST_MEDIA_TYPE = u"application/vnd.overdrive.circulation.api+json"
     MARC_MEDIA_TYPE = u"application/marc"
 
     BOOK_MEDIA_TYPES = [
