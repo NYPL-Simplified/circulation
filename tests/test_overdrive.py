@@ -459,7 +459,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         pool = self._licensepool(None)
         patron = self._patron()
         pin = object()
-        expect_url = overdrive.CHECKOUT_ENDPOINT % dict(
+        expect_url = overdrive.endpoint(
+            overdrive.CHECKOUT_ENDPOINT,
             overdrive_id=pool.identifier.identifier
         )
 
