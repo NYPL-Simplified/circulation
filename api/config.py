@@ -317,7 +317,8 @@ class Configuration(CoreConfiguration):
             "description": _("The library focuses on serving patrons in this geographic area. In most cases this will be a city name like <code>Springfield, OR</code>."),
             "category": "Geographic Areas",
             "format": "geographic",
-            "instructions": AREA_INPUT_INSTRUCTIONS
+            "instructions": AREA_INPUT_INSTRUCTIONS,
+            "capitalize": True
         },
         {
             "key": LIBRARY_SERVICE_AREA,
@@ -326,7 +327,8 @@ class Configuration(CoreConfiguration):
             "description": _("The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like <code>OR</code>)."),
             "category": "Geographic Areas",
             "format": "geographic",
-            "instructions": AREA_INPUT_INSTRUCTIONS
+            "instructions": AREA_INPUT_INSTRUCTIONS,
+            "capitalize": True
         },
         {
             "key": MAX_OUTSTANDING_FINES,
