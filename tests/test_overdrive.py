@@ -16,6 +16,7 @@ from api.overdrive import (
     OverdriveCirculationMonitor,
     OverdriveCollectionReaper,
     OverdriveFormatSweep,
+    OverdriveManifestFulfillmentInfo,
     RecentOverdriveCollectionMonitor
 )
 
@@ -1358,6 +1359,30 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert overdrive_hold in patron.holds
+
+
+class TestOverdriveManifestFulfillmentInfo(OverdriveAPITest):
+
+    def test_as_response(self):
+        # An OverdriveManifestFulfillmentInfo just links the client
+        # directly to the manifest file, bypassing normal FulfillmentInfo
+        # processing.
+        info = OverdriveManifestFulfillmentInfo(
+            self._default_collection, "http://content-link/",
+            "abcd-efgh", "scope string"
+        )
+        response = info.as_response
+        eq_(302, response.status_code)
+        eq_("", response.data)
+        headers = response.headers
+        eq_("text/plain", headers['Content-Type'])
+
+        # These are the important headers; the location of the manifest file
+        # and the scope necessary to initiate Patron Authentication for
+        # it.
+        eq_("scope string", headers['X-Overdrive-Scope'])
+        eq_("http://content-link/", headers['Location'])
+
 
 class TestOverdriveCirculationMonitor(OverdriveAPITest):
 

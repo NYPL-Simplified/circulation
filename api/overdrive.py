@@ -1401,6 +1401,6 @@ class OverdriveManifestFulfillmentInfo(FulfillmentInfo):
         headers = {
             "Location": self.content_link,
             "X-Overdrive-Scope": self.scope_string,
-            "Content-Type": self.content_type,
+            "Content-Type": self.content_type or 'text/plain',
         }
         return flask.Response("", 302, headers)
