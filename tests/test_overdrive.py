@@ -783,6 +783,15 @@ class TestOverdriveAPI(OverdriveAPITest):
             href)
         eq_("text/html", type)
 
+    def test_make_direct_download_link(self):
+        base = "http://overdrive/downloadlink"
+        m = OverdriveAPI.make_direct_download_link
+        eq_(base + "?contentfile=true", m(base))
+        eq_(base + "?contentfile=true",
+            m(base + "?odreadauthurl={odreadauthurl}"))
+        eq_(base + "?other=other&contentfile=true",
+            m(base + "?odreadauthurl={odreadauthurl}&other=other"))
+
     def test_update_formats(self):
         # Create a LicensePool with an inaccurate delivery mechanism
         # and the wrong medium.

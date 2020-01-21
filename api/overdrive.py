@@ -3,6 +3,7 @@ import datetime
 import dateutil
 import json
 import pytz
+import re
 import requests
 import flask
 import urlparse
@@ -1119,14 +1120,17 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         :param link: An Overdrive Read template link.
         """
         # Remove the Overdrive Read authentication URL.
-        link = link.replace("odreadauthurl={odreadauthurl}", "")
-
+        argument_re = re.compile("odreadauthurl={odreadauthurl}&?")
+        link = argument_re.sub("", link)
+        
         # Add the contentfile=true argument.
-        if not link.endswith('&'):
-            link += '&'
-        link += "contentfile=true"
+        if '?' not in link:
+            link += '?contentfile=true'
+        elif link.endswith('&') or link.endswith('?'):
+            link += 'contentfile=true'
+        else:
+            link += '&contentfile=true'
         return link
-
 
 class MockOverdriveResponse(object):
     def __init__(self, status_code, headers, content):
