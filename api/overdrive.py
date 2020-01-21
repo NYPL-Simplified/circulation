@@ -248,6 +248,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
 
     def scope_string(self, library):
+        """Create the Overdrive scope string for the given library.
+
+        This is used when setting up Patron Authentication, and when
+        generating the X-Overdrive-Scope header used by SimplyE to set up
+        its own Patron Authentication.
+        """
         return "websiteid:%s authorizationname:%s" % (
             self.website_id, self.ils_name(library)
         )

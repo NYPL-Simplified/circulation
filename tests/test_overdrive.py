@@ -245,6 +245,15 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(None,
             self.api.default_notification_email_address(patron, 'pin'))
 
+    def test_scope_string(self):
+        # scope_string() puts the website ID of the Overdrive
+        # integration and the ILS name associated with the library
+        # into the form expected by Overdrive.
+        expect = "websiteid:%s authorizationname:%s" % (
+            self.api.website_id, self.api.ils_name(self._default_library)
+        )
+        eq_(expect, self.api.scope_string(self._default_library))
+
     def test_place_hold(self):
         # Verify that an appropriate request is made to HOLDS_ENDPOINT
         # to create a hold.
