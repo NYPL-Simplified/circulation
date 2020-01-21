@@ -34,6 +34,7 @@ from ..model import (
     Representation,
     Subject,
     Measurement,
+    MediaTypes,
     Hyperlink,
 )
 from ..scripts import RunCollectionCoverageProviderScript
@@ -461,10 +462,25 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
 
 
     def test_book_info_with_sample(self):
+        # This book has two samples; one available as a direct download and
+        # one available through a manifest file.
         raw, info = self.sample_json("has_sample.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
-        [sample] = [x for x in metadata.links if x.rel == Hyperlink.SAMPLE]
-        eq_("http://excerpts.contentreserve.com/FormatType-410/1071-1/9BD/24F/82/BridesofConvenienceBundle9781426803697.epub", sample.href)
+        samples = [x for x in metadata.links if x.rel == Hyperlink.SAMPLE]
+        epub_sample, manifest_sample = sorted(
+            samples, key=lambda x: x.media_type
+        )
+
+        # Here's the direct download.
+        eq_("http://excerpts.contentreserve.com/FormatType-410/1071-1/9BD/24F/82/BridesofConvenienceBundle9781426803697.epub",
+            epub_sample.href)
+        eq_(MediaTypes.EPUB_MEDIA_TYPE, epub_sample.media_type)
+
+        # Here's the manifest.
+        eq_("https://samples.overdrive.com/?crid=9BD24F82-35C0-4E0A-B5E7-BCFED07835CF&.epub-sample.overdrive.com",
+            manifest_sample.href)
+        eq_(MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE,
+            manifest_sample.media_type)
 
     def test_book_info_with_grade_levels(self):
         raw, info = self.sample_json("has_grade_levels.json")
