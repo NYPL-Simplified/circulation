@@ -196,7 +196,7 @@ class FulfillmentInfo(CirculationInfo):
             link or content will no longer be usable.
         """
         super(FulfillmentInfo, self).__init__(
-            collection, data_source_name, identifier_type, identifier,
+            collection, data_source_name, identifier_type, identifier
         )
         self.content_link = content_link
         self.content_type = content_type

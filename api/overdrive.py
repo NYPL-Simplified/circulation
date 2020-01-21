@@ -500,7 +500,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 # by the creation of an OverdriveManifestFulfillmentInfo.
                 return result
 
-            url, media_type = result 
+            url, media_type = result
             if internal_format in self.STREAMING_FORMATS:
                 media_type += DeliveryMechanism.STREAMING_PROFILE
         except FormatNotAvailable, e:
@@ -574,15 +574,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 # credentials to fulfill this URL; we can't do it.
                 scope_string = self.scope_string(patron.library)
                 return OverdriveManifestFulfillmentInfo(
-                    self.collection, download_link, 
+                    self.collection, download_link,
                     overdrive_id, scope_string
                 )
-                
+             
             return self.get_fulfillment_link_from_download_link(
                 patron, pin, download_link)
 
         raise CannotFulfill("Cannot obtain a download link for patron[%r], overdrive_id[%s], format_type[%s].", patron, overdrive_id, format_type)
-
 
     def get_fulfillment_link_from_download_link(self, patron, pin, download_link, fulfill_url=None):
         # If this for Overdrive's streaming reader, and the link expires,

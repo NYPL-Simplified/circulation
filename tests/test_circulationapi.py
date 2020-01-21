@@ -1256,6 +1256,19 @@ class TestConfigurationFailures(DatabaseTest):
         eq_("doomed!", e.message)
 
 
+class TestFulfillmentInfo(DatabaseTest):
+
+    def test_as_response(self):
+        # The default behavior of as_response is to do nothing
+        # and let controller code turn the FulfillmentInfo
+        # into a Flask Response.
+        info = FulfillmentInfo(
+            self._default_collection, None,
+            None, None, None, None, None, None
+        )
+        eq_(None, info.as_response)
+
+
 class TestAPIAwareFulfillmentInfo(DatabaseTest):
     # The APIAwareFulfillmentInfo class has the same properties as a
     # regular FulfillmentInfo -- content_link and so on -- but their

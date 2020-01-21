@@ -1355,7 +1355,7 @@ class LoanController(CirculationManagerController):
                 unicode(e), status_code=e.status_code
             )
 
-        # A subclass of FulfillmentInfo may want to bypass the whole 
+        # A subclass of FulfillmentInfo may want to bypass the whole
         # response creation process.
         response = fulfillment.as_response
         if response:
