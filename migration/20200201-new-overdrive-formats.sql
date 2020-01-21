@@ -1,6 +1,6 @@
 DO $$
  BEGIN
-  -- Add the new delivery mechanisms we'll be adding onto certain 
+  -- Add the new delivery mechanisms we'll be adding onto certain
   -- LicensePools.
   BEGIN
    insert into deliverymechanisms (
@@ -40,7 +40,7 @@ DO $$
        content_type='application/vnd.overdrive.circulation.api+json;profile=audiobook'
        and drm_scheme='Libby DRM'
      )
-   from licensepooldeliveries ld join deliverymechanisms d on ld.delivery_mechanism_id=d.id 
+   from licensepooldeliveries ld join deliverymechanisms d on ld.delivery_mechanism_id=d.id
     where d.content_type='Streaming Audio' and d.drm_scheme='Overdrive DRM'
    ;
  END;
@@ -59,7 +59,7 @@ DO $$
        content_type='application/vnd.overdrive.circulation.api+json;profile=ebook'
        and drm_scheme='Libby DRM'
      )
-   from licensepooldeliveries ld join deliverymechanisms d on ld.delivery_mechanism_id=d.id 
+   from licensepooldeliveries ld join deliverymechanisms d on ld.delivery_mechanism_id=d.id
     where d.content_type='Streaming Text' and d.drm_scheme='Overdrive DRM'
    ;
  END;

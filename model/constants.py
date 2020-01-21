@@ -231,7 +231,7 @@ class MediaTypes(object):
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
     MARC_MEDIA_TYPE = u"application/marc"
 
-    # To make it easy to distinguish between Overdrive's audiobook and
+    # To distinguish internally between Overdrive's audiobook and
     # (hopefully future) ebook manifests, we invent values for the
     # 'profile' parameter.
     OVERDRIVE_MANIFEST_MEDIA_TYPE = u"application/vnd.overdrive.circulation.api+json"
