@@ -691,7 +691,7 @@ class OverdriveRepresentationExtractor(object):
                 DeliveryMechanism.LIBBY_DRM
             ),
             (
-                DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, 
+                DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
                 DeliveryMechanism.STREAMING_DRM
             ),
         ],
@@ -701,7 +701,7 @@ class OverdriveRepresentationExtractor(object):
                 DeliveryMechanism.LIBBY_DRM,
             ),
             (
-                DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE, 
+                DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE,
                 DeliveryMechanism.STREAMING_DRM
             ),
         ],
