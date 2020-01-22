@@ -47,6 +47,7 @@ from core.model import (
     ExternalIntegration,
     Identifier,
     LicensePool,
+    MediaTypes,
     Representation,
     RightsStatus,
 )
@@ -783,10 +784,10 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
 
         # The delivery mechanisms have been updated.
-        eq_(3, len(pool.delivery_mechanisms))
-        eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
+        eq_(4, len(pool.delivery_mechanisms))
+        eq_(set([MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
-        eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
+        eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.LIBBY_DRM, DeliveryMechanism.STREAMING_DRM]),
             set([lpdm.delivery_mechanism.drm_scheme for lpdm in pool.delivery_mechanisms]))
 
     def test_get_fulfillment_link_from_download_link(self):
@@ -898,10 +899,10 @@ class TestOverdriveAPI(OverdriveAPITest):
         self.api.update_formats(pool)
 
         # The delivery mechanisms have been updated.
-        eq_(3, len(pool.delivery_mechanisms))
-        eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
+        eq_(4, len(pool.delivery_mechanisms))
+        eq_(set([MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
-        eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
+        eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.LIBBY_DRM, DeliveryMechanism.STREAMING_DRM]),
             set([lpdm.delivery_mechanism.drm_scheme for lpdm in pool.delivery_mechanisms]))
 
         # The Edition's medium has been corrected.
