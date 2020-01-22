@@ -4407,6 +4407,18 @@ class TestSharedCollectionController(ControllerTest):
             eq_("Content", response.data)
             eq_("text/html", response.headers.get("Content-Type"))
 
+            # If the FulfillmentInfo implements as_response, then the
+            # normal handling code short-circuits and the return value
+            # of as_response is used as-is.
+            class MockFulfillmentInfo(object):
+                @property
+                def as_response(self):
+                    return Response("A response", 499)
+            api.queue_fulfill(MockFulfillmentInfo())
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id)
+            eq_(499, response.status_code)
+            eq_("A response", response.data)
+
     def test_hold_info(self):
         now = datetime.datetime.utcnow()
         tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
