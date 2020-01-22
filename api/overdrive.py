@@ -1064,6 +1064,18 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     @classmethod
     def get_download_link(self, checkout_response, format_type, error_url):
+        """Extract a download link from the given response.
+
+        :param checkout_response: A JSON document describing a checkout-type
+           response from the Overdrive API.
+        :param format_type: The internal (Overdrive-facing) format type
+           that should be retrieved. 'x-manifest' format types are treated
+           as a variant of the 'x' format type -- Overdrive doesn't recognise
+           'x-manifest' and uses 'x' for delivery of both streaming content
+           and manifests.
+        :param error_url: Value to interpolate for the {errorpageurl}
+           URI template value.
+        """
         link = None
         format = None
         available_formats = []

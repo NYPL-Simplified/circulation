@@ -804,9 +804,9 @@ class TestOverdriveAPI(OverdriveAPITest):
 
     def test_get_fulfillment_link_returns_fulfillmentinfo_for_manifest_format(self):
         # When the format requested would result in a link to a
-        # manifest file, the link is returned as-is (wrapped in an
-        # OverdriveFulfillmentInfo) rather than being retrieved and
-        # processed.
+        # manifest file, the manifest link is returned as-is (wrapped
+        # in an OverdriveFulfillmentInfo) rather than being retrieved
+        # and processed.
 
         # To keep things simple, our mock API will always return the same
         # fulfillment link.
@@ -1226,6 +1226,36 @@ class TestExtractData(OverdriveAPITest):
             MockOverdriveAPI.get_download_link,
             json, "ebook-epub-adobe", "http://foo.com/"
         )
+
+    def test_get_download_link_for_manifest_format(self):
+        # If you ask for the download link for an 'x-manifest' format,
+        # it's treated as a variant of the 'x' format.
+        data, json = self.sample_json("checkout_response_book_fulfilled_on_kindle.json")
+
+        # This is part of the URL from `json` that we expect
+        # get_download_link to use as a base.
+        base_url = 'http://patron.api.overdrive.com/v1/patrons/me/checkouts/98EA8135-52C0-4480-9C0E-1D0779670D4A/formats/ebook-overdrive/downloadlink'
+
+        # First, let's ask for the streaming format.
+        link = MockOverdriveAPI.get_download_link(
+            json, "ebook-overdrive", "http://foo.com/"
+        )
+
+        # The base URL is returned, with {errorpageurl} filled in and
+        # {odreadauthurl} left for other code to fill in.
+        eq_(
+            base_url + "?errorpageurl=http://foo.com/&odreadauthurl={odreadauthurl}",
+            link
+        )
+
+        # Now let's ask for the manifest format.
+        link = MockOverdriveAPI.get_download_link(
+            json, "ebook-overdrive-manifest", "http://bar.com/"
+        )
+        
+        # The {errorpageurl} has been filed in, the {odreadauthurl} parameter
+        # has been removed, and contentfile=true has been appended.
+        eq_(base_url + '?errorpageurl=http://bar.com/&contentfile=true', link)
 
     def test_extract_data_from_checkout_resource(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
