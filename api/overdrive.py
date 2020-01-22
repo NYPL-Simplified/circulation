@@ -1117,7 +1117,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         templates = format['linkTemplates']
         if not 'downloadLink' in templates:
             raise IOError("No downloadLink for format %s" % format_type)
-        download_link = templates['downloadLink']['href']
+        download_link_data = templates['downloadLink']
+        if not 'href' in download_link_data:
+            raise IOError("No downloadLink href for format %s" % format_type)
+        download_link = download_link_data['href']
         if download_link:
             download_link = download_link.replace("{errorpageurl}", error_url)
             if fetch_manifest:
@@ -1136,7 +1139,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         # Remove the Overdrive Read authentication URL.
         argument_re = re.compile("odreadauthurl={odreadauthurl}&?")
         link = argument_re.sub("", link)
-        
+
         # Add the contentfile=true argument.
         if '?' not in link:
             link += '?contentfile=true'

@@ -2,6 +2,7 @@
 from nose.tools import (
     set_trace, eq_, ok_,
     assert_raises,
+    assert_raises_regexp,
 )
 import pkgutil
 import json
@@ -869,15 +870,6 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_("http://fulfillment-link/", fulfillmentinfo.content_link)
         eq_(None, fulfillmentinfo.content_type)
 
-    def test_make_direct_download_link(self):
-        base = "http://overdrive/downloadlink"
-        m = OverdriveAPI.make_direct_download_link
-        eq_(base + "?contentfile=true", m(base))
-        eq_(base + "?contentfile=true",
-            m(base + "?odreadauthurl={odreadauthurl}"))
-        eq_(base + "?other=other&contentfile=true",
-            m(base + "?odreadauthurl={odreadauthurl}&other=other"))
-
     def test_update_formats(self):
         # Create a LicensePool with an inaccurate delivery mechanism
         # and the wrong medium.
@@ -1256,6 +1248,97 @@ class TestExtractData(OverdriveAPITest):
         # The {errorpageurl} has been filed in, the {odreadauthurl} parameter
         # has been removed, and contentfile=true has been appended.
         eq_(base_url + '?errorpageurl=http://bar.com/&contentfile=true', link)
+
+    def test_extract_download_link(self):
+        # Verify that extract_download_link can or cannot find a 
+        # download link for a given format subdocument.
+
+        class Mock(OverdriveAPI):
+            called_with = None
+            @classmethod
+            def make_direct_download_link(cls, download_link):
+                cls.called_with = download_link
+                return "http://manifest/"
+        m = Mock.extract_download_link
+        error_url = "http://error/"
+
+        # Here we don't even know the name of the format.
+        empty = dict()
+        assert_raises_regexp(
+            IOError, "No linkTemplates for format \(unknown\)",
+            m, empty, error_url
+        )
+
+        # Here we know the name, but there are no link templates.
+        no_templates = dict(formatType='someformat')
+        assert_raises_regexp(
+            IOError, "No linkTemplates for format someformat",
+            m, no_templates, error_url
+        )
+
+        # Here there's a link template structure, but no downloadLink
+        # inside.
+        no_download_link = dict(
+            formatType='someformat',
+            linkTemplates=dict()
+        )
+        assert_raises_regexp(
+            IOError, "No downloadLink for format someformat",
+            m, no_download_link, error_url
+        )
+
+        # Here there's a downloadLink structure, but no href inside.
+        href_is_missing = dict(
+            formatType='someformat',
+            linkTemplates=dict(
+                downloadLink=dict()
+            )
+        )
+        assert_raises_regexp(
+            IOError, "No downloadLink href for format someformat",
+            m, href_is_missing, error_url
+        )
+
+        # Now we finally get to the cases where there is an actual
+        # download link.  The behavior is different based on whether
+        # or not we want to return a link to the manifest file.
+
+        working = dict(
+            formatType='someformat',
+            linkTemplates=dict(
+                downloadLink=dict(
+                    href='http://download/?errorpageurl={errorpageurl}'
+                )
+            )
+        )
+
+        # If we don't want a manifest, make_direct_download_link is
+        # not called.
+        do_not_fetch_manifest = m(working, error_url, fetch_manifest=False)
+        eq_(None, Mock.called_with)
+
+        # The errorpageurl template is filled in.
+        eq_("http://download/?errorpageurl=http://error/",
+            do_not_fetch_manifest)
+
+        # If we do want a manifest, make_direct_download_link is called
+        # after the template is filled in.
+        do_fetch_manifest = m(working, error_url, fetch_manifest=True)
+        eq_("http://download/?errorpageurl=http://error/",
+            Mock.called_with)
+        eq_("http://manifest/", do_fetch_manifest)
+
+    def test_make_direct_download_link(self):
+        # Verify that make_direct_download_link handles various more
+        # or less weird URLs that the Overdrive might or might not
+        # serve.
+        base = "http://overdrive/downloadlink"
+        m = OverdriveAPI.make_direct_download_link
+        eq_(base + "?contentfile=true", m(base))
+        eq_(base + "?contentfile=true",
+            m(base + "?odreadauthurl={odreadauthurl}"))
+        eq_(base + "?other=other&contentfile=true",
+            m(base + "?odreadauthurl={odreadauthurl}&other=other"))
 
     def test_extract_data_from_checkout_resource(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
