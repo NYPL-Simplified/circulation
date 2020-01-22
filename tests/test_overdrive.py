@@ -9,6 +9,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import random
 from api.overdrive import (
     MockOverdriveAPI,
     NewTitlesOverdriveCollectionMonitor,
@@ -800,6 +801,73 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_("https://fulfill.contentreserve.com/PerfectLife9780345530967.epub-sample.overdrive.com?RetailerID=nypl&Expires=1469825647&Token=dd0e19b4-eb70-439d-8c50-a65201060f4c&Signature=asl67/G154KeeUsL1mHPwEbZfgc=",
             href)
         eq_("text/html", type)
+
+    def test_get_fulfillment_link_returns_fulfillmentinfo_for_manifest_format(self):
+        # When the format requested would result in a link to a
+        # manifest file, the link is returned as-is (wrapped in an
+        # OverdriveFulfillmentInfo) rather than being retrieved and
+        # processed.
+
+        # To keep things simple, our mock API will always return the same
+        # fulfillment link.
+        loan_info = {"isFormatLockedIn": False}
+        class MockAPI(MockOverdriveAPI):
+
+            def get_loan(self, patron, pin, overdrive_id):
+                self.get_loan_called_with = (patron, pin, overdrive_id)
+                return loan_info
+
+            def get_download_link(self, loan, format_type, error_url):
+                self.get_download_link_called_with = (
+                    loan, format_type, error_url
+                )
+                return "http://fulfillment-link/"
+
+            def get_fulfillment_link_from_download_link(self, *args, **kwargs):
+                # We want to verify that this method is never called.
+                raise Exception("explode!")
+
+        api = MockAPI(self._db, self.collection)
+        api.queue_response(200, content=json.dumps({"some": "data"}))
+
+        # Randomly choose one of the formats that must be fulfilled as
+        # a link to a manifest.
+        overdrive_format = random.choice(
+            list(OverdriveAPI.MANIFEST_INTERNAL_FORMATS)
+        )
+
+        # Get the fulfillment link.
+        patron = self._patron()
+        fulfillmentinfo = api.get_fulfillment_link(
+            patron, '1234', "http://download-link",
+            overdrive_format,
+        )
+        assert isinstance(fulfillmentinfo, OverdriveManifestFulfillmentInfo)
+
+        # Before looking at the OverdriveManifestFulfillmentInfo,
+        # let's see how we got there.
+
+        # First, our mocked get_loan() was called.
+        eq_((patron, '1234', 'http://download-link'), api.get_loan_called_with)
+
+        # It returned a dictionary that contained no information
+        # except isFormatLockedIn: false.
+
+        # Since the manifest formats do not lock the loan, this
+        # skipped most of the code in get_fulfillment_link, and the
+        # loan info was passed into our mocked get_download_link.
+
+        eq_(
+            (loan_info, overdrive_format, api.DEFAULT_ERROR_URL),
+            api.get_download_link_called_with
+        )
+
+        # Since the manifest formats cannot be retrieved by the
+        # circulation manager, the result of get_download_link was
+        # wrapped in an OverdriveManifestFulfillmentInfo and returned.
+        # get_fulfillment_link_from_download_link was never called.
+        eq_("http://fulfillment-link/", fulfillmentinfo.content_link)
+        eq_(None, fulfillmentinfo.content_type)
 
     def test_make_direct_download_link(self):
         base = "http://overdrive/downloadlink"

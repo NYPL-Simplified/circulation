@@ -543,10 +543,11 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         if not loan:
             raise NoActiveLoan("Could not find active loan for %s" % overdrive_id)
         download_link = None
-        if not loan['isFormatLockedIn'] and format_type in self.LOCK_IN_FORMATS:
+        if (not loan.get('isFormatLockedIn')
+            and format_type in self.LOCK_IN_FORMATS):
             # The format is not locked in. Lock it in.
             # This will happen the first time someone tries to fulfill
-            # a loan.
+            # a loan with a lock-in format (basically Adobe-gated formats)
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
@@ -569,7 +570,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
         if format_type and not download_link:
             download_link = self.get_download_link(
-                loan, format_type, self.DEFAULT_ERROR_URL)
+                loan, format_type, self.DEFAULT_ERROR_URL
+            )
             if not download_link:
                 raise CannotFulfill(
                     "No download link for %s, format %s" % (
@@ -584,7 +586,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                     self.collection, download_link,
                     overdrive_id, scope_string
                 )
-             
+
             return self.get_fulfillment_link_from_download_link(
                 patron, pin, download_link)
 
