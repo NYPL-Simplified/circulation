@@ -1701,6 +1701,42 @@ class TestLoanController(CirculationControllerTest):
             )
             eq_(expect, fulfill_part_url(part))
 
+    def test_fulfill_returns_fulfillment_info_implementing_as_response(self):
+        # If CirculationAPI.fulfill returns a FulfillmentInfo that
+        # defines as_response, the result of as_response is returned
+        # directly and the normal process of converting a FulfillmentInfo
+        # to a Flask response is skipped.
+        class MockFulfillmentInfo(FulfillmentInfo):
+            @property
+            def as_response(self):
+                return "Here's your response"
+
+        class MockCirculationAPI(object):
+            def fulfill(slf, *args, **kwargs):
+                return MockFulfillmentInfo(
+                    self._default_collection, None, None, None, None,
+                    None, None, None
+                )
+
+        controller = self.manager.loans
+        mock = MockCirculationAPI()
+        controller.manager.circulation_apis[self._default_library.id] = mock
+
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            authenticated = controller.authenticated_patron_from_request()
+            loan, ignore = self.pool.loan_to(authenticated)
+
+            # Fulfill the loan.
+            result = controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id
+            )
+
+            # The result of MockFulfillmentInfo.as_response was
+            # returned directly.
+            eq_("Here's your response", result)
+
     def test_fulfill_without_active_loan(self):
 
         controller = self.manager.loans
@@ -2982,7 +3018,7 @@ class TestFeedController(CirculationControllerTest):
                            ]:
             ConfigurationSetting.for_library(rel, library).value = value
 
-        # Make a real OPDS feed and poke at it. 
+        # Make a real OPDS feed and poke at it.
         with self.request_context_with_library(
             "/?entrypoint=Book&size=10"
         ):
@@ -3048,7 +3084,7 @@ class TestFeedController(CirculationControllerTest):
             assert all(lane_str in x for x in facet_links)
             assert all('entrypoint=Book' in x for x in facet_links)
             assert any('order=title' in x for x in facet_links)
-            assert any('order=author' in x for x in facet_links)       
+            assert any('order=author' in x for x in facet_links)
 
         # Now let's take a closer look at what this controller method
         # passes into AcquisitionFeed.page(), by mocking page().
@@ -3469,8 +3505,8 @@ class TestCrawlableFeed(CirculationControllerTest):
             response = controller.crawlable_collection_feed(
                 collection_name="No such collection"
             )
-            eq_(NO_SUCH_COLLECTION, response)            
-            
+            eq_(NO_SUCH_COLLECTION, response)
+
         # Unlike most of these controller methods, this one does not
         # require a library context.
         with self.app.test_request_context("/"):
@@ -3566,7 +3602,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         assert isinstance(lane, CrawlableCustomListBasedLane)
         eq_([customlist.id], lane.customlist_ids)
         eq_({}, kwargs)
-            
+
     def test__crawlable_feed(self):
         # Test the helper method called by all other feed methods.
         self.page_called_with = None
@@ -4406,18 +4442,6 @@ class TestSharedCollectionController(ControllerTest):
             eq_(200, response.status_code)
             eq_("Content", response.data)
             eq_("text/html", response.headers.get("Content-Type"))
-
-            # If the FulfillmentInfo implements as_response, then the
-            # normal handling code short-circuits and the return value
-            # of as_response is used as-is.
-            class MockFulfillmentInfo(object):
-                @property
-                def as_response(self):
-                    return Response("A response", 499)
-            api.queue_fulfill(MockFulfillmentInfo())
-            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id)
-            eq_(499, response.status_code)
-            eq_("A response", response.data)
 
     def test_hold_info(self):
         now = datetime.datetime.utcnow()
