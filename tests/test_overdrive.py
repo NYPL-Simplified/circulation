@@ -23,6 +23,7 @@ from api.overdrive import (
 from api.authenticator import BasicAuthenticationProvider
 from api.circulation import (
     CirculationAPI,
+    FulfillmentInfo,
     HoldInfo,
 )
 from api.circulation_exceptions import *
@@ -708,6 +709,22 @@ class TestOverdriveAPI(OverdriveAPITest):
         url, positional_args, kwargs = self.api.requests[-1]
         headers, body = positional_args
         assert '{"name": "emailAddress", "value": "foo@bar.com"}' in body
+
+    def test_fulfill_returns_fulfillmentinfo_if_returned_by_get_fulfillment_link(self):
+        # If get_fulfillment_link returns a FulfillmentInfo, it is returned
+        # immediately and the rest of fulfill() does not run.
+
+        fulfillment = FulfillmentInfo(self.collection, *[None]*7)
+        class MockAPI(OverdriveAPI):
+            def get_fulfillment_link(*args, **kwargs):
+                return fulfillment
+
+        # Since most of the data is not provided, if fulfill() tried
+        # to actually run to completion, it would crash.
+        edition, pool = self._edition(with_license_pool=True)
+        api = MockAPI(self._db, self.collection)
+        result = api.fulfill(None, None, pool, None)
+        eq_(fulfillment, result)
 
     def test_fulfill_raises_exception_and_updates_formats_for_outdated_format(self):
         edition, pool = self._edition(
