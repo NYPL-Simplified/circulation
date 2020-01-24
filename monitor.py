@@ -850,7 +850,6 @@ class ReaperMonitor(Monitor):
     def query(self):
         return self._db.query(self.MODEL_CLASS).filter(self.where_clause)
 
-
 # ReaperMonitors that do something specific.
 
 class CachedFeedReaper(ReaperMonitor):
