@@ -1075,6 +1075,14 @@ class TestWorkReaper(DatabaseTest):
                 pagination="", facets=""
             )
             self._db.add(feed)
+
+        # Also create a CachedFeed that has no associated Work.
+        workless_feed = CachedFeed(
+            work=None, type='page', content="content",
+            pagination="", facets=""
+        )
+        self._db.add(workless_feed)
+
         self._db.commit()
 
         # Run the reaper.
@@ -1103,8 +1111,13 @@ class TestWorkReaper(DatabaseTest):
         eq_([has_license_pool], [x.work for x in l.entries if x.work])
 
         # The CachedFeeds associated with the reaped Works have been
-        # deleted; the surviving Work still has one.
-        eq_([has_license_pool], [x.work for x in self._db.query(CachedFeed)])
+        # deleted. The surviving Work still has one, and the
+        # CachedFeed that didn't have a work in the first place is
+        # unaffected.
+        feeds = self._db.query(CachedFeed).all()
+        eq_([workless_feed], [x for x in feeds if not x.work])
+        eq_([has_license_pool], [x.work for x in feeds if x.work])
+
 
 class TestCollectionReaper(DatabaseTest):
 
