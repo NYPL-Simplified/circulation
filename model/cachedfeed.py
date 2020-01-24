@@ -60,7 +60,7 @@ class CachedFeed(Base):
     )
 
     # A feed may be associated with a Work.
-    work_id = Column(Integer, ForeignKey('works.id', ondelete='CASCADE'),
+    work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
 
     # Distinct types of feeds that might be cached.

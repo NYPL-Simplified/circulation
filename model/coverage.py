@@ -527,7 +527,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     UPDATE_SEARCH_INDEX_OPERATION = u'update-search-index'
 
     id = Column(Integer, primary_key=True)
-    work_id = Column(Integer, ForeignKey('works.id', ondelete='CASCADE'), index=True)
+    work_id = Column(Integer, ForeignKey('works.id'), index=True)
     operation = Column(String(255), index=True, default=None)
 
     timestamp = Column(DateTime, index=True)

@@ -4,7 +4,7 @@ import os
 import logging
 import time
 import traceback
-from sqlalchemy.orm import load_only
+from sqlalchemy.orm import defer
 from sqlalchemy.sql import select
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
@@ -781,9 +781,11 @@ class ReaperMonitor(Monitor):
     A subclass of ReaperMonitor MAY define values for the following constants:
     * BATCH_SIZE - The number of rows to fetch for deletion in a single
       batch. The default is 1000.
-    * ID_FIELD - The name of the unique ID field in the database table.
-      The default is 'id'. It's okay to set this to None, if there is no
-      unique ID field, but it will hurt performance.
+
+    If your model class has fields that might contain a lot of data
+    and aren't important to the reaping process, put their field names
+    into a list called LARGE_FIELDS and the Reaper will avoid fetching
+    that information, improving performance.
     """
     MODEL_CLASS = None
     TIMESTAMP_FIELD = None
@@ -791,7 +793,6 @@ class ReaperMonitor(Monitor):
     BATCH_SIZE = 1000
 
     REGISTRY = []
-    ID_FIELD = 'id'
 
     def __init__(self, *args, **kwargs):
         self.SERVICE_NAME = "Reaper for %s.%s" % (
@@ -823,6 +824,9 @@ class ReaperMonitor(Monitor):
     def run_once(self, *args, **kwargs):
         rows_deleted = 0
         qu = self.query()
+        to_defer = getattr(self.MODEL_CLASS, 'LARGE_FIELDS', [])
+        for x in to_defer:
+            qu = qu.options(defer(x))
         count = qu.count()
         self.log.info("Deleting %d row(s)", count)
         while count > 0:
@@ -831,6 +835,7 @@ class ReaperMonitor(Monitor):
                 self.delete(i)
                 rows_deleted += 1
             count = qu.count()
+            self._db.commit()
         return TimestampData(achievements="Items deleted: %d" % rows_deleted)
 
     def delete(self, row):
@@ -839,26 +844,6 @@ class ReaperMonitor(Monitor):
 
     def query(self):
         return self._db.query(self.MODEL_CLASS).filter(self.where_clause)
-
-class BulkReaperMonitor(ReaperMonitor):
-    """A ReaperMonitor that issues a single DELETE statement rather
-    than iterating over items one at a time.
-
-    Many ReaperMonitors can subclass this instead of ReaperMonitor for
-    better performance. The challenge is that if this thing's
-    deletion needs to cascade to other tables, you need to set up
-    database-level cascading deletes.
-    """
-    def run_once(self, *args, **kwargs):
-        """Find all rows that need to be scrubbed, and scrub them."""
-        rows_scrubbed = 0
-        cls = self.MODEL_CLASS
-        delete = cls.__table__.delete().where(
-            self.where_clause
-        ).returning(cls.id)
-        deleted = self._db.execute(delete).fetchall()
-        self._db.commit()
-        return TimestampData(achievements="Items deleted: %d" % len(deleted))
 
 
 # ReaperMonitors that do something specific.
@@ -886,7 +871,7 @@ class PatronRecordReaper(ReaperMonitor):
 ReaperMonitor.REGISTRY.append(PatronRecordReaper)
 
 
-class WorkReaper(BulkReaperMonitor):
+class WorkReaper(ReaperMonitor):
     """Remove Works that have no associated LicensePools.
 
     Unlike other reapers, no timestamp is relevant. As soon as a Work
@@ -894,17 +879,11 @@ class WorkReaper(BulkReaperMonitor):
     """
     MODEL_CLASS = Work
 
-    @property
-    def where_clause(self):
-        subquery = select(
-            [Work.id]
-        ).select_from(
-            outerjoin(
-                Work, LicensePool,
-                Work.id==LicensePool.work_id
-            )
-        ).where(LicensePool.work_id==None)
-        return Work.id.in_(subquery)
+    def query(self):
+        return self._db.query(Work).outerjoin(Work.license_pools).filter(
+            LicensePool.id==None
+        )
+
 ReaperMonitor.REGISTRY.append(WorkReaper)
 
 

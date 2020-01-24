@@ -79,7 +79,7 @@ class WorkGenre(Base):
     __tablename__ = 'workgenres'
     id = Column(Integer, primary_key=True)
     genre_id = Column(Integer, ForeignKey('genres.id'), index=True)
-    work_id = Column(Integer, ForeignKey('works.id', ondelete='CASCADE'), index=True)
+    work_id = Column(Integer, ForeignKey('works.id'), index=True)
     affinity = Column(Float, index=True, default=0)
 
     @classmethod
@@ -143,27 +143,26 @@ class Work(Base):
     # One Work may have many associated WorkCoverageRecords.
     coverage_records = relationship(
         "WorkCoverageRecord", backref="work",
-        cascade="all, delete-orphan", passive_deletes=True
+        cascade="all, delete-orphan"
     )
 
     # One Work may be associated with many CustomListEntries.
     custom_list_entries = relationship(
         'CustomListEntry', backref='work',
-        cascade="all, delete-orphan", passive_deletes=True
+        cascade="all, delete-orphan"
     )
 
     # One Work may have multiple CachedFeeds.
     cached_feeds = relationship(
         'CachedFeed', backref='work',
-        cascade="all, delete-orphan", passive_deletes=True
+        cascade="all, delete-orphan"
     )
 
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
     work_genres = relationship("WorkGenre", backref="work",
-                               cascade="all, delete-orphan",
-                               passive_deletes=True)
+                               cascade="all, delete-orphan")
     audience = Column(Unicode, index=True)
     target_age = Column(INT4RANGE, index=True)
     fiction = Column(Boolean, index=True)
@@ -231,6 +230,13 @@ class Work(Base):
     # work that would be relevant to display in a library's public
     # catalog.
     marc_record = Column(String, default=None)
+
+    # These fields are potentially large and can be deferred if you
+    # don't need all the data in a Work.
+    LARGE_FIELDS = [
+        'simple_opds_entry', 'verbose_opds_entry', 'marc_record',
+        'summary_text',
+    ]
 
     @property
     def title(self):
