@@ -839,7 +839,12 @@ class ReaperMonitor(Monitor):
         return TimestampData(achievements="Items deleted: %d" % rows_deleted)
 
     def delete(self, row):
-        """Delete a row from the database."""
+        """Delete a row from the database.
+
+        CAUTION: If you override this method such that it doesn't
+        actually delete the database row, then run_once() may enter an
+        infinite loop.
+        """
         self._db.delete(row)
 
     def query(self):
