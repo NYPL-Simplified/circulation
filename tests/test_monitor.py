@@ -21,13 +21,14 @@ from ..model import (
     get_one,
     CachedFeed,
     CirculationEvent,
-    Subject,
+    CustomList,
     Collection,
     CollectionMissing,
     Credential,
     DataSource,
     Edition,
     ExternalIntegration,
+    Genre,
     Identifier,
     Patron,
     Subject,
@@ -1021,6 +1022,8 @@ class TestWorkReaper(DatabaseTest):
 
     def test_end_to_end(self):
 
+        # First, create three works.
+
         # This work has a license pool.
         has_license_pool = self._work(with_license_pool=True)
 
@@ -1031,17 +1034,34 @@ class TestWorkReaper(DatabaseTest):
         # This work never had a license pool.
         never_had_license_pool = self._work(with_license_pool=False)
 
-        # Each work has a presentation edition
+        # Each work has a presentation edition -- keep track of these
+        # for later.
         works = self._db.query(Work)
         presentation_editions = [x.presentation_edition for x in works]
 
-        m = WorkReaper(self._db)
+        # Because this is the only place in the system where all of
+        # Work's database-level cascading deletes are triggered, and
+        # there's no chance that an ORM-level delete is doing the
+        # work, we need to verify that all of the cascades work. So,
+        # set up some related items for each of these.
 
-        # The two works with no license pools are due do be reaped.
-        eq_(set([never_had_license_pool, had_license_pool]),
-            set(m.query().all()))
+        # Each work is assigned to a genre.
+        genre, ignore = Genre.lookup(self._db, "Science Fiction")
+        for work in works:
+            work.genres = [genre]
+
+        # Each work is on the same CustomList.
+        l, ignore = self._customlist("a list", num_entries=0)
+        for work in works:
+            l.add_entry(work)
+
+        # Each work has a WorkCoverageRecord.
+        for work in works:
+            WorkCoverageRecord.add_for(work, operation="some operation")
+        self._db.commit()
 
         # Run the reaper.
+        m = WorkReaper(self._db)
         m.run_once()
 
         # Only the work with a license pool remains.
@@ -1052,6 +1072,14 @@ class TestWorkReaper(DatabaseTest):
         all_editions = self._db.query(Edition).all()
         for e in presentation_editions:
             assert e in all_editions
+
+        # The surviving work is still assigned to the Genre, still on
+        # the CustomList, and still has WorkCoverageRecords.
+        eq_([has_license_pool], genre.works)
+        eq_([has_license_pool], [x.work for x in l.entries])
+        surviving_records = self._db.query(WorkCoverageRecord)
+        assert surviving_records.count() > 0
+        assert all(x.work==has_license_pool for x in surviving_records)
 
 
 class TestCollectionReaper(DatabaseTest):
