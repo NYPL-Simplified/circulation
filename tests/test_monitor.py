@@ -974,12 +974,15 @@ class TestReaperMonitor(DatabaseTest):
         eq_("cachedfeeds.timestamp < :timestamp_1", str(m.where_clause))
 
     def test_run_once(self):
-        # Create three Credentials.
-        expired = self._credential()
+        # Create four Credentials: two expired, two valid.
+        expired1 = self._credential()
+        expired2 = self._credential()
         now = datetime.datetime.utcnow()
-        expired.expires = now - datetime.timedelta(
+        expiration_date = now - datetime.timedelta(
             days=CredentialReaper.MAX_AGE + 1
         )
+        for e in [expired1, expired2]:
+            e.expires = expiration_date
 
         active = self._credential()
         active.expires = now - datetime.timedelta(
@@ -989,11 +992,16 @@ class TestReaperMonitor(DatabaseTest):
         eternal = self._credential()
 
         m = CredentialReaper(self._db)
+
+        # Set the batch size to 1 to make sure this works even
+        # when there are multiple batches.
+        m.BATCH_SIZE = 1
+
         eq_("Reaper for Credential.expires", m.SERVICE_NAME)
         result = m.run_once()
-        eq_("Items deleted: 1", result.achievements)
+        eq_("Items deleted: 2", result.achievements)
 
-        # The expired credential has been reaped; the others
+        # The expired credentials have been reaped; the others
         # are still in the database.
         remaining = set(self._db.query(Credential).all())
         eq_(set([active, eternal]), remaining)
