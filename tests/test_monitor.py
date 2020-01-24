@@ -1039,11 +1039,12 @@ class TestWorkReaper(DatabaseTest):
         works = self._db.query(Work)
         presentation_editions = [x.presentation_edition for x in works]
 
-        # Because this is the only place in the system where all of
-        # Work's database-level cascading deletes are triggered, and
-        # there's no chance that an ORM-level delete is doing the
-        # work, we need to verify that all of the cascades work. So,
-        # set up some related items for each of these.
+        # If and when Work gets database-level cascading deletes, this
+        # is where they will all be triggered, with no chance that an
+        # ORM-level delete is doing the work. So let's verify that all
+        # of the cascades work.
+
+        # First, set up some related items for each Work.
 
         # Each work is assigned to a genre.
         genre, ignore = Genre.lookup(self._db, "Science Fiction")
@@ -1058,6 +1059,14 @@ class TestWorkReaper(DatabaseTest):
         # Each work has a WorkCoverageRecord.
         for work in works:
             WorkCoverageRecord.add_for(work, operation="some operation")
+
+        # Each work has a CachedFeed.
+        for work in works:
+            feed = CachedFeed(
+                work=work, type='page', content="content",
+                pagination="", facets=""
+            )
+            self._db.add(feed)
         self._db.commit()
 
         # Run the reaper.
@@ -1073,14 +1082,21 @@ class TestWorkReaper(DatabaseTest):
         for e in presentation_editions:
             assert e in all_editions
 
-        # The surviving work is still assigned to the Genre, still on
-        # the CustomList, and still has WorkCoverageRecords.
+        # The surviving work is still assigned to the Genre, and still
+        # has WorkCoverageRecords.
         eq_([has_license_pool], genre.works)
-        eq_([has_license_pool], [x.work for x in l.entries])
         surviving_records = self._db.query(WorkCoverageRecord)
         assert surviving_records.count() > 0
         assert all(x.work==has_license_pool for x in surviving_records)
 
+        # The CustomListEntries still exist, but two of them have lost
+        # their work.
+        eq_(2, len([x for x in l.entries if not x.work]))
+        eq_([has_license_pool], [x.work for x in l.entries if x.work])
+
+        # The CachedFeeds associated with the reaped Works have been
+        # deleted; the surviving Work still has one.
+        eq_([has_license_pool], [x.work for x in self._db.query(CachedFeed)])
 
 class TestCollectionReaper(DatabaseTest):
 

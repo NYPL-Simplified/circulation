@@ -147,15 +147,14 @@ class Work(Base):
     )
 
     # One Work may be associated with many CustomListEntries.
-    custom_list_entries = relationship(
-        'CustomListEntry', backref='work',
-        cascade="all, delete-orphan"
-    )
+    # However, a CustomListEntry may lose its Work without
+    # ceasing to exist.
+    custom_list_entries = relationship('CustomListEntry', backref='work')
 
-    # One Work may have multiple CachedFeeds.
+    # One Work may have multiple CachedFeeds, and if a CachedFeed
+    # loses its Work, it ceases to exist.
     cached_feeds = relationship(
-        'CachedFeed', backref='work',
-        cascade="all, delete-orphan"
+        'CachedFeed', backref='work', cascade="all, delete-orphan"
     )
 
     # One Work may participate in many WorkGenre assignments.
