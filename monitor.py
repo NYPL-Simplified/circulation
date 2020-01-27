@@ -780,7 +780,7 @@ class ReaperMonitor(Monitor):
 
     A subclass of ReaperMonitor MAY define values for the following constants:
     * BATCH_SIZE - The number of rows to fetch for deletion in a single
-      batch. The default is 1000.
+    batch. The default is 1000.
 
     If your model class has fields that might contain a lot of data
     and aren't important to the reaping process, put their field names
