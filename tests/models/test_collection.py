@@ -849,9 +849,9 @@ class TestCollection(DatabaseTest):
         # LicensePool, so they can and should survive the deletion of
         # the Collection in which they were originally created.
 
-        # The first Work is still around -- it just no longer has any
+        # The first Work has been deleted, since it lost all of its
         # LicensePools.
-        eq_([], work.license_pools)
+        eq_([work2], self._db.query(Work).all())
 
         # The second Work is still around, and it still has the other
         # LicensePool.
