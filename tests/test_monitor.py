@@ -59,7 +59,6 @@ from ..monitor import (
     SubjectSweepMonitor,
     SweepMonitor,
     TimelineMonitor,
-    WorkRandomnessUpdateMonitor,
     WorkReaper,
     WorkSweepMonitor,
 )

@@ -450,8 +450,8 @@ class TestFacets(DatabaseTest):
 
     def test_default_order_ascending(self):
 
-        # Most fields are ordered ascending by default (A-Z).
-        for order in (Facets.ORDER_TITLE, Facets.ORDER_RANDOM):
+        # Name-based facets are ordered ascending by default (A-Z).
+        for order in (Facets.ORDER_TITLE, Facets.ORDER_AUTHOR):
             f = Facets(
                 self._default_library,
                 collection=Facets.COLLECTION_FULL,
@@ -852,11 +852,6 @@ class TestDatabaseBackedFacets(DatabaseTest):
         actual = order(Facets.ORDER_LAST_UPDATE, True)
         compare(expect, actual)
 
-        expect = [W.random.asc(), E.sort_author.asc(), E.sort_title.asc(),
-                  W.id.asc()]
-        actual = order(Facets.ORDER_RANDOM, True)
-        compare(expect, actual)
-
         # Unsupported sort order -> default (author, title, work ID)
         expect = [E.sort_author.asc(), E.sort_title.asc(), W.id.asc()]
         actual = order(Facets.ORDER_ADDED_TO_COLLECTION, True)
@@ -869,12 +864,10 @@ class TestDatabaseBackedFacets(DatabaseTest):
         # A high-quality open-access work.
         open_access_high = self._work(with_open_access_download=True)
         open_access_high.quality = 0.8
-        open_access_high.random = 0.2
 
         # A low-quality open-access work.
         open_access_low = self._work(with_open_access_download=True)
         open_access_low.quality = 0.2
-        open_access_low.random = 0.4
 
         # A high-quality licensed work which is not currently available.
         (licensed_e1, licensed_p1) = self._edition(
@@ -886,7 +879,6 @@ class TestDatabaseBackedFacets(DatabaseTest):
         licensed_p1.open_access = False
         licensed_p1.licenses_owned = 1
         licensed_p1.licenses_available = 0
-        licensed_high.random = 0.3
 
         # A low-quality licensed work which is currently available.
         (licensed_e2, licensed_p2) = self._edition(
@@ -898,7 +890,6 @@ class TestDatabaseBackedFacets(DatabaseTest):
         licensed_low.quality = 0.2
         licensed_p2.licenses_owned = 1
         licensed_p2.licenses_available = 1
-        licensed_low.random = 0.1
 
         qu = DatabaseBackedWorkList.base_query(self._db)
         def facetify(collection=Facets.COLLECTION_FULL,
@@ -954,15 +945,6 @@ class TestDatabaseBackedFacets(DatabaseTest):
         eq_(
             ['sort_title', 'sort_author', 'id'],
             [x.name for x in title_order._distinct],
-        )
-
-        random_order = facetify(order=Facets.ORDER_RANDOM)
-        eq_([licensed_low.id, open_access_high.id, licensed_high.id,
-             open_access_low.id],
-            [x.id for x in random_order])
-        eq_(
-            ['random', 'sort_author', 'sort_title', 'id'],
-            [x.name for x in random_order._distinct],
         )
 
         # This sort order is not supported, so the default is used.
