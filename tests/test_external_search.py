@@ -1403,12 +1403,6 @@ class TestSearchOrder(EndToEndSearchTest):
             collections=[self._default_collection]
         )
 
-        # We can sort by the value of work.random. 0.1 < 0.9
-        assert_order(
-            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled],
-            collections=[self._default_collection]
-        )
-
         # We can sort by series position. Here, the books aren't in
         # the same series; in a real scenario we would also filter on
         # the value of 'series'.

@@ -3,7 +3,6 @@ from collections import defaultdict
 from nose.tools import set_trace
 import datetime
 import logging
-import random
 import time
 import urllib
 
@@ -603,7 +602,6 @@ class DatabaseBackedFacets(Facets):
         FacetConstants.ORDER_TITLE : Edition.sort_title,
         FacetConstants.ORDER_AUTHOR : Edition.sort_author,
         FacetConstants.ORDER_LAST_UPDATE : Work.last_update_time,
-        FacetConstants.ORDER_RANDOM : Work.random,
     }
 
     @classmethod

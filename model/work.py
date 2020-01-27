@@ -177,9 +177,6 @@ class Work(Base):
     # The overall current popularity of this work.
     popularity = Column(Float, index=True)
 
-    # A random number associated with this work, used for sampling/
-    random = Column(Numeric(4,3), index=True)
-
     appeal_type = Enum(CHARACTER_APPEAL, LANGUAGE_APPEAL, SETTING_APPEAL,
                        STORY_APPEAL, NOT_APPLICABLE_APPEAL, NO_APPEAL,
                        UNKNOWN_APPEAL, name="appeal")
@@ -1225,7 +1222,6 @@ class Work(Base):
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
-        self.random = random.random()
         if not exclude_search:
             self.external_index_needs_updating()
 
@@ -1429,7 +1425,6 @@ class Work(Base):
              Work.summary_text,
              Work.quality,
              Work.rating,
-             Work.random,
              Work.popularity,
              Work.presentation_ready,
              Work.presentation_edition_id,
@@ -1669,7 +1664,6 @@ class Work(Base):
              works_alias.c.imprint,
              works_alias.c.permanent_work_id,
              works_alias.c.presentation_ready,
-             works_alias.c.random,
              works_alias.c.last_update_time,
 
              # Convert true/false to "Fiction"/"Nonfiction".
@@ -1811,8 +1805,3 @@ class Work(Base):
             .order_by(WorkGenre.affinity.desc()) \
             .first()
         return genre.name if genre else None
-
-
-# Used for quality filter queries.
-Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
-Index("ix_works_audience_fiction_quality_random", Work.audience, Work.fiction, Work.quality, Work.random)
