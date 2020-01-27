@@ -176,13 +176,21 @@
     <span class="n">presentation_edition_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="s1">&#39;editions.id&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># One Work may have many associated WorkCoverageRecords.</span>
-    <span class="n">coverage_records</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s2">&quot;WorkCoverageRecord&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;work&quot;</span><span class="p">)</span>
+    <span class="n">coverage_records</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s2">&quot;WorkCoverageRecord&quot;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s2">&quot;work&quot;</span><span class="p">,</span>
+        <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span>
+    <span class="p">)</span>
 
     <span class="c1"># One Work may be associated with many CustomListEntries.</span>
+    <span class="c1"># However, a CustomListEntry may lose its Work without</span>
+    <span class="c1"># ceasing to exist.</span>
     <span class="n">custom_list_entries</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;CustomListEntry&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;work&#39;</span><span class="p">)</span>
 
-    <span class="c1"># One Work may have multiple CachedFeeds.</span>
-    <span class="n">cached_feeds</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="s1">&#39;CachedFeed&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;work&#39;</span><span class="p">)</span>
+    <span class="c1"># One Work may have multiple CachedFeeds, and if a CachedFeed</span>
+    <span class="c1"># loses its Work, it ceases to exist.</span>
+    <span class="n">cached_feeds</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span>
+        <span class="s1">&#39;CachedFeed&#39;</span><span class="p">,</span> <span class="n">backref</span><span class="o">=</span><span class="s1">&#39;work&#39;</span><span class="p">,</span> <span class="n">cascade</span><span class="o">=</span><span class="s2">&quot;all, delete-orphan&quot;</span>
+    <span class="p">)</span>
 
     <span class="c1"># One Work may participate in many WorkGenre assignments.</span>
     <span class="n">genres</span> <span class="o">=</span> <span class="n">association_proxy</span><span class="p">(</span><span class="s1">&#39;work_genres&#39;</span><span class="p">,</span> <span class="s1">&#39;genre&#39;</span><span class="p">,</span>
@@ -256,6 +264,13 @@
     <span class="c1"># work that would be relevant to display in a library&#39;s public</span>
     <span class="c1"># catalog.</span>
     <span class="n">marc_record</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># These fields are potentially large and can be deferred if you</span>
+    <span class="c1"># don&#39;t need all the data in a Work.</span>
+    <span class="n">LARGE_FIELDS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s1">&#39;simple_opds_entry&#39;</span><span class="p">,</span> <span class="s1">&#39;verbose_opds_entry&#39;</span><span class="p">,</span> <span class="s1">&#39;marc_record&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;summary_text&#39;</span><span class="p">,</span>
+    <span class="p">]</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">title</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

@@ -1908,7 +1908,7 @@ renders entry points as a set of tabs.</p>
 
 <dl class="attribute">
 <dt id="core.entrypoint.EntryPoint.DISPLAY_TITLES">
-<code class="descname">DISPLAY_TITLES</code><em class="property"> = {&lt;class 'core.entrypoint.EbooksEntryPoint'&gt;: 'eBooks', &lt;class 'core.entrypoint.EverythingEntryPoint'&gt;: 'All', &lt;class 'core.entrypoint.AudiobooksEntryPoint'&gt;: 'Audiobooks'}</em><a class="headerlink" href="#core.entrypoint.EntryPoint.DISPLAY_TITLES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DISPLAY_TITLES</code><em class="property"> = {&lt;class 'core.entrypoint.EverythingEntryPoint'&gt;: 'All', &lt;class 'core.entrypoint.EbooksEntryPoint'&gt;: 'eBooks', &lt;class 'core.entrypoint.AudiobooksEntryPoint'&gt;: 'Audiobooks'}</em><a class="headerlink" href="#core.entrypoint.EntryPoint.DISPLAY_TITLES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5017,7 +5017,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-3beb58ac-9898-4117-af98-cc714f42aa8f'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-34e9856f-0805-4265-a8ff-3829daf13157'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -6794,6 +6794,18 @@ e.g. ‘expires’. The reaper will be more efficient if there’s
 an index on this field.
 * MAX_AGE - A datetime.timedelta or number of days representing
 the time that must pass before an item can be safely deleted.</p>
+<p>A subclass of ReaperMonitor MAY define values for the following constants:
+* BATCH_SIZE - The number of rows to fetch for deletion in a single
+batch. The default is 1000.</p>
+<p>If your model class has fields that might contain a lot of data
+and aren’t important to the reaping process, put their field names
+into a list called LARGE_FIELDS and the Reaper will avoid fetching
+that information, improving performance.</p>
+<dl class="attribute">
+<dt id="core.monitor.ReaperMonitor.BATCH_SIZE">
+<code class="descname">BATCH_SIZE</code><em class="property"> = 1000</em><a class="headerlink" href="#core.monitor.ReaperMonitor.BATCH_SIZE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="attribute">
 <dt id="core.monitor.ReaperMonitor.MAX_AGE">
 <code class="descname">MAX_AGE</code><em class="property"> = None</em><a class="headerlink" href="#core.monitor.ReaperMonitor.MAX_AGE" title="Permalink to this definition">¶</a></dt>
@@ -6824,6 +6836,9 @@ the time that must pass before an item can be safely deleted.</p>
 <dt id="core.monitor.ReaperMonitor.delete">
 <code class="descname">delete</code><span class="sig-paren">(</span><em>row</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#ReaperMonitor.delete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.ReaperMonitor.delete" title="Permalink to this definition">¶</a></dt>
 <dd><p>Delete a row from the database.</p>
+<p>CAUTION: If you override this method such that it doesn’t
+actually delete the database row, then run_once() may enter an
+infinite loop.</p>
 </dd></dl>
 
 <dl class="method">
