@@ -141,13 +141,21 @@ class Work(Base):
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
     # One Work may have many associated WorkCoverageRecords.
-    coverage_records = relationship("WorkCoverageRecord", backref="work")
+    coverage_records = relationship(
+        "WorkCoverageRecord", backref="work",
+        cascade="all, delete-orphan"
+    )
 
     # One Work may be associated with many CustomListEntries.
+    # However, a CustomListEntry may lose its Work without
+    # ceasing to exist.
     custom_list_entries = relationship('CustomListEntry', backref='work')
 
-    # One Work may have multiple CachedFeeds.
-    cached_feeds = relationship('CachedFeed', backref='work')
+    # One Work may have multiple CachedFeeds, and if a CachedFeed
+    # loses its Work, it ceases to exist.
+    cached_feeds = relationship(
+        'CachedFeed', backref='work', cascade="all, delete-orphan"
+    )
 
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
@@ -218,6 +226,13 @@ class Work(Base):
     # work that would be relevant to display in a library's public
     # catalog.
     marc_record = Column(String, default=None)
+
+    # These fields are potentially large and can be deferred if you
+    # don't need all the data in a Work.
+    LARGE_FIELDS = [
+        'simple_opds_entry', 'verbose_opds_entry', 'marc_record',
+        'summary_text',
+    ]
 
     @property
     def title(self):
