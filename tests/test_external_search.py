@@ -1882,13 +1882,18 @@ class TestFeaturedFacets(EndToEndSearchTest):
         all_featured_facets = FeaturedFacets(
             0, random_seed=Filter.DETERMINISTIC
         )
-        assert_featured(
-            "Works without considering quality",
-            worklist, all_featured_facets,
-            [self.hq_available, self.hq_available_2,
-             self.not_featured_on_list, self.hq_not_available,
-             self.featured_on_list],
+        # We don't know exactly what order the books will be in,
+        # because even without the random element Elasticsearch is
+        # slightly nondeterministic, but we do expect that all of the
+        # available books will show up before all of the unavailable
+        # books.
+        only_availability_matters = worklist.works(
+            self._db, facets, None, self.search, debug=True
         )
+        eq_(5, len(only_availability_matters))
+        last_two = only_availability_matters[-2:]
+        assert self.hq_not_available in last_two
+        assert self.featured_on_list in last_two
 
         # Up to this point we've been avoiding the random element,
         # but we can introduce that now by passing in a numeric seed.
