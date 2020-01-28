@@ -3538,7 +3538,7 @@ database. (Other faceting objects are designed for managing
 Elasticsearch searches.)</p>
 <dl class="attribute">
 <dt id="core.lane.DatabaseBackedFacets.ORDER_FACET_TO_DATABASE_FIELD">
-<code class="descname">ORDER_FACET_TO_DATABASE_FIELD</code><em class="property"> = {'author': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;, 'last_update': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;, 'random': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;, 'title': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;, 'work_id': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;}</em><a class="headerlink" href="#core.lane.DatabaseBackedFacets.ORDER_FACET_TO_DATABASE_FIELD" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ORDER_FACET_TO_DATABASE_FIELD</code><em class="property"> = {'author': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;, 'last_update': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;, 'title': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;, 'work_id': &lt;sqlalchemy.orm.attributes.InstrumentedAttribute object&gt;}</em><a class="headerlink" href="#core.lane.DatabaseBackedFacets.ORDER_FACET_TO_DATABASE_FIELD" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -5017,7 +5017,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-34e9856f-0805-4265-a8ff-3829daf13157'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-5800d9ab-e0cd-49d0-b23d-627eb046eaae'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7142,32 +7142,6 @@ circulation history for a collection” into chunks of one day.</p>
 </tr>
 </tbody>
 </table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="core.monitor.WorkRandomnessUpdateMonitor">
-<em class="property">class </em><code class="descclassname">core.monitor.</code><code class="descname">WorkRandomnessUpdateMonitor</code><span class="sig-paren">(</span><em>_db</em>, <em>collection=None</em>, <em>batch_size=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#WorkRandomnessUpdateMonitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.WorkRandomnessUpdateMonitor" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#core.monitor.WorkSweepMonitor" title="core.monitor.WorkSweepMonitor"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.monitor.WorkSweepMonitor</span></code></a></p>
-<p>Update the random value associated with each work.</p>
-<p>(This value is used when randomly choosing books to feature.)</p>
-<dl class="attribute">
-<dt id="core.monitor.WorkRandomnessUpdateMonitor.DEFAULT_BATCH_SIZE">
-<code class="descname">DEFAULT_BATCH_SIZE</code><em class="property"> = 1000</em><a class="headerlink" href="#core.monitor.WorkRandomnessUpdateMonitor.DEFAULT_BATCH_SIZE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.monitor.WorkRandomnessUpdateMonitor.SERVICE_NAME">
-<code class="descname">SERVICE_NAME</code><em class="property"> = 'Work Randomness Updater'</em><a class="headerlink" href="#core.monitor.WorkRandomnessUpdateMonitor.SERVICE_NAME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="core.monitor.WorkRandomnessUpdateMonitor.process_batch">
-<code class="descname">process_batch</code><span class="sig-paren">(</span><em>offset</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/monitor.html#WorkRandomnessUpdateMonitor.process_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.monitor.WorkRandomnessUpdateMonitor.process_batch" title="Permalink to this definition">¶</a></dt>
-<dd><p>Unlike other Monitors, this one leaves process_item() undefined
-because it works on a large number of Works at once using raw
-SQL.</p>
 </dd></dl>
 
 </dd></dl>

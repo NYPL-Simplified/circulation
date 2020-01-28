@@ -765,30 +765,6 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="WorkRandomnessUpdateMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.WorkRandomnessUpdateMonitor">[docs]</a><span class="k">class</span> <span class="nc">WorkRandomnessUpdateMonitor</span><span class="p">(</span><span class="n">WorkSweepMonitor</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Update the random value associated with each work.</span>
-
-<span class="sd">    (This value is used when randomly choosing books to feature.)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">SERVICE_NAME</span> <span class="o">=</span> <span class="s2">&quot;Work Randomness Updater&quot;</span>
-    <span class="n">DEFAULT_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
-
-<div class="viewcode-block" id="WorkRandomnessUpdateMonitor.process_batch"><a class="viewcode-back" href="../../core.html#core.monitor.WorkRandomnessUpdateMonitor.process_batch">[docs]</a>    <span class="k">def</span> <span class="nf">process_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Unlike other Monitors, this one leaves process_item() undefined</span>
-<span class="sd">        because it works on a large number of Works at once using raw</span>
-<span class="sd">        SQL.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">new_offset</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span>
-        <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;update works set random=random() where id &gt;= :offset and id &lt; :new_offset;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span> <span class="n">new_offset</span><span class="o">=</span><span class="n">new_offset</span><span class="p">))</span>
-        <span class="p">[[</span><span class="bp">self</span><span class="o">.</span><span class="n">max_work_id</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select max(id) from works&#39;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_work_id</span> <span class="o">&lt;</span> <span class="n">new_offset</span><span class="p">:</span>
-            <span class="c1"># We&#39;re all done.</span>
-            <span class="n">new_offset</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">return</span> <span class="n">new_offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span></div></div>
-
-
 <div class="viewcode-block" id="CustomListEntryWorkUpdateMonitor"><a class="viewcode-back" href="../../core.html#core.monitor.CustomListEntryWorkUpdateMonitor">[docs]</a><span class="k">class</span> <span class="nc">CustomListEntryWorkUpdateMonitor</span><span class="p">(</span><span class="n">CustomListEntrySweepMonitor</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;Set or reset the Work associated with each custom list entry.&quot;&quot;&quot;</span>

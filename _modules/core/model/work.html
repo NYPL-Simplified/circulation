@@ -220,9 +220,6 @@
     <span class="c1"># The overall current popularity of this work.</span>
     <span class="n">popularity</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="c1"># A random number associated with this work, used for sampling/</span>
-    <span class="n">random</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Numeric</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
     <span class="n">appeal_type</span> <span class="o">=</span> <span class="n">Enum</span><span class="p">(</span><span class="n">CHARACTER_APPEAL</span><span class="p">,</span> <span class="n">LANGUAGE_APPEAL</span><span class="p">,</span> <span class="n">SETTING_APPEAL</span><span class="p">,</span>
                        <span class="n">STORY_APPEAL</span><span class="p">,</span> <span class="n">NOT_APPLICABLE_APPEAL</span><span class="p">,</span> <span class="n">NO_APPEAL</span><span class="p">,</span>
                        <span class="n">UNKNOWN_APPEAL</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;appeal&quot;</span><span class="p">)</span>
@@ -1275,7 +1272,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">presentation_ready</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">presentation_ready_exception</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">presentation_ready_attempt</span> <span class="o">=</span> <span class="n">as_of</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">random</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">exclude_search</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span></div>
 
@@ -1479,7 +1475,6 @@
              <span class="n">Work</span><span class="o">.</span><span class="n">summary_text</span><span class="p">,</span>
              <span class="n">Work</span><span class="o">.</span><span class="n">quality</span><span class="p">,</span>
              <span class="n">Work</span><span class="o">.</span><span class="n">rating</span><span class="p">,</span>
-             <span class="n">Work</span><span class="o">.</span><span class="n">random</span><span class="p">,</span>
              <span class="n">Work</span><span class="o">.</span><span class="n">popularity</span><span class="p">,</span>
              <span class="n">Work</span><span class="o">.</span><span class="n">presentation_ready</span><span class="p">,</span>
              <span class="n">Work</span><span class="o">.</span><span class="n">presentation_edition_id</span><span class="p">,</span>
@@ -1719,7 +1714,6 @@
              <span class="n">works_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">imprint</span><span class="p">,</span>
              <span class="n">works_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">permanent_work_id</span><span class="p">,</span>
              <span class="n">works_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">presentation_ready</span><span class="p">,</span>
-             <span class="n">works_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">random</span><span class="p">,</span>
              <span class="n">works_alias</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">last_update_time</span><span class="p">,</span>
 
              <span class="c1"># Convert true/false to &quot;Fiction&quot;/&quot;Nonfiction&quot;.</span>
@@ -1861,11 +1855,6 @@
             <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">affinity</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span> \
             <span class="o">.</span><span class="n">first</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">genre</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">genre</span> <span class="k">else</span> <span class="kc">None</span></div></div>
-
-
-<span class="c1"># Used for quality filter queries.</span>
-<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_works_audience_target_age_quality_random&quot;</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">target_age</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">quality</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">random</span><span class="p">)</span>
-<span class="n">Index</span><span class="p">(</span><span class="s2">&quot;ix_works_audience_fiction_quality_random&quot;</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">audience</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">fiction</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">quality</span><span class="p">,</span> <span class="n">Work</span><span class="o">.</span><span class="n">random</span><span class="p">)</span>
 </pre></div>
 
           </div>
