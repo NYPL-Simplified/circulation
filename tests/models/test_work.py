@@ -1008,7 +1008,6 @@ class TestWork(DatabaseTest):
         work.summary_text = self._str
         work.rating = 5
         work.popularity = 4
-        work.random = 0.145
         work.last_update_time = datetime.datetime.utcnow()
 
         # Make sure all of this will show up in a database query.
@@ -1051,7 +1050,6 @@ class TestWork(DatabaseTest):
         eq_(work.quality, search_doc['quality'])
         eq_(work.rating, search_doc['rating'])
         eq_(work.popularity, search_doc['popularity'])
-        eq_(work.random, search_doc['random'])
         eq_(work.presentation_ready, search_doc['presentation_ready'])
         assert_time_match(work.last_update_time, search_doc['last_update_time'])
         eq_(dict(lower=7, upper=8), search_doc['target_age'])

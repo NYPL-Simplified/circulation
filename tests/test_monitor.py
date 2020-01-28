@@ -60,7 +60,6 @@ from ..monitor import (
     SubjectSweepMonitor,
     SweepMonitor,
     TimelineMonitor,
-    WorkRandomnessUpdateMonitor,
     WorkReaper,
     WorkSweepMonitor,
 )
@@ -892,30 +891,6 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
         # The work has not been set to presentation ready--that's
         # handled in process_item().
         eq_(False, self.work.presentation_ready)
-
-
-class TestWorkRandomnessUpdateMonitor(DatabaseTest):
-
-    def test_process_batch(self):
-        """This Monitor sets Work.random to a random value.
-        """
-        work = self._work()
-        old_random = work.random
-        monitor = WorkRandomnessUpdateMonitor(self._db)
-        value, num_processed = monitor.process_batch(work.id)
-        # Since there's only one work, a single batch finishes the job.
-        eq_(0, value)
-
-        # But we don't know that there's only one work, so the 'number
-        # of items processed' is the batch size.
-        eq_(monitor.batch_size, num_processed)
-
-        # This is normally called by run().
-        self._db.commit()
-
-        # This could fail once, spuriously but the odds are much
-        # higher that the code has broken and it's failing reliably.
-        assert work.random != old_random
 
 
 class TestCustomListEntryWorkUpdateMonitor(DatabaseTest):

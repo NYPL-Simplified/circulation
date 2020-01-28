@@ -1103,7 +1103,6 @@ class CurrentMapping(Mapping):
             'sort_author_keyword' : ['sort_author'],
             'integer': ['series_position', 'work_id'],
             'long': ['last_update_time'],
-            'float': ['random'],
         }
         self.add_properties(fields_by_type)
 

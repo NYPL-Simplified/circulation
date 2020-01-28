@@ -730,30 +730,6 @@ class CoverageProvidersFailed(Exception):
         )
 
 
-class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
-    """Update the random value associated with each work.
-
-    (This value is used when randomly choosing books to feature.)
-    """
-
-    SERVICE_NAME = "Work Randomness Updater"
-    DEFAULT_BATCH_SIZE = 1000
-
-    def process_batch(self, offset):
-        """Unlike other Monitors, this one leaves process_item() undefined
-        because it works on a large number of Works at once using raw
-        SQL.
-        """
-        new_offset = offset + self.batch_size
-        text = "update works set random=random() where id >= :offset and id < :new_offset;"
-        self._db.execute(text, dict(offset=offset, new_offset=new_offset))
-        [[self.max_work_id]] = self._db.execute('select max(id) from works')
-        if self.max_work_id < new_offset:
-            # We're all done.
-            new_offset = 0
-        return new_offset, self.batch_size
-
-
 class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
 
     """Set or reset the Work associated with each custom list entry."""
