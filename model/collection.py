@@ -794,9 +794,7 @@ class Collection(Base, HasFullTableCache):
                 _db.commit()
             if work and search_index and not work.license_pools:
                 search_index.remove_work(work)
-                # TODO: ideally we'd delete the Work itself, but
-                # that's another thing we don't normally do, and it
-                # might have side effects we haven't considered.
+                _db.delete(work)
 
         # Now delete the Collection itself.
         _db.delete(self)

@@ -4,10 +4,13 @@ import os
 import logging
 import time
 import traceback
+from sqlalchemy.orm import defer
+from sqlalchemy.sql import select
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     or_,
     and_,
+    outerjoin,
 )
 
 import log # This sets the appropriate log format and level.
@@ -751,10 +754,19 @@ class ReaperMonitor(Monitor):
     * MAX_AGE - A datetime.timedelta or number of days representing
     the time that must pass before an item can be safely deleted.
 
+    A subclass of ReaperMonitor MAY define values for the following constants:
+    * BATCH_SIZE - The number of rows to fetch for deletion in a single
+    batch. The default is 1000.
+
+    If your model class has fields that might contain a lot of data
+    and aren't important to the reaping process, put their field names
+    into a list called LARGE_FIELDS and the Reaper will avoid fetching
+    that information, improving performance.
     """
     MODEL_CLASS = None
     TIMESTAMP_FIELD = None
     MAX_AGE = None
+    BATCH_SIZE = 1000
 
     REGISTRY = []
 
@@ -788,15 +800,27 @@ class ReaperMonitor(Monitor):
     def run_once(self, *args, **kwargs):
         rows_deleted = 0
         qu = self.query()
-        self.log.info("Deleting %d row(s)", qu.count())
-        for i in qu:
-            self.log.info("Deleting %r", i)
-            self.delete(i)
-            rows_deleted += 1
+        to_defer = getattr(self.MODEL_CLASS, 'LARGE_FIELDS', [])
+        for x in to_defer:
+            qu = qu.options(defer(x))
+        count = qu.count()
+        self.log.info("Deleting %d row(s)", count)
+        while count > 0:
+            for i in qu.limit(self.BATCH_SIZE):
+                self.log.info("Deleting %r", i)
+                self.delete(i)
+                rows_deleted += 1
+            self._db.commit()
+            count = qu.count()
         return TimestampData(achievements="Items deleted: %d" % rows_deleted)
 
     def delete(self, row):
-        """Delete a row from the database."""
+        """Delete a row from the database.
+
+        CAUTION: If you override this method such that it doesn't
+        actually delete the database row, then run_once() may enter an
+        infinite loop.
+        """
         self._db.delete(row)
 
     def query(self):
@@ -839,6 +863,7 @@ class WorkReaper(ReaperMonitor):
         return self._db.query(Work).outerjoin(Work.license_pools).filter(
             LicensePool.id==None
         )
+
 ReaperMonitor.REGISTRY.append(WorkReaper)
 
 
