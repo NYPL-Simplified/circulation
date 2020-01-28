@@ -34,7 +34,7 @@ class JSONFormatter(logging.Formatter):
         if record.args:
             record_args = tuple([no_bytestring(arg) for arg in record.args])
             try:
-                message = message % record_args
+                message = native_string(message) % record_args
             except Exception, e:
                 # There was a problem formatting the log message,
                 # which points to a bug. A problem with the logging
