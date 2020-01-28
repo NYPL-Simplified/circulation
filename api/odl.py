@@ -799,13 +799,15 @@ class ODLImporter(OPDSImporter):
             content_type = subtag(odl_license_tag, 'dcterms:format')
             drm_schemes = []
             protection_tags = parser._xpath(odl_license_tag, 'odl:protection') or []
+            if protection_tags:
+                set_trace()
             for protection_tag in protection_tags:
                 drm_scheme = subtag(protection_tag, 'dcterms:format')
 
-                if MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE in drm_scheme and DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM in drm_scheme:
-                    drm_scheme = DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
-                
-                drm_schemes.append(drm_scheme)
+                if drm_scheme:
+                    if MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE in drm_scheme and DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM in drm_scheme:
+                        drm_scheme = DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
+                    drm_schemes.append(drm_scheme)
             if not drm_schemes:
                 formats.append(FormatData(
                     content_type=content_type,
