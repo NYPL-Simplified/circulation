@@ -11,7 +11,10 @@ from sqlalchemy.sql.functions import func
 
 # For backwards compatibility, import items that were moved to 
 # languages.py
-from .languages import LanguageCodes, languages_from_accept, LookupTable
+from .languages import (
+    LanguageCodes,
+    LookupTable,
+)
 
 def batch(iterable, size=1):
     """Split up `iterable` into batches of size `size`."""

@@ -605,22 +605,3 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
         if len(all_names) == 1:
             return all_names[0]
         return "/".join(all_names)
-
-
-def languages_from_accept(accept_languages):
-    """Turn a list of (locale, quality) 2-tuples into a list of language codes.
-    
-    TODO: parse_accept_language returns named 3-tuples. How is this
-    function actually used?
-    """
-    seen = set([])
-    languages = []
-    for locale, quality in accept_languages:
-        language = LanguageCodes.iso_639_2_for_locale(locale)
-        if language and language not in seen:
-            languages.append(language)
-            seen.add(language)
-    if not languages:
-        languages = os.environ.get('DEFAULT_LANGUAGES', 'eng')
-        languages = languages.split(',')
-    return languages
