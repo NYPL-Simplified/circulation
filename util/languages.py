@@ -1,7 +1,9 @@
 # encoding: utf-8
 """Data and functions for dealing with language names and codes."""
 
+from nose.tools import set_trace
 from collections import defaultdict
+import re
 
 class LookupTable(dict):
     """Return None on x[key] when 'key' isn't in the dictionary,
@@ -605,3 +607,100 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
         if len(all_names) == 1:
             return all_names[0]
         return "/".join(all_names)
+
+
+class LanguageNames(object):
+    """Utilities for converting between human-readable language names and codes.
+
+    LanguageNames.name_re is a regular expression that matches the
+    English or native-language name of nearly any language known to
+    LanguageCodes.
+
+    LanguageNames.name_to_codes is a dictionary mapping lowercase
+    human-readable names to ISO-639-2 language codes.
+    """
+
+    irrelevant_suffixes = [" languages"]
+
+    ignore = set(['No linguistic content', 'Not applicable', 'Uncoded'])
+
+    number = re.compile("[0-9]")
+    parentheses = re.compile("\([^)]+\)")
+
+    @classmethod
+    def _process(cls, human_readable_name, alpha):
+        if not alpha or human_readable_name in cls.ignore:
+            # Some names should be ignored altogether.
+            return None, None
+
+        if cls.number.search(human_readable_name):
+            # This language is associated with a historical period.
+            # For now, just ignore it -- books generally aren't
+            # classified under these languages and people generally
+            # won't type in those specific dates.
+            return None, None
+
+        if len(alpha) == 2:
+            alpha = LanguageCodes.two_to_three[alpha]
+
+        # Remove parentheses, e.g. turning "Bantu (Other)" into "Bantu"
+        human_readable_name = cls.parentheses.sub("", human_readable_name)
+
+        for suffix in cls.irrelevant_suffixes:
+            # Some suffixes are not relevant for our purposes.
+            # For instance, "Himachali languages" is best handled
+            # as "Himachali".
+            if human_readable_name.endswith(suffix):
+                human_readable_name = human_readable_name[:-len(suffix)]
+        return human_readable_name.strip().lower(), alpha
+
+    @classmethod
+    def _build_name_to_codes(cls):
+        name_to_codes = defaultdict(set)
+
+        def add(name, alpha):
+            """Helper to add a language to name_to_codes."""
+            name, alpha = cls._process(name, alpha)
+            if name:
+                name_to_codes[name].add(alpha)
+
+        # Process the English-language names found in the ISO spec.
+        for alpha, name_list in LanguageCodes.english_names.items():
+            for names in name_list:
+                for name in names.split(";"):
+                    add(name, alpha)
+
+        # Add a couple of languages that were incorrectly excluded by the
+        # "no dates" rule.
+        for name, alpha in (
+            ('greek', 'el'),
+            ('occitan', 'oc')
+        ):
+            add(name, alpha)
+
+        # Process the native-language names found in NATIVE_NAMES_RAW_DATA.
+        for item in LanguageCodes.NATIVE_NAMES_RAW_DATA:
+            add(item['nativeName'], item['code'])
+
+        # Add native-language names without diacritics, for people who
+        # are typing on an English-language keyboard.
+        for name, alpha in (
+            ('francais', 'fr'),
+            ('espanol', 'es'),
+            ('portugues', 'pt'),
+            ('castellano', 'es'),
+        ):
+            add(name, alpha)
+        return name_to_codes
+
+    @classmethod
+    def _build_name_re(cls):
+        return re.compile(
+            r"(\b%s\b)" %
+            r"\b|\b".join(cls.name_to_codes.keys()),
+            re.I
+        )
+
+# Instantiate the class variables.
+LanguageNames.name_to_codes = LanguageNames._build_name_to_codes()
+LanguageNames.name_re = LanguageNames._build_name_re()
