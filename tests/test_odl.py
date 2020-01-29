@@ -25,6 +25,7 @@ from core.model import (
     Hyperlink,
     Identifier,
     Loan,
+    MediaTypes,
     Representation,
     RightsStatus,
     get_one,
@@ -479,6 +480,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         eq_(0, self._db.query(Loan).count())
 
     def test_fulfill_success_license(self):
+        # Fulfill a loan in a way that gives access to a license file.
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
@@ -506,9 +508,36 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
 
     def test_fulfill_success_manifest(self):
-        # TODO: Fulfill a loan that gives a manifest file rather than
-        # a license.
-        pass
+        # Fulfill a loan in a way that gives access to a manifest
+        # file.
+        loan, ignore = self.license.loan_to(self.patron)
+        loan.external_identifier = self._str
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
+
+        audiobook = MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE
+
+        lsd = json.dumps({
+            "status": "ready",
+            "potential_rights": {
+                "end": "2017-10-21T11:12:13Z"
+            },
+            "links": [{
+                "rel": "manifest",
+                "href": "http://manifest",
+                "type": audiobook,
+            }],
+        })
+
+        self.api.queue_response(200, content=lsd)
+        fulfillment = self.api.fulfill(self.patron, "pin", self.pool, audiobook)
+        eq_(self.collection, fulfillment.collection(self._db))
+        eq_(self.pool.data_source.name, fulfillment.data_source_name)
+        eq_(self.pool.identifier.type, fulfillment.identifier_type)
+        eq_(self.pool.identifier.identifier, fulfillment.identifier)
+        eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), fulfillment.content_expires)
+        eq_("http://manifest", fulfillment.content_link)
+        eq_(audiobook, fulfillment.content_type)
+
 
     def test_fulfill_cannot_fulfill(self):
         self.pool.licenses_owned = 7

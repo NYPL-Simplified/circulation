@@ -448,7 +448,13 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         content_link = None
         content_type = None
         for link in links:
-            if link.get("rel") == "manifest":
+            # Depending on the format being served, the crucial information
+            # may be in 'manifest' or in 'license'.
+            #
+            # TODO: when both links are present, access to the
+            # DeliveryMechanism would be great for figuring out which
+            # one to use.
+            if link.get("rel") in ("manifest", "license"):
                 content_link = link.get("href")
                 content_type = link.get("type")
                 break
