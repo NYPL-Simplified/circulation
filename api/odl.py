@@ -32,6 +32,7 @@ from core.model import (
     Credential,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Hold,
     Hyperlink,
@@ -447,7 +448,7 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         content_link = None
         content_type = None
         for link in links:
-            if link.get("rel") == "license":
+            if link.get("rel") == "manifest":
                 content_link = link.get("href")
                 content_type = link.get("type")
                 break
@@ -796,30 +797,32 @@ class ODLImporter(OPDSImporter):
         odl_license_tags = parser._xpath(entry_tag, 'odl:license') or []
         for odl_license_tag in odl_license_tags:
             identifier = subtag(odl_license_tag, 'dcterms:identifier')
-            content_type = subtag(odl_license_tag, 'dcterms:format')
-            drm_schemes = []
-            protection_tags = parser._xpath(odl_license_tag, 'odl:protection') or []
-            if protection_tags:
-                set_trace()
-            for protection_tag in protection_tags:
-                drm_scheme = subtag(protection_tag, 'dcterms:format')
+            full_content_type = subtag(odl_license_tag, 'dcterms:format')
 
-                if drm_scheme:
-                    if MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE in drm_scheme and DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM in drm_scheme:
-                        drm_scheme = DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
-                    drm_schemes.append(drm_scheme)
-            if not drm_schemes:
-                formats.append(FormatData(
-                    content_type=content_type,
-                    drm_scheme=None,
-                    rights_uri=RightsStatus.IN_COPYRIGHT,
-                ))
-            for drm_scheme in drm_schemes:
-                formats.append(FormatData(
+            # By default, dcterms:format includes the media type of a
+            # DRM-free resource.
+            content_type = full_content_type
+            drm_scheme = None
+
+            # But it may instead describe an audiobook protected with
+            # the Feedbooks access-control scheme.
+            feedbooks_audio = "%s; protection=%s"  % (
+                MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+                DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
+            )
+            if full_content_type == feedbooks_audio:
+                content_type = MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE
+                drm_scheme = DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
+
+            if content_type == MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
+                data['medium'] = Edition.AUDIO_MEDIUM
+            formats.append(
+                FormatData(
                     content_type=content_type,
                     drm_scheme=drm_scheme,
                     rights_uri=RightsStatus.IN_COPYRIGHT,
-                ))
+                )
+            )
 
             expires = None
             remaining_checkouts = None
@@ -839,12 +842,20 @@ class ODLImporter(OPDSImporter):
                 if rel == "self":
                     odl_status_link = link_tag.attrib.get("href")
                     break
+            if not odl_status_link:
+                # TODO: This is a hack necessary because Feedbooks
+                # doesn't provide the status link yet.
+                #
+                # It's also not clear whether it really makes sense
+                # for us to do the identifier.replace thing.
+                odl_status_link = "https://license.feedbooks.net/copy/status/?uuid=" + identifier.replace("urn:uuid:", "")
 
             if odl_status_link:
                 ignore, ignore, response = do_get(odl_status_link, headers={})
                 status = json.loads(response)
-                remaining_checkouts = status.get("checkouts", {}).get("left")
-                available_checkouts = status.get("checkouts", {}).get("available")
+                checkouts = status.get("checkouts", {})
+                remaining_checkouts = checkouts.get("left", 0)
+                available_checkouts = checkouts.get("available", 0)
 
             terms = parser._xpath(odl_license_tag, "odl:terms")
             if terms:
