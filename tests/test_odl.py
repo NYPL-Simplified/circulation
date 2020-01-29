@@ -477,7 +477,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
 
         eq_(0, self._db.query(Loan).count())
 
-    def test_fulfill_success(self):
+    def test_fulfill_success_license(self):
         loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
@@ -489,7 +489,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             },
             "links": [{
                 "rel": "license",
-                "href": "http://license",
+                "href": "http://acsm",
                 "type": DeliveryMechanism.ADOBE_DRM,
             }],
         })
@@ -501,8 +501,13 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         eq_(self.pool.identifier.type, fulfillment.identifier_type)
         eq_(self.pool.identifier.identifier, fulfillment.identifier)
         eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), fulfillment.content_expires)
-        eq_("http://license", fulfillment.content_link)
+        eq_("http://acsm", fulfillment.content_link)
         eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
+
+    def test_fulfill_success_manifest(self):
+        # TODO: Fulfill a loan that gives a manifest file rather than
+        # a license.
+        pass
 
     def test_fulfill_cannot_fulfill(self):
         self.pool.licenses_owned = 7
@@ -1177,7 +1182,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             },
             "links": [{
                 "rel": "license",
-                "href": "http://license",
+                "href": "http://acsm",
                 "type": DeliveryMechanism.ADOBE_DRM,
             }],
         })
@@ -1189,7 +1194,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         eq_(self.pool.identifier.type, fulfillment.identifier_type)
         eq_(self.pool.identifier.identifier, fulfillment.identifier)
         eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), fulfillment.content_expires)
-        eq_("http://license", fulfillment.content_link)
+        eq_("http://acsm", fulfillment.content_link)
         eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
 
     def test_release_hold_from_external_library(self):
@@ -1274,22 +1279,22 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         eq_(6, len(imported_pools))
         eq_(6, len(imported_works))
 
-        [canadianity, everglades, poetry, warrior, blazing, midnight,] = sorted(imported_editions, key=lambda x: x.title)
+        [canadianity, everglades, dragons, warrior, blazing, midnight,] = sorted(imported_editions, key=lambda x: x.title)
         eq_("The Blazing World", blazing.title)
         eq_("Sun Warrior", warrior.title)
         eq_("Canadianity", canadianity.title)
         eq_("The Midnight Dance", midnight.title)
         eq_("Everglades Wildguide", everglades.title)
-        eq_("Short Poetry Collection 087", poetry.title)
+        eq_("Rise of the Dragons, Book 1", dragons.title)
 
-        # This book is open access and has no 'odl:license' tag.
+        # This book is open access and has no applicable DRM
         [blazing_pool] = [p for p in imported_pools if p.identifier == blazing.primary_identifier]
         eq_(True, blazing_pool.open_access)
         [lpdm] = blazing_pool.delivery_mechanisms
         eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, lpdm.delivery_mechanism.drm_scheme)
 
-        # This book has a single 'odl:license' tag.
+        # # This book has a single 'odl:license' tag.
         [warrior_pool] = [p for p in imported_pools if p.identifier == warrior.primary_identifier]
         eq_(False, warrior_pool.open_access)
         [lpdm] = warrior_pool.delivery_mechanisms
@@ -1316,10 +1321,14 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, lpdm.delivery_mechanism.drm_scheme)
 
-        # This is not an open access audiobook and the drm scheme is found in the `odl:protection` tag
-        [poetry_pool] = [p for p in imported_pools if p.identifier == poetry.primary_identifier]
-        eq_(False, poetry_pool.open_access)
-        [lpdm] = poetry_pool.delivery_mechanisms
+        # This is not an open access audiobook. The drm scheme is
+        # implied by the value of dcterms:format.
+        [dragons_pool] = [
+            p for p in imported_pools
+            if p.identifier == dragons.primary_identifier
+        ]
+        eq_(False, dragons_pool.open_access)
+        [lpdm] = dragons_pool.delivery_mechanisms
 
         eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM, lpdm.delivery_mechanism.drm_scheme)
