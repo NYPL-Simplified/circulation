@@ -35,7 +35,7 @@ class JSONFormatter(logging.Formatter):
             we don't want to try to interpolate an incompatible type; it
             could lead to a UnicodeDecodeError.
             """
-            if isinstance(s, bytes, unicode):
+            if isinstance(s, (bytes, unicode)):
                 s = native_string(s)
             return s
 
