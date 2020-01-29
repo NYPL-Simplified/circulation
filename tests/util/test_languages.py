@@ -157,16 +157,15 @@ class TestLanguageNames(object):
             match = LanguageNames.name_re.search(text)
             if not match:
                 return match
-            return match.groups()[0]
+            return match.groups()
 
-            eq_(expect, LanguageNames.find_language(text))
-        find("books in Italian", "Italian")
-        find("Chinese Cooking", "Chinese")
-        find("500 spanish verbs", "spanish")
+        find("books in Italian", ["Italian"])
+        find("Chinese Cooking", ["Chinese"])
+        find("500 spanish verbs", ["spanish"])
 
         # Only the first language is returned.
-        find("books in japanese or italian", "japanese")
-        find("english-russian dictionary", "english")
+        find("books in japanese or italian", ["japanese"])
+        find("english-russian dictionary", ["english"])
 
         # The language name must be a standalone word.
         find("50,000 frenchmen can't be wrong", None)
