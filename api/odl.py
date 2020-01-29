@@ -862,10 +862,9 @@ class ODLImporter(OPDSImporter):
                     break
             if not odl_status_link:
                 # TODO: This is a hack necessary because Feedbooks
-                # doesn't provide the status link yet.
-                #
-                # It's also not clear whether it really makes sense
-                # for us to do the identifier.replace thing.
+                # doesn't provide the status link yet. Once that's fixed,
+                # this link will be present with rel="self", just like
+                # in the unit tests.
                 odl_status_link = "https://license.feedbooks.net/copy/status/?uuid=" + identifier.replace("urn:uuid:", "")
 
             if odl_status_link:
