@@ -802,7 +802,7 @@ class ODLImporter(OPDSImporter):
             # By default, dcterms:format includes the media type of a
             # DRM-free resource.
             content_type = full_content_type
-            drm_scheme = None
+            drm_schemes = []
 
             # But it may instead describe an audiobook protected with
             # the Feedbooks access-control scheme.
@@ -812,17 +812,29 @@ class ODLImporter(OPDSImporter):
             )
             if full_content_type == feedbooks_audio:
                 content_type = MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE
-                drm_scheme = DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
+                drm_schemes.append(DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM)
+
+            # Additional DRM schemes may be described in <odl:protection>
+            # tags.
+            protection_tags = parser._xpath(
+                odl_license_tag, 'odl:protection'
+            ) or []
+            for protection_tag in protection_tags:
+                drm_scheme = subtag(protection_tag, 'dcterms:format')
+                if drm_scheme:
+                    drm_schemes.append(drm_scheme)
+
+            for drm_scheme in (drm_schemes or [None]):
+                formats.append(
+                    FormatData(
+                        content_type=content_type,
+                        drm_scheme=drm_scheme,
+                        rights_uri=RightsStatus.IN_COPYRIGHT,
+                    )
+                )
 
             if content_type == MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
                 data['medium'] = Edition.AUDIO_MEDIUM
-            formats.append(
-                FormatData(
-                    content_type=content_type,
-                    drm_scheme=drm_scheme,
-                    rights_uri=RightsStatus.IN_COPYRIGHT,
-                )
-            )
 
             expires = None
             remaining_checkouts = None

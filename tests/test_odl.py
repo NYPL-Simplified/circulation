@@ -19,6 +19,7 @@ from core.model import (
     Credential,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Hold,
     Hyperlink,
@@ -1310,23 +1311,26 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         eq_("https://license.feedbooks.net/license/status/?uuid=1",
             license.status_url)
         eq_(datetime.datetime(2019, 3, 31, 03, 13, 35), license.expires)
-        eq_(None, license.remaining_checkouts)
+        eq_(0, license.remaining_checkouts)
         eq_(1, license.concurrent_checkouts)
 
-        # This item is open access audiobook.
+        # This item is an open access audiobook.
         [everglades_pool] = [p for p in imported_pools if p.identifier == everglades.primary_identifier]
         eq_(True, everglades_pool.open_access)
         [lpdm] = everglades_pool.delivery_mechanisms
+        eq_(Edition.AUDIO_MEDIUM, everglades_pool.presentation_edition.medium)
 
         eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, lpdm.delivery_mechanism.drm_scheme)
 
-        # This is not an open access audiobook. The drm scheme is
-        # implied by the value of dcterms:format.
+        # This is a non-open access audiobook. There is no
+        # <odl:protection> tag; the drm_scheme is implied by the value
+        # of <dcterms:format>.
         [dragons_pool] = [
             p for p in imported_pools
             if p.identifier == dragons.primary_identifier
         ]
+        eq_(Edition.AUDIO_MEDIUM, dragons_pool.presentation_edition.medium)
         eq_(False, dragons_pool.open_access)
         [lpdm] = dragons_pool.delivery_mechanisms
 
@@ -1358,7 +1362,7 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         eq_("https://license.feedbooks.net/license/status/?uuid=3",
             license2.status_url)
         eq_(None, license2.expires)
-        eq_(None, license2.remaining_checkouts)
+        eq_(0, license2.remaining_checkouts)
         eq_(1, license2.concurrent_checkouts)
 
         # This book has two 'odl:license' tags, and they have different formats.
