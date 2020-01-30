@@ -1564,12 +1564,9 @@ class SettingsController(AdminCirculationManagerController):
                     self._db, None, self._db, item
                 )
             elif self.type == "metadata service" and protocol_class:
-                try:
-                    self_test_results = protocol_class.prior_test_results(
-                        self._db, *extra_args
-                    )
-                except:
-                    self_test_results = None
+                self_test_results = protocol_class.prior_test_results(
+                    self._db, *extra_args
+                )
             elif self.type == "patron authentication service":
                 library = None
                 if len(item.libraries):
