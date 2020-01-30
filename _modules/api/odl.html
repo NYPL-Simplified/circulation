@@ -67,6 +67,7 @@
     <span class="n">Credential</span><span class="p">,</span>
     <span class="n">DataSource</span><span class="p">,</span>
     <span class="n">DeliveryMechanism</span><span class="p">,</span>
+    <span class="n">Edition</span><span class="p">,</span>
     <span class="n">ExternalIntegration</span><span class="p">,</span>
     <span class="n">Hold</span><span class="p">,</span>
     <span class="n">Hyperlink</span><span class="p">,</span>
@@ -482,7 +483,13 @@
         <span class="n">content_link</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">content_type</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;license&quot;</span><span class="p">:</span>
+            <span class="c1"># Depending on the format being served, the crucial information</span>
+            <span class="c1"># may be in &#39;manifest&#39; or in &#39;license&#39;.</span>
+            <span class="c1">#</span>
+            <span class="c1"># TODO: when both links are present, access to the</span>
+            <span class="c1"># DeliveryMechanism would be great for figuring out which</span>
+            <span class="c1"># one to use.</span>
+            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;manifest&quot;</span><span class="p">,</span> <span class="s2">&quot;license&quot;</span><span class="p">):</span>
                 <span class="n">content_link</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
                 <span class="n">content_type</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
                 <span class="k">break</span>
@@ -831,28 +838,44 @@
         <span class="n">odl_license_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">entry_tag</span><span class="p">,</span> <span class="s1">&#39;odl:license&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">odl_license_tag</span> <span class="ow">in</span> <span class="n">odl_license_tags</span><span class="p">:</span>
             <span class="n">identifier</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;dcterms:identifier&#39;</span><span class="p">)</span>
-            <span class="n">content_type</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;dcterms:format&#39;</span><span class="p">)</span>
+            <span class="n">full_content_type</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;dcterms:format&#39;</span><span class="p">)</span>
+
+            <span class="c1"># By default, dcterms:format includes the media type of a</span>
+            <span class="c1"># DRM-free resource.</span>
+            <span class="n">content_type</span> <span class="o">=</span> <span class="n">full_content_type</span>
             <span class="n">drm_schemes</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">protection_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;odl:protection&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+
+            <span class="c1"># But it may instead describe an audiobook protected with</span>
+            <span class="c1"># the Feedbooks access-control scheme.</span>
+            <span class="n">feedbooks_audio</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">; protection=</span><span class="si">%s</span><span class="s2">&quot;</span>  <span class="o">%</span> <span class="p">(</span>
+                <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span>
+                <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">full_content_type</span> <span class="o">==</span> <span class="n">feedbooks_audio</span><span class="p">:</span>
+                <span class="n">content_type</span> <span class="o">=</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span>
+                <span class="n">drm_schemes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span><span class="p">)</span>
+
+            <span class="c1"># Additional DRM schemes may be described in &lt;odl:protection&gt;</span>
+            <span class="c1"># tags.</span>
+            <span class="n">protection_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span>
+                <span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;odl:protection&#39;</span>
+            <span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">protection_tag</span> <span class="ow">in</span> <span class="n">protection_tags</span><span class="p">:</span>
                 <span class="n">drm_scheme</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">protection_tag</span><span class="p">,</span> <span class="s1">&#39;dcterms:format&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">drm_scheme</span><span class="p">:</span>
+                    <span class="n">drm_schemes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">drm_scheme</span><span class="p">)</span>
 
-                <span class="k">if</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span> <span class="ow">in</span> <span class="n">drm_scheme</span> <span class="ow">and</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span> <span class="ow">in</span> <span class="n">drm_scheme</span><span class="p">:</span>
-                    <span class="n">drm_scheme</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span>
-                
-                <span class="n">drm_schemes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">drm_scheme</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">drm_schemes</span><span class="p">:</span>
-                <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FormatData</span><span class="p">(</span>
-                    <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
-                    <span class="n">drm_scheme</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">rights_uri</span><span class="o">=</span><span class="n">RightsStatus</span><span class="o">.</span><span class="n">IN_COPYRIGHT</span><span class="p">,</span>
-                <span class="p">))</span>
-            <span class="k">for</span> <span class="n">drm_scheme</span> <span class="ow">in</span> <span class="n">drm_schemes</span><span class="p">:</span>
-                <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FormatData</span><span class="p">(</span>
-                    <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
-                    <span class="n">drm_scheme</span><span class="o">=</span><span class="n">drm_scheme</span><span class="p">,</span>
-                    <span class="n">rights_uri</span><span class="o">=</span><span class="n">RightsStatus</span><span class="o">.</span><span class="n">IN_COPYRIGHT</span><span class="p">,</span>
-                <span class="p">))</span>
+            <span class="k">for</span> <span class="n">drm_scheme</span> <span class="ow">in</span> <span class="p">(</span><span class="n">drm_schemes</span> <span class="ow">or</span> <span class="p">[</span><span class="kc">None</span><span class="p">]):</span>
+                <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">FormatData</span><span class="p">(</span>
+                        <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+                        <span class="n">drm_scheme</span><span class="o">=</span><span class="n">drm_scheme</span><span class="p">,</span>
+                        <span class="n">rights_uri</span><span class="o">=</span><span class="n">RightsStatus</span><span class="o">.</span><span class="n">IN_COPYRIGHT</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">content_type</span> <span class="o">==</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">:</span>
+                <span class="n">data</span><span class="p">[</span><span class="s1">&#39;medium&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span>
 
             <span class="n">expires</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="kc">None</span>
@@ -872,12 +895,19 @@
                 <span class="k">if</span> <span class="n">rel</span> <span class="o">==</span> <span class="s2">&quot;self&quot;</span><span class="p">:</span>
                     <span class="n">odl_status_link</span> <span class="o">=</span> <span class="n">link_tag</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
                     <span class="k">break</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">odl_status_link</span><span class="p">:</span>
+                <span class="c1"># TODO: This is a hack necessary because Feedbooks</span>
+                <span class="c1"># doesn&#39;t provide the status link yet. Once that&#39;s fixed,</span>
+                <span class="c1"># this link will be present with rel=&quot;self&quot;, just like</span>
+                <span class="c1"># in the unit tests.</span>
+                <span class="n">odl_status_link</span> <span class="o">=</span> <span class="s2">&quot;https://license.feedbooks.net/copy/status/?uuid=&quot;</span> <span class="o">+</span> <span class="n">identifier</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;urn:uuid:&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">odl_status_link</span><span class="p">:</span>
                 <span class="n">ignore</span><span class="p">,</span> <span class="n">ignore</span><span class="p">,</span> <span class="n">response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">odl_status_link</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{})</span>
                 <span class="n">status</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-                <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;checkouts&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
-                <span class="n">available_checkouts</span> <span class="o">=</span> <span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;checkouts&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;available&quot;</span><span class="p">)</span>
+                <span class="n">checkouts</span> <span class="o">=</span> <span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;checkouts&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="n">checkouts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+                <span class="n">available_checkouts</span> <span class="o">=</span> <span class="n">checkouts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;available&quot;</span><span class="p">)</span>
 
             <span class="n">terms</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s2">&quot;odl:terms&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">terms</span><span class="p">:</span>
