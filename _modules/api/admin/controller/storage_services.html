@@ -40,7 +40,8 @@
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 <span class="kn">from</span> <span class="nn">api.admin.problem_details</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ExternalIntegration</span>
+    <span class="n">ExternalIntegration</span><span class="p">,</span>
+    <span class="n">get_one</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model.configuration</span> <span class="kn">import</span> <span class="n">ExternalIntegrationLink</span>
 <span class="kn">from</span> <span class="nn">core.mirror</span> <span class="kn">import</span> <span class="n">MirrorUploader</span>

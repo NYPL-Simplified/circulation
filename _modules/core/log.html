@@ -60,14 +60,24 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">app_name</span> <span class="o">=</span> <span class="n">app_name</span> <span class="ow">or</span> <span class="n">LogConfiguration</span><span class="o">.</span><span class="n">DEFAULT_APP_NAME</span>
 
 <div class="viewcode-block" id="JSONFormatter.format"><a class="viewcode-back" href="../../core.html#core.log.JSONFormatter.format">[docs]</a>    <span class="k">def</span> <span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
-        <span class="n">message</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">)</span>
-        <span class="k">def</span> <span class="nf">no_bytestring</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
-                <span class="n">s</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="n">native_string</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">only_native_strings</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Convert any kind of string-like object to the native string</span>
+<span class="sd">            implementation in this version of Python. Leave everything</span>
+<span class="sd">            else alone.</span>
+
+<span class="sd">            We&#39;ve already converted the message to a native string, and</span>
+<span class="sd">            we don&#39;t want to try to interpolate an incompatible type; it</span>
+<span class="sd">            could lead to a UnicodeDecodeError.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">unicode</span><span class="p">)):</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">native_string</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">s</span>
 
         <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
-            <span class="n">record_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">no_bytestring</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">record</span><span class="o">.</span><span class="n">args</span><span class="p">])</span>
+            <span class="n">record_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">only_native_strings</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">record</span><span class="o">.</span><span class="n">args</span><span class="p">]</span>
+            <span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">message</span> <span class="o">=</span> <span class="n">message</span> <span class="o">%</span> <span class="n">record_args</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
