@@ -5,7 +5,8 @@ from flask import Response
 from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
 from core.model import (
-    ExternalIntegration
+    ExternalIntegration,
+    get_one
 )
 from core.model.configuration import ExternalIntegrationLink
 from core.mirror import MirrorUploader
