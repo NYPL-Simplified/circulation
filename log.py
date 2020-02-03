@@ -25,14 +25,24 @@ class JSONFormatter(logging.Formatter):
         self.app_name = app_name or LogConfiguration.DEFAULT_APP_NAME
 
     def format(self, record):
-        message = unicode(record.msg)
-        def no_bytestring(s):
-            if isinstance(s, bytes):
-                s = unicode(s)
+        message = native_string(record.msg)
+        def only_native_strings(s):
+            """Convert any kind of string-like object to the native string
+            implementation in this version of Python. Leave everything
+            else alone.
+
+            We've already converted the message to a native string, and
+            we don't want to try to interpolate an incompatible type; it
+            could lead to a UnicodeDecodeError.
+            """
+            if isinstance(s, (bytes, unicode)):
+                s = native_string(s)
             return s
 
         if record.args:
-            record_args = tuple([no_bytestring(arg) for arg in record.args])
+            record_args = tuple(
+                [only_native_strings(arg) for arg in record.args]
+            )
             try:
                 message = message % record_args
             except Exception, e:

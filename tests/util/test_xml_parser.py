@@ -5,7 +5,7 @@ from nose.tools import (
     set_trace,
 )
 
-from ..util.xmlparser import XMLParser
+from ...util.xmlparser import XMLParser
 from lxml.etree import XMLSyntaxError
 
 class MockParser(XMLParser):
