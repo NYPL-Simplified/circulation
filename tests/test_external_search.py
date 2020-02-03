@@ -1835,12 +1835,15 @@ class TestFeaturedFacets(EndToEndSearchTest):
 
     def test_run(self):
 
+        def works(worklist, facets):
+            return worklist.works(
+                self._db, facets, None, self.search, debug=True
+            )
+
         def assert_featured(description, worklist, facets, expect):
             # Generate a list of featured works for the given `worklist`
             # and compare that list against `expect`.
-            actual = worklist.works(
-                self._db, facets, None, self.search, debug=True
-            )
+            actual = works(worklist, facets)
             self._assert_works(description, expect, actual)
 
         worklist = WorkList()
@@ -1848,15 +1851,17 @@ class TestFeaturedFacets(EndToEndSearchTest):
         facets = FeaturedFacets(1, random_seed=Filter.DETERMINISTIC)
 
         # Even though hq_not_available is higher-quality than
-        # featured_on_list, it shows up first because it's available
-        # right now.
-        #
+        # not_featured_on_list, not_featured_on_list shows up first because
+        # it's available right now.
+        w = works(worklist, facets)
+        assert w.index(self.not_featured_on_list) < w.index(
+            self.hq_not_available
+        )
+
         # not_featured_on_list shows up before featured_on_list because
         # it's higher-quality and list membership isn't relevant.
-        assert_featured(
-            "Normal search", worklist, facets,
-            [self.hq_available, self.hq_available_2, self.not_featured_on_list,
-             self.hq_not_available, self.featured_on_list],
+        assert w.index(self.not_featured_on_list) < w.index(
+            self.featured_on_list
         )
 
         # Create a WorkList that's restricted to best-sellers.
