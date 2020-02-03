@@ -233,6 +233,8 @@ class Configuration(ConfigurationConstants):
           ],
           "default": [x.INTERNAL_NAME for x in EntryPoint.DEFAULT_ENABLED],
           "category": "Lanes & Filters",
+          "format": "narrow",
+          "locked": True
         },
         {
             "key": FEATURED_LANE_SIZE,
@@ -271,7 +273,8 @@ class Configuration(ConfigurationConstants):
               for facet in FacetConstants.FACETS_BY_GROUP.get(group)
           ],
           "default": FacetConstants.DEFAULT_FACET.get(group),
-          "category": "Lanes & Filters"
+          "category": "Lanes & Filters",
+          "skip": True
         } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
