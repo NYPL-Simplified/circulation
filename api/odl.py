@@ -788,9 +788,9 @@ class ODLImporter(OPDSImporter):
     NAME = ODLAPI.NAME
     PARSER_CLASS = ODLXMLParser
 
-    # The media type for an ODL Info document, used to get information
+    # The media type for a License Info Docuemnt, used to get information
     # about the license.
-    ODL_INFO_MEDIA_TYPE = 'application/vnd.odl.info+json'
+    LICENSE_INFO_DOCUMENT_MEDIA_TYPE = 'application/vnd.odl.info+json'
 
     @classmethod
     def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None, do_get=None):
@@ -858,13 +858,13 @@ class ODLImporter(OPDSImporter):
                     checkout_link = link_tag.attrib.get("href")
                     break
 
-            # Look for a link to the ODL status document for this license.
+            # Look for a link to the License Info Document for this license.
             odl_status_link = None
             for link_tag in parser._xpath(odl_license_tag, 'atom:link') or []:
                 attrib = link_tag.attrib
                 rel = attrib.get("rel")
                 type = attrib.get("type")
-                if rel == 'self' and type == cls.ODL_INFO_MEDIA_TYPE:
+                if rel == 'self' and type == cls.LICENSE_INFO_DOCUMENT_MEDIA_TYPE:
                     odl_status_link = attrib.get("href")
                     break
 
