@@ -863,8 +863,9 @@ class ODLImporter(OPDSImporter):
             for link_tag in parser._xpath(odl_license_tag, 'atom:link') or []:
                 attrib = link_tag.attrib
                 rel = attrib.get("rel")
-                type = attrib.get("type")
-                if rel == 'self' and type == cls.LICENSE_INFO_DOCUMENT_MEDIA_TYPE:
+                type = attrib.get("type", "")
+                if (rel == 'self'
+                    and type.startswith(cls.LICENSE_INFO_DOCUMENT_MEDIA_TYPE)):
                     odl_status_link = attrib.get("href")
                     break
 
