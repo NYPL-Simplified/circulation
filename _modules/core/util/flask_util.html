@@ -39,6 +39,7 @@
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">problem_detail</span><span class="p">,</span>
+    <span class="n">languages_from_accept</span>
 <span class="p">)</span>
 
 <div class="viewcode-block" id="problem_raw"><a class="viewcode-back" href="../../../core.util.html#core.util.flask_util.problem_raw">[docs]</a><span class="k">def</span> <span class="nf">problem_raw</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{}):</span>
@@ -52,6 +53,9 @@
     <span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">problem_raw</span><span class="p">(</span>
         <span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="languages_for_request"><a class="viewcode-back" href="../../../core.util.html#core.util.flask_util.languages_for_request">[docs]</a><span class="k">def</span> <span class="nf">languages_for_request</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">languages_from_accept</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">accept_languages</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

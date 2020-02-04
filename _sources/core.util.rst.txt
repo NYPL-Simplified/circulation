@@ -44,14 +44,6 @@ core.util.http module
     :undoc-members:
     :show-inheritance:
 
-core.util.languages module
---------------------------
-
-.. automodule:: core.util.languages
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 core.util.median module
 -----------------------
 

@@ -822,9 +822,9 @@
     <span class="k">def</span> <span class="nf">from_request</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
                      <span class="n">default_entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">):</span>
 
-        <span class="c1"># Searches against a WorkList will use the union of the</span>
-        <span class="c1"># languages allowed by the WorkList and the languages found in</span>
-        <span class="c1"># the client&#39;s Accept-Language header.</span>
+        <span class="c1"># Searches against a WorkList that has no particular language</span>
+        <span class="c1"># restrictions will use the languages defined in the</span>
+        <span class="c1"># Accept-Language header used by the client.</span>
         <span class="n">language_header</span> <span class="o">=</span> <span class="n">get_header</span><span class="p">(</span><span class="s2">&quot;Accept-Language&quot;</span><span class="p">)</span>
         <span class="n">languages</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">language_header</span><span class="p">:</span>
@@ -881,26 +881,14 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">media</span><span class="p">:</span>
             <span class="nb">filter</span><span class="o">.</span><span class="n">media</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">media</span>
 
-        <span class="c1"># The languages matched by the filter are the union of the</span>
-        <span class="c1"># languages allowed by the WorkList (which were set to</span>
-        <span class="c1"># filter.languages upon instantiation) and the languages</span>
-        <span class="c1"># mentioned in the the user&#39;s Accept-Language header (which</span>
-        <span class="c1"># were stuck into the SearchFacets object when _it_ was</span>
-        <span class="c1"># instantiated).</span>
-        <span class="c1">#</span>
-        <span class="c1"># We don&#39;t rely solely on the WorkList languages because at</span>
-        <span class="c1"># the moment it&#39;s hard for people who don&#39;t read the dominant</span>
-        <span class="c1"># language of the circulation manager to find the right place</span>
-        <span class="c1"># to search.</span>
-        <span class="c1">#</span>
-        <span class="c1"># We don&#39;t rely solely on the SearchFacets languages because a</span>
-        <span class="c1"># lot of people read in languages other than the one they&#39;ve</span>
-        <span class="c1"># set for their device UI.</span>
-        <span class="n">all_languages</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">language_list</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="p">,</span> <span class="nb">filter</span><span class="o">.</span><span class="n">languages</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">language</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_list</span><span class="p">(</span><span class="n">language_list</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]:</span>
-                <span class="n">all_languages</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">language</span><span class="p">)</span>
-        <span class="nb">filter</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">all_languages</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span></div>
+        <span class="c1"># A language restriction already set by the WorkList or</span>
+        <span class="c1"># EntryPoint takes precedence over any language restriction</span>
+        <span class="c1"># defined by this SearchFacets object.  That&#39;s because</span>
+        <span class="c1"># clients always send the Accept-Language header passively --</span>
+        <span class="c1"># it&#39;s not an explicitly expressed preference the way `media`</span>
+        <span class="c1"># is.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">filter</span><span class="o">.</span><span class="n">languages</span><span class="p">:</span>
+            <span class="nb">filter</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span></div>
 
 <div class="viewcode-block" id="SearchFacets.items"><a class="viewcode-back" href="../../core.html#core.lane.SearchFacets.items">[docs]</a>    <span class="k">def</span> <span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Yields a 2-tuple for every active facet setting.</span>
