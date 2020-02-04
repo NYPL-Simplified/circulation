@@ -823,6 +823,10 @@
     <span class="n">NAME</span> <span class="o">=</span> <span class="n">ODLAPI</span><span class="o">.</span><span class="n">NAME</span>
     <span class="n">PARSER_CLASS</span> <span class="o">=</span> <span class="n">ODLXMLParser</span>
 
+    <span class="c1"># The media type for a License Info Docuemnt, used to get information</span>
+    <span class="c1"># about the license.</span>
+    <span class="n">LICENSE_INFO_DOCUMENT_MEDIA_TYPE</span> <span class="o">=</span> <span class="s1">&#39;application/vnd.odl.info+json&#39;</span>
+
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_detail_for_elementtree_entry</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">entry_tag</span><span class="p">,</span> <span class="n">feed_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">do_get</span> <span class="o">=</span> <span class="n">do_get</span> <span class="ow">or</span> <span class="n">Representation</span><span class="o">.</span><span class="n">cautious_http_get</span>
@@ -889,19 +893,18 @@
                     <span class="n">checkout_link</span> <span class="o">=</span> <span class="n">link_tag</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
                     <span class="k">break</span>
 
+            <span class="c1"># Look for a link to the License Info Document for this license.</span>
             <span class="n">odl_status_link</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">for</span> <span class="n">link_tag</span> <span class="ow">in</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;atom:link&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]:</span>
-                <span class="n">rel</span> <span class="o">=</span> <span class="n">link_tag</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">rel</span> <span class="o">==</span> <span class="s2">&quot;self&quot;</span><span class="p">:</span>
-                    <span class="n">odl_status_link</span> <span class="o">=</span> <span class="n">link_tag</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
+                <span class="n">attrib</span> <span class="o">=</span> <span class="n">link_tag</span><span class="o">.</span><span class="n">attrib</span>
+                <span class="n">rel</span> <span class="o">=</span> <span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rel&quot;</span><span class="p">)</span>
+                <span class="nb">type</span> <span class="o">=</span> <span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">rel</span> <span class="o">==</span> <span class="s1">&#39;self&#39;</span>
+                    <span class="ow">and</span> <span class="nb">type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">LICENSE_INFO_DOCUMENT_MEDIA_TYPE</span><span class="p">)):</span>
+                    <span class="n">odl_status_link</span> <span class="o">=</span> <span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;href&quot;</span><span class="p">)</span>
                     <span class="k">break</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">odl_status_link</span><span class="p">:</span>
-                <span class="c1"># TODO: This is a hack necessary because Feedbooks</span>
-                <span class="c1"># doesn&#39;t provide the status link yet. Once that&#39;s fixed,</span>
-                <span class="c1"># this link will be present with rel=&quot;self&quot;, just like</span>
-                <span class="c1"># in the unit tests.</span>
-                <span class="n">odl_status_link</span> <span class="o">=</span> <span class="s2">&quot;https://license.feedbooks.net/copy/status/?uuid=&quot;</span> <span class="o">+</span> <span class="n">identifier</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;urn:uuid:&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
 
+            <span class="c1"># If we found one, retrieve it and get licensing information about this book.</span>
             <span class="k">if</span> <span class="n">odl_status_link</span><span class="p">:</span>
                 <span class="n">ignore</span><span class="p">,</span> <span class="n">ignore</span><span class="p">,</span> <span class="n">response</span> <span class="o">=</span> <span class="n">do_get</span><span class="p">(</span><span class="n">odl_status_link</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{})</span>
                 <span class="n">status</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
