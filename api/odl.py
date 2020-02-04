@@ -788,6 +788,10 @@ class ODLImporter(OPDSImporter):
     NAME = ODLAPI.NAME
     PARSER_CLASS = ODLXMLParser
 
+    # The media type for a License Info Docuemnt, used to get information
+    # about the license.
+    LICENSE_INFO_DOCUMENT_MEDIA_TYPE = 'application/vnd.odl.info+json'
+
     @classmethod
     def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None, do_get=None):
         do_get = do_get or Representation.cautious_http_get
@@ -854,19 +858,18 @@ class ODLImporter(OPDSImporter):
                     checkout_link = link_tag.attrib.get("href")
                     break
 
+            # Look for a link to the License Info Document for this license.
             odl_status_link = None
             for link_tag in parser._xpath(odl_license_tag, 'atom:link') or []:
-                rel = link_tag.attrib.get("rel")
-                if rel == "self":
-                    odl_status_link = link_tag.attrib.get("href")
+                attrib = link_tag.attrib
+                rel = attrib.get("rel")
+                type = attrib.get("type", "")
+                if (rel == 'self'
+                    and type.startswith(cls.LICENSE_INFO_DOCUMENT_MEDIA_TYPE)):
+                    odl_status_link = attrib.get("href")
                     break
-            if not odl_status_link:
-                # TODO: This is a hack necessary because Feedbooks
-                # doesn't provide the status link yet. Once that's fixed,
-                # this link will be present with rel="self", just like
-                # in the unit tests.
-                odl_status_link = "https://license.feedbooks.net/copy/status/?uuid=" + identifier.replace("urn:uuid:", "")
 
+            # If we found one, retrieve it and get licensing information about this book.
             if odl_status_link:
                 ignore, ignore, response = do_get(odl_status_link, headers={})
                 status = json.loads(response)
