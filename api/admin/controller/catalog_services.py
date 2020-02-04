@@ -23,9 +23,10 @@ class CatalogServicesController(SettingsController):
         super(CatalogServicesController, self).__init__(manager)
         service_apis = [MARCExporter]
         self.protocols = self._get_integration_protocols(service_apis, protocol_name_attr="NAME")
-        self.protocols[0]['settings'].append(
-            MARCExporter.get_storage_settings(self._db)
-        )
+        self.update_protocol_settings()
+    
+    def update_protocol_settings(self):
+        self.protocols[0]['settings'] = [MARCExporter.get_storage_settings(self._db)]
 
     def process_catalog_services(self):
         self.require_system_admin()
@@ -37,6 +38,7 @@ class CatalogServicesController(SettingsController):
 
     def process_get(self):
         services = self._get_integration_info(ExternalIntegration.CATALOG_GOAL, self.protocols)
+        self.update_protocol_settings()
         return dict(
             catalog_services=services,
             protocols=self.protocols,
