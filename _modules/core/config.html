@@ -268,8 +268,6 @@
           <span class="p">],</span>
           <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">INTERNAL_NAME</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">EntryPoint</span><span class="o">.</span><span class="n">DEFAULT_ENABLED</span><span class="p">],</span>
           <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
-          <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;narrow&quot;</span><span class="p">,</span>
-          <span class="s2">&quot;locked&quot;</span><span class="p">:</span> <span class="kc">True</span>
         <span class="p">},</span>
         <span class="p">{</span>
             <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">FEATURED_LANE_SIZE</span><span class="p">,</span>
@@ -297,7 +295,6 @@
           <span class="p">],</span>
           <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">FACETS_BY_GROUP</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group</span><span class="p">),</span>
           <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
-          <span class="s2">&quot;paired&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>
         <span class="p">}</span> <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">GROUP_DESCRIPTIONS</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>
     <span class="p">]</span> <span class="o">+</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ConfigurationConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET_KEY_PREFIX</span> <span class="o">+</span> <span class="n">group</span><span class="p">,</span>
@@ -309,7 +306,6 @@
           <span class="p">],</span>
           <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">DEFAULT_FACET</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">group</span><span class="p">),</span>
           <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;Lanes &amp; Filters&quot;</span><span class="p">,</span>
-          <span class="s2">&quot;skip&quot;</span><span class="p">:</span> <span class="kc">True</span>
         <span class="p">}</span> <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">display_name</span> <span class="ow">in</span> <span class="n">FacetConstants</span><span class="o">.</span><span class="n">GROUP_DISPLAY_TITLES</span><span class="o">.</span><span class="n">iteritems</span><span class="p">()</span>
     <span class="p">]</span>
 

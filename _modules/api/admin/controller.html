@@ -401,6 +401,16 @@
 
         <span class="n">csrf_token</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">cookies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;csrf_token&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_csrf_token</span><span class="p">()</span>
 
+        <span class="c1"># Find the URL and text to use when rendering the Terms of</span>
+        <span class="c1"># Service link in the footer.</span>
+        <span class="n">sitewide_tos_href</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">CUSTOM_TOS_HREF</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">DEFAULT_TOS_HREF</span>
+
+        <span class="n">sitewide_tos_text</span> <span class="o">=</span> <span class="n">ConfigurationSetting</span><span class="o">.</span><span class="n">sitewide</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">CUSTOM_TOS_TEXT</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="ow">or</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">DEFAULT_TOS_TEXT</span>
+
         <span class="n">local_analytics</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">ExternalIntegration</span><span class="p">,</span>
             <span class="n">protocol</span><span class="o">=</span><span class="n">LocalAnalyticsProvider</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
@@ -410,6 +420,8 @@
         <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">render_template_string</span><span class="p">(</span>
             <span class="n">admin_template</span><span class="p">,</span>
             <span class="n">csrf_token</span><span class="o">=</span><span class="n">csrf_token</span><span class="p">,</span>
+            <span class="n">sitewide_tos_href</span><span class="o">=</span><span class="n">sitewide_tos_href</span><span class="p">,</span>
+            <span class="n">sitewide_tos_text</span><span class="o">=</span><span class="n">sitewide_tos_text</span><span class="p">,</span>
             <span class="n">show_circ_events_download</span><span class="o">=</span><span class="n">show_circ_events_download</span><span class="p">,</span>
             <span class="n">setting_up</span><span class="o">=</span><span class="n">setting_up</span><span class="p">,</span>
             <span class="n">email</span><span class="o">=</span><span class="n">email</span><span class="p">,</span>

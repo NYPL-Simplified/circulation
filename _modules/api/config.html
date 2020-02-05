@@ -70,6 +70,20 @@
     <span class="c1"># The name of the setting that controls how long static files are cached.</span>
     <span class="n">STATIC_FILE_CACHE_TIME</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;static_file_cache_time&quot;</span>
 
+    <span class="c1"># A custom link to a Terms of Service document to be understood by</span>
+    <span class="c1"># users of the administrative interface.</span>
+    <span class="c1">#</span>
+    <span class="c1"># This is _not_ the end-user terms of service for SimplyE or any</span>
+    <span class="c1"># other mobile client. The default value links to the terms of</span>
+    <span class="c1"># service for a library&#39;s inclusion in the SimplyE library</span>
+    <span class="c1"># registry.</span>
+    <span class="n">CUSTOM_TOS_HREF</span> <span class="o">=</span> <span class="s2">&quot;tos_href&quot;</span>
+    <span class="n">DEFAULT_TOS_HREF</span> <span class="o">=</span> <span class="s2">&quot;https://librarysimplified.org/simplye-terms-of-service/&quot;</span>
+
+    <span class="c1"># Custom text for the link defined in CUSTOM_TOS_LINK.</span>
+    <span class="n">CUSTOM_TOS_TEXT</span> <span class="o">=</span> <span class="s2">&quot;tos_text&quot;</span>
+    <span class="n">DEFAULT_TOS_TEXT</span> <span class="o">=</span> <span class="s2">&quot;Terms of Service for presenting e-reading materials through NYPL&#39;s SimplyE mobile app&quot;</span>
+
     <span class="c1"># A short description of the library, used in its Authentication</span>
     <span class="c1"># for OPDS document.</span>
     <span class="n">LIBRARY_DESCRIPTION</span> <span class="o">=</span> <span class="s1">&#39;library_description&#39;</span>
@@ -216,6 +230,20 @@
             <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;number&quot;</span><span class="p">,</span>
         <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">CUSTOM_TOS_HREF</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Custom Terms of Service link&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_TOS_HREF</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">CUSTOM_TOS_TEXT</span><span class="p">,</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Custom Terms of Service link text&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">DEFAULT_TOS_TEXT</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you&#39;re not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.&quot;</span><span class="p">)</span>
+        <span class="p">}</span>
     <span class="p">]</span>
 
     <span class="n">LIBRARY_SETTINGS</span> <span class="o">=</span> <span class="n">CoreConfiguration</span><span class="o">.</span><span class="n">LIBRARY_SETTINGS</span> <span class="o">+</span> <span class="p">[</span>
