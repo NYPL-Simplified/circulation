@@ -2488,7 +2488,7 @@ class Lane(Base, DatabaseBackedWorkList):
 
         :param type: The type of feed.
         """
-        if type == cls.GROUPS_TYPE:
+        if type == CachedFeed.GROUPS_TYPE:
             # Generating grouped feeds on the fly for Lanes is not incredibly
             # expensive, but it's slow enough that we prefer to regenerate
             # them in the background (using force_refresh=True) rather

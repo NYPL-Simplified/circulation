@@ -5,6 +5,7 @@ from nose.tools import set_trace
 from . import (
     Base,
     flush,
+    get_one,
     get_one_or_create,
 )
 
@@ -136,7 +137,7 @@ class CachedFeed(Base):
             # just going to replace it.
             existing_item = None
         else:
-            existing_item = get(_db, cls, **kwargs)
+            existing_item = get_one(_db, cls, **kwargs)
 
         if existing_item is None:
             # If we didn't find a CachedFeed (maybe because we didn't
@@ -203,7 +204,7 @@ class CachedFeed(Base):
         value = None
         if override is not None:
             value = override
-        elif lane:
+        elif worklist:
             value = worklist.max_cache_age(type)
 
         if value == cls.CACHE_FOREVER:
