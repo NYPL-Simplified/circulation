@@ -741,6 +741,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
                 library = lane
             else:
                 library = lane.library
+
         if library:
             quality = library.minimum_featured_quality
         else:

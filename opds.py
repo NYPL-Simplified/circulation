@@ -594,7 +594,7 @@ class AcquisitionFeed(OPDSFeed):
         :return: A Unicode string containing a (potentially cached) OPDS feed.
         """
         annotator = cls._make_annotator(annotator)
-        facets = facets or FeaturedFacets.default(worklist)
+        facets = facets or FeaturedFacets.default(worklist.get_library(_db))
 
         def refresh():
             return cls._generate_groups(
