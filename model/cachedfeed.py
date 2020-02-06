@@ -77,6 +77,7 @@ class CachedFeed(Base):
 
     # Special constants for cache durations.
     CACHE_FOREVER = object()
+    DO_NOT_CACHE = object()
 
     log = logging.getLogger("CachedFeed")
 
@@ -108,6 +109,15 @@ class CachedFeed(Base):
 
         :return: A CachedFeed containing up-to-date content.
         """
+        if max_age == cls.DO_NOT_CACHE:
+            # Don't read from or write to the cachedfeeds table.
+            # Just call the refresher method and return the Unicode.
+            #
+            # TODO: This is probably not necessary. It's only used
+            # in tests, and it doesn't actually run any of the code
+            # found in this method.
+            return refresher_method()
+
         # Gather the information necessary to uniquely identify this
         # page of this feed.
         keys = cls._prepare_keys(_db, worklist, facets, pagination)
@@ -135,11 +145,11 @@ class CachedFeed(Base):
         if isinstance(max_age, int) and max_age <= 0:
             # Don't even bother checking for a CachedFeed: we're
             # just going to replace it.
-            existing_item = None
+            feed_obj = None
         else:
-            existing_item = get_one(_db, cls, **kwargs)
+            feed_obj = get_one(_db, cls, **kwargs)
 
-        if existing_item is None:
+        if feed_obj is None:
             # If we didn't find a CachedFeed (maybe because we didn't
             # bother looking), we must always refresh.
             should_refresh = True
@@ -156,10 +166,10 @@ class CachedFeed(Base):
         if not should_refresh:
             # This is a cache hit. We found a matching CachedFeed that
             # had fresh content.
-            return feed
+            return feed_obj
 
         # This is a cache miss. We need to generate a new feed.
-        new_feed = unicode(refresher_method())
+        feed_data = unicode(refresher_method())
 
         # Since it can take a while to generate a feed, and we know
         # that the feed in the database is stale, it's possible that
@@ -170,7 +180,7 @@ class CachedFeed(Base):
         # database rather than assuming we have the up-to-date
         # object.
         feed_obj, is_new = get_one_or_create(_db, cls, **kwargs)
-        feed_obj.content = new_feed
+        feed_obj.content = feed_data
         return feed_obj
 
     @classmethod

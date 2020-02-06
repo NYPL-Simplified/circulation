@@ -616,6 +616,7 @@ class AcquisitionFeed(OPDSFeed):
         """Internal method called by groups() when a grouped feed
         must be regenerated.
         """
+
         # Try to get a set of (Work, WorkList) 2-tuples
         # to make a normal grouped feed.
         works_and_lanes = worklist.groups(
@@ -628,9 +629,15 @@ class AcquisitionFeed(OPDSFeed):
             # we tried and did not find enough works, or because the
             # worklist has no children. Our fallback position is
             # a page-type feed for this WorkList.
+
+            # A Pagination object is required, and our FeaturedFacets
+            # aren't relevant to a page-type feed, so use some defaults.
+            page_facets = Facets.default(worklist.get_library(_db))
+            page_pagination = Pagination.default()
+
             feed = cls._generate_page(
                 _db, title, url, worklist, annotator,
-                facets=None, pagination=None,
+                facets=page_facets, pagination=page_pagination,
                 search_engine=search_engine,
                 search_debug=search_debug
             )
@@ -1660,59 +1667,61 @@ class LookupAcquisitionFeed(AcquisitionFeed):
                 "I know about this work but can offer no way of fulfilling it."
             )
 
+class NavigationFacets(FeaturedFacets):
+    CACHED_FEED_TYPE = CachedFeed.NAVIGATION_TYPE
+
 class NavigationFeed(OPDSFeed):
 
     FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
-    def navigation(cls, _db, title, url, lane, annotator,
-                   cache_type=None, force_refresh=False, facets=None):
+    def navigation(cls, _db, title, url, worklist, annotator,
+                   facets=None, max_age=None):
         """The navigation feed with links to a given lane's sublanes."""
 
-        if not annotator:
-            annotator = Annotator
-        if callable(annotator):
-            annotator = annotator()
-        cached = None
-        facets = facets or FeaturedFacets.default(lane)
-        if use_cache:
-            cache_type = cache_type or CachedFeed.NAVIGATION_TYPE
-            cached, usable = CachedFeed.fetch(
-                _db,
-                lane=lane,
-                type=cache_type,
-                facets=facets,
-                pagination=None,
-                annotator=annotator,
-                force_refresh=force_refresh,
+        annotator = AcquisitionFeed._make_annotator(annotator)
+        facets = facets or NavigationFacets.default(worklist)
+
+        def refresh():
+            return cls._generate_navigation(
+                _db, title, url, worklist, annotator
             )
-            if usable:
-                return cached.content
+
+        cached = CachedFeed.fetch(
+            _db,
+            worklist=worklist,
+            facets=facets,
+            pagination=None,
+            refresher_method=refresh,
+            max_age=max_age,
+        )
+        return cached.content
+
+    @classmethod
+    def _generate_navigation(cls, _db, title, url, worklist,
+                             annotator):
 
         feed = NavigationFeed(title, url)
 
-        if not lane.children:
-            # We can't generate links to sublanes since this lane has no sublanes,
-            # so we'll generate a link to its page-type feed instead.
-            title = "All " + lane.display_name
-            page_url = annotator.feed_url(lane)
+        if not worklist.children:
+            # We can't generate links to children, since this Worklist
+            # has no children, so we'll generate a link to the
+            # Worklist's page-type feed instead.
+            title = "All " + worklist.display_name
+            page_url = annotator.feed_url(worklist)
             feed.add_entry(page_url, title, cls.ACQUISITION_FEED_TYPE)
 
-        for sublane in lane.visible_children:
-            title = sublane.display_name
-            if sublane.children:
-                sublane_url = annotator.navigation_url(sublane)
-                feed.add_entry(sublane_url, title, cls.NAVIGATION_FEED_TYPE)
+        for child in worklist.visible_children:
+            title = child.display_name
+            if child.children:
+                child_url = annotator.navigation_url(child)
+                feed.add_entry(child_url, title, cls.NAVIGATION_FEED_TYPE)
             else:
-                sublane_url = annotator.feed_url(sublane)
-                feed.add_entry(sublane_url, title, cls.ACQUISITION_FEED_TYPE)
+                child_url = annotator.feed_url(child)
+                feed.add_entry(child_url, title, cls.ACQUISITION_FEED_TYPE)
 
-        annotator.annotate_feed(feed, lane)
-
-        content = unicode(feed)
-        if cached and use_cache:
-            cached.update(_db, content)
-        return content
+        annotator.annotate_feed(feed, worklist)
+        return feed
 
     def add_entry(self, url, title, type=OPDSFeed.NAVIGATION_FEED_TYPE):
         """Create an OPDS navigation entry for a URL."""

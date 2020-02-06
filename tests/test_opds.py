@@ -974,12 +974,12 @@ class TestOPDS(DatabaseTest):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
 
-        # When a feed is created without a cache_type of NO_CACHE,
+        # When a feed is created with a max_age of DO_NOT_CACHE,
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
             self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
+            pagination=pagination.next_page, max_age=CachedFeed.DO_NOT_CACHE,
             search_engine=search_engine
         )
 
@@ -1039,12 +1039,12 @@ class TestOPDS(DatabaseTest):
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         eq_(None, breadcrumbs)
 
-        # When a feed is created without a cache_type of NO_CACHE,
+        # When a feed is created with a max_age of DO_NOT_CACHE,
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
             self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
+            pagination=pagination.next_page, max_age=CachedFeed.DO_NOT_CACHE,
             search_engine=search_engine
         )
 
@@ -1138,7 +1138,7 @@ class TestOPDS(DatabaseTest):
         annotator = TestAnnotatorWithGroup()
         cached_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
-            force_refresh=True, search_engine=search_engine,
+            max_age=0, search_engine=search_engine,
             search_debug=True
         )
         parsed = feedparser.parse(cached_groups)
@@ -1183,13 +1183,13 @@ class TestOPDS(DatabaseTest):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(annotator.lane_url(lane), links[i+1].get("href"))
 
-        # When a feed is created without a cache_type of NO_CACHE,
+        # When a feed is created with a max_age of DO_NOT_CACHE,
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         annotator = TestAnnotatorWithGroup()
         raw_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
-            cache_type=AcquisitionFeed.NO_CACHE, search_engine=search_engine,
+            max_age=CachedFeed.DO_NOT_CACHE, search_engine=search_engine,
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -1228,7 +1228,7 @@ class TestOPDS(DatabaseTest):
 
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True, search_engine=search_engine
+            max_age=0, search_engine=search_engine
         )
 
         # The lane has no sublanes, so a page feed was created for it
@@ -1253,7 +1253,7 @@ class TestOPDS(DatabaseTest):
         sublane = self._lane(parent=test_lane)
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True, search_engine=search_engine
+            max_age=0, search_engine=search_engine
         )
         assert mock.called_with is not None
 
@@ -2259,7 +2259,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
             self.mock.called_with = None
             AcquisitionFeed.groups(
                 self._db, "title", "url", wl, self.annotator,
-                cache_type=AcquisitionFeed.NO_CACHE, facets=facets,
+                max_age=0, facets=facets,
             )
             return self.mock.called_with
 
@@ -2295,7 +2295,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
             self.mock.called_with = None
             AcquisitionFeed.page(
                 self._db, "title", "url", wl, self.annotator,
-                cache_type=AcquisitionFeed.NO_CACHE, facets=facets,
+                max_age=0, facets=facets,
                 pagination=pagination
             )
             return self.mock.called_with
@@ -2439,11 +2439,11 @@ class TestNavigationFeed(DatabaseTest):
         # The feed was cached.
         eq_(1, self._db.query(CachedFeed).count())
 
-        # When a feed is created without a cache_type of NO_CACHE,
+        # When a feed is created without caching,
         # CachedFeeds aren't used.
         uncached_feed = NavigationFeed.navigation(
             self._db, "test", self._url, self.romance,
-            TestAnnotator, cache_type=NavigationFeed.NO_CACHE,
+            TestAnnotator, max_age=CachedFeed.DO_NOT_CACHE,
         )
 
         # No new CachedFeeds were created.
