@@ -8,7 +8,7 @@ from . import (
     get_one_or_create,
 )
 
-import collections
+from collections import namedtuple
 import datetime
 import logging
 from sqlalchemy import (
@@ -109,11 +109,11 @@ class CachedFeed(Base):
         """
         # Gather the information necessary to uniquely identify this
         # page of this feed.
-        keys = cls._prepare_keys(worklist, facets, pagination)
+        keys = cls._prepare_keys(_db, worklist, facets, pagination)
 
         # Calculate the maximum cache age, converting from timedelta
         # to seconds if necessary.
-        max_age = cls.max_cache_age(worklist, keys.type, max_age)
+        max_age = cls.max_cache_age(worklist, keys.feed_type, max_age)
 
         # These arguments will probably be passed into get_one, and
         # will be passed into get_one_or_create in the event of a cache
@@ -158,7 +158,7 @@ class CachedFeed(Base):
             return feed
 
         # This is a cache miss. We need to generate a new feed.
-        new_feed = unicode(refresh_method())
+        new_feed = unicode(refresher_method())
 
         # Since it can take a while to generate a feed, and we know
         # that the feed in the database is stale, it's possible that
@@ -182,10 +182,10 @@ class CachedFeed(Base):
         :return: A string that can go into cachedfeeds.type.
         """
         type = CachedFeed.PAGE_TYPE
-        if lane:
-            type = worklist.CACHED_FEED_TYPE or implied_type
+        if worklist:
+            type = worklist.CACHED_FEED_TYPE or type
         if facets:
-            type = facets.CACHED_FEED_TYPE or implied_type
+            type = facets.CACHED_FEED_TYPE or type
         return type
 
     @classmethod
@@ -214,7 +214,7 @@ class CachedFeed(Base):
             # Assume the feed should not be cached at all.
             value = 0
 
-        if isinstance(value, timedelta):
+        if isinstance(value, datetime.timedelta):
             value = value.seconds()
         return value
 
@@ -227,7 +227,7 @@ class CachedFeed(Base):
     )
 
     @classmethod
-    def _prepare_keys(cls, worklist, facets, pagination):
+    def _prepare_keys(cls, _db, worklist, facets, pagination):
         """Prepare various unique keys that will go into the database
         and be used to distinguish CachedFeeds from one another.
 
@@ -244,7 +244,7 @@ class CachedFeed(Base):
                 "Cannot prepare a CachedFeed without a WorkList."
             )
 
-        feed_type = cls.feed_type(lane, facets)
+        feed_type = cls.feed_type(worklist, facets)
 
         # The Library is the one associated with `worklist`.
         library = worklist.get_library(_db)
@@ -270,7 +270,7 @@ class CachedFeed(Base):
         if pagination is not None:
             pagination_key = unicode(pagination.query_string)
 
-        return CachedFeedKeys(
+        return cls.CachedFeedKeys(
             feed_type=feed_type, library=library, work=work, lane_id=lane_id,
             unique_key=unique_key, facets_key=facets_key,
             pagination_key=pagination_key

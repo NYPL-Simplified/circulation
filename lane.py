@@ -1043,6 +1043,11 @@ class WorkList(object):
     # default. Most WorkList subclasses will override this.
     MAX_CACHE_AGE = 14*24*60*60
 
+    # If a certain type of Worklist should always have its OPDS feeds
+    # cached under a specific type, define that type as
+    # CACHED_FEED_TYPE.
+    CACHED_FEED_TYPE = None
+
     # By default, a WorkList is always visible.
     visible = True
 
