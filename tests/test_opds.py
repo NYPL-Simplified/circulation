@@ -1423,61 +1423,6 @@ class TestAcquisitionFeed(DatabaseTest):
         # This means the 'activeFacet' attribute is not present.
         assert '{http://opds-spec.org/2010/catalog}activeFacet' not in l
 
-    def test_groups_propagates_facets(self):
-        # AcquisitionFeed.groups() might call several different
-        # methods that each need a facet object.
-
-
-        # TODO: This has changed quite a lot and may no longer be necessary.
-        class MockCachedFeed(object):
-            content = "a feed"
-
-        class Mock(object):
-            """Contains all the mock methods used by this test."""
-            def fetch(self, *args, **kwargs):
-                self.fetch_called_with = kwargs['facets']
-                return MockCachedFeed()
-
-            def groups(self, _db, facets, *args, **kwargs):
-                self.groups_called_with = facets
-                return []
-
-            def page(self, *args, **kwargs):
-                self.page_called_with = facets
-                return []
-
-        mock = Mock()
-        old_cachedfeed_fetch = CachedFeed.fetch
-        CachedFeed.fetch = mock.fetch
-
-        lane = self._lane()
-        sublane = self._lane(parent=lane)
-        lane.groups = mock.groups
-
-        old_acquisitionfeed_page = AcquisitionFeed.page
-        AcquisitionFeed.page = mock.page
-
-        # Here's the MacGuffin -- watch it!
-        facets = object()
-
-        AcquisitionFeed.groups(
-            self._db, "title", "url", lane, TestAnnotator, facets=facets
-        )
-        # We called CachedFeed.fetch with the given facets object.
-        eq_(facets, mock.fetch_called_with)
-
-        # That didn't return anything usable, so we passed the
-        # facets into lane.groups().
-        eq_(facets, mock.groups_called_with)
-
-        # That didn't return anything either, so as a last ditch
-        # effort we passed the facets into AcquisitionFeed.page().
-        eq_(facets, mock.page_called_with)
-
-        # Un-mock the methods that we mocked.
-        CachedFeed.fetch = old_cachedfeed_fetch
-        AcquisitionFeed.page = old_acquisitionfeed_page
-
     def test_license_tags_no_loan_or_hold(self):
         edition, pool = self._edition(with_license_pool=True)
         availability, holds, copies = AcquisitionFeed.license_tags(
