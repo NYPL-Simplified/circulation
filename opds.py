@@ -619,16 +619,21 @@ class AcquisitionFeed(OPDSFeed):
 
         # Try to get a set of (Work, WorkList) 2-tuples
         # to make a normal grouped feed.
-        works_and_lanes = worklist.groups(
-            _db=_db, facets=facets, search_engine=search_engine,
-            debug=search_debug
-        )
-
+        works_and_lanes = [
+            x for x in worklist.groups(
+                _db=_db, facets=facets, search_engine=search_engine,
+                debug=search_debug
+            )
+        ]
         if not works_and_lanes:
-            # We cannot generate a typical grouped feed, either because
-            # we tried and did not find enough works, or because the
-            # worklist has no children. Our fallback position is
-            # a page-type feed for this WorkList.
+            # We did not find any works at all, so there's nothing to
+            # group. Our fallback position is a page-type feed for
+            # this WorkList.
+            #
+            # TODO: Since the ES6 change, I think it's likely that
+            # groups() only returns nothing when there is nothing here
+            # at all. If this is true, we could get rid of this edge
+            # case.
 
             # A Pagination object is required, and our FeaturedFacets
             # aren't relevant to a page-type feed, so use some defaults.

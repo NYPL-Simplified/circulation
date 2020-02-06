@@ -1156,13 +1156,20 @@ class TestOPDS(DatabaseTest):
 
         test_lane = self._lane("Test Lane", genres=['Mystery'])
 
-        # If groups()
-        class MockGroups(object):
+        class MockLane(object):
             called_with = None
             def groups(self, *args, **kwargs):
-                self.called_with = (args, kwargs)
-                return []
-        mock = MockGroups()
+                # Pretend that Lane.groups() does nothing
+                # to trigger the fallback behavior.
+                self.groups_called_with = (args, kwargs)
+
+                # This will make Python treat this method as an
+                # iterator, just like the real groups(), but
+                # we'll never yield anything.
+                if False:
+                    yield
+
+        mock = MockLane()
         test_lane.groups = mock.groups
 
         work1 = self._work(genre=Mystery, with_open_access_download=True)
@@ -1193,25 +1200,18 @@ class TestOPDS(DatabaseTest):
         # The entries have no links (no collection links).
         assert all('links' not in entry for entry in [e1, e2])
 
-        # groups() was never called.
-        eq_(None, mock.called_with)
+        # That's because when our mocked Lane.groups() was called, it
+        # wasn't able to group the books together, and returned
+        # an empty iterator.
 
-        # Now the lane has a sublane, but Lane.groups(), once called,
-        # returns nothing.
-        self._db.delete(cached)
-        sublane = self._lane(parent=test_lane)
-        feed = AcquisitionFeed.groups(
-            self._db, "test", self._url, test_lane, annotator,
-            max_age=0, search_engine=search_engine
-        )
-        assert mock.called_with is not None
-
-        # So again, we get a page-type feed filed as a groups-type
-        # feed, containing two entries with no collection links.
-        eq_(CachedFeed.GROUPS_TYPE, cached.type)
-        parsed = feedparser.parse(feed)
-        e1, e2 = parsed['entries']
-        assert all('links' not in entry for entry in [e1, e2])
+        # Quickly verify the arguments passed into our mocked groups().
+        args, kwargs = mock.groups_called_with
+        eq_((), args)
+        eq_(search_engine, kwargs.pop('search_engine'))
+        eq_(False, kwargs.pop('debug'))
+        eq_(self._db, kwargs.pop('_db'))
+        assert isinstance(kwargs.pop('facets'), FeaturedFacets)
+        eq_({}, kwargs)
 
     def test_search_feed(self):
         """Test the ability to create a paginated feed of works for a given
