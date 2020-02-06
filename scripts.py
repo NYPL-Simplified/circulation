@@ -633,6 +633,10 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         for pagenum in range(0, self.pages):
             yield page
             page = page.next_page
+            if not page:
+                # There aren't enough books to fill `self.pages`
+                # pages. Stop working.
+                break
 
     def do_generate(self, lane, facets, pagination, feed_class=None):
         feeds = []
@@ -642,9 +646,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         url = annotator.feed_url(lane, facets=facets, pagination=pagination)
         feed_class = feed_class or AcquisitionFeed
         return feed_class.page(
-            _db=self._db, title=title, url=url, lane=lane,
+            _db=self._db, title=title, url=url, worklist=lane,
             annotator=annotator, facets=facets, pagination=pagination,
-            force_refresh=True
+            max_age=0
         )
 
 
@@ -666,8 +670,8 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         url = annotator.groups_url(lane, facets)
         feed_class = feed_class or AcquisitionFeed
         return feed_class.groups(
-            _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
-            force_refresh=True, facets=facets
+            _db=self._db, title=title, url=url, worklist=lane, annotator=annotator,
+            max_age=0, facets=facets
         )
 
     def facets(self, lane):
