@@ -81,7 +81,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=1" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=1" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -138,7 +138,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=2" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=2" rel="self"/>
 </odl:license>
 <odl:license>
   <dcterms:identifier xsi:type="dcterms:URI">3</dcterms:identifier>
@@ -159,7 +159,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=3" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=3" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -207,7 +207,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=4" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=4" rel="self"/>
 </odl:license>
 <odl:license>
   <dcterms:identifier xsi:type="dcterms:URI">5</dcterms:identifier>
@@ -229,7 +229,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=5" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=5" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -302,6 +302,7 @@ Once our world was full of dragons who lived in harmony with humans. Dragons cou
     <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
   </odl:terms>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://license.feedbooks.net/loan/status/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/copy/status/?uuid=5" rel="self"/>
 </odl:license>
 </entry>
 </feed>
