@@ -266,7 +266,6 @@ class CirculationManager(object):
                 patron_web_domains.add(get_domain(setting.value))
 
         self.patron_web_domains = patron_web_domains
-
         self.setup_configuration_dependent_controllers()
         self.authentication_for_opds_documents = {}
 

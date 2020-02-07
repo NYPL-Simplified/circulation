@@ -35,6 +35,20 @@ class Configuration(CoreConfiguration):
     # The name of the setting that controls how long static files are cached.
     STATIC_FILE_CACHE_TIME = u"static_file_cache_time"
 
+    # A custom link to a Terms of Service document to be understood by
+    # users of the administrative interface.
+    #
+    # This is _not_ the end-user terms of service for SimplyE or any
+    # other mobile client. The default value links to the terms of
+    # service for a library's inclusion in the SimplyE library
+    # registry.
+    CUSTOM_TOS_HREF = "tos_href"
+    DEFAULT_TOS_HREF = "https://librarysimplified.org/simplyetermsofservice2/"
+
+    # Custom text for the link defined in CUSTOM_TOS_LINK.
+    CUSTOM_TOS_TEXT = "tos_text"
+    DEFAULT_TOS_TEXT = "Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app"
+
     # A short description of the library, used in its Authentication
     # for OPDS document.
     LIBRARY_DESCRIPTION = 'library_description'
@@ -181,6 +195,20 @@ class Configuration(CoreConfiguration):
             "required": True,
             "type": "number",
         },
+        {
+            "key": CUSTOM_TOS_HREF,
+            "label": _("Custom Terms of Service link"),
+            "required": False,
+            "default": DEFAULT_TOS_HREF,
+            "description": _("If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.")
+        },
+        {
+            "key": CUSTOM_TOS_TEXT,
+            "label": _("Custom Terms of Service link text"),
+            "required": False,
+            "default": DEFAULT_TOS_TEXT,
+            "description": _("Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.")
+        }
     ]
 
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
@@ -317,7 +345,8 @@ class Configuration(CoreConfiguration):
             "description": _("The library focuses on serving patrons in this geographic area. In most cases this will be a city name like <code>Springfield, OR</code>."),
             "category": "Geographic Areas",
             "format": "geographic",
-            "instructions": AREA_INPUT_INSTRUCTIONS
+            "instructions": AREA_INPUT_INSTRUCTIONS,
+            "capitalize": True
         },
         {
             "key": LIBRARY_SERVICE_AREA,
@@ -326,7 +355,8 @@ class Configuration(CoreConfiguration):
             "description": _("The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like <code>OR</code>)."),
             "category": "Geographic Areas",
             "format": "geographic",
-            "instructions": AREA_INPUT_INSTRUCTIONS
+            "instructions": AREA_INPUT_INSTRUCTIONS,
+            "capitalize": True
         },
         {
             "key": MAX_OUTSTANDING_FINES,
