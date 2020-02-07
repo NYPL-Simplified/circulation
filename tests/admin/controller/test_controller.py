@@ -8,7 +8,7 @@ import json
 import os
 import re
 import feedparser
-from werkzeug import ImmutableMultiDict, MultiDict
+from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
 from StringIO import StringIO
 import base64
