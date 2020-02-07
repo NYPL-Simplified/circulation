@@ -6,7 +6,7 @@ from nose.tools import (
 import flask
 from flask_babel import lazy_gettext as _
 import json
-from werkzeug import MultiDict
+from werkzeug.datastructures import MultiDict
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 from core.model import (

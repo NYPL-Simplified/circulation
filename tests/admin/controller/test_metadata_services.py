@@ -5,7 +5,7 @@ from nose.tools import (
 )
 import flask
 import json
-from werkzeug import MultiDict
+from werkzeug.datastructures import MultiDict
 from core.util.http import HTTP
 from api.nyt import NYTBestSellerAPI
 from api.admin.exceptions import *
