@@ -8,7 +8,7 @@ import flask
 import json
 import jwt
 import os
-from werkzeug import MultiDict
+from werkzeug.datastructures import MultiDict
 from api.admin.problem_details import *
 from api.config import Configuration
 from core.model import (
