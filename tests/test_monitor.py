@@ -21,13 +21,14 @@ from ..model import (
     get_one,
     CachedFeed,
     CirculationEvent,
-    Subject,
+    CustomList,
     Collection,
     CollectionMissing,
     Credential,
     DataSource,
     Edition,
     ExternalIntegration,
+    Genre,
     Identifier,
     Patron,
     Subject,
@@ -59,7 +60,6 @@ from ..monitor import (
     SubjectSweepMonitor,
     SweepMonitor,
     TimelineMonitor,
-    WorkRandomnessUpdateMonitor,
     WorkReaper,
     WorkSweepMonitor,
 )
@@ -893,30 +893,6 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
         eq_(False, self.work.presentation_ready)
 
 
-class TestWorkRandomnessUpdateMonitor(DatabaseTest):
-
-    def test_process_batch(self):
-        """This Monitor sets Work.random to a random value.
-        """
-        work = self._work()
-        old_random = work.random
-        monitor = WorkRandomnessUpdateMonitor(self._db)
-        value, num_processed = monitor.process_batch(work.id)
-        # Since there's only one work, a single batch finishes the job.
-        eq_(0, value)
-
-        # But we don't know that there's only one work, so the 'number
-        # of items processed' is the batch size.
-        eq_(monitor.batch_size, num_processed)
-
-        # This is normally called by run().
-        self._db.commit()
-
-        # This could fail once, spuriously but the odds are much
-        # higher that the code has broken and it's failing reliably.
-        assert work.random != old_random
-
-
 class TestCustomListEntryWorkUpdateMonitor(DatabaseTest):
 
     def test_set_item(self):
@@ -973,12 +949,15 @@ class TestReaperMonitor(DatabaseTest):
         eq_("cachedfeeds.timestamp < :timestamp_1", str(m.where_clause))
 
     def test_run_once(self):
-        # Create three Credentials.
-        expired = self._credential()
+        # Create four Credentials: two expired, two valid.
+        expired1 = self._credential()
+        expired2 = self._credential()
         now = datetime.datetime.utcnow()
-        expired.expires = now - datetime.timedelta(
+        expiration_date = now - datetime.timedelta(
             days=CredentialReaper.MAX_AGE + 1
         )
+        for e in [expired1, expired2]:
+            e.expires = expiration_date
 
         active = self._credential()
         active.expires = now - datetime.timedelta(
@@ -988,11 +967,16 @@ class TestReaperMonitor(DatabaseTest):
         eternal = self._credential()
 
         m = CredentialReaper(self._db)
+
+        # Set the batch size to 1 to make sure this works even
+        # when there are multiple batches.
+        m.BATCH_SIZE = 1
+
         eq_("Reaper for Credential.expires", m.SERVICE_NAME)
         result = m.run_once()
-        eq_("Items deleted: 1", result.achievements)
+        eq_("Items deleted: 2", result.achievements)
 
-        # The expired credential has been reaped; the others
+        # The expired credentials have been reaped; the others
         # are still in the database.
         remaining = set(self._db.query(Credential).all())
         eq_(set([active, eternal]), remaining)
@@ -1021,6 +1005,8 @@ class TestWorkReaper(DatabaseTest):
 
     def test_end_to_end(self):
 
+        # First, create three works.
+
         # This work has a license pool.
         has_license_pool = self._work(with_license_pool=True)
 
@@ -1031,17 +1017,51 @@ class TestWorkReaper(DatabaseTest):
         # This work never had a license pool.
         never_had_license_pool = self._work(with_license_pool=False)
 
-        # Each work has a presentation edition
+        # Each work has a presentation edition -- keep track of these
+        # for later.
         works = self._db.query(Work)
         presentation_editions = [x.presentation_edition for x in works]
 
-        m = WorkReaper(self._db)
+        # If and when Work gets database-level cascading deletes, this
+        # is where they will all be triggered, with no chance that an
+        # ORM-level delete is doing the work. So let's verify that all
+        # of the cascades work.
 
-        # The two works with no license pools are due do be reaped.
-        eq_(set([never_had_license_pool, had_license_pool]),
-            set(m.query().all()))
+        # First, set up some related items for each Work.
+
+        # Each work is assigned to a genre.
+        genre, ignore = Genre.lookup(self._db, "Science Fiction")
+        for work in works:
+            work.genres = [genre]
+
+        # Each work is on the same CustomList.
+        l, ignore = self._customlist("a list", num_entries=0)
+        for work in works:
+            l.add_entry(work)
+
+        # Each work has a WorkCoverageRecord.
+        for work in works:
+            WorkCoverageRecord.add_for(work, operation="some operation")
+
+        # Each work has a CachedFeed.
+        for work in works:
+            feed = CachedFeed(
+                work=work, type='page', content="content",
+                pagination="", facets=""
+            )
+            self._db.add(feed)
+
+        # Also create a CachedFeed that has no associated Work.
+        workless_feed = CachedFeed(
+            work=None, type='page', content="content",
+            pagination="", facets=""
+        )
+        self._db.add(workless_feed)
+
+        self._db.commit()
 
         # Run the reaper.
+        m = WorkReaper(self._db)
         m.run_once()
 
         # Only the work with a license pool remains.
@@ -1052,6 +1072,26 @@ class TestWorkReaper(DatabaseTest):
         all_editions = self._db.query(Edition).all()
         for e in presentation_editions:
             assert e in all_editions
+
+        # The surviving work is still assigned to the Genre, and still
+        # has WorkCoverageRecords.
+        eq_([has_license_pool], genre.works)
+        surviving_records = self._db.query(WorkCoverageRecord)
+        assert surviving_records.count() > 0
+        assert all(x.work==has_license_pool for x in surviving_records)
+
+        # The CustomListEntries still exist, but two of them have lost
+        # their work.
+        eq_(2, len([x for x in l.entries if not x.work]))
+        eq_([has_license_pool], [x.work for x in l.entries if x.work])
+
+        # The CachedFeeds associated with the reaped Works have been
+        # deleted. The surviving Work still has one, and the
+        # CachedFeed that didn't have a work in the first place is
+        # unaffected.
+        feeds = self._db.query(CachedFeed).all()
+        eq_([workless_feed], [x for x in feeds if not x.work])
+        eq_([has_license_pool], [x.work for x in feeds if x.work])
 
 
 class TestCollectionReaper(DatabaseTest):

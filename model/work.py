@@ -141,13 +141,21 @@ class Work(Base):
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
     # One Work may have many associated WorkCoverageRecords.
-    coverage_records = relationship("WorkCoverageRecord", backref="work")
+    coverage_records = relationship(
+        "WorkCoverageRecord", backref="work",
+        cascade="all, delete-orphan"
+    )
 
     # One Work may be associated with many CustomListEntries.
+    # However, a CustomListEntry may lose its Work without
+    # ceasing to exist.
     custom_list_entries = relationship('CustomListEntry', backref='work')
 
-    # One Work may have multiple CachedFeeds.
-    cached_feeds = relationship('CachedFeed', backref='work')
+    # One Work may have multiple CachedFeeds, and if a CachedFeed
+    # loses its Work, it ceases to exist.
+    cached_feeds = relationship(
+        'CachedFeed', backref='work', cascade="all, delete-orphan"
+    )
 
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
@@ -176,9 +184,6 @@ class Work(Base):
 
     # The overall current popularity of this work.
     popularity = Column(Float, index=True)
-
-    # A random number associated with this work, used for sampling/
-    random = Column(Numeric(4,3), index=True)
 
     appeal_type = Enum(CHARACTER_APPEAL, LANGUAGE_APPEAL, SETTING_APPEAL,
                        STORY_APPEAL, NOT_APPLICABLE_APPEAL, NO_APPEAL,
@@ -221,6 +226,13 @@ class Work(Base):
     # work that would be relevant to display in a library's public
     # catalog.
     marc_record = Column(String, default=None)
+
+    # These fields are potentially large and can be deferred if you
+    # don't need all the data in a Work.
+    LARGE_FIELDS = [
+        'simple_opds_entry', 'verbose_opds_entry', 'marc_record',
+        'summary_text',
+    ]
 
     @property
     def title(self):
@@ -1225,7 +1237,6 @@ class Work(Base):
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
-        self.random = random.random()
         if not exclude_search:
             self.external_index_needs_updating()
 
@@ -1429,7 +1440,6 @@ class Work(Base):
              Work.summary_text,
              Work.quality,
              Work.rating,
-             Work.random,
              Work.popularity,
              Work.presentation_ready,
              Work.presentation_edition_id,
@@ -1669,7 +1679,6 @@ class Work(Base):
              works_alias.c.imprint,
              works_alias.c.permanent_work_id,
              works_alias.c.presentation_ready,
-             works_alias.c.random,
              works_alias.c.last_update_time,
 
              # Convert true/false to "Fiction"/"Nonfiction".
@@ -1811,8 +1820,3 @@ class Work(Base):
             .order_by(WorkGenre.affinity.desc()) \
             .first()
         return genre.name if genre else None
-
-
-# Used for quality filter queries.
-Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
-Index("ix_works_audience_fiction_quality_random", Work.audience, Work.fiction, Work.quality, Work.random)

@@ -3,7 +3,6 @@ from collections import defaultdict
 from nose.tools import set_trace
 import datetime
 import logging
-import random
 import time
 import urllib
 
@@ -603,7 +602,6 @@ class DatabaseBackedFacets(Facets):
         FacetConstants.ORDER_TITLE : Edition.sort_title,
         FacetConstants.ORDER_AUTHOR : Edition.sort_author,
         FacetConstants.ORDER_LAST_UPDATE : Work.last_update_time,
-        FacetConstants.ORDER_RANDOM : Work.random,
     }
 
     @classmethod
@@ -789,9 +787,9 @@ class SearchFacets(FacetsWithEntryPoint):
     def from_request(cls, library, config, get_argument, get_header, worklist,
                      default_entrypoint=None, **extra):
 
-        # Searches against a WorkList that has no particular language
-        # restrictions will use the languages defined in the
-        # Accept-Language header used by the client.
+        # Searches against a WorkList will use the union of the
+        # languages allowed by the WorkList and the languages found in
+        # the client's Accept-Language header.
         language_header = get_header("Accept-Language")
         languages = None
         if language_header:
@@ -848,14 +846,26 @@ class SearchFacets(FacetsWithEntryPoint):
         elif self.media:
             filter.media = self.media
 
-        # A language restriction already set by the WorkList or
-        # EntryPoint takes precedence over any language restriction
-        # defined by this SearchFacets object.  That's because
-        # clients always send the Accept-Language header passively --
-        # it's not an explicitly expressed preference the way `media`
-        # is.
-        if self.languages and not filter.languages:
-            filter.languages = self.languages
+        # The languages matched by the filter are the union of the
+        # languages allowed by the WorkList (which were set to
+        # filter.languages upon instantiation) and the languages
+        # mentioned in the the user's Accept-Language header (which
+        # were stuck into the SearchFacets object when _it_ was
+        # instantiated).
+        #
+        # We don't rely solely on the WorkList languages because at
+        # the moment it's hard for people who don't read the dominant
+        # language of the circulation manager to find the right place
+        # to search.
+        #
+        # We don't rely solely on the SearchFacets languages because a
+        # lot of people read in languages other than the one they've
+        # set for their device UI.
+        all_languages = set()
+        for language_list in (self.languages, filter.languages):
+            for language in self._ensure_list(language_list) or []:
+                all_languages.add(language)
+        filter.languages = sorted(all_languages) or None
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.

@@ -522,17 +522,16 @@ class MARCExporter(object):
     ]
 
     NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+    DEFAULT_MIRROR_INTEGRATION = dict(
+        key=NO_MIRROR_INTEGRATION,
+        label=_("None - Do not mirror MARC files")
+    )
     SETTING = {
         "key": "mirror_integration_id",
         "label": _("MARC Mirror"),
         "description": _("Storage protocol to use for uploading generated MARC files. The service must already be configured under 'Storage Services'."),
         "type": "select",
-        "options" : [
-            dict(
-                key=NO_MIRROR_INTEGRATION,
-                label=_("None - Do not mirror MARC files")
-            )
-        ]
+        "options" : [DEFAULT_MIRROR_INTEGRATION]
     }
 
     @classmethod
@@ -558,6 +557,7 @@ class MARCExporter(object):
         integrations = ExternalIntegration.for_goal(
             _db, ExternalIntegration.STORAGE_GOAL
         )
+        cls.SETTING['options'] = [cls.DEFAULT_MIRROR_INTEGRATION]
         for integration in integrations:
             # Only add an integration to choose from if it has a 
             # MARC File Bucket field in its settings.

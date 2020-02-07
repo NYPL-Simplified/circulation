@@ -1403,12 +1403,6 @@ class TestSearchOrder(EndToEndSearchTest):
             collections=[self._default_collection]
         )
 
-        # We can sort by the value of work.random. 0.1 < 0.9
-        assert_order(
-            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled],
-            collections=[self._default_collection]
-        )
-
         # We can sort by series position. Here, the books aren't in
         # the same series; in a real scenario we would also filter on
         # the value of 'series'.
@@ -1841,12 +1835,15 @@ class TestFeaturedFacets(EndToEndSearchTest):
 
     def test_run(self):
 
+        def works(worklist, facets):
+            return worklist.works(
+                self._db, facets, None, self.search, debug=True
+            )
+
         def assert_featured(description, worklist, facets, expect):
             # Generate a list of featured works for the given `worklist`
             # and compare that list against `expect`.
-            actual = worklist.works(
-                self._db, facets, None, self.search, debug=True
-            )
+            actual = works(worklist, facets)
             self._assert_works(description, expect, actual)
 
         worklist = WorkList()
@@ -1854,15 +1851,17 @@ class TestFeaturedFacets(EndToEndSearchTest):
         facets = FeaturedFacets(1, random_seed=Filter.DETERMINISTIC)
 
         # Even though hq_not_available is higher-quality than
-        # featured_on_list, it shows up first because it's available
-        # right now.
-        #
+        # not_featured_on_list, not_featured_on_list shows up first because
+        # it's available right now.
+        w = works(worklist, facets)
+        assert w.index(self.not_featured_on_list) < w.index(
+            self.hq_not_available
+        )
+
         # not_featured_on_list shows up before featured_on_list because
         # it's higher-quality and list membership isn't relevant.
-        assert_featured(
-            "Normal search", worklist, facets,
-            [self.hq_available, self.hq_available_2, self.not_featured_on_list,
-             self.hq_not_available, self.featured_on_list],
+        assert w.index(self.not_featured_on_list) < w.index(
+            self.featured_on_list
         )
 
         # Create a WorkList that's restricted to best-sellers.
@@ -1888,13 +1887,18 @@ class TestFeaturedFacets(EndToEndSearchTest):
         all_featured_facets = FeaturedFacets(
             0, random_seed=Filter.DETERMINISTIC
         )
-        assert_featured(
-            "Works without considering quality",
-            worklist, all_featured_facets,
-            [self.hq_available, self.hq_available_2,
-             self.not_featured_on_list, self.hq_not_available,
-             self.featured_on_list],
+        # We don't know exactly what order the books will be in,
+        # because even without the random element Elasticsearch is
+        # slightly nondeterministic, but we do expect that all of the
+        # available books will show up before all of the unavailable
+        # books.
+        only_availability_matters = worklist.works(
+            self._db, facets, None, self.search, debug=True
         )
+        eq_(5, len(only_availability_matters))
+        last_two = only_availability_matters[-2:]
+        assert self.hq_not_available in last_two
+        assert self.featured_on_list in last_two
 
         # Up to this point we've been avoiding the random element,
         # but we can introduce that now by passing in a numeric seed.

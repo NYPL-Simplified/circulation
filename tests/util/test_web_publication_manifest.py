@@ -2,13 +2,13 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from ..util.web_publication_manifest import (
+from ...util.web_publication_manifest import (
     JSONable,
     Manifest,
     AudiobookManifest,
 )
 
-from . import DatabaseTest
+from .. import DatabaseTest
 
 class TestJSONable(object):
 
