@@ -133,7 +133,8 @@ class OverdriveAPI(object):
 
     # The formats that can be read by the default Library Simplified reader.
     DEFAULT_READABLE_FORMATS = set(
-        ["ebook-epub-open", "ebook-epub-adobe", "audiobook-overdrive"]
+        ["ebook-epub-open", "ebook-epub-adobe", "ebook-pdf-open", 
+         "audiobook-overdrive"]
     )
 
     # The formats that indicate the book has been fulfilled on an
