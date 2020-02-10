@@ -4,7 +4,7 @@ from nose.tools import (
     assert_raises
 )
 import flask
-from werkzeug import MultiDict
+from werkzeug.datastructures import MultiDict
 from api.admin.exceptions import *
 from api.odl import SharedODLAPI
 from api.registry import (

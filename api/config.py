@@ -43,7 +43,7 @@ class Configuration(CoreConfiguration):
     # service for a library's inclusion in the SimplyE library
     # registry.
     CUSTOM_TOS_HREF = "tos_href"
-    DEFAULT_TOS_HREF = "https://librarysimplified.org/simplye-terms-of-service/"
+    DEFAULT_TOS_HREF = "https://librarysimplified.org/simplyetermsofservice2/"
 
     # Custom text for the link defined in CUSTOM_TOS_LINK.
     CUSTOM_TOS_TEXT = "tos_text"

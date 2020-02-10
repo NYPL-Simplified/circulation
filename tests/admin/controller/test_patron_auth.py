@@ -6,7 +6,7 @@ from nose.tools import (
 import flask
 from flask_babel import lazy_gettext as _
 import json
-from werkzeug import MultiDict
+from werkzeug.datastructures import MultiDict
 from api.admin.controller.patron_auth_services import PatronAuthServicesController
 from api.admin.exceptions import *
 from api.authenticator import (
