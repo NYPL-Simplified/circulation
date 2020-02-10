@@ -233,7 +233,9 @@ class Configuration(ConfigurationConstants):
           ],
           "default": [x.INTERNAL_NAME for x in EntryPoint.DEFAULT_ENABLED],
           "category": "Lanes & Filters",
+          # Renders a component with options that get narrowed down as the user makes selections.
           "format": "narrow",
+          # Renders an input field that cannot be edited.
           "readOnly": True
         },
         {
@@ -262,6 +264,7 @@ class Configuration(ConfigurationConstants):
           ],
           "default": FacetConstants.FACETS_BY_GROUP.get(group),
           "category": "Lanes & Filters",
+          # Tells the front end that each of these settings is related to the corresponding default setting.
           "paired": ConfigurationConstants.DEFAULT_FACET_KEY_PREFIX + group,
         } for group, description in FacetConstants.GROUP_DESCRIPTIONS.iteritems()
     ] + [
