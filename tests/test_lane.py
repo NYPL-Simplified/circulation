@@ -1194,19 +1194,39 @@ class TestSearchFacets(DatabaseTest):
         facets.modify_search_filter(filter)
         eq_([Edition.BOOK_MEDIUM], filter.media)
 
-        # The language specified in the constructor does *not* override
-        # anything already present in the filter.
+        # The language specified in the constructor _adds_ to any
+        # languages already present in the filter.
         facets = SearchFacets(None, languages=["eng", "spa"])
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
-        eq_("spa", filter.languages)
+        eq_(["eng", "spa"], filter.languages)
 
-        # It only takes effect if the filter doesn't have any languages
-        # set.
-        filter = Filter()
+        # It doesn't override those values.
+        facets = SearchFacets(None, languages="eng")
+        filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["eng", "spa"], filter.languages)
 
+        # This may result in modify_search_filter being a no-op.
+        facets = SearchFacets(None, languages="eng")
+        filter = Filter(languages="eng")
+        facets.modify_search_filter(filter)
+        eq_(["eng"], filter.languages)
+
+
+        # If no languages are specified in the SearchFacets, the value
+        # set by the filter is used by itself.
+        facets = SearchFacets(None, languages=None)
+        filter = Filter(languages="spa")
+        facets.modify_search_filter(filter)
+        eq_(["spa"], filter.languages)
+
+        # If neither facets nor filter includes any languages, there
+        # is no language filter.
+        facets = SearchFacets(None, languages=None)
+        filter = Filter(languages=None)
+        facets.modify_search_filter(filter)
+        eq_(None, filter.languages)
 
 class TestPagination(DatabaseTest):
 

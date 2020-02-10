@@ -1,3 +1,4 @@
+# encoding: utf-8
 import json
 import logging
 import sys
@@ -51,6 +52,33 @@ class TestJSONFormatter(object):
         eq_("A message", data['message'])
         eq_("pathname", data['filename'])
         assert 'ValueError: fake exception' in data['traceback']
+
+    def test_format_with_different_types_of_strings(self):
+        # As long as all data is either Unicode or UTF-8, any combination
+        # of Unicode and bytestrings can be combined in log messages.
+
+        unicode_message = u"An important snowman: %s"
+        byte_message = unicode_message.encode("utf8")
+
+        unicode_snowman = u"☃"
+        utf8_snowman = unicode_snowman.encode("utf8")
+
+        # Test every combination of Unicode and bytestring message and
+        # argument.
+        formatter = JSONFormatter("some app")
+        for msg, args in (
+            (unicode_message, utf8_snowman),
+            (unicode_message, unicode_snowman),
+            (byte_message, utf8_snowman),
+            (byte_message, unicode_snowman),
+        ):
+            record = logging.LogRecord(
+                "some logger", logging.DEBUG, "pathname",
+                104, msg, (args,), None, None
+            )
+            data = json.loads(formatter.format(record))
+            # The resulting data is always a Unicode string.
+            eq_(u"An important snowman: ☃", data['message'])
 
 
 class TestLogConfiguration(DatabaseTest):
