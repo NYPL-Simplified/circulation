@@ -234,7 +234,7 @@ class Configuration(ConfigurationConstants):
           "default": [x.INTERNAL_NAME for x in EntryPoint.DEFAULT_ENABLED],
           "category": "Lanes & Filters",
           "format": "narrow",
-          "locked": True
+          "readOnly": True
         },
         {
             "key": FEATURED_LANE_SIZE,
