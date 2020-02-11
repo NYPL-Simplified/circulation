@@ -1481,7 +1481,7 @@ class OPDSImporter(object):
             if link.media_type == MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
                 derived_medium = Edition.AUDIO_MEDIUM
                 break
-            elif link.media_type == MediaTypes.EPUB_MEDIA_TYPE:
+            elif link.media_type in MediaTypes.BOOK_MEDIA_TYPES:
                 derived_medium = Edition.BOOK_MEDIUM
                 break
 

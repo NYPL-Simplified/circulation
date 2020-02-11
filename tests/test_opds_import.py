@@ -1,5 +1,6 @@
 import os
 import datetime
+import random
 import urllib
 from StringIO import StringIO
 from nose.tools import (
@@ -52,6 +53,7 @@ from ..model import (
     Identifier,
     Edition,
     Measurement,
+    MediaTypes,
     Representation,
     RightsStatus,
     Subject,
@@ -554,7 +556,8 @@ class TestOPDSImporter(OPDSImporterTest):
         ]
         book_links = [
             LinkData(href="url", rel="http://opds-spec.org/image"),
-            LinkData(href="url", rel="http://opds-spec.org/acquisition/", media_type="application/epub+zip"),
+            LinkData(href="url", rel="http://opds-spec.org/acquisition/",
+                     media_type=random.choice(MediaTypes.BOOK_MEDIA_TYPES)),
         ]
 
         m = OPDSImporter.get_medium_from_links
