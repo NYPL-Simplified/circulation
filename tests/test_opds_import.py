@@ -1423,6 +1423,10 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_([], imported_pools)
         eq_([], imported_works)
 
+        # We were able to figure out the medium of the Edition
+        # based on its <dcterms:format> tag.
+        eq_(Edition.AUDIO_MEDIUM, edition.medium)
+
     def test_build_identifier_mapping(self):
         """Reverse engineers an identifier_mapping based on a list of URNs"""
 
