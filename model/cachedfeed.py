@@ -200,7 +200,7 @@ class CachedFeed(Base):
         return type
 
     @classmethod
-    def max_cache_age(cls, worklist, type, override):
+    def max_cache_age(cls, worklist, type, override=None):
         """Determine the number of seconds that a cached feed
         of a given type can remain fresh.
 
@@ -226,7 +226,7 @@ class CachedFeed(Base):
             value = 0
 
         if isinstance(value, datetime.timedelta):
-            value = value.seconds()
+            value = value.total_seconds()
         return value
 
     # This named tuple makes it easy to manage the return value of

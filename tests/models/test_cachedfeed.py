@@ -1,5 +1,6 @@
 # encoding: utf-8
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -18,6 +19,141 @@ from ...opds import AcquisitionFeed
 
 
 class TestCachedFeed(DatabaseTest):
+
+    # Tests of helper methods.
+
+    def test_feed_type(self):
+        # Verify that a WorkList or a Facets object can determine the
+        # value to be stored in CachedFeed.type, with Facets taking
+        # priority.
+        class DontCare(object):
+            CACHED_FEED_TYPE = None
+
+        class WorkList(object):
+            CACHED_FEED_TYPE = "from worklist"
+
+        class Facets(object):
+            CACHED_FEED_TYPE = "from facets"
+
+        m = CachedFeed.feed_type
+
+        # The default type is PAGE_TYPE.
+        eq_(CachedFeed.PAGE_TYPE, m(None, None))
+        eq_(CachedFeed.PAGE_TYPE, m(DontCare, DontCare))
+
+        # If `worklist` has an opinion and `facets` doesn't, we use that.
+        eq_("from worklist", m(WorkList, None))
+        eq_("from worklist", m(WorkList, DontCare))
+
+        # If `facets` has an opinion`, it is always used.
+        eq_("from facets", m(DontCare, Facets))
+        eq_("from facets", m(None, Facets))
+        eq_("from facets", m(WorkList, Facets))
+
+    def test_max_cache_age(self):
+        m = CachedFeed.max_cache_age
+
+        # If override is provided, that value is always used.
+        eq_(60, m(None, None, 60))
+        eq_(60, m(None, None, datetime.timedelta(minutes=1)))
+
+        # Otherwise, CachedFeed.max_cache_age depends on
+        # WorkList.max_cache_age. This method can return a few
+        # different data types.
+        class MockWorklist(object):
+            def max_cache_age(self, type):
+                return dict(
+                    number=1,
+                    timedelta=datetime.timedelta(seconds=2),
+                    expensive=CachedFeed.CACHE_FOREVER,
+                    dont_cache=None,
+                )[type]
+
+        # The result is always either a number of seconds or
+        # CACHE_FOREVER.
+        wl = MockWorklist()
+        eq_(1, m(wl, "number"))
+        eq_(2, m(wl, "timedelta"))
+        eq_(CachedFeed.CACHE_FOREVER, m(wl, "expensive"))
+        eq_(0, m(wl, "dont_cache"))
+
+        # override still takes precedence.
+        eq_(60, m(wl, "expensive", 60))
+
+    def test__prepare_keys(self):
+        # Verify the method that turns WorkList, Facets, and Pagination
+        # into a unique set of values for CachedFeed fields.
+
+        # First, prepare some mock classes.
+        class MockCachedFeed(CachedFeed):
+            feed_type_called_with = None
+            @classmethod
+            def feed_type(cls, worklist, facets):
+                cls.feed_type_called_with = (worklist, facets)
+                return "mock type"
+
+        class MockFacets(object):
+            query_string = b"facets query string"
+
+        class MockPagination(object):
+            query_string = b"pagination query string"
+
+        m = MockCachedFeed._prepare_keys
+        # A WorkList of some kind is required.
+        assert_raises_regexp(
+            ValueError, "Cannot prepare a CachedFeed without a WorkList.",
+            m, self._db, None, MockFacets, MockPagination
+        )
+
+        # Basic Lane case, no facets or pagination.
+        lane = self._lane()
+
+        # The response object is a named tuple. feed_type, library and
+        # lane_id are the only members set.
+        keys = m(self._db, lane, None, None)
+        eq_("mock type", keys.feed_type)
+        eq_(lane.library, keys.library)
+        eq_(None, keys.work)
+        eq_(lane.id, keys.lane_id)
+        eq_(None, keys.unique_key)
+        eq_(u'', keys.facets_key)
+        eq_(u'', keys.pagination_key)
+
+        # When pagination and/or facets are available, facets_key and
+        # pagination_key are set appropriately.
+        keys = m(self._db, lane, MockFacets, MockPagination)
+        eq_(u"facets query string", keys.facets_key)
+        eq_(u"pagination query string", keys.pagination_key)
+
+        # Now we can check that feed_type was obtained by passing
+        # `worklist` and `facets` into MockCachedFeed.feed_type.
+        eq_("mock type", keys.feed_type)
+        eq_((lane, MockFacets), MockCachedFeed.feed_type_called_with)
+
+        # When a WorkList is used instead of a Lane, keys.lane_id is None
+        # but keys.unique_id is set to worklist.unique_id.
+        worklist = WorkList()
+        worklist.initialize(
+            library=self._default_library, display_name="wl",
+            languages=["eng", "spa"], audiences=[Classifier.AUDIENCE_CHILDREN]
+        )
+
+        keys = m(self._db, worklist, None, None)
+        eq_("mock type", keys.feed_type)
+        eq_(worklist.get_library(self._db), keys.library)
+        eq_(None, keys.work)
+        eq_(None, keys.lane_id)
+        eq_("wl-eng,spa-Children", keys.unique_key)
+        eq_(keys.unique_key, worklist.unique_key)
+        eq_(u'', keys.facets_key)
+        eq_(u'', keys.pagination_key)
+
+        # When a WorkList is associated with a specific .work,
+        # that information is included as keys.work.
+        work = object()
+        worklist.work = work
+        keys = m(self._db, worklist, None, None)
+        eq_(work, keys.work)
 
     def test_fetch_page_feeds(self):
         """CachedFeed.fetch retrieves paginated feeds from the database if
