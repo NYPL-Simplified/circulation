@@ -2717,6 +2717,11 @@ has this value.</li>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.model.constants.MediaTypes.AUDIOBOOK_MEDIA_TYPES">
+<code class="descname">AUDIOBOOK_MEDIA_TYPES</code><em class="property"> = [u'application/audiobook+json']</em><a class="headerlink" href="#core.model.constants.MediaTypes.AUDIOBOOK_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.model.constants.MediaTypes.BOOK_MEDIA_TYPES">
 <code class="descname">BOOK_MEDIA_TYPES</code><em class="property"> = [u'application/epub+zip', u'application/pdf', u'application/x-mobipocket-ebook', u'audio/mpeg', u'application/x-mobi8-ebook']</em><a class="headerlink" href="#core.model.constants.MediaTypes.BOOK_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -4383,6 +4388,25 @@ by this Edition.</p>
 <dt id="core.model.edition.Edition.medium">
 <code class="descname">medium</code><a class="headerlink" href="#core.model.edition.Edition.medium" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="core.model.edition.Edition.medium_from_media_type">
+<em class="property">classmethod </em><code class="descname">medium_from_media_type</code><span class="sig-paren">(</span><em>media_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/edition.html#Edition.medium_from_media_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.edition.Edition.medium_from_media_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Derive a value for Edition.medium from a media type.</p>
+<p>TODO: It’s not necessary right now, but we could theoretically
+derive this information from some other types such as
+our internal types for Overdrive manifests.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>media_type</strong> – A media type with optional parameters</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A value for Edition.medium.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="classmethod">
 <dt id="core.model.edition.Edition.missing_coverage_from">
@@ -7808,19 +7832,26 @@ Raises exception if edition to set to is None.</p>
 <dl class="method">
 <dt id="core.model.resource.Resource.Work.set_presentation_ready">
 <code class="descname">set_presentation_ready</code><span class="sig-paren">(</span><em>as_of=None</em>, <em>search_index_client=None</em>, <em>exclude_search=False</em><span class="sig-paren">)</span><a class="headerlink" href="#core.model.resource.Resource.Work.set_presentation_ready" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Set this work as presentation-ready, no matter what.</p>
+<p>This assumes that we know the work has the minimal information
+necessary to be found with typical queries and that patrons
+will be able to understand what work we’re talking about.</p>
+<p>In most cases you should call set_presentation_ready_based_on_content
+instead, which runs those checks.</p>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.model.resource.Resource.Work.set_presentation_ready_based_on_content">
 <code class="descname">set_presentation_ready_based_on_content</code><span class="sig-paren">(</span><em>search_index_client=None</em><span class="sig-paren">)</span><a class="headerlink" href="#core.model.resource.Resource.Work.set_presentation_ready_based_on_content" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set this work as presentation ready, if it appears to
-be ready based on its data.
-Presentation ready means the book is ready to be shown to
+be ready based on its data.</p>
+<p>Presentation ready means the book is ready to be shown to
 patrons and (pending availability) checked out. It doesn’t
-necessarily mean the presentation is complete.
-The absolute minimum data necessary is a title, a language,
-and a fiction/nonfiction status. We don’t need a cover or an
-author – we can fill in that info later if it exists.</p>
+necessarily mean the presentation is complete.</p>
+<p>The absolute minimum data necessary is a title, a language,
+and a medium. We don’t need a cover or an author – we can
+fill in that info later if it exists.</p>
+<p>TODO: search_index_client is redundant here.</p>
 </dd></dl>
 
 <dl class="method">
@@ -8641,19 +8672,26 @@ Raises exception if edition to set to is None.</p>
 <dl class="method">
 <dt id="core.model.work.Work.set_presentation_ready">
 <code class="descname">set_presentation_ready</code><span class="sig-paren">(</span><em>as_of=None</em>, <em>search_index_client=None</em>, <em>exclude_search=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/work.html#Work.set_presentation_ready"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.work.Work.set_presentation_ready" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Set this work as presentation-ready, no matter what.</p>
+<p>This assumes that we know the work has the minimal information
+necessary to be found with typical queries and that patrons
+will be able to understand what work we’re talking about.</p>
+<p>In most cases you should call set_presentation_ready_based_on_content
+instead, which runs those checks.</p>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.model.work.Work.set_presentation_ready_based_on_content">
 <code class="descname">set_presentation_ready_based_on_content</code><span class="sig-paren">(</span><em>search_index_client=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/work.html#Work.set_presentation_ready_based_on_content"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.work.Work.set_presentation_ready_based_on_content" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set this work as presentation ready, if it appears to
-be ready based on its data.
-Presentation ready means the book is ready to be shown to
+be ready based on its data.</p>
+<p>Presentation ready means the book is ready to be shown to
 patrons and (pending availability) checked out. It doesn’t
-necessarily mean the presentation is complete.
-The absolute minimum data necessary is a title, a language,
-and a fiction/nonfiction status. We don’t need a cover or an
-author – we can fill in that info later if it exists.</p>
+necessarily mean the presentation is complete.</p>
+<p>The absolute minimum data necessary is a title, a language,
+and a medium. We don’t need a cover or an author – we can
+fill in that info later if it exists.</p>
+<p>TODO: search_index_client is redundant here.</p>
 </dd></dl>
 
 <dl class="method">

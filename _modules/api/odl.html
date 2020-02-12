@@ -840,9 +840,13 @@
         <span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">licenses_available</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">odl_license_tags</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">_xpath</span><span class="p">(</span><span class="n">entry_tag</span><span class="p">,</span> <span class="s1">&#39;odl:license&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="n">medium</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">odl_license_tag</span> <span class="ow">in</span> <span class="n">odl_license_tags</span><span class="p">:</span>
             <span class="n">identifier</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;dcterms:identifier&#39;</span><span class="p">)</span>
             <span class="n">full_content_type</span> <span class="o">=</span> <span class="n">subtag</span><span class="p">(</span><span class="n">odl_license_tag</span><span class="p">,</span> <span class="s1">&#39;dcterms:format&#39;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">medium</span><span class="p">:</span>
+                <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">medium_from_media_type</span><span class="p">(</span><span class="n">full_content_type</span><span class="p">)</span>
 
             <span class="c1"># By default, dcterms:format includes the media type of a</span>
             <span class="c1"># DRM-free resource.</span>
@@ -878,8 +882,7 @@
                     <span class="p">)</span>
                 <span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">content_type</span> <span class="o">==</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">:</span>
-                <span class="n">data</span><span class="p">[</span><span class="s1">&#39;medium&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;medium&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">medium</span>
 
             <span class="n">expires</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">remaining_checkouts</span> <span class="o">=</span> <span class="kc">None</span>

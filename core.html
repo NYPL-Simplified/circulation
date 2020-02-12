@@ -552,7 +552,7 @@ server.</p>
 
 <dl class="attribute">
 <dt id="core.config.Configuration.LIBRARY_SETTINGS">
-<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'key': u'website', 'label': l'URL of the library's website'}, {'category': 'Loans, Holds, &amp; Fines', 'default': 'true', 'label': l'Allow books to be put on hold', 'key': 'allow_holds', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}]}, {'category': 'Lanes &amp; Filters', 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'default': ['Book'], 'label': l'Enabled entry points', 'key': 'enabled_entry_points', 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}]}, {'default': 15, 'category': 'Lanes &amp; Filters', 'type': 'number', 'key': 'featured_lane_size', 'label': l'Maximum number of books in the 'featured' lanes'}, {'category': 'Lanes &amp; Filters', 'description': l'Between 0 and 1.', 'default': 0.65, 'max': 1, 'label': l'Minimum quality for books that show up in 'featured' lanes', 'key': 'minimum_featured_quality', 'type': 'number'}, {'category': 'Lanes &amp; Filters', 'default': ['now', 'all', 'always'], 'label': l'Allow patrons to filter availability to', 'key': 'facets_enabled_available', 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': ['title', 'author', 'added', 'random'], 'label': l'Allow patrons to sort by', 'key': 'facets_enabled_order', 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': ['full', 'featured'], 'label': l'Allow patrons to filter collection to', 'key': 'facets_enabled_collection', 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}, {'category': 'Lanes &amp; Filters', 'default': 'all', 'label': l'Default Availability', 'key': 'facets_default_available', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': 'author', 'label': l'Default Sort by', 'key': 'facets_default_order', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': 'full', 'label': l'Default Collection', 'key': 'facets_default_collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}]</em><a class="headerlink" href="#core.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">LIBRARY_SETTINGS</code><em class="property"> = [{'format': 'url', 'required': True, 'description': l'The library's main website, e.g. &quot;https://www.nypl.org/&quot; (not this Circulation Manager's URL).', 'key': u'website', 'label': l'URL of the library's website'}, {'category': 'Loans, Holds, &amp; Fines', 'default': 'true', 'label': l'Allow books to be put on hold', 'key': 'allow_holds', 'type': 'select', 'options': [{'key': 'true', 'label': l'Allow holds'}, {'key': 'false', 'label': l'Disable holds'}]}, {'category': 'Lanes &amp; Filters', 'readOnly': True, 'description': l'Patrons will see the selected entry points at the top level and in search results. &lt;p&gt;Currently supported audiobook vendors: Bibliotheca, Axis 360', 'key': 'enabled_entry_points', 'format': 'narrow', 'default': ['Book'], 'type': 'list', 'options': [{'key': 'All', 'label': 'All'}, {'key': 'Book', 'label': 'eBooks'}, {'key': 'Audio', 'label': 'Audiobooks'}], 'label': l'Enabled entry points'}, {'default': 15, 'category': 'Lanes &amp; Filters', 'type': 'number', 'key': 'featured_lane_size', 'label': l'Maximum number of books in the 'featured' lanes'}, {'category': 'Lanes &amp; Filters', 'description': l'Between 0 and 1.', 'default': 0.65, 'max': 1, 'label': l'Minimum quality for books that show up in 'featured' lanes', 'key': 'minimum_featured_quality', 'type': 'number'}, {'category': 'Lanes &amp; Filters', 'default': ['now', 'all', 'always'], 'label': l'Allow patrons to filter availability to', 'paired': 'facets_default_available', 'key': 'facets_enabled_available', 'type': 'list', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': ['title', 'author', 'added', 'random'], 'label': l'Allow patrons to sort by', 'paired': 'facets_default_order', 'key': 'facets_enabled_order', 'type': 'list', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': ['full', 'featured'], 'label': l'Allow patrons to filter collection to', 'paired': 'facets_default_collection', 'key': 'facets_enabled_collection', 'type': 'list', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}, {'category': 'Lanes &amp; Filters', 'default': 'all', 'skip': True, 'label': l'Default Availability', 'key': 'facets_default_available', 'type': 'select', 'options': [{'key': 'now', 'label': l'Available now'}, {'key': 'all', 'label': l'All'}, {'key': 'always', 'label': l'Yours to keep'}]}, {'category': 'Lanes &amp; Filters', 'default': 'author', 'skip': True, 'label': l'Default Sort by', 'key': 'facets_default_order', 'type': 'select', 'options': [{'key': 'title', 'label': l'Title'}, {'key': 'author', 'label': l'Author'}, {'key': 'added', 'label': l'Recently Added'}, {'key': 'random', 'label': l'Random'}]}, {'category': 'Lanes &amp; Filters', 'default': 'full', 'skip': True, 'label': l'Default Collection', 'key': 'facets_default_collection', 'type': 'select', 'options': [{'key': 'full', 'label': l'Everything'}, {'key': 'featured', 'label': l'Popular Books'}]}]</em><a class="headerlink" href="#core.config.Configuration.LIBRARY_SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5018,7 +5018,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-a913085d-1560-4972-8d04-85bba705d451'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-e0392b31-5fad-41b7-84b2-089d090bb222'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8445,9 +8445,21 @@ if made available on these terms.</li>
 
 <dl class="classmethod">
 <dt id="core.opds_import.OPDSImporter.extract_medium">
-<em class="property">classmethod </em><code class="descname">extract_medium</code><span class="sig-paren">(</span><em>entry_tag</em>, <em>derived_medium</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_medium"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_medium" title="Permalink to this definition">¶</a></dt>
-<dd><p>Derive a value for Edition.medium from &lt;atom:entry
-schema:additionalType&gt;.</p>
+<em class="property">classmethod </em><code class="descname">extract_medium</code><span class="sig-paren">(</span><em>entry_tag</em>, <em>default=u'Book'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.extract_medium"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.extract_medium" title="Permalink to this definition">¶</a></dt>
+<dd><p>Derive a value for Edition.medium from schema:additionalType or
+from a &lt;dcterms:format&gt; subtag.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>entry_tag</strong> – A &lt;atom:entry&gt; tag.</li>
+<li><strong>default</strong> – The value to use if nothing is found.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="classmethod">
@@ -8494,7 +8506,7 @@ constructor.</td>
 <dl class="classmethod">
 <dt id="core.opds_import.OPDSImporter.get_medium_from_links">
 <em class="property">classmethod </em><code class="descname">get_medium_from_links</code><span class="sig-paren">(</span><em>links</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds_import.html#OPDSImporter.get_medium_from_links"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds_import.OPDSImporter.get_medium_from_links" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get medium type if found in the links.</p>
+<dd><p>Get medium if derivable from information in an acquisition link.</p>
 </dd></dl>
 
 <dl class="method">

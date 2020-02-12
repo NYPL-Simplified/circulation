@@ -1268,6 +1268,15 @@
 <div class="viewcode-block" id="Work.set_presentation_ready"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.set_presentation_ready">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_ready</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">as_of</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude_search</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set this work as presentation-ready, no matter what.</span>
+
+<span class="sd">        This assumes that we know the work has the minimal information</span>
+<span class="sd">        necessary to be found with typical queries and that patrons</span>
+<span class="sd">        will be able to understand what work we&#39;re talking about.</span>
+
+<span class="sd">        In most cases you should call set_presentation_ready_based_on_content</span>
+<span class="sd">        instead, which runs those checks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">as_of</span> <span class="o">=</span> <span class="n">as_of</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">presentation_ready</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">presentation_ready_exception</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1278,24 +1287,29 @@
 <div class="viewcode-block" id="Work.set_presentation_ready_based_on_content"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.set_presentation_ready_based_on_content">[docs]</a>    <span class="k">def</span> <span class="nf">set_presentation_ready_based_on_content</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index_client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set this work as presentation ready, if it appears to</span>
 <span class="sd">        be ready based on its data.</span>
+
 <span class="sd">        Presentation ready means the book is ready to be shown to</span>
 <span class="sd">        patrons and (pending availability) checked out. It doesn&#39;t</span>
 <span class="sd">        necessarily mean the presentation is complete.</span>
-<span class="sd">        The absolute minimum data necessary is a title, a language,</span>
-<span class="sd">        and a fiction/nonfiction status. We don&#39;t need a cover or an</span>
-<span class="sd">        author -- we can fill in that info later if it exists.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
 
+<span class="sd">        The absolute minimum data necessary is a title, a language,</span>
+<span class="sd">        and a medium. We don&#39;t need a cover or an author -- we can</span>
+<span class="sd">        fill in that info later if it exists.</span>
+
+<span class="sd">        TODO: search_index_client is redundant here.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">presentation_edition</span>
             <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pools</span>
             <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
             <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">language</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">presentation_edition</span><span class="o">.</span><span class="n">medium</span>
         <span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">presentation_ready</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="c1"># The next time the search index WorkCoverageRecords are</span>
             <span class="c1"># processed, this work will be removed from the search</span>
             <span class="c1"># index.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Work is not presentation ready: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">set_presentation_ready</span><span class="p">(</span><span class="n">search_index_client</span><span class="o">=</span><span class="n">search_index_client</span><span class="p">)</span></div>
 

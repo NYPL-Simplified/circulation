@@ -1509,18 +1509,18 @@
 
 <div class="viewcode-block" id="OPDSImporter.get_medium_from_links"><a class="viewcode-back" href="../../core.html#api.coverage.OPDSImporter.get_medium_from_links">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">get_medium_from_links</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">links</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get medium type if found in the links.&quot;&quot;&quot;</span>
-        <span class="n">links</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">links</span> <span class="k">if</span> <span class="s1">&#39;http://opds-spec.org/acquisition/&#39;</span> <span class="ow">in</span> <span class="n">l</span><span class="o">.</span><span class="n">rel</span><span class="p">]</span>
-        <span class="n">derived_medium</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="sd">&quot;&quot;&quot;Get medium if derivable from information in an acquisition link.&quot;&quot;&quot;</span>
+        <span class="n">derived</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="o">==</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">:</span>
-                <span class="n">derived_medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">AUDIO_MEDIUM</span>
+            <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span>
+                <span class="ow">or</span> <span class="ow">not</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span>
+                <span class="ow">or</span> <span class="ow">not</span> <span class="n">link</span><span class="o">.</span><span class="n">rel</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;http://opds-spec.org/acquisition/&#39;</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">derived</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">medium_from_media_type</span><span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">media_type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">derived</span><span class="p">:</span>
                 <span class="k">break</span>
-            <span class="k">elif</span> <span class="n">link</span><span class="o">.</span><span class="n">media_type</span> <span class="o">==</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">EPUB_MEDIA_TYPE</span><span class="p">:</span>
-                <span class="n">derived_medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
-                <span class="k">break</span>
-
-        <span class="k">return</span> <span class="n">derived_medium</span></div>
+        <span class="k">return</span> <span class="n">derived</span></div>
 
 <div class="viewcode-block" id="OPDSImporter.extract_identifier"><a class="viewcode-back" href="../../core.html#api.coverage.OPDSImporter.extract_identifier">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">extract_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier_tag</span><span class="p">):</span>
@@ -1532,19 +1532,28 @@
             <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="OPDSImporter.extract_medium"><a class="viewcode-back" href="../../core.html#api.coverage.OPDSImporter.extract_medium">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">extract_medium</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">entry_tag</span><span class="p">,</span> <span class="n">derived_medium</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Derive a value for Edition.medium from &lt;atom:entry</span>
-<span class="sd">        schema:additionalType&gt;.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">extract_medium</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">entry_tag</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Derive a value for Edition.medium from schema:additionalType or</span>
+<span class="sd">        from a &lt;dcterms:format&gt; subtag.</span>
 
-        <span class="c1"># If no additionalType is given, assume we&#39;re talking about an</span>
-        <span class="c1"># ebook.</span>
-        <span class="n">default_additional_type</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">medium_to_additional_type</span><span class="p">[</span>
-            <span class="n">derived_medium</span> <span class="ow">or</span> <span class="n">Edition</span><span class="o">.</span><span class="n">BOOK_MEDIUM</span>
-        <span class="p">]</span>
-        <span class="n">additional_type</span> <span class="o">=</span> <span class="n">entry_tag</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;{http://schema.org/}additionalType&#39;</span><span class="p">,</span>
-                                        <span class="n">default_additional_type</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">Edition</span><span class="o">.</span><span class="n">additional_type_to_medium</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">additional_type</span><span class="p">)</span></div>
+<span class="sd">        :param entry_tag: A &lt;atom:entry&gt; tag.</span>
+<span class="sd">        :param default: The value to use if nothing is found.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">entry_tag</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default</span>
+
+        <span class="n">medium</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">additional_type</span> <span class="o">=</span> <span class="n">entry_tag</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;{http://schema.org/}additionalType&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">additional_type</span><span class="p">:</span>
+            <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">additional_type_to_medium</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">additional_type</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">medium</span><span class="p">:</span>
+            <span class="n">format_tag</span> <span class="o">=</span> <span class="n">entry_tag</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;{http://purl.org/dc/terms/}format&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">format_tag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">media_type</span> <span class="o">=</span> <span class="n">format_tag</span><span class="o">.</span><span class="n">text</span>
+                <span class="n">medium</span> <span class="o">=</span> <span class="n">Edition</span><span class="o">.</span><span class="n">medium_from_media_type</span><span class="p">(</span><span class="n">media_type</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">medium</span> <span class="ow">or</span> <span class="n">default</span></div>
 
 <div class="viewcode-block" id="OPDSImporter.extract_contributor"><a class="viewcode-back" href="../../core.html#api.coverage.OPDSImporter.extract_contributor">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">extract_contributor</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">author_tag</span><span class="p">):</span>
