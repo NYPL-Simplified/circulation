@@ -1233,6 +1233,15 @@ class Work(Base):
     def set_presentation_ready(
         self, as_of=None, search_index_client=None, exclude_search=False
     ):
+        """Set this work as presentation-ready, no matter what.
+
+        This assumes that we know the work has the minimal information
+        necessary to be found with typical queries and that patrons
+        will be able to understand what work we're talking about.
+
+        In most cases you should call set_presentation_ready_based_on_content
+        instead, which runs those checks.
+        """
         as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
@@ -1243,24 +1252,29 @@ class Work(Base):
     def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
+
         Presentation ready means the book is ready to be shown to
         patrons and (pending availability) checked out. It doesn't
         necessarily mean the presentation is complete.
-        The absolute minimum data necessary is a title, a language,
-        and a fiction/nonfiction status. We don't need a cover or an
-        author -- we can fill in that info later if it exists.
-        """
 
+        The absolute minimum data necessary is a title, a language,
+        and a medium. We don't need a cover or an author -- we can
+        fill in that info later if it exists.
+
+        TODO: search_index_client is redundant here.
+        """
         if (not self.presentation_edition
             or not self.license_pools
             or not self.title
             or not self.language
+            or not self.presentation_edition.medium
         ):
             self.presentation_ready = False
             # The next time the search index WorkCoverageRecords are
             # processed, this work will be removed from the search
             # index.
             self.external_index_needs_updating()
+            logging.warn("Work is not presentation ready: %r", self)
         else:
             self.set_presentation_ready(search_index_client=search_index_client)
 
