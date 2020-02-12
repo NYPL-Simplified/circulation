@@ -20,6 +20,39 @@ from ...opds import AcquisitionFeed
 
 class TestCachedFeed(DatabaseTest):
 
+    def test_fetch(self):
+        # Verify that CachedFeed.fetch looks in the database for a
+        # matching CachedFeed
+        #
+        # If a new feed needs to be generated, this is done by calling
+        # a hook function, and the result is stored in the database.
+
+        class Mock(CachedFeed):
+            # Mock all of the helper methods, which are tested
+            # separately below.
+
+            @classmethod
+            def _prepare_keys(cls, *args):
+                self._prepare_keys_called_with = args
+                return cls._keys
+            # _prepare_keys always returns this object. Manipulate its
+            # members to test different bits of fetch().
+            _keys = CachedFeed.CacheFeedKeys(library=self._default_library)
+
+            @classmethod
+            def max_cache_age(cls, *args):
+                self.max_cache_age_called_with = args
+                return cls.MAX_CACHE_AGE
+            # max_cache_age always returns whatever value is stored here.
+            MAX_CACHE_AGE = 0
+
+            @classmethod
+            def _should_refresh(cls, *args):
+                self._should_refresh_called_with = args
+                return cls.SHOULD_REFRESH
+            # _should_refresh always returns whatever value is stored here.
+            SHOULD_REFRESH = True
+
     # Tests of helper methods.
 
     def test_feed_type(self):
@@ -222,6 +255,47 @@ class TestCachedFeed(DatabaseTest):
         # The unique key incorporates the WorkList's display name,
         # its languages, and its audiences.
         eq_("aworklist-eng,spa-Children", feed.unique_key)
+
+    def test__should_refresh(self):
+        # Test the algorithm that tells whether a CachedFeed is stale.
+        m = CachedFeed._should_refresh
+
+        # If there's no CachedFeed, we must always refresh.
+        eq_(True, m(None, object()))
+
+        class MockCachedFeed(object):
+            def __init__(self, timestamp):
+                self.timestamp = timestamp
+
+        now = datetime.datetime.utcnow()
+
+        # This feed was generated five minutes ago.
+        five_minutes_old = MockCachedFeed(
+            now - datetime.timedelta(minutes=5)
+        )
+
+        # This feed was generated a thousand years ago.
+        ancient = MockCachedFeed(
+            now - datetime.timedelta(days=1000*365)
+        )
+
+        # If we intend to cache forever, then even a thousand-year-old
+        # feed shouldn't be refreshed.
+        eq_(False, m(ancient, CachedFeed.CACHE_FOREVER))
+
+        # Otherwise, it comes down to a date comparison.
+
+        # If we're caching a feed for ten minutes, then the
+        # five-minute-old feed should not be refreshed.
+        eq_(False, m(five_minutes_old, 600))
+
+        # If we're caching a feed for only a few seconds (or not at all),
+        # then the five-minute-old feed should be refreshed.
+        eq_(True, m(five_minutes_old, 0))
+        eq_(True, m(five_minutes_old, 1))
+
+
+    # XXX
 
     def test_fetch_group_feeds(self):
         # Group feeds don't need to worry about facets or pagination,

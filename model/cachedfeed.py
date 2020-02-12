@@ -140,23 +140,7 @@ class CachedFeed(Base):
         else:
             feed_obj = get_one(_db, cls, **kwargs)
 
-        should_refresh = False
-        if feed_obj is None:
-            # If we didn't find a CachedFeed (maybe because we didn't
-            # bother looking), we must always refresh.
-            should_refresh = True
-        elif max_age == cls.CACHE_FOREVER:
-            # If we found *anything*, and the cache time is CACHE_FOREVER,
-            # we will never refresh.
-            should_refresh = False
-        elif (feed_obj.timestamp
-              and feed_obj.timestamp + datetime.timedelta(max_age) <=
-                  datetime.datetime.utcnow()              
-        ):
-            # Here it comes down to a date comparison: how old is the
-            # CachedFeed?
-            should_refresh = True
-
+        should_refresh = cls._should_refresh(feed_obj, max_age)
         if not should_refresh:
             # This is a cache hit. We found a matching CachedFeed that
             # had fresh content.
@@ -228,6 +212,34 @@ class CachedFeed(Base):
         if isinstance(value, datetime.timedelta):
             value = value.total_seconds()
         return value
+
+    @classmethod
+    def _should_refresh(cls, feed_obj, max_age):
+        """Should we try to get a new representation of this CachedFeed?
+
+        :param feed_obj: A CachedFeed. This may be None, which is why
+            this is a class method.
+
+        :param max_age: Either a number of seconds, or the constant
+            CACHE_FOREVER.
+        """
+        should_refresh = False
+        if feed_obj is None:
+            # If we didn't find a CachedFeed (maybe because we didn't
+            # bother looking), we must always refresh.
+            should_refresh = True
+        elif max_age == cls.CACHE_FOREVER:
+            # If we found *anything*, and the cache time is CACHE_FOREVER,
+            # we will never refresh.
+            should_refresh = False
+        elif (feed_obj.timestamp
+              and feed_obj.timestamp + datetime.timedelta(seconds=max_age) <=
+                  datetime.datetime.utcnow()
+        ):
+            # Here it comes down to a date comparison: how old is the
+            # CachedFeed?
+            should_refresh = True
+        return should_refresh
 
     # This named tuple makes it easy to manage the return value of
     # _prepare_keys.
