@@ -82,7 +82,7 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, worklist, facets, pagination, refresher_method,
-              cache_type=None, max_age=None
+              max_age=None
     ):
         """Retrieve a cached feed from the database if possible.
 
@@ -120,6 +120,10 @@ class CachedFeed(Base):
         # These arguments will probably be passed into get_one, and
         # will be passed into get_one_or_create in the event of a cache
         # miss.
+
+        # TODO: this constraint_clause might not be necessary anymore.
+        # ISTR it was an attempt to avoid race conditions, and we do a
+        # better job of that now.
         constraint_clause = and_(cls.content!=None, cls.timestamp!=None)
         kwargs = dict(
             on_multiple='interchangeable',
