@@ -191,48 +191,86 @@ class TestCachedFeed(DatabaseTest):
             Mock._should_refresh_called_with
         )
 
+    def test_no_race_conditions(self):
         # Why do we look up a CachedFeed again after feed generation?
         # Well, let's see what happens if someone else messes around
         # with the CachedFeed object _while the refresher is running_.
         #
         # This is a race condition that happens in real life. Rather
-        # than setting up a multi-threaded test, we can simulate the
-        # race condition by having the refresher itself mess around
-        # with the CachedFeed it's supposed to be updating.
+        # than setting up a multi-threaded test, we can have the
+        # refresher itself simulate a background modification by
+        # messing around with the CachedFeed object we know will
+        # eventually be returned.
         #
         # The most up-to-date feed always wins, so background
         # modifications will take effect only if they made the
         # CachedFeed look _newer_ than the foreground process does.
-        Mock.SHOULD_REFRESH = True
-        tomorrow = now + datetime.timedelta(days=1)
-        def tricky_refresher():
-            result1.content = "Someone in the background set tomorrow's content."
-            result1.timestamp = tomorrow
-            return "Today's content can't compete."
-        clear_helpers()
-        tricky1 = m(self._db, worklist, facets, pagination, tricky_refresher,
-                    max_age)
-        eq_(tricky1, result1)
-        eq_("Someone in the background set tomorrow's content.", tricky1.content)
-        eq_(tricky1.timestamp, tomorrow)
+        facets = Facets.default(self._default_library)
+        pagination = Pagination.default()
+        wl = WorkList()
+        wl.initialize(self._default_library)
 
-        # If the foreground feed seems fresher, then the background
-        # modifications will be overwritten.
+        m = CachedFeed.fetch
+
+        # In this case, two simulated threads try to create the same
+        # CachedFeed at the same time. We end up with a single
+        # CachedFeed containing the result of the last code that ran.
+        def simultaneous_refresher():
+            # This refresher method simulates another thread creating
+            # a CachedFeed for this feed while this thread's
+            # refresher is running.
+            def other_thread_refresher():
+                return "Another thread made a feed."
+            m(self._db, wl, facets, pagination, other_thread_refresher, 0)
+
+            return "Then this thread made a feed."
+
+        # This will call simultaneous_refresher(), which will call
+        # CachedFeed.fetch() _again_, which will call
+        # other_thread_refresher().
+        result = m(self._db, wl, facets, pagination, simultaneous_refresher, 0)
+
+        # We ended up with a single CachedFeed containing the
+        # latest information.
+        eq_([result], self._db.query(CachedFeed).all())
+        eq_("Then this thread made a feed.", result.content)
+
+        # If two threads contend for an existing CachedFeed, the one that
+        # sets CachedFeed.timestamp to the later value wins.
+        #
+        # Here, the other thread wins by setting .timestamp on the
+        # existing CachedFeed to a date in the future.
+        now = datetime.datetime.utcnow()
+        tomorrow = now + datetime.timedelta(days=1)
         yesterday = now - datetime.timedelta(days=1)
-        def tricky_refresher():
-            result1.content = "Someone in the background set yesterday's content."
-            result1.timestamp = yesterday
+        def tomorrow_vs_now():
+            result.content = "Someone in the background set tomorrow's content."
+            result.timestamp = tomorrow
+            return "Today's content can't compete."
+        tomorrow_result = m(
+            self._db, wl, facets, pagination, tomorrow_vs_now, 0
+        )
+        eq_(tomorrow_result, result)
+        eq_("Someone in the background set tomorrow's content.",
+            tomorrow_result.content)
+        eq_(tomorrow_result.timestamp, tomorrow)
+
+        # Here, the other thread sets .timestamp to a date in the past, and
+        # it loses out to the (apparently) newer feed.
+        def yesterday_vs_now():
+            result.content = "Someone in the background set yesterday's content."
+            result.timestamp = yesterday
             return "Today's content is fresher."
-        clear_helpers()
-        tricky2 = m(self._db, worklist, facets, pagination, tricky_refresher,
-                    max_age)
+        now_result = m(
+            self._db, wl, facets, pagination, yesterday_vs_now, 0
+        )
 
         # We got the same CachedFeed we've been getting this whole
-        # time -- the one tricky_refresher messed with. But the outdated
-        # data set by the 'background process' has been fixed.
-        eq_(tricky2, result1)
-        eq_("Today's content is fresher.", tricky2.content)
-        assert tricky2.timestamp != None
+        # time, but the outdated data set by the 'background thread'
+        # has been fixed.
+        eq_(result, now_result)
+        eq_("Today's content is fresher.", result.content)
+        assert result.timestamp > yesterday
 
         # This shouldn't happen, but if the CachedFeed's timestamp or
         # content are *cleared out* in the background, between the
@@ -243,46 +281,48 @@ class TestCachedFeed(DatabaseTest):
 
         # First, try the situation where .timestamp is cleared out in
         # the background.
-        def tricky_refresher():
-            result1.content = "Someone else sets content and clears timestamp."
-            result1.timestamp = None
+        def timestamp_cleared_in_background():
+            result.content = "Someone else sets content and clears timestamp."
+            result.timestamp = None
 
             return "Non-weird content."
-        clear_helpers()
-        tricky3 = m(self._db, worklist, facets, pagination, tricky_refresher,
-                    max_age)
+        result2 = m(
+            self._db, wl, facets, pagination, timestamp_cleared_in_background,
+            0
+        )
         now = datetime.datetime.utcnow()
 
-        # tricky3 is a brand new CachedFeed.
-        assert tricky3 != tricky1
-        eq_("Non-weird content.", tricky3.content)
-        assert (now - tricky3.timestamp).total_seconds() < 2
+        # result2 is a brand new CachedFeed.
+        assert result2 != result
+        eq_("Non-weird content.", result2.content)
+        assert (now - result2.timestamp).total_seconds() < 2
 
         # We let the background process do whatever it wants to do
         # with the old one.
-        eq_("Someone else sets content and clears timestamp.", tricky1.content)
-        eq_(None, tricky1.timestamp)
+        eq_("Someone else sets content and clears timestamp.", result.content)
+        eq_(None, result.timestamp)
 
         # Next, test the situation where .content is cleared out.
-        def tricky_refresher():
-            tricky3.content = None
-            tricky3.timestamp = tomorrow
+        def content_cleared_in_background():
+            result2.content = None
+            result2.timestamp = tomorrow
 
             return "Non-weird content."
-        clear_helpers()
-        tricky4 = m(self._db, worklist, facets, pagination, tricky_refresher,
-                    max_age)
+        result3 = m(
+            self._db, wl, facets, pagination, content_cleared_in_background, 0
+        )
         now = datetime.datetime.utcnow()
 
         # Again, a brand new CachedFeed.
-        assert tricky4 != tricky3
-        assert tricky4 != tricky1
-        eq_("Non-weird content.", tricky4.content)
-        assert (now - tricky4.timestamp).total_seconds() < 2
+        assert result3 != result2
+        assert result3 != result
+        eq_("Non-weird content.", result3.content)
+        assert (now - result3.timestamp).total_seconds() < 2
 
-        # Again, we let the background process have the old one.
-        eq_(None, tricky3.content)
-        eq_(tomorrow, tricky3.timestamp)
+        # Again, we let the background process have the old one for
+        # whatever weird thing it wants to do.
+        eq_(None, result2.content)
+        eq_(tomorrow, result2.timestamp)
 
     # Tests of helper methods.
 
