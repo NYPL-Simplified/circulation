@@ -231,6 +231,10 @@ class MediaTypes(object):
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
     MARC_MEDIA_TYPE = u"application/marc"
 
+    AUDIOBOOK_MEDIA_TYPES = [
+        AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+    ]
+
     BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE,
         PDF_MEDIA_TYPE,

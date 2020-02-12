@@ -1474,18 +1474,18 @@ class OPDSImporter(object):
 
     @classmethod
     def get_medium_from_links(cls, links):
-        """Get medium type if found in the links."""
-        links = [l for l in links if 'http://opds-spec.org/acquisition/' in l.rel]
-        derived_medium = None
+        """Get medium if derivable from information in an acquisition link."""
+        derived = None
         for link in links:
-            if link.media_type == MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
-                derived_medium = Edition.AUDIO_MEDIUM
+            if (not link.rel
+                or not link.media_type
+                or not link.rel.startswith('http://opds-spec.org/acquisition/')
+            ):
+                continue
+            derived = Edition.medium_from_media_type(link.media_type)
+            if derived:
                 break
-            elif link.media_type == MediaTypes.EPUB_MEDIA_TYPE:
-                derived_medium = Edition.BOOK_MEDIUM
-                break
-
-        return derived_medium
+        return derived
 
     @classmethod
     def extract_identifier(cls, identifier_tag):
@@ -1497,19 +1497,28 @@ class OPDSImporter(object):
             return None
 
     @classmethod
-    def extract_medium(cls, entry_tag, derived_medium):
-        """Derive a value for Edition.medium from <atom:entry
-        schema:additionalType>.
-        """
+    def extract_medium(cls, entry_tag, default=Edition.BOOK_MEDIUM):
+        """Derive a value for Edition.medium from schema:additionalType or
+        from a <dcterms:format> subtag.
 
-        # If no additionalType is given, assume we're talking about an
-        # ebook.
-        default_additional_type = Edition.medium_to_additional_type[
-            derived_medium or Edition.BOOK_MEDIUM
-        ]
-        additional_type = entry_tag.get('{http://schema.org/}additionalType',
-                                        default_additional_type)
-        return Edition.additional_type_to_medium.get(additional_type)
+        :param entry_tag: A <atom:entry> tag.
+        :param default: The value to use if nothing is found.
+        """
+        if not entry_tag:
+            return default
+
+        medium = None
+        additional_type = entry_tag.get('{http://schema.org/}additionalType')
+        if additional_type:
+            medium = Edition.additional_type_to_medium.get(
+                additional_type, None
+            )
+        if not medium:
+            format_tag = entry_tag.find('{http://purl.org/dc/terms/}format')
+            if format_tag is not None:
+                media_type = format_tag.text
+                medium = Edition.medium_from_media_type(media_type)
+        return medium or default
 
     @classmethod
     def extract_contributor(cls, parser, author_tag):
