@@ -589,6 +589,10 @@ class AcquisitionFeed(OPDSFeed):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
+        NOTE: If the lane has no sublanes, a grouped feed will
+        probably be unsatisfying. Call page() instead with an
+        appropriate Facets object.
+
         :param facets: A GroupsFacet object.
 
         :return: A Unicode string containing a (potentially cached) OPDS feed.
