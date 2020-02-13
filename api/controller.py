@@ -701,28 +701,33 @@ class IndexController(CirculationManagerController):
 class OPDSFeedController(CirculationManagerController):
 
     def groups(self, lane_identifier, feed_class=AcquisitionFeed):
-        """Build or retrieve a grouped acquisition feed."""
+        """Build or retrieve a grouped acquisition feed.
 
+        :param lane_identifier: An identifier that uniquely identifiers
+            the WorkList whose feed we want.
+        :param feed_class: A replacement for AcquisitionFeed, for use in
+            tests.
+        """
         library = flask.request.library
 
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
-    
-        if lane.sublanes:
-            # This lane has sublanes, so we can make a real grouped feed.
-            facet_class_kwargs = dict(
-                minimum_featured_quality=library.minimum_featured_quality,
-            )
-            facets = load_facets_from_request(
-                worklist=lane, base_class=FeaturedFacets,
-                base_class_constructor_kwargs=facet_class_kwargs
-            )
-            m = feed_class.groups
-        else:
-            # This lane has no sublanes. We need to fall back to a paginated
-            # feed.
-            m = feed_glass.page
+
+        if not lane.sublanes:
+            # This lane has no sublanes. Although we can technically
+            # create a grouped feed, it would be an unsatisfying
+            # gateway to a paginated feed. We should just serve the
+            # paginated feed.
+            return self.feed(lane_identifier, feed_class)
+
+        facet_class_kwargs = dict(
+            minimum_featured_quality=library.minimum_featured_quality,
+        )
+        facets = load_facets_from_request(
+            worklist=lane, base_class=FeaturedFacets,
+            base_class_constructor_kwargs=facet_class_kwargs
+        )
         if isinstance(facets, ProblemDetail):
             return facets
 
@@ -743,7 +748,13 @@ class OPDSFeedController(CirculationManagerController):
         return feed_response(feed)
 
     def feed(self, lane_identifier, feed_class=AcquisitionFeed):
-        """Build or retrieve a paginated acquisition feed."""
+        """Build or retrieve a paginated acquisition feed.
+
+        :param lane_identifier: An identifier that uniquely identifiers
+            the WorkList whose feed we want.
+        :param feed_class: A replacement for AcquisitionFeed, for use in
+            tests.
+        """
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
