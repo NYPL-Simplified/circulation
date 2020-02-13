@@ -657,7 +657,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
     name = "Cache OPDS grouped feed for each lane"
 
     def should_process_lane(self, lane):
-        # OPDS group feeds are only generated for lanes that have sublanes.
+        # OPDS grouped feeds are only generated for lanes that have sublanes.
         if not lane.children:
             return False
         if self.max_depth is not None and lane.depth > self.max_depth:
@@ -669,9 +669,13 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         annotator = self.app.manager.annotator(lane, facets=facets)
         url = annotator.groups_url(lane, facets)
         feed_class = feed_class or AcquisitionFeed
+
+        # Since grouped feeds are only cached for lanes that have sublanes,
+        # there's no need to consider the case of a lane with no sublanes,
+        # unlike the corresponding code in OPDSFeedController.groups()
         return feed_class.groups(
-            _db=self._db, title=title, url=url, worklist=lane, annotator=annotator,
-            max_age=0, facets=facets
+            _db=self._db, title=title, url=url, worklist=lane,
+            annotator=annotator, max_age=0, facets=facets
         )
 
     def facets(self, lane):
