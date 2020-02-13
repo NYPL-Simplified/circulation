@@ -59,6 +59,7 @@ from ..opds import (
     AcquisitionFeed,
     Annotator,
     LookupAcquisitionFeed,
+    NavigationFacets,
     NavigationFeed,
     OPDSFeed,
     UnfulfillableWork,
@@ -2253,6 +2254,15 @@ class TestEntrypointLinkInsertion(DatabaseTest):
             self.wl, facets, pagination
         )
         eq_(first_page_url, make_link(EbooksEntryPoint))
+
+
+class TestNavigationFacets(object):
+
+    def test_feed_type(self):
+        # If a navigation feed is built via CachedFeed.fetch, it will be
+        # filed as a navigation feed.
+        eq_(CachedFeed.NAVIGATION_TYPE, NavigationFacets.CACHED_FEED_TYPE)
+
 
 class TestNavigationFeed(DatabaseTest):
 
