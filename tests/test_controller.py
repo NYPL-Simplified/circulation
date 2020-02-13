@@ -2982,7 +2982,7 @@ class TestOPDSFeedController(CirculationControllerTest):
                            ]:
             ConfigurationSetting.for_library(rel, library).value = value
 
-        # Make a real OPDS feed and poke at it. 
+        # Make a real OPDS feed and poke at it.
         with self.request_context_with_library(
             "/?entrypoint=Book&size=10"
         ):
@@ -3048,7 +3048,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             assert all(lane_str in x for x in facet_links)
             assert all('entrypoint=Book' in x for x in facet_links)
             assert any('order=title' in x for x in facet_links)
-            assert any('order=author' in x for x in facet_links)       
+            assert any('order=author' in x for x in facet_links)
 
         # Now let's take a closer look at what this controller method
         # passes into AcquisitionFeed.page(), by mocking page().
@@ -3223,7 +3223,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             )
 
         eq_(self.english_adult_fiction, self.page_called_with.pop('worklist'))
-        
+
         # The canonical URL for this feed is a page-type URL, not a
         # groups-type URL.
         eq_(expect_url, self.page_called_with.pop('url'))
@@ -3517,8 +3517,8 @@ class TestCrawlableFeed(CirculationControllerTest):
             response = controller.crawlable_collection_feed(
                 collection_name="No such collection"
             )
-            eq_(NO_SUCH_COLLECTION, response)            
-            
+            eq_(NO_SUCH_COLLECTION, response)
+
         # Unlike most of these controller methods, this one does not
         # require a library context.
         with self.app.test_request_context("/"):
@@ -3614,7 +3614,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         assert isinstance(lane, CrawlableCustomListBasedLane)
         eq_([customlist.id], lane.customlist_ids)
         eq_({}, kwargs)
-            
+
     def test__crawlable_feed(self):
         # Test the helper method called by all other feed methods.
         self.page_called_with = None
