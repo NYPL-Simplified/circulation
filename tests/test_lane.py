@@ -57,6 +57,7 @@ from ..model import (
     dump_query,
     get_one_or_create,
     tuple_to_numericrange,
+    CachedFeed,
     CustomListEntry,
     DataSource,
     Edition,
