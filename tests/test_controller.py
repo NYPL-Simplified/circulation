@@ -3117,8 +3117,8 @@ class TestOPDSFeedController(CirculationControllerTest):
     def test_groups(self):
         # AcquisitionFeed.groups is tested in core/test_opds.py, and a
         # full end-to-end test would require setting up a real search
-        # index, so we're just going to test that groups() is called
-        # properly.
+        # index, so we're just going to test that groups() (or, in one
+        # case, page()) is called properly.
         library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0.15
         library.setting(library.FEATURED_LANE_SIZE).value = 2
@@ -3214,11 +3214,32 @@ class TestOPDSFeedController(CirculationControllerTest):
             response = self.manager.opds_feeds.groups(
                 self.english_adult_fiction.id, feed_class=Mock
             )
+
+            # While we're in request context, generate the URL we
+            # expect to be used for this feed.
+            expect_url = self.manager.opds_feeds.cdn_url_for(
+                "feed", lane_identifier=self.english_adult_fiction.id,
+                library_short_name=library.short_name,
+            )
+
         eq_(self.english_adult_fiction, self.page_called_with.pop('worklist'))
+        
+        # The canonical URL for this feed is a page-type URL, not a
+        # groups-type URL.
+        eq_(expect_url, self.page_called_with.pop('url'))
+
+        # The faceting and pagination objects are typical for the
+        # first page of a paginated feed.
+        pagination = self.page_called_with.pop('pagination')
+        assert isinstance(pagination, SortKeyPagination)
+        facets = self.page_called_with.pop('facets')
+        assert isinstance(facets, Facets)
+
+        # groups() was never called.
         eq_(None, self.groups_called_with)
 
-        # Give it a sublane, and the call to groups() goes through
-        # as normal.
+        # Give this lane a sublane, and the call to groups() goes
+        # through as normal.
         sublane = self._lane(parent=self.english_adult_fiction)
         with self.request_context_with_library("/?entrypoint=Audio"):
             response = self.manager.opds_feeds.groups(
@@ -3226,6 +3247,8 @@ class TestOPDSFeedController(CirculationControllerTest):
             )
         eq_(None, self.page_called_with)
         eq_(self.english_adult_fiction, self.groups_called_with.pop('worklist'))
+        assert isinstance(self.groups_called_with.pop('facets'), FeaturedFacets)
+        assert 'pagination' not in self.groups_called_with
 
     def test_navigation(self):
         library = self._default_library
