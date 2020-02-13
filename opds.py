@@ -579,6 +579,12 @@ class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
 
+    # TODO: This is used in feed_response to set the Cache-Control
+    # headers. It should be replaced with a system where the
+    # Cache-Control max-age value is derived from the lifetime of the
+    # corresponding CachedFeed object, if any.
+    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
+
     @classmethod
     def groups(cls, _db, title, url, worklist, annotator,
                facets=None, max_age=None, 
@@ -1656,6 +1662,12 @@ class NavigationFacets(FeaturedFacets):
     CACHED_FEED_TYPE = CachedFeed.NAVIGATION_TYPE
 
 class NavigationFeed(OPDSFeed):
+
+    # TODO: This is used in feed_response to set the Cache-Control
+    # headers. It should be replaced with a system where the
+    # Cache-Control max-age value is derived from the lifetime of the
+    # corresponding CachedFeed object, if any.
+    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
     def navigation(cls, _db, title, url, worklist, annotator,
