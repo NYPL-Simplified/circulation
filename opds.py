@@ -578,8 +578,6 @@ class VerboseAnnotator(Annotator):
 class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
-    # TODO: Is this still used?
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
     def groups(cls, _db, title, url, worklist, annotator,
@@ -1658,8 +1656,6 @@ class NavigationFacets(FeaturedFacets):
     CACHED_FEED_TYPE = CachedFeed.NAVIGATION_TYPE
 
 class NavigationFeed(OPDSFeed):
-
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
     def navigation(cls, _db, title, url, worklist, annotator,
