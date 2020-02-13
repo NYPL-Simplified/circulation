@@ -21,7 +21,7 @@ from flask_sqlalchemy_session import (
     current_session,
     flask_scoped_session,
 )
-from werkzeug import ImmutableMultiDict
+from werkzeug.datastructures import ImmutableMultiDict
 from werkzeug.exceptions import NotFound
 
 from . import DatabaseTest

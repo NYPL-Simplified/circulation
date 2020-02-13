@@ -805,9 +805,13 @@ class ODLImporter(OPDSImporter):
         licenses_owned = 0
         licenses_available = 0
         odl_license_tags = parser._xpath(entry_tag, 'odl:license') or []
+        medium = None
         for odl_license_tag in odl_license_tags:
             identifier = subtag(odl_license_tag, 'dcterms:identifier')
             full_content_type = subtag(odl_license_tag, 'dcterms:format')
+
+            if not medium:
+                medium = Edition.medium_from_media_type(full_content_type)
 
             # By default, dcterms:format includes the media type of a
             # DRM-free resource.
@@ -843,8 +847,7 @@ class ODLImporter(OPDSImporter):
                     )
                 )
 
-            if content_type == MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
-                data['medium'] = Edition.AUDIO_MEDIUM
+            data['medium'] = medium
 
             expires = None
             remaining_checkouts = None
