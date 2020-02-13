@@ -821,7 +821,7 @@ class OPDSFeedController(CirculationManagerController):
         title = library.name
         lane = CrawlableCollectionBasedLane()
         lane.initialize(library)
-        return self._crawlable_feed(title=title, url=url, lane=lane)
+        return self._crawlable_feed(title=title, url=url, worklist=lane)
 
     def crawlable_collection_feed(self, collection_name):
         """Build or retrieve a crawlable acquisition feed for the
@@ -843,7 +843,7 @@ class OPDSFeedController(CirculationManagerController):
             # We'll get a generic CirculationManagerAnnotator.
             annotator = None
         return self._crawlable_feed(
-            title=title, url=url, lane=lane, annotator=annotator
+            title=title, url=url, worklist=lane, annotator=annotator
         )
 
     def crawlable_list_feed(self, list_name):
@@ -865,15 +865,15 @@ class OPDSFeedController(CirculationManagerController):
         )
         lane = CrawlableCustomListBasedLane()
         lane.initialize(library, list)
-        return self._crawlable_feed(title=title, url=url, lane=lane)
+        return self._crawlable_feed(title=title, url=url, worklist=lane)
 
-    def _crawlable_feed(self, title, url, lane, annotator=None,
+    def _crawlable_feed(self, title, url, worklist, annotator=None,
                         feed_class=AcquisitionFeed):
         """Helper method to create a crawlable feed.
 
         :param title: The title to use for the feed.
         :param url: The URL from which the feed will be served.
-        :param lane: A crawlable Lane which controls which works show up
+        :param worklist: A crawlable Lane which controls which works show up
             in the feed.
         :param annotator: A custom Annotator to use when generating the feed.
         :param feed_class: A drop-in replacement for AcquisitionFeed
@@ -889,14 +889,14 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(search_engine, ProblemDetail):
             return search_engine
 
-        annotator = annotator or self.manager.annotator(lane)
+        annotator = annotator or self.manager.annotator(worklist)
 
         # A crawlable feed has only one possible set of Facets,
         # so library settings are irrelevant.
         facets = CrawlableFacets.default(None)
 
         feed = feed_class.page(
-            _db=self._db, title=title, url=url, worklist=lane,
+            _db=self._db, title=title, url=url, worklist=worklist,
             annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine

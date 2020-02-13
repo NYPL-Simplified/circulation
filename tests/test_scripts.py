@@ -373,7 +373,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
 
             args = MockAcquisitionFeed.called_with
             eq_(self._db, args['_db'])
-            eq_(lane, args['lane'])
+            eq_(lane, args['worklist'])
             eq_(lane.display_name, args['title'])
             eq_(True, args['force_refresh'])
 
@@ -446,7 +446,7 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
 
             args = MockAcquisitionFeed.called_with
             eq_(self._db, args['_db'])
-            eq_(lane, args['lane'])
+            eq_(lane, args['worklist'])
             eq_(lane.display_name, args['title'])
             eq_(True, args['force_refresh'])
             eq_(pagination, None)

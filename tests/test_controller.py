@@ -2357,7 +2357,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(sort_key, pagination.last_item_on_previous_page)
         eq_(100, pagination.size)
 
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, ContributorLane)
         assert isinstance(lane.contributor, ContributorData)
 
@@ -2499,7 +2499,7 @@ class TestWorkController(CirculationControllerTest):
 
         # The RecommendationLane is set up to ask for recommendations
         # for this book.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, RecommendationLane)
         library = self._default_library
         eq_(library.id, lane.library_id)
@@ -2690,7 +2690,7 @@ class TestWorkController(CirculationControllerTest):
 
         # We're generating a grouped feed using a RelatedBooksLane
         # that has three sublanes.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, RelatedBooksLane)
         contributor_lane, novelist_lane, series_lane = lane.children
 
@@ -2869,7 +2869,7 @@ class TestWorkController(CirculationControllerTest):
 
         # A SeriesLane was created to ask the search index for
         # matching works.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, SeriesLane)
         eq_(self._default_library.id, lane.library_id)
         eq_(series_name, lane.series)
@@ -3360,7 +3360,11 @@ class TestOPDSFeedController(CirculationControllerTest):
 
         kwargs = self.called_with
         eq_(self._db, kwargs.pop('_db'))
-        lane = kwargs.pop('worklist')
+
+        # Unlike other types of feeds, here the argument is called
+        # 'lane' instead of 'worklist', because a Lane is the _only_
+        # kind of WorkList that is currently searchable.
+        lane = kwargs.pop('lane')
         eq_(expect_lane, lane)
         query = kwargs.pop("query")
         eq_("t", query)
@@ -3418,7 +3422,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             kwargs = self.called_with
 
             # We're searching that lane.
-            eq_(self.english_adult_fiction, kwargs['worklist'])
+            eq_(self.english_adult_fiction, kwargs['lane'])
 
             # And we get the entry point we asked for.
             eq_(AudiobooksEntryPoint, kwargs['facets'].entrypoint)
@@ -3460,10 +3464,10 @@ class TestCrawlableFeed(CirculationControllerTest):
         """
         controller = self.manager.opds_feeds
         original = controller._crawlable_feed
-        def mock(title, url, lane, annotator=None,
+        def mock(title, url, worklist, annotator=None,
                  feed_class=AcquisitionFeed):
             self._crawlable_feed_called_with = dict(
-                title=title, url=url, lane=lane, annotator=annotator,
+                title=title, url=url, worklist=worklist, annotator=annotator,
                 feed_class=feed_class
             )
             return "An OPDS feed."
@@ -3647,7 +3651,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         in_kwargs = dict(
             title="Lane title",
             url="Lane URL",
-            lane=mock_lane,
+            worklist=mock_lane,
             feed_class=MockFeed
         )
 
