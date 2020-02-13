@@ -708,13 +708,21 @@ class OPDSFeedController(CirculationManagerController):
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
-        facet_class_kwargs = dict(
-            minimum_featured_quality=library.minimum_featured_quality,
-        )
-        facets = load_facets_from_request(
-            worklist=lane, base_class=FeaturedFacets,
-            base_class_constructor_kwargs=facet_class_kwargs
-        )
+    
+        if lane.sublanes:
+            # This lane has sublanes, so we can make a real grouped feed.
+            facet_class_kwargs = dict(
+                minimum_featured_quality=library.minimum_featured_quality,
+            )
+            facets = load_facets_from_request(
+                worklist=lane, base_class=FeaturedFacets,
+                base_class_constructor_kwargs=facet_class_kwargs
+            )
+            m = feed_class.groups
+        else:
+            # This lane has no sublanes. We need to fall back to a paginated
+            # feed.
+            m = feed_glass.page
         if isinstance(facets, ProblemDetail):
             return facets
 
