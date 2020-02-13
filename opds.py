@@ -625,61 +625,39 @@ class AcquisitionFeed(OPDSFeed):
                 debug=search_debug
             )
         ]
-        if not works_and_lanes:
-            # We did not find any works at all, so there's nothing to
-            # group. Our fallback position is a page-type feed for
-            # this WorkList.
-            #
-            # TODO: Since the ES6 change, I think it's likely that
-            # groups() only returns nothing when there is nothing here
-            # at all. If this is true, we could get rid of this edge
-            # case.
+        # Make a typical grouped feed.
+        all_works = []
+        for work, sublane in works_and_lanes:
+            if sublane==worklist:
+                # We are looking at the groups feed for (e.g.)
+                # "Science Fiction", and we're seeing a book
+                # that is featured within "Science Fiction" itself
+                # rather than one of the sublanes.
+                #
+                # We want to assign this work to a group called "All
+                # Science Fiction" and point its 'group URI' to
+                # the linear feed of the "Science Fiction" lane
+                # (as opposed to the groups feed, which is where we
+                # are now).
+                v = dict(
+                    lane=worklist,
+                    label=worklist.display_name_for_all,
+                    link_to_list_feed=True,
+                )
+            else:
+                # We are looking at the groups feed for (e.g.)
+                # "Science Fiction", and we're seeing a book
+                # that is featured within one of its sublanes,
+                # such as "Space Opera".
+                #
+                # We want to assign this work to a group derived
+                # from the sublane.
+                v = dict(lane=sublane)
+            annotator.lanes_by_work[work].append(v)
+            all_works.append(work)
 
-            # A Pagination object is required, and our FeaturedFacets
-            # aren't relevant to a page-type feed, so use some defaults.
-            page_facets = Facets.default(worklist.get_library(_db))
-            page_pagination = Pagination.default()
-
-            feed = cls._generate_page(
-                _db, title, url, worklist, annotator,
-                facets=page_facets, pagination=page_pagination,
-                search_engine=search_engine,
-                search_debug=search_debug
-            )
-        else:
-            # Make a typical grouped feed.
-            all_works = []
-            for work, sublane in works_and_lanes:
-                if sublane==worklist:
-                    # We are looking at the groups feed for (e.g.)
-                    # "Science Fiction", and we're seeing a book
-                    # that is featured within "Science Fiction" itself
-                    # rather than one of the sublanes.
-                    #
-                    # We want to assign this work to a group called "All
-                    # Science Fiction" and point its 'group URI' to
-                    # the linear feed of the "Science Fiction" lane
-                    # (as opposed to the groups feed, which is where we
-                    # are now).
-                    v = dict(
-                        lane=worklist,
-                        label=worklist.display_name_for_all,
-                        link_to_list_feed=True,
-                    )
-                else:
-                    # We are looking at the groups feed for (e.g.)
-                    # "Science Fiction", and we're seeing a book
-                    # that is featured within one of its sublanes,
-                    # such as "Space Opera".
-                    #
-                    # We want to assign this work to a group derived
-                    # from the sublane.
-                    v = dict(lane=sublane)
-                annotator.lanes_by_work[work].append(v)
-                all_works.append(work)
-
-            all_works = annotator.sort_works_for_groups_feed(all_works)
-            feed = AcquisitionFeed(_db, title, url, all_works, annotator)
+        all_works = annotator.sort_works_for_groups_feed(all_works)
+        feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
         # Regardless of whether or not the entries in feed can be
         # grouped together, we want to apply certain feed-level

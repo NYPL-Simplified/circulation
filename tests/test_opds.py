@@ -1149,69 +1149,37 @@ class TestOPDS(DatabaseTest):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(annotator.lane_url(lane), links[i+1].get("href"))
 
-    def test_groups_feed_with_empty_sublanes_is_page_feed(self):
-        # Test that a page feed is returned when the requested groups
-        # feed has no books in the groups.
-        library = self._default_library
+    def test_empty_groups_feed(self):
+        # Test the case where a grouped feed turns up nothing.
 
+        # A Lane, and a Work not in the Lane.
         test_lane = self._lane("Test Lane", genres=['Mystery'])
+        work1 = self._work(genre=History, with_open_access_download=True)
 
-        class MockLane(object):
-            called_with = None
-            def groups(self, *args, **kwargs):
-                # Pretend that Lane.groups() does nothing
-                # to trigger the fallback behavior.
-                self.groups_called_with = (args, kwargs)
-
-                # This will make Python treat this method as an
-                # iterator, just like the real groups(), but
-                # we'll never yield anything.
-                if False:
-                    yield
-
-        mock = MockLane()
-        test_lane.groups = mock.groups
-
-        work1 = self._work(genre=Mystery, with_open_access_download=True)
-        work1.quality = 0.75
-        work2 = self._work(genre=Mystery, with_open_access_download=True)
-        work2.quality = 0.75
+        # Mock search index and Annotator.
         search_engine = MockExternalSearchIndex()
-        search_engine.bulk_update([work1, work2])
+        class Mock(TestAnnotator):
+            def annotate_feed(self, feed, worklist):
+                self.called = True
+        annotator = Mock()
 
-        library.setting(library.FEATURED_LANE_SIZE).value = 2
-        annotator = TestAnnotator()
-
+        # Build a grouped feed for the lane.
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
             max_age=0, search_engine=search_engine
         )
 
-        # The lane has no sublanes, so a page feed was created for it
-        # and filed as a groups feed.
+        # A grouped feed was cached for the lane, but there were no
+        # relevant works found,.
         cached = get_one(self._db, CachedFeed, lane=test_lane)
         eq_(CachedFeed.GROUPS_TYPE, cached.type)
 
+        # So the feed contains no entries.
         parsed = feedparser.parse(feed)
+        eq_([], parsed['entries'])
 
-        # There are two entries, one for each work.
-        e1, e2 = parsed['entries']
-
-        # The entries have no links (no collection links).
-        assert all('links' not in entry for entry in [e1, e2])
-
-        # That's because when our mocked Lane.groups() was called, it
-        # wasn't able to group the books together, and returned
-        # an empty iterator.
-
-        # Quickly verify the arguments passed into our mocked groups().
-        args, kwargs = mock.groups_called_with
-        eq_((), args)
-        eq_(search_engine, kwargs.pop('search_engine'))
-        eq_(False, kwargs.pop('debug'))
-        eq_(self._db, kwargs.pop('_db'))
-        assert isinstance(kwargs.pop('facets'), FeaturedFacets)
-        eq_({}, kwargs)
+        # but our mock Annotator got a chance to modify the feed in place.
+        eq_(True, annotator.called)
 
     def test_search_feed(self):
         """Test the ability to create a paginated feed of works for a given
