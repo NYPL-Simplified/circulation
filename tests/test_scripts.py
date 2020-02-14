@@ -375,7 +375,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             eq_(self._db, args['_db'])
             eq_(lane, args['worklist'])
             eq_(lane.display_name, args['title'])
-            eq_(True, args['force_refresh'])
+            eq_(0, args['max_age'])
 
             # The Pagination object was passed into
             # MockAcquisitionFeed.page, and it was also used to make the
@@ -448,7 +448,7 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             eq_(self._db, args['_db'])
             eq_(lane, args['worklist'])
             eq_(lane.display_name, args['title'])
-            eq_(True, args['force_refresh'])
+            eq_(0, args['max_age'])
             eq_(pagination, None)
 
             # The Facets object was passed into
