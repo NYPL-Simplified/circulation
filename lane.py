@@ -105,6 +105,12 @@ class BaseFacets(FacetConstants):
     This is intended solely for use as a base class.
     """
 
+    # If the use of a certain faceting object has implications for the
+    # type of feed (the way FeaturedFacets always implies a 'groups' feed),
+    # set the type of feed here. This will override any CACHED_FEED_TYPE
+    # associated with the WorkList.
+    CACHED_FEED_TYPE = None
+
     def items(self):
         """Yields a 2-tuple for every active facet setting.
 
@@ -712,6 +718,9 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
+    # This Facets class is used exclusively for grouped feeds.
+    CACHED_FEED_TYPE = CachedFeed.GROUPS_TYPE
+
     def __init__(self, minimum_featured_quality, entrypoint=None,
                  random_seed=None, **kwargs):
         """Set up an object that finds featured books in a given
@@ -732,6 +741,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
                 library = lane
             else:
                 library = lane.library
+
         if library:
             quality = library.minimum_featured_quality
         else:
@@ -1034,16 +1044,22 @@ class WorkList(object):
     # default. Most WorkList subclasses will override this.
     MAX_CACHE_AGE = 14*24*60*60
 
-    # In your subclass, set MAX_CACHE_AGE to this value to guarantee
-    # that cached feeds never expire -- they must be explicitly
-    # regenerated.
-    CACHE_FOREVER = 'forever'
+    # If a certain type of Worklist should always have its OPDS feeds
+    # cached under a specific type, define that type as
+    # CACHED_FEED_TYPE.
+    CACHED_FEED_TYPE = None
 
     # By default, a WorkList is always visible.
     visible = True
 
     # By default, a WorkList does not draw from CustomLists
     uses_customlists = False
+
+    def max_cache_age(self, type):
+        """Determine how long a feed for this WorkList should be cached
+        internally.
+        """
+        return self.MAX_CACHE_AGE
 
     @classmethod
     def top_level_for_library(self, _db, library):
@@ -1349,6 +1365,7 @@ class WorkList(object):
             full_parentage.insert(0, self.library.short_name)
         return " / ".join(full_parentage)
 
+
     @property
     def language_key(self):
         """Return a string identifying the languages used in this WorkList.
@@ -1370,6 +1387,18 @@ class WorkList(object):
             audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
             key += ','.join(audiences)
         return key
+
+    @property
+    def unique_key(self):
+        """A string key that uniquely describes this WorkList within
+        its Library.
+
+        This is used when caching feeds for this WorkList. For Lanes,
+        the lane_id is used instead.
+        """
+        return "%s-%s-%s" % (
+            self.display_name, self.language_key, self.audience_key
+        )
 
     def overview_facets(self, _db, facets):
         """Convert a generic FeaturedFacets to some other faceting object,
@@ -2453,6 +2482,22 @@ class Lane(Base, DatabaseBackedWorkList):
             and self.parent.uses_customlists):
             return True
         return False
+
+    def max_cache_age(self, type):
+        """Determine how long a feed for this WorkList should be cached
+        internally.
+
+        :param type: The type of feed.
+        """
+        if type == CachedFeed.GROUPS_TYPE:
+            # Generating grouped feeds on the fly for Lanes is not incredibly
+            # expensive, but it's slow enough that we prefer to regenerate
+            # them in the background (using force_refresh=True) rather
+            # than while someone is waiting for an HTTP response.
+            return CachedFeed.CACHE_FOREVER
+
+        # Other than that, we have no opinion -- use the default.
+        return super(Lane, self).max_cache_age(type)
 
     def update_size(self, _db, search_engine=None):
         """Update the stored estimate of the number of Works in this Lane."""

@@ -5,9 +5,11 @@ from nose.tools import set_trace
 from . import (
     Base,
     flush,
+    get_one,
     get_one_or_create,
 )
 
+from collections import namedtuple
 import datetime
 import logging
 from sqlalchemy import (
@@ -73,120 +75,233 @@ class CachedFeed(Base):
     SERIES_TYPE = u'series'
     CONTRIBUTOR_TYPE = u'contributor'
 
+    # Special constants for cache durations.
+    CACHE_FOREVER = object()
+
     log = logging.getLogger("CachedFeed")
 
     @classmethod
-    def fetch(cls, _db, lane, type, facets, pagination, annotator,
-              force_refresh=False, max_age=None):
-        # TODO: It would be good to pull type from the Lane and/or Facets
-        # class instead of needing a separate argument.
-        from ..opds import AcquisitionFeed
-        from ..lane import Lane, WorkList
-        if max_age is None:
-            # Figure out the default max age for a feed of this type
-            # for this lane.
-            max_age = cls.calculate_max_age(_db, lane, type)
-        if isinstance(max_age, int):
-            max_age = datetime.timedelta(seconds=max_age)
+    def fetch(cls, _db, worklist, facets, pagination, refresher_method,
+              max_age=None
+    ):
+        """Retrieve a cached feed from the database if possible.
 
-        unique_key = None
-        if lane and isinstance(lane, Lane):
-            lane_id = lane.id
-        else:
-            lane_id = None
-            unique_key = "%s-%s-%s" % (lane.display_name, lane.language_key, lane.audience_key)
-        work = None
-        if lane:
-            work = getattr(lane, 'work', None)
-        library = None
-        if lane and isinstance(lane, Lane):
-            library = lane.library
-        elif lane and isinstance(lane, WorkList):
-            library = lane.get_library(_db)
+        Generate it from scratch and store it in the database if
+        necessary.
 
-        if facets:
-            facets_key = unicode(facets.query_string)
-        else:
-            facets_key = u""
+        :param _db: A database connection.
+        :param worklist: The WorkList associated with this feed.
+        :param facets: A Facets object that distinguishes this feed from
+            others (for instance, by its sort order).
+        :param pagination: A Pagination object that explains which
+            page of a larger feed is being cached.
+        :param refresher_method: A function to call if it turns out
+            the contents of the feed need to be regenerated. This
+            function must take no arguments and return an object that
+            implements __unicode__. (A Unicode string or an OPDSFeed is fine.)
+        :param max_age: If a cached feed is older than this, it will
+            be considered stale and regenerated. This may be either a
+            number of seconds or a timedelta. If no value is
+            specified, a default value will be calculated based on
+            WorkList and Facets configuration. Setting this value to
+            zero will force a refresh.
 
-        if pagination:
-            pagination_key = unicode(pagination.query_string)
-        else:
-            pagination_key = u""
+        :return: A CachedFeed containing up-to-date content.
+        """
 
-        # Get a CachedFeed object. We will either return its .content,
-        # or update its .content.
+        # Gather the information necessary to uniquely identify this
+        # page of this feed.
+        keys = cls._prepare_keys(_db, worklist, facets, pagination)
+
+        # Calculate the maximum cache age, converting from timedelta
+        # to seconds if necessary.
+        max_age = cls.max_cache_age(worklist, keys.feed_type, max_age)
+
+        # These arguments will probably be passed into get_one, and
+        # will be passed into get_one_or_create in the event of a cache
+        # miss.
+
+        # TODO: this constraint_clause might not be necessary anymore.
+        # ISTR it was an attempt to avoid race conditions, and we do a
+        # better job of that now.
         constraint_clause = and_(cls.content!=None, cls.timestamp!=None)
-        feed, is_new = get_one_or_create(
-            _db, cls,
+        kwargs = dict(
             on_multiple='interchangeable',
             constraint=constraint_clause,
-            lane_id=lane_id,
-            unique_key=unique_key,
-            library=library,
-            work=work,
-            type=type,
-            facets=facets_key,
-            pagination=pagination_key)
+            type=keys.feed_type,
+            library=keys.library,
+            work=keys.work,
+            lane_id=keys.lane_id,
+            unique_key=keys.unique_key,
+            facets=keys.facets_key,
+            pagination=keys.pagination_key
+        )
 
-        if force_refresh is True:
-            # No matter what, we've been directed to treat this
-            # cached feed as stale.
-            return feed, False
-
-        if max_age is lane.CACHE_FOREVER:
-            # This feed is so expensive to generate that it must be cached
-            # forever (unless force_refresh is True).
-            if not is_new and feed.content:
-                # Cacheable!
-                return feed, True
-            else:
-                # We're supposed to generate this feed, but as a group
-                # feed, it's too expensive.
-                #
-                # Rather than generate an error (which will provide a
-                # terrible user experience), fall back to generating a
-                # default page-type feed, which should be cheap to fetch.
-                identifier = None
-                if isinstance(lane, Lane):
-                    identifier = lane.id
-                elif isinstance(lane, WorkList):
-                    identifier = lane.display_name
-                cls.log.warn(
-                    "Could not generate a groups feed for %s, falling back to a page feed.",
-                    identifier
-                )
-                return cls.fetch(
-                    _db, lane, CachedFeed.PAGE_TYPE, facets, pagination,
-                    annotator, force_refresh, max_age=None
-                )
+        if isinstance(max_age, int) and max_age <= 0:
+            # Don't even bother checking for a CachedFeed: we're
+            # just going to replace it.
+            feed_obj = None
         else:
-            # This feed is cheap enough to generate on the fly.
-            cutoff = datetime.datetime.utcnow() - max_age
-            fresh = False
-            if feed.timestamp and feed.content:
-                if feed.timestamp >= cutoff:
-                    fresh = True
-            return feed, fresh
+            feed_obj = get_one(_db, cls, **kwargs)
 
-        # Either there is no cached feed or it's time to update it.
-        return feed, False
+        should_refresh = cls._should_refresh(feed_obj, max_age)
+        if not should_refresh:
+            # This is a cache hit. We found a matching CachedFeed that
+            # had fresh content.
+            return feed_obj
+
+        # This is a cache miss. We need to generate a new feed.
+        feed_data = unicode(refresher_method())
+        generation_time = datetime.datetime.utcnow()
+
+        # Since it can take a while to generate a feed, and we know
+        # that the feed in the database is stale, it's possible that
+        # another thread _also_ noticed that feed was stale, and
+        # generated a similar feed while we were working.
+        #
+        # To avoid a database error, fetch the feed _again_ from the
+        # database rather than assuming we have the up-to-date
+        # object.
+        feed_obj, is_new = get_one_or_create(_db, cls, **kwargs)
+        if feed_obj.timestamp is None or feed_obj.timestamp < generation_time:
+            # Either there was no contention for this object, or there
+            # was contention but our feed is more up-to-date than
+            # the other thread(s). Our feed takes priority.
+            feed_obj.content = feed_data
+            feed_obj.timestamp = generation_time
+        return feed_obj
 
     @classmethod
-    def calculate_max_age(cls, _db, lane, type):
-        """Helper method to calculate the proper cache time for
-        a WorkList.
+    def feed_type(cls, worklist, facets):
+        """Determine the 'type' of the feed.
+
+        This may be defined either by `worklist` or by `facets`, with
+        `facets` taking priority.
+
+        :return: A string that can go into cachedfeeds.type.
         """
-        from ..lane import Lane
-        if isinstance(lane, Lane) and type == cls.GROUPS_TYPE:
-            # It's too expensive to generate grouped feeds for
-            # Lanes on the fly. To generate these you will
-            # need to pass in force_refresh=True
-            return lane.CACHE_FOREVER
-        if lane.MAX_CACHE_AGE is None:
+        type = CachedFeed.PAGE_TYPE
+        if worklist:
+            type = worklist.CACHED_FEED_TYPE or type
+        if facets:
+            type = facets.CACHED_FEED_TYPE or type
+        return type
+
+    @classmethod
+    def max_cache_age(cls, worklist, type, override=None):
+        """Determine the number of seconds that a cached feed
+        of a given type can remain fresh.
+
+        :param worklist: A WorkList.
+        :param type: The type of feed being generated.
+        :param override: A specific value passed in by the user. This
+            may either be a number of seconds or a timedelta.
+
+        :return: A number of seconds, or CACHE_FOREVER.
+        """
+        value = None
+        if override is not None:
+            value = override
+        elif worklist:
+            value = worklist.max_cache_age(type)
+
+        if value == cls.CACHE_FOREVER:
+            # This feed should be cached forever.
+            return value
+
+        if value is None:
             # Assume the feed should not be cached at all.
-            return 0
-        return lane.MAX_CACHE_AGE
+            value = 0
+
+        if isinstance(value, datetime.timedelta):
+            value = value.total_seconds()
+        return value
+
+    @classmethod
+    def _should_refresh(cls, feed_obj, max_age):
+        """Should we try to get a new representation of this CachedFeed?
+
+        :param feed_obj: A CachedFeed. This may be None, which is why
+            this is a class method.
+
+        :param max_age: Either a number of seconds, or the constant
+            CACHE_FOREVER.
+        """
+        should_refresh = False
+        if feed_obj is None:
+            # If we didn't find a CachedFeed (maybe because we didn't
+            # bother looking), we must always refresh.
+            should_refresh = True
+        elif max_age == cls.CACHE_FOREVER:
+            # If we found *anything*, and the cache time is CACHE_FOREVER,
+            # we will never refresh.
+            should_refresh = False
+        elif (feed_obj.timestamp
+              and feed_obj.timestamp + datetime.timedelta(seconds=max_age) <=
+                  datetime.datetime.utcnow()
+        ):
+            # Here it comes down to a date comparison: how old is the
+            # CachedFeed?
+            should_refresh = True
+        return should_refresh
+
+    # This named tuple makes it easy to manage the return value of
+    # _prepare_keys.
+    CachedFeedKeys = namedtuple(
+        'CachedFeedKeys',
+        ['feed_type', 'library', 'work', 'lane_id', 'unique_key', 'facets_key',
+         'pagination_key']
+    )
+
+    @classmethod
+    def _prepare_keys(cls, _db, worklist, facets, pagination):
+        """Prepare various unique keys that will go into the database
+        and be used to distinguish CachedFeeds from one another.
+
+        This is kept in a helper method for ease of testing.
+
+        :param worklist: A WorkList.
+        :param facets: A Facets object.
+        :param pagination: A Pagination object.
+
+        :return: A CachedFeedKeys object.
+        """
+        if not worklist:
+            raise ValueError(
+                "Cannot prepare a CachedFeed without a WorkList."
+            )
+
+        feed_type = cls.feed_type(worklist, facets)
+
+        # The Library is the one associated with `worklist`.
+        library = worklist.get_library(_db)
+
+        # A feed may be associated with a specific Work,
+        # e.g. recommendations for readers of that Work.
+        work = getattr(worklist, 'work', None)
+
+        # Either lane_id or unique_key must be set, but not both.
+        from ..lane import Lane
+        if isinstance(worklist, Lane):
+            lane_id = worklist.id
+            unique_key = None
+        else:
+            lane_id = None
+            unique_key = worklist.unique_key
+
+        facets_key = u""
+        if facets is not None:
+            facets_key = unicode(facets.query_string)
+
+        pagination_key = u""
+        if pagination is not None:
+            pagination_key = unicode(pagination.query_string)
+
+        return cls.CachedFeedKeys(
+            feed_type=feed_type, library=library, work=work, lane_id=lane_id,
+            unique_key=unique_key, facets_key=facets_key,
+            pagination_key=pagination_key
+        )
 
     def update(self, _db, content):
         self.content = content

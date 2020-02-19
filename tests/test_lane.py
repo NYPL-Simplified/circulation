@@ -57,6 +57,7 @@ from ..model import (
     dump_query,
     get_one_or_create,
     tuple_to_numericrange,
+    CachedFeed,
     CustomListEntry,
     DataSource,
     Edition,
@@ -737,7 +738,7 @@ class TestDefaultSortOrderFacets(DatabaseTest):
         default = Facets.available_facets(self.config, order)
         series = SeriesFirst.available_facets(self.config, order)
         eq_([SeriesFirst.DEFAULT_SORT_ORDER] + default, series)
-        
+
 
 class TestDatabaseBackedFacets(DatabaseTest):
 
@@ -967,6 +968,11 @@ class TestFeaturedFacets(DatabaseTest):
         eq_(1, facets.minimum_featured_quality)
         eq_(entrypoint, facets.entrypoint)
         eq_(True, facets.entrypoint_is_default)
+
+    def test_feed_type(self):
+        # If a grouped feed is built via CachedFeed.fetch, it will be
+        # filed as a grouped feed.
+        eq_(CachedFeed.GROUPS_TYPE, FeaturedFacets.CACHED_FEED_TYPE)
 
     def test_default(self):
         # Check how FeaturedFacets gets its minimum_featured_quality value.
