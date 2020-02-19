@@ -435,7 +435,7 @@ class TestCachedFeed(DatabaseTest):
         eq_((lane, MockFacets), MockCachedFeed.feed_type_called_with)
 
         # When a WorkList is used instead of a Lane, keys.lane_id is None
-        # but keys.unique_id is set to worklist.unique_id.
+        # but keys.unique_key is set to worklist.unique_key.
         worklist = WorkList()
         worklist.initialize(
             library=self._default_library, display_name="wl",
