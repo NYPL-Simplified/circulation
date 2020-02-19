@@ -1748,7 +1748,7 @@
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#core.lane.WorkList.CACHE_FOREVER">CACHE_FOREVER (core.lane.WorkList attribute)</a>
+      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CACHE_FOREVER">CACHE_FOREVER (core.model.cachedfeed.CachedFeed attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.admin.Admin.cache_key">cache_key() (core.model.admin.Admin method)</a>
 
@@ -1787,6 +1787,14 @@
 </li>
         <li><a href="api.html#api.lanes.SeriesLane.CACHED_FEED_TYPE">(api.lanes.SeriesLane attribute)</a>
 </li>
+        <li><a href="core.html#core.lane.BaseFacets.CACHED_FEED_TYPE">(core.lane.BaseFacets attribute)</a>
+</li>
+        <li><a href="core.html#core.lane.FeaturedFacets.CACHED_FEED_TYPE">(core.lane.FeaturedFacets attribute)</a>
+</li>
+        <li><a href="core.html#core.lane.WorkList.CACHED_FEED_TYPE">(core.lane.WorkList attribute)</a>
+</li>
+        <li><a href="core.html#core.opds.NavigationFacets.CACHED_FEED_TYPE">(core.opds.NavigationFacets attribute)</a>
+</li>
       </ul></li>
       <li><a href="core.model.html#core.model.resource.Resource.Work.cached_feeds">cached_feeds (core.model.resource.Resource.Work attribute)</a>
 
@@ -1799,6 +1807,8 @@
       <li><a href="api.html#api.novelist.NoveListAPI.cached_representation">cached_representation() (api.novelist.NoveListAPI method)</a>
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed">CachedFeed (class in core.model.cachedfeed)</a>
+</li>
+      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys">CachedFeed.CachedFeedKeys (class in core.model.cachedfeed)</a>
 </li>
       <li><a href="core.html#core.monitor.CachedFeedReaper">CachedFeedReaper (class in core.monitor)</a>
 </li>
@@ -1832,8 +1842,6 @@
         <li><a href="core.model.html#core.model.work.Work.calculate_marc_record">(core.model.work.Work method)</a>
 </li>
       </ul></li>
-      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.calculate_max_age">calculate_max_age() (core.model.cachedfeed.CachedFeed class method)</a>
-</li>
       <li><a href="core.model.html#core.model.resource.Resource.Work.calculate_opds_entries">calculate_opds_entries() (core.model.resource.Resource.Work method)</a>
 
       <ul>
@@ -2464,12 +2472,12 @@
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">commonAuthorPrefixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">commonAuthorSuffixPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">commonSubtitlesPattern (core.util.permanent_work_id.WorkIDCalculator attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.compatible_with">compatible_with() (core.model.licensing.DeliveryMechanism method)</a>
 
       <ul>
@@ -4788,6 +4796,8 @@
       </ul></li>
       <li><a href="core.html#core.facets.FacetConstants.FACETS_BY_GROUP">FACETS_BY_GROUP (core.facets.FacetConstants attribute)</a>
 </li>
+      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.facets_key">facets_key (core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
+</li>
       <li><a href="core.html#core.lane.FacetsWithEntryPoint">FacetsWithEntryPoint (class in core.lane)</a>
 </li>
       <li><a href="core.util.html#core.util.worker_pools.DatabaseWorker.factory">factory() (core.util.worker_pools.DatabaseWorker class method)</a>
@@ -4883,6 +4893,10 @@
 </li>
       </ul></li>
       <li><a href="core.html#core.app_server.feed_response">feed_response() (in module core.app_server)</a>
+</li>
+      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.feed_type">feed_type (core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.feed_type">feed_type() (core.model.cachedfeed.CachedFeed class method)</a>
 </li>
       <li><a href="api.html#api.opds.CirculationManagerAnnotator.feed_url">feed_url() (api.opds.CirculationManagerAnnotator method)</a>
 
@@ -5056,10 +5070,10 @@
         <li><a href="core.model.html#core.model.patron.Patron.fines">(core.model.patron.Patron attribute)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.user_profile.ProfileStorage.FINES">FINES (core.user_profile.ProfileStorage attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#core.user_profile.ProfileStorage.FINES">FINES (core.user_profile.ProfileStorage attribute)</a>
+</li>
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.FINES_FIELD">FINES_FIELD (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.Timestamp.finish">finish (core.model.coverage.Timestamp attribute)</a>
@@ -6771,6 +6785,8 @@
       <ul>
         <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.lane_id">(core.model.cachedfeed.CachedFeed attribute)</a>
 </li>
+        <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.lane_id">(core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
+</li>
         <li><a href="core.model.html#core.model.cachedfeed.CachedMARCFile.lane_id">(core.model.cachedfeed.CachedMARCFile attribute)</a>
 </li>
       </ul></li>
@@ -6964,8 +6980,12 @@
       </ul></li>
       <li><a href="core.model.html#core.model.library.Library">Library (class in core.model.library)</a>
 </li>
-      <li><a href="core.model.html#core.model.patron.LoanAndHoldMixin.library">library (core.model.patron.LoanAndHoldMixin attribute)</a>
+      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.library">library (core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.patron.LoanAndHoldMixin.library">(core.model.patron.LoanAndHoldMixin attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api.html#api.authenticator.AuthenticationProvider.library">library() (api.authenticator.AuthenticationProvider method)</a>
 
       <ul>
@@ -7846,6 +7866,14 @@
         <li><a href="core.html#core.lane.WorkList.MAX_CACHE_AGE">(core.lane.WorkList attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#core.lane.Lane.max_cache_age">max_cache_age() (core.lane.Lane method)</a>
+
+      <ul>
+        <li><a href="core.html#core.lane.WorkList.max_cache_age">(core.lane.WorkList method)</a>
+</li>
+        <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.max_cache_age">(core.model.cachedfeed.CachedFeed class method)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#core.overdrive.OverdriveAPI.MAX_CREDENTIAL_AGE">MAX_CREDENTIAL_AGE (core.overdrive.OverdriveAPI attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.edition.Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT">MAX_FALLBACK_THUMBNAIL_HEIGHT (core.model.edition.Edition attribute)</a>
@@ -8004,12 +8032,12 @@
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup">MetadataWranglerOPDSLookup (class in core.opds_import)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.metadata_layer.MetaToModelUtility">MetaToModelUtility (class in core.metadata_layer)</a>
 </li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.migratable_files">migratable_files() (core.scripts.DatabaseMigrationScript class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.adobe_vendor_id.AuthdataUtility.migrate_adobe_id">migrate_adobe_id() (api.adobe_vendor_id.AuthdataUtility method)</a>
 </li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.MIGRATION_WITH_COUNTER">MIGRATION_WITH_COUNTER (core.scripts.DatabaseMigrationScript attribute)</a>
@@ -8580,10 +8608,10 @@
       </ul></li>
       <li><a href="api.html#api.custom_index.COPPAGate.navigation_entry">navigation_entry() (api.custom_index.COPPAGate class method)</a>
 </li>
-      <li><a href="api.html#api.routes.navigation_feed">navigation_feed() (in module api.routes)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api.html#api.routes.navigation_feed">navigation_feed() (in module api.routes)</a>
+</li>
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.NAVIGATION_FEED_TYPE">NAVIGATION_FEED_TYPE (core.util.opds_writer.OPDSFeed attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.NAVIGATION_TYPE">NAVIGATION_TYPE (core.model.cachedfeed.CachedFeed attribute)</a>
@@ -8596,6 +8624,8 @@
         <li><a href="core.html#core.opds.TestAnnotator.navigation_url">(core.opds.TestAnnotator class method)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#core.opds.NavigationFacets">NavigationFacets (class in core.opds)</a>
+</li>
       <li><a href="core.html#core.opds.NavigationFeed">NavigationFeed (class in core.opds)</a>
 </li>
       <li><a href="api.util.html#api.util.patron.PatronUtility.needs_external_sync">needs_external_sync() (api.util.patron.PatronUtility class method)</a>
@@ -8656,12 +8686,6 @@
       </ul></li>
       <li><a href="api.html#api.authenticator.PatronData.NO_BORROWING_PRIVILEGES">NO_BORROWING_PRIVILEGES (api.authenticator.PatronData attribute)</a>
 </li>
-      <li><a href="core.html#core.opds.AcquisitionFeed.NO_CACHE">NO_CACHE (core.opds.AcquisitionFeed attribute)</a>
-
-      <ul>
-        <li><a href="core.html#core.opds.NavigationFeed.NO_CACHE">(core.opds.NavigationFeed attribute)</a>
-</li>
-      </ul></li>
       <li><a href="api.html#api.custom_index.COPPAGate.NO_CONTENT">NO_CONTENT (api.custom_index.COPPAGate attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.circulationevent.CirculationEvent.NO_DATE">NO_DATE (core.model.circulationevent.CirculationEvent attribute)</a>
@@ -9253,7 +9277,11 @@
 </li>
       </ul></li>
       <li><a href="core.html#core.external_search.SortKeyPagination.pagination_key">pagination_key (core.external_search.SortKeyPagination attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.pagination_key">(core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
 </li>
+      </ul></li>
       <li><a href="core.html#core.lane.WorkList.parent">parent (core.lane.WorkList attribute)</a>
 </li>
       <li><a href="core.html#core.lane.Lane.parent_id">parent_id (core.lane.Lane attribute)</a>
@@ -9802,14 +9830,14 @@
 </li>
       <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
 
       <ul>
         <li><a href="api.html#api.opds.LibraryAnnotator.PRIVACY_POLICY">(api.opds.LibraryAnnotator attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.util.html#core.util.flask_util.problem">problem() (in module core.util.flask_util)</a>
 </li>
       <li><a href="core.util.html#core.util.flask_util.problem_raw">problem_raw() (in module core.util.flask_util)</a>
@@ -13226,8 +13254,14 @@
 </li>
       <li><a href="core.model.html#core.model.collection.Collection.unique_account_id">unique_account_id (core.model.collection.Collection attribute)</a>
 </li>
-      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.unique_key">unique_key (core.model.cachedfeed.CachedFeed attribute)</a>
+      <li><a href="core.html#core.lane.WorkList.unique_key">unique_key (core.lane.WorkList attribute)</a>
+
+      <ul>
+        <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.unique_key">(core.model.cachedfeed.CachedFeed attribute)</a>
 </li>
+        <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.unique_key">(core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#core.external_search.Filter.universal_base_filter">universal_base_filter() (core.external_search.Filter class method)</a>
 </li>
       <li><a href="core.html#core.external_search.Filter.universal_nested_filters">universal_nested_filters() (core.external_search.Filter class method)</a>
@@ -13838,9 +13872,11 @@
 </li>
       <li><a href="core.model.html#core.model.work.Work">Work (class in core.model.work)</a>
 </li>
-      <li><a href="core.model.html#core.model.edition.Edition.work">work (core.model.edition.Edition attribute)</a>
+      <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.work">work (core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
 
       <ul>
+        <li><a href="core.model.html#core.model.edition.Edition.work">(core.model.edition.Edition attribute)</a>
+</li>
         <li><a href="core.model.html#core.model.identifier.Identifier.work">(core.model.identifier.Identifier attribute)</a>
 </li>
         <li><a href="core.model.html#core.model.patron.LoanAndHoldMixin.work">(core.model.patron.LoanAndHoldMixin attribute)</a>

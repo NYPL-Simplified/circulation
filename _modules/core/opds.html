@@ -613,78 +613,65 @@
 <div class="viewcode-block" id="AcquisitionFeed"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed">[docs]</a><span class="k">class</span> <span class="nc">AcquisitionFeed</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="p">):</span>
 
     <span class="n">FACET_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/facet&quot;</span>
-    <span class="n">NO_CACHE</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+    <span class="c1"># TODO: This is used in feed_response to set the Cache-Control</span>
+    <span class="c1"># headers. It should be replaced with a system where the</span>
+    <span class="c1"># Cache-Control max-age value is derived from the lifetime of the</span>
+    <span class="c1"># corresponding CachedFeed object, if any.</span>
     <span class="n">FEED_CACHE_TIME</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;default_feed_cache_time&#39;</span><span class="p">,</span> <span class="mi">600</span><span class="p">))</span>
 
 <div class="viewcode-block" id="AcquisitionFeed.groups"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.groups">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-               <span class="n">cache_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-               <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span>
+    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+               <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+               <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The acquisition feed for &#39;featured&#39; items from a given lane&#39;s</span>
 <span class="sd">        sublanes, organized into per-lane groups.</span>
 
+<span class="sd">        NOTE: If the lane has no sublanes, a grouped feed will</span>
+<span class="sd">        probably be unsatisfying. Call page() instead with an</span>
+<span class="sd">        appropriate Facets object.</span>
+
 <span class="sd">        :param facets: A GroupsFacet object.</span>
 
-<span class="sd">        :return: CachedFeed (if use_cache is True) or unicode</span>
+<span class="sd">        :return: A Unicode string containing a (potentially cached) OPDS feed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">works_and_lanes</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
-            <span class="c1"># Since this lane has children, it&#39;s reasonable to at least</span>
-            <span class="c1"># try to create a groups feed for it.</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">annotator</span><span class="p">:</span>
-                <span class="n">annotator</span> <span class="o">=</span> <span class="n">Annotator</span>
-            <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">annotator</span><span class="p">):</span>
-                <span class="n">annotator</span> <span class="o">=</span> <span class="n">annotator</span><span class="p">()</span>
-            <span class="n">cached</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">use_cache</span> <span class="o">=</span> <span class="n">cache_type</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NO_CACHE</span>
-            <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">FeaturedFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
-                <span class="n">cache_type</span> <span class="o">=</span> <span class="n">cache_type</span> <span class="ow">or</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">GROUPS_TYPE</span>
-                <span class="n">cached</span><span class="p">,</span> <span class="n">usable</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
-                    <span class="n">_db</span><span class="p">,</span>
-                    <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
-                    <span class="nb">type</span><span class="o">=</span><span class="n">cache_type</span><span class="p">,</span>
-                    <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
-                    <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-                    <span class="n">force_refresh</span><span class="o">=</span><span class="n">force_refresh</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="k">if</span> <span class="n">usable</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span>
-            <span class="n">works_and_lanes</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
+        <span class="n">annotator</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_annotator</span><span class="p">(</span><span class="n">annotator</span><span class="p">)</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">FeaturedFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">worklist</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">))</span>
+
+        <span class="k">def</span> <span class="nf">refresh</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_generate_groups</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span>
+                <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
+            <span class="p">)</span>
+
+        <span class="n">cached</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_generate_groups</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+        <span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Internal method called by groups() when a grouped feed</span>
+<span class="sd">        must be regenerated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Try to get a set of (Work, WorkList) 2-tuples</span>
+        <span class="c1"># to make a normal grouped feed.</span>
+        <span class="n">works_and_lanes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">worklist</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
                 <span class="n">_db</span><span class="o">=</span><span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
                 <span class="n">debug</span><span class="o">=</span><span class="n">search_debug</span>
             <span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">works_and_lanes</span><span class="p">:</span>
-            <span class="c1"># We cannot generate a groups feed, either because we</span>
-            <span class="c1"># tried and did not find enough works, or because the lane</span>
-            <span class="c1"># has no sublanes. So we need to display a paginated feed</span>
-            <span class="c1"># instead.</span>
-            <span class="c1">#</span>
-            <span class="c1"># Generate a page-type feed with a default set of facets.</span>
-            <span class="c1"># File it as a groups-type feed, so it will show up when</span>
-            <span class="c1"># the client asks for it.</span>
-            <span class="c1">#</span>
-            <span class="c1"># TODO: In theory, this lane might have multiple entry</span>
-            <span class="c1"># points. Since entry points are only associated with</span>
-            <span class="c1"># grouped feeds, the generated feed will not mention entry</span>
-            <span class="c1"># points.  However this is not likely to be a problem in</span>
-            <span class="c1"># real life.</span>
-            <span class="n">cache_type</span> <span class="o">=</span> <span class="n">cache_type</span> <span class="ow">or</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">GROUPS_TYPE</span>
-            <span class="n">cached</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-                <span class="n">cache_type</span><span class="o">=</span><span class="n">cache_type</span><span class="p">,</span>
-                <span class="n">force_refresh</span><span class="o">=</span><span class="n">force_refresh</span><span class="p">,</span>
-                <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
-                <span class="n">search_debug</span><span class="o">=</span><span class="n">search_debug</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">cached</span>
-
+        <span class="p">]</span>
+        <span class="c1"># Make a typical grouped feed.</span>
         <span class="n">all_works</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">work</span><span class="p">,</span> <span class="n">sublane</span> <span class="ow">in</span> <span class="n">works_and_lanes</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">sublane</span><span class="o">==</span><span class="n">lane</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">sublane</span><span class="o">==</span><span class="n">worklist</span><span class="p">:</span>
                 <span class="c1"># We are looking at the groups feed for (e.g.)</span>
                 <span class="c1"># &quot;Science Fiction&quot;, and we&#39;re seeing a book</span>
                 <span class="c1"># that is featured within &quot;Science Fiction&quot; itself</span>
@@ -696,8 +683,8 @@
                 <span class="c1"># (as opposed to the groups feed, which is where we</span>
                 <span class="c1"># are now).</span>
                 <span class="n">v</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-                    <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
-                    <span class="n">label</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name_for_all</span><span class="p">,</span>
+                    <span class="n">lane</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span>
+                    <span class="n">label</span><span class="o">=</span><span class="n">worklist</span><span class="o">.</span><span class="n">display_name_for_all</span><span class="p">,</span>
                     <span class="n">link_to_list_feed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -715,61 +702,65 @@
         <span class="n">all_works</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">sort_works_for_groups_feed</span><span class="p">(</span><span class="n">all_works</span><span class="p">)</span>
         <span class="n">feed</span> <span class="o">=</span> <span class="n">AcquisitionFeed</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">all_works</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span>
 
+        <span class="c1"># Regardless of whether or not the entries in feed can be</span>
+        <span class="c1"># grouped together, we want to apply certain feed-level</span>
+        <span class="c1"># annotations.</span>
+
         <span class="c1"># A grouped feed may link to alternate entry points into</span>
         <span class="c1"># the data.</span>
-        <span class="n">entrypoints</span> <span class="o">=</span> <span class="n">facets</span><span class="o">.</span><span class="n">selectable_entrypoints</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
+        <span class="n">entrypoints</span> <span class="o">=</span> <span class="n">facets</span><span class="o">.</span><span class="n">selectable_entrypoints</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">entrypoints</span><span class="p">:</span>
             <span class="k">def</span> <span class="nf">make_link</span><span class="p">(</span><span class="n">ep</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">annotator</span><span class="o">.</span><span class="n">groups_url</span><span class="p">(</span>
-                    <span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="o">.</span><span class="n">navigate</span><span class="p">(</span><span class="n">entrypoint</span><span class="o">=</span><span class="n">ep</span><span class="p">)</span>
+                    <span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="o">.</span><span class="n">navigate</span><span class="p">(</span><span class="n">entrypoint</span><span class="o">=</span><span class="n">ep</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="bp">cls</span><span class="o">.</span><span class="n">add_entrypoint_links</span><span class="p">(</span>
                 <span class="n">feed</span><span class="p">,</span> <span class="n">make_link</span><span class="p">,</span> <span class="n">entrypoints</span><span class="p">,</span> <span class="n">facets</span><span class="o">.</span><span class="n">entrypoint</span>
             <span class="p">)</span>
 
-        <span class="n">feed</span><span class="o">.</span><span class="n">add_breadcrumb_links</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">.</span><span class="n">entrypoint</span><span class="p">)</span>
-        <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">lane</span><span class="p">)</span>
+        <span class="c1"># A grouped feed may have breadcrumb links.</span>
+        <span class="n">feed</span><span class="o">.</span><span class="n">add_breadcrumb_links</span><span class="p">(</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">.</span><span class="n">entrypoint</span><span class="p">)</span>
 
-        <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">cached</span> <span class="ow">and</span> <span class="n">use_cache</span><span class="p">:</span>
-            <span class="n">cached</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">content</span></div>
+        <span class="c1"># Miscellaneous.</span>
+        <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">worklist</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">feed</span>
 
 <div class="viewcode-block" id="AcquisitionFeed.page"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.page">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">page</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-             <span class="n">cache_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-             <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="nf">page</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+             <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+             <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
              <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a feed representing one page of works from a given lane.</span>
 
-<span class="sd">        :return: CachedFeed (if use_cache is True) or unicode</span>
+<span class="sd">        :return: A Unicode string containing a (potentially cached) OPDS feed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">Lane</span><span class="p">):</span>
-            <span class="n">library</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">library</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">WorkList</span><span class="p">):</span>
-            <span class="n">library</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">library</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">library</span> <span class="o">=</span> <span class="n">worklist</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">Facets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
         <span class="n">pagination</span> <span class="o">=</span> <span class="n">pagination</span> <span class="ow">or</span> <span class="n">Pagination</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
+        <span class="n">annotator</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_annotator</span><span class="p">(</span><span class="n">annotator</span><span class="p">)</span>
 
-        <span class="n">cached</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">use_cache</span> <span class="o">=</span> <span class="n">cache_type</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NO_CACHE</span>
-        <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
-            <span class="n">cache_type</span> <span class="o">=</span> <span class="n">cache_type</span> <span class="ow">or</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">PAGE_TYPE</span>
-            <span class="n">cached</span><span class="p">,</span> <span class="n">usable</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span>
-                <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
-                <span class="nb">type</span><span class="o">=</span><span class="n">cache_type</span><span class="p">,</span>
-                <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
-                <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-                <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-                <span class="n">force_refresh</span><span class="o">=</span><span class="n">force_refresh</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">usable</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span>
+        <span class="k">def</span> <span class="nf">refresh</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_generate_page</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span>
+                <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
+            <span class="p">)</span>                      
 
+        <span class="n">cached</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
+            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span>            
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_generate_page</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span>
+        <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Internal method called by page() when a cached feed</span>
+<span class="sd">        must be regenerated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">works</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">works</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">search_debug</span>
@@ -819,11 +810,7 @@
             <span class="n">feed</span><span class="o">.</span><span class="n">add_breadcrumb_links</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">.</span><span class="n">entrypoint</span><span class="p">)</span>
 
         <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">lane</span><span class="p">)</span>
-
-        <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">cached</span> <span class="ow">and</span> <span class="n">use_cache</span><span class="p">:</span>
-            <span class="n">cached</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">content</span></div>
+        <span class="k">return</span> <span class="n">feed</span>
 
 <div class="viewcode-block" id="AcquisitionFeed.from_query"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.from_query">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_query</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">feed_name</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">url_fn</span><span class="p">,</span> <span class="n">annotator</span><span class="p">):</span>
@@ -847,6 +834,15 @@
             <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;previous&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">url_fn</span><span class="p">(</span><span class="n">pagination</span><span class="o">.</span><span class="n">previous_page</span><span class="o">.</span><span class="n">offset</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">feed</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_make_annotator</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">annotator</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper method to make sure there&#39;s some kind of Annotator.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">annotator</span><span class="p">:</span>
+            <span class="n">annotator</span> <span class="o">=</span> <span class="n">Annotator</span>
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">annotator</span><span class="p">):</span>
+            <span class="n">annotator</span> <span class="o">=</span> <span class="n">annotator</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">annotator</span>
 
 <div class="viewcode-block" id="AcquisitionFeed.facet_link"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.facet_link">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">facet_link</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">href</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">facet_group_name</span><span class="p">,</span> <span class="n">is_active</span><span class="p">):</span>
@@ -1697,61 +1693,65 @@
                 <span class="s2">&quot;I know about this work but can offer no way of fulfilling it.&quot;</span>
             <span class="p">)</span></div></div>
 
+<div class="viewcode-block" id="NavigationFacets"><a class="viewcode-back" href="../../core.html#core.opds.NavigationFacets">[docs]</a><span class="k">class</span> <span class="nc">NavigationFacets</span><span class="p">(</span><span class="n">FeaturedFacets</span><span class="p">):</span>
+    <span class="n">CACHED_FEED_TYPE</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">NAVIGATION_TYPE</span></div>
+
 <div class="viewcode-block" id="NavigationFeed"><a class="viewcode-back" href="../../core.html#core.opds.NavigationFeed">[docs]</a><span class="k">class</span> <span class="nc">NavigationFeed</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="p">):</span>
 
-    <span class="n">NO_CACHE</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+    <span class="c1"># TODO: This is used in feed_response to set the Cache-Control</span>
+    <span class="c1"># headers. It should be replaced with a system where the</span>
+    <span class="c1"># Cache-Control max-age value is derived from the lifetime of the</span>
+    <span class="c1"># corresponding CachedFeed object, if any.</span>
     <span class="n">FEED_CACHE_TIME</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;default_feed_cache_time&#39;</span><span class="p">,</span> <span class="mi">600</span><span class="p">))</span>
 
 <div class="viewcode-block" id="NavigationFeed.navigation"><a class="viewcode-back" href="../../core.html#core.opds.NavigationFeed.navigation">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">navigation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-                   <span class="n">cache_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">navigation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+                   <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The navigation feed with links to a given lane&#39;s sublanes.&quot;&quot;&quot;</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">annotator</span><span class="p">:</span>
-            <span class="n">annotator</span> <span class="o">=</span> <span class="n">Annotator</span>
-        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">annotator</span><span class="p">):</span>
-            <span class="n">annotator</span> <span class="o">=</span> <span class="n">annotator</span><span class="p">()</span>
-        <span class="n">cached</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">use_cache</span> <span class="o">=</span> <span class="n">cache_type</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NO_CACHE</span>
-        <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">FeaturedFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">use_cache</span><span class="p">:</span>
-            <span class="n">cache_type</span> <span class="o">=</span> <span class="n">cache_type</span> <span class="ow">or</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">NAVIGATION_TYPE</span>
-            <span class="n">cached</span><span class="p">,</span> <span class="n">usable</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span>
-                <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
-                <span class="nb">type</span><span class="o">=</span><span class="n">cache_type</span><span class="p">,</span>
-                <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
-                <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-                <span class="n">force_refresh</span><span class="o">=</span><span class="n">force_refresh</span><span class="p">,</span>
+        <span class="n">annotator</span> <span class="o">=</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">_make_annotator</span><span class="p">(</span><span class="n">annotator</span><span class="p">)</span>
+        <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">NavigationFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">refresh</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_generate_navigation</span><span class="p">(</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="n">usable</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span>
+
+        <span class="n">cached</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
+            <span class="n">_db</span><span class="p">,</span>
+            <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
+            <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span>
+            <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_generate_navigation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
+                             <span class="n">annotator</span><span class="p">):</span>
 
         <span class="n">feed</span> <span class="o">=</span> <span class="n">NavigationFeed</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
-            <span class="c1"># We can&#39;t generate links to sublanes since this lane has no sublanes,</span>
-            <span class="c1"># so we&#39;ll generate a link to its page-type feed instead.</span>
-            <span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;All &quot;</span> <span class="o">+</span> <span class="n">lane</span><span class="o">.</span><span class="n">display_name</span>
-            <span class="n">page_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">worklist</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="c1"># We can&#39;t generate links to children, since this Worklist</span>
+            <span class="c1"># has no children, so we&#39;ll generate a link to the</span>
+            <span class="c1"># Worklist&#39;s page-type feed instead.</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;All &quot;</span> <span class="o">+</span> <span class="n">worklist</span><span class="o">.</span><span class="n">display_name</span>
+            <span class="n">page_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
             <span class="n">feed</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">page_url</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">sublane</span> <span class="ow">in</span> <span class="n">lane</span><span class="o">.</span><span class="n">visible_children</span><span class="p">:</span>
-            <span class="n">title</span> <span class="o">=</span> <span class="n">sublane</span><span class="o">.</span><span class="n">display_name</span>
-            <span class="k">if</span> <span class="n">sublane</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
-                <span class="n">sublane_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">navigation_url</span><span class="p">(</span><span class="n">sublane</span><span class="p">)</span>
-                <span class="n">feed</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">sublane_url</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NAVIGATION_FEED_TYPE</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">worklist</span><span class="o">.</span><span class="n">visible_children</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">display_name</span>
+            <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                <span class="n">child_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">navigation_url</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+                <span class="n">feed</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">child_url</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NAVIGATION_FEED_TYPE</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">sublane_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">sublane</span><span class="p">)</span>
-                <span class="n">feed</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">sublane_url</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span><span class="p">)</span>
+                <span class="n">child_url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+                <span class="n">feed</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">child_url</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span><span class="p">)</span>
 
-        <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">lane</span><span class="p">)</span>
-
-        <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">cached</span> <span class="ow">and</span> <span class="n">use_cache</span><span class="p">:</span>
-            <span class="n">cached</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">content</span></div>
+        <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">worklist</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">feed</span>
 
 <div class="viewcode-block" id="NavigationFeed.add_entry"><a class="viewcode-back" href="../../core.html#core.opds.NavigationFeed.add_entry">[docs]</a>    <span class="k">def</span> <span class="nf">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">NAVIGATION_FEED_TYPE</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create an OPDS navigation entry for a URL.&quot;&quot;&quot;</span>

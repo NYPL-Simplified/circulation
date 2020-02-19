@@ -94,7 +94,6 @@
     <span class="n">production_session</span><span class="p">,</span>
     <span class="n">Admin</span><span class="p">,</span>
     <span class="n">Annotation</span><span class="p">,</span>
-    <span class="n">CachedFeed</span><span class="p">,</span>
     <span class="n">CachedMARCFile</span><span class="p">,</span>
     <span class="n">CirculationEvent</span><span class="p">,</span>
     <span class="n">Collection</span><span class="p">,</span>
@@ -737,13 +736,26 @@
 <div class="viewcode-block" id="OPDSFeedController"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController">[docs]</a><span class="k">class</span> <span class="nc">OPDSFeedController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 
 <div class="viewcode-block" id="OPDSFeedController.groups"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.groups">[docs]</a>    <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Build or retrieve a grouped acquisition feed.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Build or retrieve a grouped acquisition feed.</span>
 
+<span class="sd">        :param lane_identifier: An identifier that uniquely identifiers</span>
+<span class="sd">            the WorkList whose feed we want.</span>
+<span class="sd">        :param feed_class: A replacement for AcquisitionFeed, for use in</span>
+<span class="sd">            tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
 
         <span class="n">lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_lane</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">lane</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="o">.</span><span class="n">sublanes</span><span class="p">:</span>
+            <span class="c1"># This lane has no sublanes. Although we can technically</span>
+            <span class="c1"># create a grouped feed, it would be an unsatisfying</span>
+            <span class="c1"># gateway to a paginated feed. We should just serve the</span>
+            <span class="c1"># paginated feed.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">,</span> <span class="n">feed_class</span><span class="p">)</span>
+
         <span class="n">facet_class_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
             <span class="n">minimum_featured_quality</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span><span class="p">,</span>
         <span class="p">)</span>
@@ -765,13 +777,19 @@
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OPDSFeedController.feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.feed">[docs]</a>    <span class="k">def</span> <span class="nf">feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Build or retrieve a paginated acquisition feed.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Build or retrieve a paginated acquisition feed.</span>
+
+<span class="sd">        :param lane_identifier: An identifier that uniquely identifiers</span>
+<span class="sd">            the WorkList whose feed we want.</span>
+<span class="sd">        :param feed_class: A replacement for AcquisitionFeed, for use in</span>
+<span class="sd">            tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">lane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_lane</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">lane</span>
@@ -794,7 +812,7 @@
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span>
-            <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+            <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
         <span class="p">)</span>
@@ -838,7 +856,7 @@
         <span class="n">title</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">name</span>
         <span class="n">lane</span> <span class="o">=</span> <span class="n">CrawlableCollectionBasedLane</span><span class="p">()</span>
         <span class="n">lane</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crawlable_feed</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crawlable_feed</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OPDSFeedController.crawlable_collection_feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.crawlable_collection_feed">[docs]</a>    <span class="k">def</span> <span class="nf">crawlable_collection_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build or retrieve a crawlable acquisition feed for the</span>
@@ -860,7 +878,7 @@
             <span class="c1"># We&#39;ll get a generic CirculationManagerAnnotator.</span>
             <span class="n">annotator</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crawlable_feed</span><span class="p">(</span>
-            <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="OPDSFeedController.crawlable_list_feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.crawlable_list_feed">[docs]</a>    <span class="k">def</span> <span class="nf">crawlable_list_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">list_name</span><span class="p">):</span>
@@ -882,15 +900,15 @@
         <span class="p">)</span>
         <span class="n">lane</span> <span class="o">=</span> <span class="n">CrawlableCustomListBasedLane</span><span class="p">()</span>
         <span class="n">lane</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crawlable_feed</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_crawlable_feed</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_crawlable_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="nf">_crawlable_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                         <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Helper method to create a crawlable feed.</span>
 
 <span class="sd">        :param title: The title to use for the feed.</span>
 <span class="sd">        :param url: The URL from which the feed will be served.</span>
-<span class="sd">        :param lane: A crawlable Lane which controls which works show up</span>
+<span class="sd">        :param worklist: A crawlable Lane which controls which works show up</span>
 <span class="sd">            in the feed.</span>
 <span class="sd">        :param annotator: A custom Annotator to use when generating the feed.</span>
 <span class="sd">        :param feed_class: A drop-in replacement for AcquisitionFeed</span>
@@ -906,16 +924,16 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">search_engine</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">search_engine</span>
 
-        <span class="n">annotator</span> <span class="o">=</span> <span class="n">annotator</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
+        <span class="n">annotator</span> <span class="o">=</span> <span class="n">annotator</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
 
         <span class="c1"># A crawlable feed has only one possible set of Facets,</span>
         <span class="c1"># so library settings are irrelevant.</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">CrawlableFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
 
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span>
+            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">cache_type</span><span class="o">=</span><span class="n">CrawlableFacets</span><span class="o">.</span><span class="n">CACHED_FEED_TYPE</span><span class="p">,</span>
             <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
@@ -1676,10 +1694,9 @@
         <span class="p">)</span>
 
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">cache_type</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">CACHED_FEED_TYPE</span><span class="p">,</span>
-            <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
+            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
 
@@ -1745,9 +1762,8 @@
 
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">DISPLAY_NAME</span><span class="p">,</span>
-            <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+            <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
-            <span class="n">cache_type</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">CACHED_FEED_TYPE</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
 
@@ -1793,10 +1809,9 @@
         <span class="p">)</span>
 
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">DISPLAY_NAME</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">DISPLAY_NAME</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">cache_type</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">CACHED_FEED_TYPE</span><span class="p">,</span>
-            <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
+            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
 
@@ -1854,10 +1869,9 @@
 
         <span class="n">url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">)</span>
         <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">cache_type</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">CACHED_FEED_TYPE</span><span class="p">,</span>
-            <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
+            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div></div>
 

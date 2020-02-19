@@ -667,7 +667,11 @@
         <span class="n">page</span> <span class="o">=</span> <span class="n">Pagination</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">pagenum</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pages</span><span class="p">):</span>
             <span class="k">yield</span> <span class="n">page</span>
-            <span class="n">page</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">next_page</span></div>
+            <span class="n">page</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">next_page</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">page</span><span class="p">:</span>
+                <span class="c1"># There aren&#39;t enough books to fill `self.pages`</span>
+                <span class="c1"># pages. Stop working.</span>
+                <span class="k">break</span></div>
 
 <div class="viewcode-block" id="CacheFacetListsPerLane.do_generate"><a class="viewcode-back" href="../scripts.html#scripts.CacheFacetListsPerLane.do_generate">[docs]</a>    <span class="k">def</span> <span class="nf">do_generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">feeds</span> <span class="o">=</span> <span class="p">[]</span>
@@ -677,9 +681,9 @@
         <span class="n">url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">)</span>
         <span class="n">feed_class</span> <span class="o">=</span> <span class="n">feed_class</span> <span class="ow">or</span> <span class="n">AcquisitionFeed</span>
         <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">force_refresh</span><span class="o">=</span><span class="kc">True</span>
+            <span class="n">max_age</span><span class="o">=</span><span class="mi">0</span>
         <span class="p">)</span></div></div>
 
 
@@ -688,7 +692,7 @@
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Cache OPDS grouped feed for each lane&quot;</span>
 
 <div class="viewcode-block" id="CacheOPDSGroupFeedPerLane.should_process_lane"><a class="viewcode-back" href="../scripts.html#scripts.CacheOPDSGroupFeedPerLane.should_process_lane">[docs]</a>    <span class="k">def</span> <span class="nf">should_process_lane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">):</span>
-        <span class="c1"># OPDS group feeds are only generated for lanes that have sublanes.</span>
+        <span class="c1"># OPDS grouped feeds are only generated for lanes that have sublanes.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">lane</span><span class="o">.</span><span class="n">depth</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">:</span>
@@ -700,9 +704,13 @@
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
         <span class="n">url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">groups_url</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
         <span class="n">feed_class</span> <span class="o">=</span> <span class="n">feed_class</span> <span class="ow">or</span> <span class="n">AcquisitionFeed</span>
+
+        <span class="c1"># Since grouped feeds are only cached for lanes that have sublanes,</span>
+        <span class="c1"># there&#39;s no need to consider the case of a lane with no sublanes,</span>
+        <span class="c1"># unlike the corresponding code in OPDSFeedController.groups()</span>
         <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
-            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-            <span class="n">force_refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
+            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="CacheOPDSGroupFeedPerLane.facets"><a class="viewcode-back" href="../scripts.html#scripts.CacheOPDSGroupFeedPerLane.facets">[docs]</a>    <span class="k">def</span> <span class="nf">facets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">):</span>

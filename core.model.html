@@ -219,6 +219,11 @@
 <em class="property">class </em><code class="descclassname">core.model.cachedfeed.</code><code class="descname">CachedFeed</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">sqlalchemy.ext.declarative.api.Base</span></code></p>
 <dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CACHE_FOREVER">
+<code class="descname">CACHE_FOREVER</code><em class="property"> = &lt;object object&gt;</em><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CACHE_FOREVER" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.model.cachedfeed.CachedFeed.CONTRIBUTOR_TYPE">
 <code class="descname">CONTRIBUTOR_TYPE</code><em class="property"> = u'contributor'</em><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CONTRIBUTOR_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -227,6 +232,54 @@
 <dt id="core.model.cachedfeed.CachedFeed.CRAWLABLE_TYPE">
 <code class="descname">CRAWLABLE_TYPE</code><em class="property"> = u'crawlable'</em><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CRAWLABLE_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="class">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys">
+<em class="property">class </em><code class="descname">CachedFeedKeys</code><span class="sig-paren">(</span><em>feed_type</em>, <em>library</em>, <em>work</em>, <em>lane_id</em>, <em>unique_key</em>, <em>facets_key</em>, <em>pagination_key</em><span class="sig-paren">)</span><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></p>
+<dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys.facets_key">
+<code class="descname">facets_key</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys.facets_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 5</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys.feed_type">
+<code class="descname">feed_type</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys.feed_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys.lane_id">
+<code class="descname">lane_id</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys.lane_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys.library">
+<code class="descname">library</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys.library" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys.pagination_key">
+<code class="descname">pagination_key</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys.pagination_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 6</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys.unique_key">
+<code class="descname">unique_key</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys.unique_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 4</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.cachedfeed.CachedFeed.CachedFeedKeys.work">
+<code class="descname">work</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.CachedFeedKeys.work" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.cachedfeed.CachedFeed.GROUPS_TYPE">
@@ -258,13 +311,6 @@
 <code class="descname">SERIES_TYPE</code><em class="property"> = u'series'</em><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.SERIES_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="classmethod">
-<dt id="core.model.cachedfeed.CachedFeed.calculate_max_age">
-<em class="property">classmethod </em><code class="descname">calculate_max_age</code><span class="sig-paren">(</span><em>_db</em>, <em>lane</em>, <em>type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.calculate_max_age"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.calculate_max_age" title="Permalink to this definition">¶</a></dt>
-<dd><p>Helper method to calculate the proper cache time for
-a WorkList.</p>
-</dd></dl>
-
 <dl class="attribute">
 <dt id="core.model.cachedfeed.CachedFeed.content">
 <code class="descname">content</code><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.content" title="Permalink to this definition">¶</a></dt>
@@ -276,9 +322,57 @@ a WorkList.</p>
 <dd></dd></dl>
 
 <dl class="classmethod">
+<dt id="core.model.cachedfeed.CachedFeed.feed_type">
+<em class="property">classmethod </em><code class="descname">feed_type</code><span class="sig-paren">(</span><em>worklist</em>, <em>facets</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.feed_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.feed_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine the ‘type’ of the feed.</p>
+<p>This may be defined either by <cite>worklist</cite> or by <cite>facets</cite>, with
+<cite>facets</cite> taking priority.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A string that can go into cachedfeeds.type.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
 <dt id="core.model.cachedfeed.CachedFeed.fetch">
-<em class="property">classmethod </em><code class="descname">fetch</code><span class="sig-paren">(</span><em>_db</em>, <em>lane</em>, <em>type</em>, <em>facets</em>, <em>pagination</em>, <em>annotator</em>, <em>force_refresh=False</em>, <em>max_age=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.fetch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.fetch" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<em class="property">classmethod </em><code class="descname">fetch</code><span class="sig-paren">(</span><em>_db</em>, <em>worklist</em>, <em>facets</em>, <em>pagination</em>, <em>refresher_method</em>, <em>max_age=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.fetch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.fetch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve a cached feed from the database if possible.</p>
+<p>Generate it from scratch and store it in the database if
+necessary.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>_db</strong> – A database connection.</li>
+<li><strong>worklist</strong> – The WorkList associated with this feed.</li>
+<li><strong>facets</strong> – A Facets object that distinguishes this feed from
+others (for instance, by its sort order).</li>
+<li><strong>pagination</strong> – A Pagination object that explains which
+page of a larger feed is being cached.</li>
+<li><strong>refresher_method</strong> – A function to call if it turns out
+the contents of the feed need to be regenerated. This
+function must take no arguments and return an object that
+implements __unicode__. (A Unicode string or an OPDSFeed is fine.)</li>
+<li><strong>max_age</strong> – If a cached feed is older than this, it will
+be considered stale and regenerated. This may be either a
+number of seconds or a timedelta. If no value is
+specified, a default value will be calculated based on
+WorkList and Facets configuration. Setting this value to
+zero will force a refresh.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A CachedFeed containing up-to-date content.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.cachedfeed.CachedFeed.id">
@@ -299,6 +393,30 @@ a WorkList.</p>
 <dt id="core.model.cachedfeed.CachedFeed.log">
 <code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.log" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="core.model.cachedfeed.CachedFeed.max_cache_age">
+<em class="property">classmethod </em><code class="descname">max_cache_age</code><span class="sig-paren">(</span><em>worklist</em>, <em>type</em>, <em>override=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.max_cache_age"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.max_cache_age" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine the number of seconds that a cached feed
+of a given type can remain fresh.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>worklist</strong> – A WorkList.</li>
+<li><strong>type</strong> – The type of feed being generated.</li>
+<li><strong>override</strong> – A specific value passed in by the user. This
+may either be a number of seconds or a timedelta.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A number of seconds, or CACHE_FOREVER.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.cachedfeed.CachedFeed.pagination">

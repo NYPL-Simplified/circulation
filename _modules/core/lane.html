@@ -140,6 +140,12 @@
 <span class="sd">    This is intended solely for use as a base class.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="c1"># If the use of a certain faceting object has implications for the</span>
+    <span class="c1"># type of feed (the way FeaturedFacets always implies a &#39;groups&#39; feed),</span>
+    <span class="c1"># set the type of feed here. This will override any CACHED_FEED_TYPE</span>
+    <span class="c1"># associated with the WorkList.</span>
+    <span class="n">CACHED_FEED_TYPE</span> <span class="o">=</span> <span class="kc">None</span>
+
 <div class="viewcode-block" id="BaseFacets.items"><a class="viewcode-back" href="../../core.html#core.lane.BaseFacets.items">[docs]</a>    <span class="k">def</span> <span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Yields a 2-tuple for every active facet setting.</span>
 
@@ -747,6 +753,9 @@
 <span class="sd">    AcquisitionFeed.groups().</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="c1"># This Facets class is used exclusively for grouped feeds.</span>
+    <span class="n">CACHED_FEED_TYPE</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">GROUPS_TYPE</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">minimum_featured_quality</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">random_seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set up an object that finds featured books in a given</span>
@@ -767,6 +776,7 @@
                 <span class="n">library</span> <span class="o">=</span> <span class="n">lane</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">library</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">library</span>
+
         <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
             <span class="n">quality</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1069,16 +1079,22 @@
     <span class="c1"># default. Most WorkList subclasses will override this.</span>
     <span class="n">MAX_CACHE_AGE</span> <span class="o">=</span> <span class="mi">14</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span>
 
-    <span class="c1"># In your subclass, set MAX_CACHE_AGE to this value to guarantee</span>
-    <span class="c1"># that cached feeds never expire -- they must be explicitly</span>
-    <span class="c1"># regenerated.</span>
-    <span class="n">CACHE_FOREVER</span> <span class="o">=</span> <span class="s1">&#39;forever&#39;</span>
+    <span class="c1"># If a certain type of Worklist should always have its OPDS feeds</span>
+    <span class="c1"># cached under a specific type, define that type as</span>
+    <span class="c1"># CACHED_FEED_TYPE.</span>
+    <span class="n">CACHED_FEED_TYPE</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># By default, a WorkList is always visible.</span>
     <span class="n">visible</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="c1"># By default, a WorkList does not draw from CustomLists</span>
     <span class="n">uses_customlists</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="WorkList.max_cache_age"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.max_cache_age">[docs]</a>    <span class="k">def</span> <span class="nf">max_cache_age</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine how long a feed for this WorkList should be cached</span>
+<span class="sd">        internally.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_CACHE_AGE</span></div>
 
 <div class="viewcode-block" id="WorkList.top_level_for_library"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.top_level_for_library">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">top_level_for_library</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
@@ -1384,6 +1400,7 @@
             <span class="n">full_parentage</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">short_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="s2">&quot; / &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">full_parentage</span><span class="p">)</span>
 
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">language_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return a string identifying the languages used in this WorkList.</span>
@@ -1405,6 +1422,18 @@
             <span class="n">audiences</span> <span class="o">=</span> <span class="p">[</span><span class="n">urllib</span><span class="o">.</span><span class="n">quote_plus</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">audiences</span><span class="p">)]</span>
             <span class="n">key</span> <span class="o">+=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">audiences</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">unique_key</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A string key that uniquely describes this WorkList within</span>
+<span class="sd">        its Library.</span>
+
+<span class="sd">        This is used when caching feeds for this WorkList. For Lanes,</span>
+<span class="sd">        the lane_id is used instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-</span><span class="si">%s</span><span class="s2">-</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">language_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">audience_key</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="WorkList.overview_facets"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.overview_facets">[docs]</a>    <span class="k">def</span> <span class="nf">overview_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Convert a generic FeaturedFacets to some other faceting object,</span>
@@ -2488,6 +2517,22 @@
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">uses_customlists</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="Lane.max_cache_age"><a class="viewcode-back" href="../../core.html#core.lane.Lane.max_cache_age">[docs]</a>    <span class="k">def</span> <span class="nf">max_cache_age</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine how long a feed for this WorkList should be cached</span>
+<span class="sd">        internally.</span>
+
+<span class="sd">        :param type: The type of feed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">GROUPS_TYPE</span><span class="p">:</span>
+            <span class="c1"># Generating grouped feeds on the fly for Lanes is not incredibly</span>
+            <span class="c1"># expensive, but it&#39;s slow enough that we prefer to regenerate</span>
+            <span class="c1"># them in the background (using force_refresh=True) rather</span>
+            <span class="c1"># than while someone is waiting for an HTTP response.</span>
+            <span class="k">return</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">CACHE_FOREVER</span>
+
+        <span class="c1"># Other than that, we have no opinion -- use the default.</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">Lane</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">max_cache_age</span><span class="p">(</span><span class="nb">type</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Lane.update_size"><a class="viewcode-back" href="../../core.html#core.lane.Lane.update_size">[docs]</a>    <span class="k">def</span> <span class="nf">update_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Update the stored estimate of the number of Works in this Lane.&quot;&quot;&quot;</span>
