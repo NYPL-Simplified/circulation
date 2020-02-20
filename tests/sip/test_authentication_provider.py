@@ -360,7 +360,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # Test with blocked patron, block should be set
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
-        patron = provider.info_to_patrondata(info, patron_blocks=True)
+        patron = provider.info_to_patrondata(info)
         eq_(patron.__class__, PatronData)
         eq_("12345", patron.authorization_identifier)
         eq_("863716", patron.permanent_id)
@@ -371,7 +371,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # Test with blocked patron, block should not be set
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
-        patron = provider.info_to_patrondata(info, patron_blocks=False)
+        patron = provider.info_to_patrondata(info, fields_deny_borrowing=[])
         eq_(patron.__class__, PatronData)
         eq_("12345", patron.authorization_identifier)
         eq_("863716", patron.permanent_id)

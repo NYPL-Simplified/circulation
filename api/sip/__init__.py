@@ -143,9 +143,11 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.ssl_key = integration.setting(self.SSL_KEY).value
         self.dialect = Sip2Dialect.load_dialect(integration.setting(self.ILS).value)
         self.client = client
-        self.patron_status_block = integration.setting(self.PATRON_STATUS_BLOCK).json_value
-        if self.patron_status_block is None:
-            self.patron_status_block = True
+        patron_status_block = integration.setting(self.PATRON_STATUS_BLOCK).json_value
+        if patron_status_block is None or patron_status_block:
+            self.patron_status_fields_that_deny_borrowing = SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES
+        else:
+            self.patron_status_fields_that_deny_borrowing = []
 
     def patron_information(self, username, password):
         try:
@@ -175,7 +177,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         info = self.patron_information(
             patron_or_patrondata.authorization_identifier, None
         )
-        return self.info_to_patrondata(info, False, patron_blocks=self.patron_status_block)
+        return self.info_to_patrondata(info, False, fields_deny_borrowing=self.patron_status_fields_that_deny_borrowing)
 
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
@@ -189,7 +191,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # passing it on.
             password = None
         info = self.patron_information(username, password)
-        return self.info_to_patrondata(info, patron_blocks=self.patron_status_block)
+        return self.info_to_patrondata(info, fields_deny_borrowing=self.patron_status_fields_that_deny_borrowing)
 
     def _run_self_tests(self, _db):
         def makeConnection(sip):
@@ -248,7 +250,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         
 
     @classmethod
-    def info_to_patrondata(cls, info, validate_password=True, patron_blocks=True):
+    def info_to_patrondata(cls, info, validate_password=True, fields_deny_borrowing=SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES):
 
         """Convert the SIP-specific dictionary obtained from
         SIPClient.patron_information() to an abstract,
@@ -296,23 +298,20 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         # patron_status field will prohibit the patron from borrowing
         # books.
         status = info['patron_status_parsed']
-        if patron_blocks:
-            block_reason = PatronData.NO_VALUE
-            for field in SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES:
-                if status.get(field) is True:
-                    block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
-                        field, PatronData.UNKNOWN_BLOCK
-                    )
-                    if block_reason not in (PatronData.NO_VALUE,
-                                            PatronData.UNKNOWN_BLOCK):
-                        # Even if there are multiple problems with this
-                        # patron's account, we can now present a specific
-                        # error message. There's no need to look through
-                        # more fields.
-                        break
-            patrondata.block_reason = block_reason
-        else:
-            patrondata.block_reason = PatronData.NO_VALUE
+        block_reason = PatronData.NO_VALUE
+        for field in fields_deny_borrowing:
+            if status.get(field) is True:
+                block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
+                    field, PatronData.UNKNOWN_BLOCK
+                )
+                if block_reason not in (PatronData.NO_VALUE,
+                                        PatronData.UNKNOWN_BLOCK):
+                    # Even if there are multiple problems with this
+                    # patron's account, we can now present a specific
+                    # error message. There's no need to look through
+                    # more fields.
+                    break
+        patrondata.block_reason = block_reason
 
         # If we can tell by looking at the SIP2 message that the
         # patron has excessive fines, we can use that as the reason
