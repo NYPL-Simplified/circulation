@@ -177,7 +177,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         info = self.patron_information(
             patron_or_patrondata.authorization_identifier, None
         )
-        return self.info_to_patrondata(info, False, fields_deny_borrowing=self.fields_that_deny_borrowing)
+        return self.info_to_patrondata(info, False)
 
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
@@ -191,7 +191,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # passing it on.
             password = None
         info = self.patron_information(username, password)
-        return self.info_to_patrondata(info, fields_deny_borrowing=self.fields_that_deny_borrowing)
+        return self.info_to_patrondata(info)
 
     def _run_self_tests(self, _db):
         def makeConnection(sip):
@@ -247,10 +247,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                     ("Raw test patron information"),
                     raw_patron_information
                 )
-        
 
-    @classmethod
-    def info_to_patrondata(cls, info, validate_password=True, fields_deny_borrowing=SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES):
+    def info_to_patrondata(self, info, validate_password=True):
 
         """Convert the SIP-specific dictionary obtained from
         SIPClient.patron_information() to an abstract,
@@ -289,7 +287,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:
             if expire_field in info:
                 value = info.get(expire_field)
-                value = cls.parse_date(value)
+                value = self.parse_date(value)
                 if value:
                     patrondata.authorization_expires = value
                     break
@@ -299,9 +297,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         # books.
         status = info['patron_status_parsed']
         block_reason = PatronData.NO_VALUE
-        for field in fields_deny_borrowing:
+        for field in self.fields_that_deny_borrowing:
             if status.get(field) is True:
-                block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
+                block_reason = self.SPECIFIC_BLOCK_REASONS.get(
                     field, PatronData.UNKNOWN_BLOCK
                 )
                 if block_reason not in (PatronData.NO_VALUE,
