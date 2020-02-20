@@ -72,6 +72,7 @@ from sqlalchemy.sql.expression import (
     literal_column,
     case,
 )
+from configuration import CannotLoadConfiguration
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -1834,3 +1835,17 @@ class Work(Base):
             .order_by(WorkGenre.affinity.desc()) \
             .first()
         return genre.name if genre else None
+
+    def delete(self, search_index=None):
+        """Delete the work from both the DB and search index."""
+        _db = Session.object_session(self)
+        if search_index is None:
+            try:
+                from ..external_search import ExternalSearchIndex
+                search_index = ExternalSearchIndex(_db)
+            except CannotLoadConfiguration, e:
+                # No search index is configured. This is fine -- just skip that part.
+                pass
+        if search_index is not None:
+            search_index.remove_work(self)
+        _db.delete(self)
