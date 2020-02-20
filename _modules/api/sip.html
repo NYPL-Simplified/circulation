@@ -61,6 +61,7 @@
     <span class="n">SSL_CERTIFICATE</span> <span class="o">=</span> <span class="s2">&quot;ssl_certificate&quot;</span>
     <span class="n">SSL_KEY</span> <span class="o">=</span> <span class="s2">&quot;ssl_key&quot;</span>
     <span class="n">ILS</span> <span class="o">=</span> <span class="s2">&quot;ils&quot;</span>
+    <span class="n">PATRON_STATUS_BLOCK</span> <span class="o">=</span> <span class="s2">&quot;patron status block&quot;</span>
 
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">URL</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Server&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
@@ -99,6 +100,17 @@
         <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">FIELD_SEPARATOR</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Field Separator&quot;</span><span class="p">),</span>
           <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;|&quot;</span><span class="p">,</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">PATRON_STATUS_BLOCK</span><span class="p">,</span>
+          <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;SIP2 Patron Status Block&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span>
+            <span class="s2">&quot;Block patrons from borrowing based on the status of the SIP2 &lt;em&gt;patron status&lt;/em&gt; field.&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;select&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Block based on patron status field&quot;</span><span class="p">)},</span>
+            <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;No blocks based on patron status field&quot;</span><span class="p">)},</span>
+          <span class="p">],</span>
+          <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
         <span class="p">},</span>
     <span class="p">]</span> <span class="o">+</span> <span class="n">BasicAuthenticationProvider</span><span class="o">.</span><span class="n">SETTINGS</span>
 
@@ -166,6 +178,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ssl_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SSL_KEY</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dialect</span> <span class="o">=</span> <span class="n">Sip2Dialect</span><span class="o">.</span><span class="n">load_dialect</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ILS</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client</span>
+        <span class="n">patron_status_block</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PATRON_STATUS_BLOCK</span><span class="p">)</span><span class="o">.</span><span class="n">json_value</span>
+        <span class="k">if</span> <span class="n">patron_status_block</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">patron_status_block</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fields_that_deny_borrowing</span> <span class="o">=</span> <span class="n">SIPClient</span><span class="o">.</span><span class="n">PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fields_that_deny_borrowing</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="SIP2AuthenticationProvider.patron_information"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.patron_information">[docs]</a>    <span class="k">def</span> <span class="nf">patron_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
@@ -265,10 +282,8 @@
                     <span class="p">(</span><span class="s2">&quot;Raw test patron information&quot;</span><span class="p">),</span>
                     <span class="n">raw_patron_information</span>
                 <span class="p">)</span>
-        
 
-<div class="viewcode-block" id="SIP2AuthenticationProvider.info_to_patrondata"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.info_to_patrondata">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">info_to_patrondata</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">validate_password</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="SIP2AuthenticationProvider.info_to_patrondata"><a class="viewcode-back" href="../../api.sip.html#api.sip.SIP2AuthenticationProvider.info_to_patrondata">[docs]</a>    <span class="k">def</span> <span class="nf">info_to_patrondata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">validate_password</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 
         <span class="sd">&quot;&quot;&quot;Convert the SIP-specific dictionary obtained from</span>
 <span class="sd">        SIPClient.patron_information() to an abstract,</span>
@@ -307,7 +322,7 @@
         <span class="k">for</span> <span class="n">expire_field</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;sipserver_patron_expiration&#39;</span><span class="p">,</span> <span class="s1">&#39;polaris_patron_expiration&#39;</span><span class="p">]:</span>
             <span class="k">if</span> <span class="n">expire_field</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">expire_field</span><span class="p">)</span>
-                <span class="n">value</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_date</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
                     <span class="n">patrondata</span><span class="o">.</span><span class="n">authorization_expires</span> <span class="o">=</span> <span class="n">value</span>
                     <span class="k">break</span>
@@ -317,9 +332,9 @@
         <span class="c1"># books.</span>
         <span class="n">status</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;patron_status_parsed&#39;</span><span class="p">]</span>
         <span class="n">block_reason</span> <span class="o">=</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span>
-        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">SIPClient</span><span class="o">.</span><span class="n">PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields_that_deny_borrowing</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
-                <span class="n">block_reason</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SPECIFIC_BLOCK_REASONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">block_reason</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SPECIFIC_BLOCK_REASONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
                     <span class="n">field</span><span class="p">,</span> <span class="n">PatronData</span><span class="o">.</span><span class="n">UNKNOWN_BLOCK</span>
                 <span class="p">)</span>
                 <span class="k">if</span> <span class="n">block_reason</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">PatronData</span><span class="o">.</span><span class="n">NO_VALUE</span><span class="p">,</span>
