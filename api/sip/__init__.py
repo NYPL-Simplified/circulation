@@ -26,6 +26,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     SSL_CERTIFICATE = "ssl_certificate"
     SSL_KEY = "ssl_key"
     ILS = "ils"
+    PATRON_STATUS_BLOCK = "patron status block"
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("Server"), "required": True },
@@ -64,6 +65,17 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         },
         { "key": FIELD_SEPARATOR, "label": _("Field Separator"),
           "default": "|", "required": True,
+        },
+        { "key": PATRON_STATUS_BLOCK,
+          "label": _("SIP2 Patron Status Block"),
+          "description": _(
+            "Block patrons from borrowing based on the status of the SIP2 <em>patron status</em> field."),
+          "type": "select",
+          "options": [
+            {"key": "true", "label": _("Block based on patron status field")},
+            {"key": "false", "label": _("No blocks based on patron status field")},
+          ],
+          "default": "true",
         },
     ] + BasicAuthenticationProvider.SETTINGS
 
@@ -131,6 +143,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.ssl_key = integration.setting(self.SSL_KEY).value
         self.dialect = Sip2Dialect.load_dialect(integration.setting(self.ILS).value)
         self.client = client
+        self.patron_status_block = integration.setting(self.PATRON_STATUS_BLOCK).json_value
+        if self.patron_status_block is None:
+            self.patron_status_block = True
 
     def patron_information(self, username, password):
         try:
@@ -160,7 +175,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         info = self.patron_information(
             patron_or_patrondata.authorization_identifier, None
         )
-        return self.info_to_patrondata(info, False)
+        return self.info_to_patrondata(info, False, patron_blocks=self.patron_status_block)
 
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
@@ -174,7 +189,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # passing it on.
             password = None
         info = self.patron_information(username, password)
-        return self.info_to_patrondata(info)
+        return self.info_to_patrondata(info, patron_blocks=self.patron_status_block)
 
     def _run_self_tests(self, _db):
         def makeConnection(sip):
@@ -233,7 +248,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         
 
     @classmethod
-    def info_to_patrondata(cls, info, validate_password=True):
+    def info_to_patrondata(cls, info, validate_password=True, patron_blocks=True):
 
         """Convert the SIP-specific dictionary obtained from
         SIPClient.patron_information() to an abstract,
@@ -281,20 +296,23 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         # patron_status field will prohibit the patron from borrowing
         # books.
         status = info['patron_status_parsed']
-        block_reason = PatronData.NO_VALUE
-        for field in SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES:
-            if status.get(field) is True:
-                block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
-                    field, PatronData.UNKNOWN_BLOCK
-                )
-                if block_reason not in (PatronData.NO_VALUE,
-                                        PatronData.UNKNOWN_BLOCK):
-                    # Even if there are multiple problems with this
-                    # patron's account, we can now present a specific
-                    # error message. There's no need to look through
-                    # more fields.
-                    break
-        patrondata.block_reason = block_reason
+        if patron_blocks:
+            block_reason = PatronData.NO_VALUE
+            for field in SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES:
+                if status.get(field) is True:
+                    block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
+                        field, PatronData.UNKNOWN_BLOCK
+                    )
+                    if block_reason not in (PatronData.NO_VALUE,
+                                            PatronData.UNKNOWN_BLOCK):
+                        # Even if there are multiple problems with this
+                        # patron's account, we can now present a specific
+                        # error message. There's no need to look through
+                        # more fields.
+                        break
+            patrondata.block_reason = block_reason
+        else:
+            patrondata.block_reason = PatronData.NO_VALUE
 
         # If we can tell by looking at the SIP2 message that the
         # patron has excessive fines, we can use that as the reason
