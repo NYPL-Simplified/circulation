@@ -859,6 +859,14 @@ class WorkReaper(ReaperMonitor):
     """
     MODEL_CLASS = Work
 
+    def __init__(self, *args, **kwargs):
+        from external_search import ExternalSearchIndex
+        search_index_client = kwargs.pop('search_index_client', None)
+        super(WorkReaper, self).__init__(*args, **kwargs)
+        self.search_index_client = (
+            search_index_client or ExternalSearchIndex(self._db)
+        )
+
     def query(self):
         return self._db.query(Work).outerjoin(Work.license_pools).filter(
             LicensePool.id==None
@@ -866,7 +874,7 @@ class WorkReaper(ReaperMonitor):
 
     def delete(self, work):
         """Delete work from elasticsearch and database."""
-        work.delete()
+        work.delete(self.search_index_client)
 
 ReaperMonitor.REGISTRY.append(WorkReaper)
 
