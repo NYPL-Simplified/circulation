@@ -145,9 +145,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.client = client
         patron_status_block = integration.setting(self.PATRON_STATUS_BLOCK).json_value
         if patron_status_block is None or patron_status_block:
-            self.patron_status_fields_that_deny_borrowing = SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES
+            self.fields_that_deny_borrowing = SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES
         else:
-            self.patron_status_fields_that_deny_borrowing = []
+            self.fields_that_deny_borrowing = []
 
     def patron_information(self, username, password):
         try:
@@ -177,7 +177,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         info = self.patron_information(
             patron_or_patrondata.authorization_identifier, None
         )
-        return self.info_to_patrondata(info, False, fields_deny_borrowing=self.patron_status_fields_that_deny_borrowing)
+        return self.info_to_patrondata(info, False, fields_deny_borrowing=self.fields_that_deny_borrowing)
 
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
@@ -191,7 +191,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # passing it on.
             password = None
         info = self.patron_information(username, password)
-        return self.info_to_patrondata(info, fields_deny_borrowing=self.patron_status_fields_that_deny_borrowing)
+        return self.info_to_patrondata(info, fields_deny_borrowing=self.fields_that_deny_borrowing)
 
     def _run_self_tests(self, _db):
         def makeConnection(sip):
