@@ -215,8 +215,11 @@ class OverdriveAPI(object):
            The server hostname will be interpolated automatically; you
            don't have to pass it in.
         """
-        kwargs.update(self.hosts)
-        return url % kwargs
+        try:
+            kwargs.update(self.hosts)
+            return url % kwargs
+        except Exception, e:
+            set_trace()
 
     @property
     def token(self):

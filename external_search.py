@@ -424,6 +424,9 @@ class ExternalSearchIndex(HasSelfTests):
         if debug:
             search = search.extra(explain=True)
 
+        if filter.min_score is not None:
+            search = search.extra(min_score=filter.min_score)
+
         fields = None
         if debug:
             # Don't restrict the fields at all -- get everything.
@@ -486,6 +489,7 @@ class ExternalSearchIndex(HasSelfTests):
             each containing the search results from that
             (query string, Filter, Pagination) 3-tuple.
         """
+        debug = True
         # If the works alias is not set, all queries return empty.
         #
         # TODO: Maybe an unset works_alias should raise
@@ -530,7 +534,7 @@ class ExternalSearchIndex(HasSelfTests):
                     self.log.debug(
                         '%02d "%s" (%s) work=%s score=%.3f shard=%s',
                         i, result.sort_title, result.sort_author, result.meta['id'],
-                        result.meta['score'] or 0, result.meta['shard']
+                        result.meta.explanation['value'] or 0, result.meta['shard']
                     )
 
         for i, results in enumerate(resultset):
@@ -2299,6 +2303,8 @@ class Filter(SearchBase):
         self.series = kwargs.pop('series', None)
 
         self.author = kwargs.pop('author', None)
+
+        self.min_score = kwargs.pop('min_score', None)
 
         self.match_nothing = kwargs.pop('match_nothing', False)
 

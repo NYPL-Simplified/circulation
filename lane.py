@@ -354,9 +354,7 @@ class Facets(FacetsWithEntryPoint):
         return config.default_facet(facet_group_name)
 
     @classmethod
-    def from_request(cls, library, config, get_argument, get_header, worklist,
-                     default_entrypoint=None, **extra):
-        """Load a faceting object from an HTTP request."""
+    def _values_from_request(cls, config, get_argument, get_header):
         g = Facets.ORDER_FACET_GROUP_NAME
         order = get_argument(g, cls.default_facet(config, g))
         order_facets = cls.available_facets(config, g)
@@ -365,7 +363,6 @@ class Facets(FacetsWithEntryPoint):
                 _("I don't know how to order a feed by '%(order)s'", order=order),
                 400
             )
-        extra['order'] = order
 
         g = Facets.AVAILABILITY_FACET_GROUP_NAME
         availability = get_argument(g, cls.default_facet(config, g))
@@ -375,7 +372,6 @@ class Facets(FacetsWithEntryPoint):
                 _("I don't understand the availability term '%(availability)s'", availability=availability),
                 400
             )
-        extra['availability'] = availability
 
         g = Facets.COLLECTION_FACET_GROUP_NAME
         collection = get_argument(g, cls.default_facet(config, g))
@@ -385,13 +381,27 @@ class Facets(FacetsWithEntryPoint):
                 _("I don't understand what '%(collection)s' refers to.", collection=collection),
                 400
             )
-        extra['collection'] = collection
 
-        extra['enabled_facets'] = {
+        enabled = {
             Facets.ORDER_FACET_GROUP_NAME : order_facets,
             Facets.AVAILABILITY_FACET_GROUP_NAME : availability_facets,
             Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
         }
+
+        return dict(
+            order=order, availability=availability, collection=collection,
+            enabled_facets=enabled
+        )
+
+    @classmethod
+    def from_request(cls, library, config, get_argument, get_header, worklist,
+                     default_entrypoint=None, **extra):
+        """Load a faceting object from an HTTP request."""
+
+        values = Facets._values_from_request(config, get_argument, get_header)
+        if isinstance(values, ProblemDetail):
+            return values
+        extra.update(values)
         extra['library'] = library
 
         return cls._from_request(config, get_argument, get_header, worklist,
@@ -444,6 +454,7 @@ class Facets(FacetsWithEntryPoint):
     def navigate(self, collection=None, availability=None, order=None,
                  entrypoint=None):
         """Create a slightly different Facets object from this one."""
+        return self
         return self.__class__(
             self.library,
             collection or self.collection,
@@ -767,7 +778,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         return filter.featurability_scoring_functions(self.random_seed)
 
 
-class SearchFacets(FacetsWithEntryPoint):
+class SearchFacets(Facets):
     """A Facets object designed to filter search results.
 
     Most search result filtering is handled by WorkList, but this
@@ -775,8 +786,10 @@ class SearchFacets(FacetsWithEntryPoint):
     preferred language.
     """
 
-    def __init__(self, entrypoint=None, media=None, languages=None, **kwargs):
-        super(SearchFacets, self).__init__(entrypoint, **kwargs)
+    def __init__(self, **kwargs):
+        languages = kwargs.pop('languages', None)
+        media = kwargs.pop('media', None)
+        super(SearchFacets, self).__init__(**kwargs)
         if media == Edition.ALL_MEDIUM:
             self.media = media
         else:
@@ -797,6 +810,11 @@ class SearchFacets(FacetsWithEntryPoint):
     def from_request(cls, library, config, get_argument, get_header, worklist,
                      default_entrypoint=None, **extra):
 
+        values = Facets._values_from_request(config, get_argument, get_header)
+        if isinstance(values, ProblemDetail):
+            return values
+        extra.update(values)
+        extra['library'] = library
         # Searches against a WorkList will use the union of the
         # languages allowed by the WorkList and the languages found in
         # the client's Accept-Language header.
@@ -847,6 +865,9 @@ class SearchFacets(FacetsWithEntryPoint):
         so that it reflects this SearchFacets object.
         """
         super(SearchFacets, self).modify_search_filter(filter)
+
+        if filter.order is not None and filter.min_score is None:
+            filter.min_score = 600
 
         # The incoming 'media' argument takes precedence over any
         # media restriction defined by the WorkList or the EntryPoint.
