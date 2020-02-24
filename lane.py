@@ -797,10 +797,13 @@ class SearchFacets(Facets):
         languages = kwargs.pop('languages', None)
         media = kwargs.pop('media', None)
 
-        # Default values for collection, availability, and order will
-        # be filled in by default_facets. This eliminates the need to
-        # explicitly specify a library (since the library is only used
-        # to determine these defaults).
+        # Our default_facets implementation will fill in values for
+        # the facet groups defined by the Facets class. This
+        # eliminates the need to explicitly specify a library, since
+        # the library is mainly used to determine these defaults --
+        # SearchFacets itself doesn't need one. However, in real
+        # usage, a Library will be provided via
+        # SearchFacets.from_request.
         kwargs.setdefault('library', None)
         kwargs.setdefault('collection', None)
         kwargs.setdefault('availability', None)
