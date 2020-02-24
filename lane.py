@@ -790,12 +790,7 @@ class SearchFacets(Facets):
     # score, we need a cutoff point so that marginal matches don't get
     # top billing just because they're first alphabetically. This is
     # the default cutoff point.
-    #
-    # Note that this is the same value as
-    # Query.FILTER_WAS_A_QUERY_WEIGHT. That allows a user to search
-    # for everything in a certain genre and sort the results
-    # alphabetically.
-    DEFAULT_MIN_SCORE = 600
+    DEFAULT_MIN_SCORE = 500
 
     def __init__(self, **kwargs):
         # Unless we hear differently via kwargs, we should search all
