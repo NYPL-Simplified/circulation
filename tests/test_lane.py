@@ -1185,7 +1185,7 @@ class TestSearchFacets(DatabaseTest):
 
         I.e. this is really a test of FacetsWithEntryPoint.navigate().
         """
-        facets = SearchFacets(object())
+        facets = SearchFacets(entrypoint=object())
         new_ep = object()
         new_facets = facets.navigate(new_ep)
         assert isinstance(new_facets, SearchFacets)
@@ -1194,27 +1194,29 @@ class TestSearchFacets(DatabaseTest):
     def test_modify_search_filter(self):
 
         # Test superclass behavior -- filter is modified by entrypoint.
-        facets = SearchFacets(AudiobooksEntryPoint)
+        facets = SearchFacets(entrypoint=AudiobooksEntryPoint)
         filter = Filter()
         facets.modify_search_filter(filter)
         eq_([Edition.AUDIO_MEDIUM], filter.media)
 
         # The medium specified in the constructor overrides anything
         # already present in the filter.
-        facets = SearchFacets(None, Edition.BOOK_MEDIUM)
+        facets = SearchFacets(entrypoint=None, media=Edition.BOOK_MEDIUM)
         filter = Filter(media=Edition.AUDIO_MEDIUM)
         facets.modify_search_filter(filter)
         eq_([Edition.BOOK_MEDIUM], filter.media)
 
         # It also overrides anything specified by the EntryPoint.
-        facets = SearchFacets(AudiobooksEntryPoint, Edition.BOOK_MEDIUM)
+        facets = SearchFacets(
+            entrypoint=AudiobooksEntryPoint, media=Edition.BOOK_MEDIUM
+        )
         filter = Filter()
         facets.modify_search_filter(filter)
         eq_([Edition.BOOK_MEDIUM], filter.media)
 
         # The language specified in the constructor _adds_ to any
         # languages already present in the filter.
-        facets = SearchFacets(None, languages=["eng", "spa"])
+        facets = SearchFacets(entrypoint=None, languages=["eng", "spa"])
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["eng", "spa"], filter.languages)

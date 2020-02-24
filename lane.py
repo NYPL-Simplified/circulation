@@ -789,17 +789,20 @@ class SearchFacets(Facets):
     # If search results are to be ordered by some field other than
     # score, we need a cutoff point so that marginal matches don't get
     # top billing just because they're first alphabetically. This is
-    # the default cutoff point.
+    # the default cutoff point, determined empirically.
     DEFAULT_MIN_SCORE = 500
 
     def __init__(self, **kwargs):
         # Unless we hear differently via kwargs, we should search all
         # books in the entire collection.
+        kwargs.setdefault('library', None)
         kwargs.setdefault('collection', self.COLLECTION_FULL)
         kwargs.setdefault('availability', self.AVAILABLE_ALL)
+        kwargs.setdefault('order', None)
 
         languages = kwargs.pop('languages', None)
         media = kwargs.pop('media', None)
+        self.min_score = kwargs.pop('min_score', self.DEFAULT_MIN_SCORE)
 
         super(SearchFacets, self).__init__(**kwargs)
         if media == Edition.ALL_MEDIUM:
@@ -809,7 +812,6 @@ class SearchFacets(Facets):
         self.media_argument = media
 
         self.languages = self._ensure_list(languages)
-        self.min_score = kwargs.pop('min_score', self.DEFAULT_MIN_SCORE)
 
     def _ensure_list(self, x):
         """Make sure x is a list of values, if there is a value at all."""
