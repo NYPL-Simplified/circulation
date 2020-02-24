@@ -1997,7 +1997,7 @@ class TestWorkList(DatabaseTest):
 
         # Now let's try a search with specific Pagination and Facets
         # objects.
-        facets = SearchFacets(None, languages=["chi"])
+        facets = SearchFacets(languages=["chi"])
         pagination = object()
         results = wl.search(self._db, query, client, pagination, facets,
                             debug=True)

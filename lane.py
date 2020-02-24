@@ -398,7 +398,7 @@ class Facets(FacetsWithEntryPoint):
                      default_entrypoint=None, **extra):
         """Load a faceting object from an HTTP request."""
 
-        values = Facets._values_from_request(config, get_argument, get_header)
+        values = cls._values_from_request(config, get_argument, get_header)
         if isinstance(values, ProblemDetail):
             return values
         extra.update(values)
@@ -844,7 +844,7 @@ class SearchFacets(Facets):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     default_entrypoint=None, **extra):
+                     default_entrypoint=EverythingEntryPoint, **extra):
 
         values = cls._values_from_request(config, get_argument, get_header)
         if isinstance(values, ProblemDetail):
