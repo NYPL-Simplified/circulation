@@ -409,7 +409,7 @@ class Facets(FacetsWithEntryPoint):
 
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None, entrypoint=None,
-                 entrypoint_is_default=False):
+                 entrypoint_is_default=False, **constructor_kwargs):
         """Constructor.
 
         :param collection: This is not a Collection object; it's a value for
@@ -419,7 +419,9 @@ class Facets(FacetsWithEntryPoint):
         facet group is configured on a per-WorkList basis rather than
         a per-library basis.
         """
-        super(Facets, self).__init__(entrypoint, entrypoint_is_default)
+        super(Facets, self).__init__(
+            entrypoint, entrypoint_is_default, **constructor_kwargs
+        )
         collection = collection or self.default_facet(
             library, self.COLLECTION_FACET_GROUP_NAME
         )
@@ -454,12 +456,11 @@ class Facets(FacetsWithEntryPoint):
     def navigate(self, collection=None, availability=None, order=None,
                  entrypoint=None):
         """Create a slightly different Facets object from this one."""
-        return self
         return self.__class__(
-            self.library,
-            collection or self.collection,
-            availability or self.availability,
-            order or self.order,
+            library=self.library,
+            collection=collection or self.collection,
+            availability=availability or self.availability,
+            order=order or self.order,
             enabled_facets=self.facets_enabled_at_init,
             entrypoint=(entrypoint or self.entrypoint),
             entrypoint_is_default=False,
@@ -845,7 +846,7 @@ class SearchFacets(Facets):
     def from_request(cls, library, config, get_argument, get_header, worklist,
                      default_entrypoint=None, **extra):
 
-        values = Facets._values_from_request(config, get_argument, get_header)
+        values = cls._values_from_request(config, get_argument, get_header)
         if isinstance(values, ProblemDetail):
             return values
         extra.update(values)
@@ -957,6 +958,11 @@ class SearchFacets(Facets):
         if self.media_argument:
             yield ("media", self.media_argument)
 
+    def navigate(self, **kwargs):
+        min_score = kwargs.pop('min_score', self.min_score)
+        new_facets = super(SearchFacets, self).navigate(**kwargs)
+        new_facets.min_score = min_score
+        return new_facets
 
 class Pagination(object):
 

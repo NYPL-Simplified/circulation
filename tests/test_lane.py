@@ -1081,8 +1081,8 @@ class TestSearchFacets(DatabaseTest):
 
         def from_request(**extra):
             return SearchFacets.from_request(
-                unused, self._default_library, get_argument, get_header,
-                unused, **extra
+                self._default_library, self._default_library, get_argument,
+                get_header, unused, **extra
             )
 
         facets = from_request(extra="value")
@@ -1100,8 +1100,8 @@ class TestSearchFacets(DatabaseTest):
         eq_([Edition.AUDIO_MEDIUM], facets.media)
 
         # The SearchFacets implementation turned the 'min_score'
-        # argument into a minimum score.
-        eq_(123, min_score)
+        # argument into a numeric minimum score.
+        eq_(123, facets.min_score)
 
         # The SearchFacets implementation turned the 'Accept-Language'
         # header into a set of language codes.
@@ -1186,17 +1186,21 @@ class TestSearchFacets(DatabaseTest):
         )
 
     def test_navigation(self):
-        """Navigating from one SearchFacets to another
-        gives a new SearchFacets object, even though SearchFacets doesn't
-        define navigate().
-
-        I.e. this is really a test of FacetsWithEntryPoint.navigate().
+        """Navigating from one SearchFacets to another gives a new
+        SearchFacets object. A number of fields can be changed,
+        including min_score, which is SearchFacets-specific.
         """
-        facets = SearchFacets(entrypoint=object())
+        facets = SearchFacets(
+            entrypoint=object(), order="field1", min_score=100
+        )
         new_ep = object()
-        new_facets = facets.navigate(new_ep)
+        new_facets = facets.navigate(
+            entrypoint=new_ep, order="field2", min_score=120
+        )
         assert isinstance(new_facets, SearchFacets)
         eq_(new_ep, new_facets.entrypoint)
+        eq_("field2", new_facets.order)
+        eq_(120, new_facets.min_score)
 
     def test_modify_search_filter(self):
 
