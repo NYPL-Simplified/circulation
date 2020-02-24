@@ -796,7 +796,6 @@ class SearchFacets(Facets):
     def __init__(self, **kwargs):
         languages = kwargs.pop('languages', None)
         media = kwargs.pop('media', None)
-        self.min_score = kwargs.pop('min_score', self.DEFAULT_MIN_SCORE)
 
         # Default values for collection, availability, and order will
         # be filled in by default_facets. This eliminates the need to
@@ -805,7 +804,13 @@ class SearchFacets(Facets):
         kwargs.setdefault('library', None)
         kwargs.setdefault('collection', None)
         kwargs.setdefault('availability', None)
-        kwargs.setdefault('order', None)
+        order = kwargs.setdefault('order', None)
+
+        if order:
+            default_min_score = self.DEFAULT_MIN_SCORE
+        else:
+            default_min_score = None
+        self.min_score = kwargs.pop('min_score', default_min_score)
 
         super(SearchFacets, self).__init__(**kwargs)
         if media == Edition.ALL_MEDIUM:
@@ -951,12 +956,15 @@ class SearchFacets(Facets):
         """Yields a 2-tuple for every active facet setting.
 
         This means the EntryPoint (handled by the superclass)
-        as well as a setting for 'media'.
+        as well as possible settings for 'media' and "min_score".
         """
         for k, v in super(SearchFacets, self).items():
             yield k, v
         if self.media_argument:
             yield ("media", self.media_argument)
+
+        if self.min_score is not None:
+            yield ('min_score', unicode(self.min_score))
 
     def navigate(self, **kwargs):
         min_score = kwargs.pop('min_score', self.min_score)

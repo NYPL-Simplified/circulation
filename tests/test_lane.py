@@ -1027,7 +1027,8 @@ class TestSearchFacets(DatabaseTest):
         eq_(None, defaults.entrypoint)
         eq_(None, defaults.languages)
         eq_(None, defaults.media)
-        eq_(m.DEFAULT_MIN_SCORE, defaults.min_score)
+        eq_(None, defaults.order)
+        eq_(None, defaults.min_score)
 
         mock_entrypoint = object()
 
@@ -1059,6 +1060,13 @@ class TestSearchFacets(DatabaseTest):
         mock_min_score = object()
         with_min_score = m(min_score=mock_min_score)
         eq_(mock_min_score, with_min_score.min_score)
+
+        # Pass in a value for order, and you automatically get a
+        # reasonably tight value for min_score.
+        order = object()
+        with_order = m(order=order)
+        eq_(order, with_order.order)
+        eq_(SearchFacets.DEFAULT_MIN_SCORE, with_order.min_score)
 
     def test_from_request(self):
         # An HTTP client can customize which SearchFacets object
@@ -1116,7 +1124,7 @@ class TestSearchFacets(DatabaseTest):
         facets = from_request()
         eq_(None, facets.media)
         eq_(None, facets.languages)
-        eq_(facets.DEFAULT_MIN_SCORE, facets.min_score)
+        eq_(None, facets.min_score)
 
         # Reading the language query with acceptable Accept-Language header
         # but not passing that value through.
@@ -1167,7 +1175,8 @@ class TestSearchFacets(DatabaseTest):
     def test_items(self):
         facets = SearchFacets(
             entrypoint=EverythingEntryPoint,
-            media=Edition.BOOK_MEDIUM, languages=['eng']
+            media=Edition.BOOK_MEDIUM, languages=['eng'],
+            min_score=123
         )
 
         # When we call items(), e.g. to create a query string that
@@ -1181,7 +1190,9 @@ class TestSearchFacets(DatabaseTest):
             [('entrypoint', EverythingEntryPoint.INTERNAL_NAME),
              (Facets.AVAILABILITY_FACET_GROUP_NAME, Facets.AVAILABLE_ALL),
              (Facets.COLLECTION_FACET_GROUP_NAME, Facets.COLLECTION_FULL),
-             ('media', Edition.BOOK_MEDIUM)],
+             ('media', Edition.BOOK_MEDIUM),
+             ('min_score', '123'),
+            ],
             list(facets.items())
         )
 
