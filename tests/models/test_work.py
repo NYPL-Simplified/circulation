@@ -1494,6 +1494,20 @@ class TestWork(DatabaseTest):
         pool2.presentation_edition.title = None
         eq_(pool1, work.active_license_pool())
 
+    def test_delete_work(self):
+        # Search mock
+        class MockSearchIndex():
+            removed = []
+            def remove_work(self, work):
+                self.removed.append(work)
+
+        s = MockSearchIndex();
+        work = self._work(with_license_pool=True)
+        work.delete(search_index=s)
+
+        eq_([], self._db.query(Work).filter(Work.id==work.id).all())
+        eq_(1, len(s.removed))
+        eq_(s.removed, [work])
 
 class TestWorkConsolidation(DatabaseTest):
 

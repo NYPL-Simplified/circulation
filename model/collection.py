@@ -775,14 +775,6 @@ class Collection(Base, HasFullTableCache):
             )
 
         _db = Session.object_session(self)
-        if not search_index:
-            try:
-                from ..external_search import ExternalSearchIndex
-                search_index = ExternalSearchIndex(_db)
-            except CannotLoadConfiguration, e:
-                # No search index is configured. This is fine -- just skip
-                # that part.
-                pass
 
         # Delete all the license pools. This should be the only part
         # of the application where LicensePools are permanently
@@ -792,9 +784,8 @@ class Collection(Base, HasFullTableCache):
             _db.delete(pool)
             if not i % 100:
                 _db.commit()
-            if work and search_index and not work.license_pools:
-                search_index.remove_work(work)
-                _db.delete(work)
+            if work and not work.license_pools:
+                work.delete(search_index)
 
         # Now delete the Collection itself.
         _db.delete(self)

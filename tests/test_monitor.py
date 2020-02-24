@@ -1,5 +1,6 @@
 from nose.tools import (
     eq_,
+    ok_,
     set_trace,
     assert_raises,
     assert_raises_regexp,
@@ -1004,6 +1005,12 @@ class TestReaperMonitor(DatabaseTest):
 class TestWorkReaper(DatabaseTest):
 
     def test_end_to_end(self):
+        # Search mock
+        class MockSearchIndex():
+            removed = []
+
+            def remove_work(self, work):
+                self.removed.append(work)
 
         # First, create three works.
 
@@ -1061,8 +1068,16 @@ class TestWorkReaper(DatabaseTest):
         self._db.commit()
 
         # Run the reaper.
-        m = WorkReaper(self._db)
+        s = MockSearchIndex()
+        m = WorkReaper(self._db, search_index_client=s)
+        print m.search_index_client
         m.run_once()
+
+        # Search index was updated
+        eq_(2, len(s.removed))
+        ok_(has_license_pool not in s.removed)
+        ok_(had_license_pool in s.removed)
+        ok_(never_had_license_pool in s.removed)
 
         # Only the work with a license pool remains.
         eq_([has_license_pool], [x for x in works])
