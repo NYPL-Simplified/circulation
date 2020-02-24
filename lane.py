@@ -786,7 +786,23 @@ class SearchFacets(Facets):
     preferred language.
     """
 
+    # If search results are to be ordered by some field other than
+    # score, we need a cutoff point so that marginal matches don't get
+    # top billing just because they're first alphabetically. This is
+    # the default cutoff point.
+    #
+    # Note that this is the same value as
+    # Query.FILTER_WAS_A_QUERY_WEIGHT. That allows a user to search
+    # for everything in a certain genre and sort the results
+    # alphabetically.
+    DEFAULT_MIN_SCORE = 600
+
     def __init__(self, **kwargs):
+        # Unless we hear differently via kwargs, we should search all
+        # books in the entire collection.
+        kwargs.setdefault('collection', self.COLLECTION_FULL)
+        kwargs.setdefault('availability', self.AVAILABLE_ALL)
+
         languages = kwargs.pop('languages', None)
         media = kwargs.pop('media', None)
         super(SearchFacets, self).__init__(**kwargs)
@@ -867,7 +883,10 @@ class SearchFacets(Facets):
         super(SearchFacets, self).modify_search_filter(filter)
 
         if filter.order is not None and filter.min_score is None:
-            filter.min_score = 600
+            # The user wants search results to be ordered by one
+            # of the data fields, not the match score, and no 
+            # score cutoff was provided. Use the default.
+            filter.min_score = self.DEFAULT_MIN_SCORE
 
         # The incoming 'media' argument takes precedence over any
         # media restriction defined by the WorkList or the EntryPoint.

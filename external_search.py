@@ -424,7 +424,7 @@ class ExternalSearchIndex(HasSelfTests):
         if debug:
             search = search.extra(explain=True)
 
-        if filter.min_score is not None:
+        if filter is not None and filter.min_score is not None:
             search = search.extra(min_score=filter.min_score)
 
         fields = None
@@ -489,7 +489,6 @@ class ExternalSearchIndex(HasSelfTests):
             each containing the search results from that
             (query string, Filter, Pagination) 3-tuple.
         """
-        debug = True
         # If the works alias is not set, all queries return empty.
         #
         # TODO: Maybe an unset works_alias should raise
@@ -499,7 +498,7 @@ class ExternalSearchIndex(HasSelfTests):
             for q in queries:
                 yield []
 
-        # Create a MultiSearch. 
+        # Create a MultiSearch.
         multi = MultiSearch(using=self.__client)
 
         # Give it a Search object for every query definition passed in
