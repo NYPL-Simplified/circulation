@@ -1027,6 +1027,7 @@ class TestSearchFacets(DatabaseTest):
         eq_(None, defaults.entrypoint)
         eq_(None, defaults.languages)
         eq_(None, defaults.media)
+        eq_(m.DEFAULT_MIN_SCORE, defaults.min_score)
 
         mock_entrypoint = object()
 
@@ -1049,6 +1050,11 @@ class TestSearchFacets(DatabaseTest):
         every_medium = m(None, Edition.ALL_MEDIUM)
         eq_(Edition.ALL_MEDIUM, every_medium.media)
 
+        # Pass in a value for min_score, and it's stored for later.
+        mock_min_score = object()
+        with_min_score = m(min_score=mock_min_score)
+        eq_(mock_min_score, with_min_score.min_score)
+
     def test_from_request(self):
         # An HTTP client can customize which SearchFacets object
         # is created by sending different HTTP requests.
@@ -1056,7 +1062,7 @@ class TestSearchFacets(DatabaseTest):
         # These variables mock the query string arguments and
         # HTTP headers of an HTTP request.
         arguments = dict(entrypoint=EbooksEntryPoint.INTERNAL_NAME,
-                         media=Edition.AUDIO_MEDIUM)
+                         media=Edition.AUDIO_MEDIUM, min_score="123")
         headers = {"Accept-Language" : "da, en-gb;q=0.8"}
         get_argument = arguments.get
         get_header = headers.get
@@ -1088,18 +1094,24 @@ class TestSearchFacets(DatabaseTest):
         # implied by the entry point, but that's not our problem.
         eq_([Edition.AUDIO_MEDIUM], facets.media)
 
+        # The SearchFacets implementation turned the 'min_score'
+        # argument into a minimum score.
+        eq_(123, min_score)
+
         # The SearchFacets implementation turned the 'Accept-Language'
         # header into a set of language codes.
         eq_(['dan', 'eng'], facets.languages)
 
-        # Try again with bogus media and languages.
+        # Try again with bogus media, languages, and minimum score.
         arguments['media'] = 'Unknown Media'
+        arguments['min_score'] = 'not a number'
         headers['Accept-Language'] = "xx, ql"
 
         # None of the bogus information was used.
         facets = from_request()
         eq_(None, facets.media)
         eq_(None, facets.languages)
+        eq_(facets.DEFAULT_MIN_SCORE, facets.min_score)
 
         # Reading the language query with acceptable Accept-Language header
         # but not passing that value through.

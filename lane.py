@@ -805,6 +805,7 @@ class SearchFacets(Facets):
 
         languages = kwargs.pop('languages', None)
         media = kwargs.pop('media', None)
+
         super(SearchFacets, self).__init__(**kwargs)
         if media == Edition.ALL_MEDIUM:
             self.media = media
@@ -813,6 +814,7 @@ class SearchFacets(Facets):
         self.media_argument = media
 
         self.languages = self._ensure_list(languages)
+        self.min_score = kwargs.pop('min_score', self.DEFAULT_MIN_SCORE)
 
     def _ensure_list(self, x):
         """Make sure x is a list of values, if there is a value at all."""
@@ -842,6 +844,16 @@ class SearchFacets(Facets):
             languages = map(LanguageCodes.iso_639_2_for_locale, languages)
             languages = [l for l in languages if l]
         languages = languages or None
+
+        # The client can request a minimum score for search results.
+        min_score = get_argument("min_score", None)
+        if min_score is not None:
+            try:
+                min_score = int(min_score)
+            except ValueError, e:
+                min_score = None
+        if min_score is not None:
+            extra['min_score'] = min_score
 
         # The client can request an additional restriction on
         # the media types to be returned by searches.
@@ -883,10 +895,10 @@ class SearchFacets(Facets):
         super(SearchFacets, self).modify_search_filter(filter)
 
         if filter.order is not None and filter.min_score is None:
-            # The user wants search results to be ordered by one
-            # of the data fields, not the match score, and no 
-            # score cutoff was provided. Use the default.
-            filter.min_score = self.DEFAULT_MIN_SCORE
+            # The user wants search results to be ordered by one of
+            # the data fields, not the match score; and no overriding
+            # score cutoff has been provided yet. Use ours.
+            filter.min_score = self.min_score
 
         # The incoming 'media' argument takes precedence over any
         # media restriction defined by the WorkList or the EntryPoint.
