@@ -1033,7 +1033,10 @@ class TestSearchFacets(DatabaseTest):
 
         # If you pass in a single value for medium or language
         # they are turned into a list.
-        with_single_value = m(mock_entrypoint, Edition.BOOK_MEDIUM, "eng")
+        with_single_value = m(
+            entrypoint=mock_entrypoint, media=Edition.BOOK_MEDIUM,
+            languages="eng"
+        )
         eq_(mock_entrypoint, with_single_value.entrypoint)
         eq_([Edition.BOOK_MEDIUM], with_single_value.media)
         eq_(["eng"], with_single_value.languages)
@@ -1041,13 +1044,15 @@ class TestSearchFacets(DatabaseTest):
         # If you pass in a list of values, it's left alone.
         media = [Edition.BOOK_MEDIUM, Edition.AUDIO_MEDIUM]
         languages = ["eng", "spa"]
-        with_multiple_values = m(None, media, languages)
+        with_multiple_values = m(
+            media=media, languages=languages
+        )
         eq_(media, with_multiple_values.media)
         eq_(languages, with_multiple_values.languages)
 
         # The only exception is if you pass in Edition.ALL_MEDIUM
         # as 'medium' -- that's passed through as is.
-        every_medium = m(None, Edition.ALL_MEDIUM)
+        every_medium = m(media=Edition.ALL_MEDIUM)
         eq_(Edition.ALL_MEDIUM, every_medium.media)
 
         # Pass in a value for min_score, and it's stored for later.
@@ -1174,6 +1179,8 @@ class TestSearchFacets(DatabaseTest):
         # string.
         eq_(
             [('entrypoint', EverythingEntryPoint.INTERNAL_NAME),
+             (Facets.AVAILABILITY_FACET_GROUP_NAME, Facets.AVAILABLE_ALL),
+             (Facets.COLLECTION_FACET_GROUP_NAME, Facets.COLLECTION_FULL),
              ('media', Edition.BOOK_MEDIUM)],
             list(facets.items())
         )
@@ -1216,19 +1223,19 @@ class TestSearchFacets(DatabaseTest):
 
         # The language specified in the constructor _adds_ to any
         # languages already present in the filter.
-        facets = SearchFacets(entrypoint=None, languages=["eng", "spa"])
+        facets = SearchFacets(languages=["eng", "spa"])
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["eng", "spa"], filter.languages)
 
         # It doesn't override those values.
-        facets = SearchFacets(None, languages="eng")
+        facets = SearchFacets(languages="eng")
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["eng", "spa"], filter.languages)
 
         # This may result in modify_search_filter being a no-op.
-        facets = SearchFacets(None, languages="eng")
+        facets = SearchFacets(languages="eng")
         filter = Filter(languages="eng")
         facets.modify_search_filter(filter)
         eq_(["eng"], filter.languages)
@@ -1236,14 +1243,14 @@ class TestSearchFacets(DatabaseTest):
 
         # If no languages are specified in the SearchFacets, the value
         # set by the filter is used by itself.
-        facets = SearchFacets(None, languages=None)
+        facets = SearchFacets(languages=None)
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["spa"], filter.languages)
 
         # If neither facets nor filter includes any languages, there
         # is no language filter.
-        facets = SearchFacets(None, languages=None)
+        facets = SearchFacets(languages=None)
         filter = Filter(languages=None)
         facets.modify_search_filter(filter)
         eq_(None, filter.languages)

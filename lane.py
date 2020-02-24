@@ -793,16 +793,18 @@ class SearchFacets(Facets):
     DEFAULT_MIN_SCORE = 500
 
     def __init__(self, **kwargs):
-        # Unless we hear differently via kwargs, we should search all
-        # books in the entire collection.
-        kwargs.setdefault('library', None)
-        kwargs.setdefault('collection', self.COLLECTION_FULL)
-        kwargs.setdefault('availability', self.AVAILABLE_ALL)
-        kwargs.setdefault('order', None)
-
         languages = kwargs.pop('languages', None)
         media = kwargs.pop('media', None)
         self.min_score = kwargs.pop('min_score', self.DEFAULT_MIN_SCORE)
+
+        # Default values for collection, availability, and order will
+        # be filled in by default_facets. This eliminates the need to
+        # explicitly specify a library (since the library is only used
+        # to determine these defaults).
+        kwargs.setdefault('library', None)
+        kwargs.setdefault('collection', None)
+        kwargs.setdefault('availability', None)
+        kwargs.setdefault('order', None)
 
         super(SearchFacets, self).__init__(**kwargs)
         if media == Edition.ALL_MEDIUM:
@@ -812,6 +814,24 @@ class SearchFacets(Facets):
         self.media_argument = media
 
         self.languages = self._ensure_list(languages)
+
+    @classmethod
+    def default_facet(cls, ignore, group_name):
+        """The default facet settings for SearchFacets are hard-coded.
+
+        By default, we will search the full collection and all
+        availabilities, and order by match quality rather than any
+        bibliographic field.
+        """
+        if group_name == cls.COLLECTION_FACET_GROUP_NAME:
+            return cls.COLLECTION_FULL
+
+        if group_name == cls.AVAILABILITY_FACET_GROUP_NAME:
+            return cls.AVAILABLE_ALL
+
+        if group_name == cls.ORDER_FACET_GROUP_NAME:
+            return None
+        return None
 
     def _ensure_list(self, x):
         """Make sure x is a list of values, if there is a value at all."""
