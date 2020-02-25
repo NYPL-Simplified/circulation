@@ -1027,12 +1027,17 @@ class TestSearchFacets(DatabaseTest):
         eq_(None, defaults.entrypoint)
         eq_(None, defaults.languages)
         eq_(None, defaults.media)
+        eq_(None, defaults.order)
+        eq_(None, defaults.min_score)
 
         mock_entrypoint = object()
 
         # If you pass in a single value for medium or language
         # they are turned into a list.
-        with_single_value = m(mock_entrypoint, Edition.BOOK_MEDIUM, "eng")
+        with_single_value = m(
+            entrypoint=mock_entrypoint, media=Edition.BOOK_MEDIUM,
+            languages="eng"
+        )
         eq_(mock_entrypoint, with_single_value.entrypoint)
         eq_([Edition.BOOK_MEDIUM], with_single_value.media)
         eq_(["eng"], with_single_value.languages)
@@ -1040,14 +1045,28 @@ class TestSearchFacets(DatabaseTest):
         # If you pass in a list of values, it's left alone.
         media = [Edition.BOOK_MEDIUM, Edition.AUDIO_MEDIUM]
         languages = ["eng", "spa"]
-        with_multiple_values = m(None, media, languages)
+        with_multiple_values = m(
+            media=media, languages=languages
+        )
         eq_(media, with_multiple_values.media)
         eq_(languages, with_multiple_values.languages)
 
         # The only exception is if you pass in Edition.ALL_MEDIUM
         # as 'medium' -- that's passed through as is.
-        every_medium = m(None, Edition.ALL_MEDIUM)
+        every_medium = m(media=Edition.ALL_MEDIUM)
         eq_(Edition.ALL_MEDIUM, every_medium.media)
+
+        # Pass in a value for min_score, and it's stored for later.
+        mock_min_score = object()
+        with_min_score = m(min_score=mock_min_score)
+        eq_(mock_min_score, with_min_score.min_score)
+
+        # Pass in a value for order, and you automatically get a
+        # reasonably tight value for min_score.
+        order = object()
+        with_order = m(order=order)
+        eq_(order, with_order.order)
+        eq_(SearchFacets.DEFAULT_MIN_SCORE, with_order.min_score)
 
     def test_from_request(self):
         # An HTTP client can customize which SearchFacets object
@@ -1056,7 +1075,7 @@ class TestSearchFacets(DatabaseTest):
         # These variables mock the query string arguments and
         # HTTP headers of an HTTP request.
         arguments = dict(entrypoint=EbooksEntryPoint.INTERNAL_NAME,
-                         media=Edition.AUDIO_MEDIUM)
+                         media=Edition.AUDIO_MEDIUM, min_score="123")
         headers = {"Accept-Language" : "da, en-gb;q=0.8"}
         get_argument = arguments.get
         get_header = headers.get
@@ -1070,8 +1089,8 @@ class TestSearchFacets(DatabaseTest):
 
         def from_request(**extra):
             return SearchFacets.from_request(
-                unused, self._default_library, get_argument, get_header,
-                unused, **extra
+                self._default_library, self._default_library, get_argument,
+                get_header, unused, **extra
             )
 
         facets = from_request(extra="value")
@@ -1088,18 +1107,24 @@ class TestSearchFacets(DatabaseTest):
         # implied by the entry point, but that's not our problem.
         eq_([Edition.AUDIO_MEDIUM], facets.media)
 
+        # The SearchFacets implementation turned the 'min_score'
+        # argument into a numeric minimum score.
+        eq_(123, facets.min_score)
+
         # The SearchFacets implementation turned the 'Accept-Language'
         # header into a set of language codes.
         eq_(['dan', 'eng'], facets.languages)
 
-        # Try again with bogus media and languages.
+        # Try again with bogus media, languages, and minimum score.
         arguments['media'] = 'Unknown Media'
+        arguments['min_score'] = 'not a number'
         headers['Accept-Language'] = "xx, ql"
 
         # None of the bogus information was used.
         facets = from_request()
         eq_(None, facets.media)
         eq_(None, facets.languages)
+        eq_(None, facets.min_score)
 
         # Reading the language query with acceptable Accept-Language header
         # but not passing that value through.
@@ -1150,7 +1175,8 @@ class TestSearchFacets(DatabaseTest):
     def test_items(self):
         facets = SearchFacets(
             entrypoint=EverythingEntryPoint,
-            media=Edition.BOOK_MEDIUM, languages=['eng']
+            media=Edition.BOOK_MEDIUM, languages=['eng'],
+            min_score=123
         )
 
         # When we call items(), e.g. to create a query string that
@@ -1162,59 +1188,69 @@ class TestSearchFacets(DatabaseTest):
         # string.
         eq_(
             [('entrypoint', EverythingEntryPoint.INTERNAL_NAME),
-             ('media', Edition.BOOK_MEDIUM)],
+             (Facets.AVAILABILITY_FACET_GROUP_NAME, Facets.AVAILABLE_ALL),
+             (Facets.COLLECTION_FACET_GROUP_NAME, Facets.COLLECTION_FULL),
+             ('media', Edition.BOOK_MEDIUM),
+             ('min_score', '123'),
+            ],
             list(facets.items())
         )
 
     def test_navigation(self):
-        """Navigating from one SearchFacets to another
-        gives a new SearchFacets object, even though SearchFacets doesn't
-        define navigate().
-
-        I.e. this is really a test of FacetsWithEntryPoint.navigate().
+        """Navigating from one SearchFacets to another gives a new
+        SearchFacets object. A number of fields can be changed,
+        including min_score, which is SearchFacets-specific.
         """
-        facets = SearchFacets(object())
+        facets = SearchFacets(
+            entrypoint=object(), order="field1", min_score=100
+        )
         new_ep = object()
-        new_facets = facets.navigate(new_ep)
+        new_facets = facets.navigate(
+            entrypoint=new_ep, order="field2", min_score=120
+        )
         assert isinstance(new_facets, SearchFacets)
         eq_(new_ep, new_facets.entrypoint)
+        eq_("field2", new_facets.order)
+        eq_(120, new_facets.min_score)
 
     def test_modify_search_filter(self):
 
         # Test superclass behavior -- filter is modified by entrypoint.
-        facets = SearchFacets(AudiobooksEntryPoint)
+        facets = SearchFacets(entrypoint=AudiobooksEntryPoint)
         filter = Filter()
         facets.modify_search_filter(filter)
         eq_([Edition.AUDIO_MEDIUM], filter.media)
 
         # The medium specified in the constructor overrides anything
         # already present in the filter.
-        facets = SearchFacets(None, Edition.BOOK_MEDIUM)
+        facets = SearchFacets(entrypoint=None, media=Edition.BOOK_MEDIUM)
         filter = Filter(media=Edition.AUDIO_MEDIUM)
         facets.modify_search_filter(filter)
         eq_([Edition.BOOK_MEDIUM], filter.media)
 
         # It also overrides anything specified by the EntryPoint.
-        facets = SearchFacets(AudiobooksEntryPoint, Edition.BOOK_MEDIUM)
+        facets = SearchFacets(
+            entrypoint=AudiobooksEntryPoint, media=Edition.BOOK_MEDIUM
+        )
         filter = Filter()
         facets.modify_search_filter(filter)
         eq_([Edition.BOOK_MEDIUM], filter.media)
 
         # The language specified in the constructor _adds_ to any
         # languages already present in the filter.
-        facets = SearchFacets(None, languages=["eng", "spa"])
+        facets = SearchFacets(languages=["eng", "spa"])
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["eng", "spa"], filter.languages)
 
         # It doesn't override those values.
-        facets = SearchFacets(None, languages="eng")
+        facets = SearchFacets(languages="eng")
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["eng", "spa"], filter.languages)
 
         # This may result in modify_search_filter being a no-op.
-        facets = SearchFacets(None, languages="eng")
+        facets = SearchFacets(languages="eng")
         filter = Filter(languages="eng")
         facets.modify_search_filter(filter)
         eq_(["eng"], filter.languages)
@@ -1222,14 +1258,14 @@ class TestSearchFacets(DatabaseTest):
 
         # If no languages are specified in the SearchFacets, the value
         # set by the filter is used by itself.
-        facets = SearchFacets(None, languages=None)
+        facets = SearchFacets(languages=None)
         filter = Filter(languages="spa")
         facets.modify_search_filter(filter)
         eq_(["spa"], filter.languages)
 
         # If neither facets nor filter includes any languages, there
         # is no language filter.
-        facets = SearchFacets(None, languages=None)
+        facets = SearchFacets(languages=None)
         filter = Filter(languages=None)
         facets.modify_search_filter(filter)
         eq_(None, filter.languages)
@@ -1972,7 +2008,7 @@ class TestWorkList(DatabaseTest):
 
         # Now let's try a search with specific Pagination and Facets
         # objects.
-        facets = SearchFacets(None, languages=["chi"])
+        facets = SearchFacets(languages=["chi"])
         pagination = object()
         results = wl.search(self._db, query, client, pagination, facets,
                             debug=True)

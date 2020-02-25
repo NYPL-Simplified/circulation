@@ -916,9 +916,8 @@ class TestOPDS(DatabaseTest):
         assert '<entry>foo</entry>' in feed
 
     def test_page_feed(self):
-        """Test the ability to create a paginated feed of works for a given
-        lane.
-        """
+        # Test the ability to create a paginated feed of works for a given
+        # lane.
         lane = self.contemporary_romance
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
@@ -1183,9 +1182,8 @@ class TestOPDS(DatabaseTest):
         eq_(True, annotator.called)
 
     def test_search_feed(self):
-        """Test the ability to create a paginated feed of works for a given
-        search query.
-        """
+        # Test the ability to create a paginated feed of works for a given
+        # search query.
         fantasy_lane = self.fantasy
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
@@ -1193,12 +1191,14 @@ class TestOPDS(DatabaseTest):
         pagination = Pagination(size=1)
         search_client = MockExternalSearchIndex()
         search_client.bulk_update([work1, work2])
+        facets = SearchFacets(order="author", min_score=10)
 
         def make_page(pagination):
             return AcquisitionFeed.search(
                 self._db, "test", self._url, fantasy_lane, search_client,
                 "fantasy",
                 pagination=pagination,
+                facets=facets,
                 annotator=TestAnnotator,
             )
         feed = make_page(pagination)
@@ -1211,7 +1211,15 @@ class TestOPDS(DatabaseTest):
         eq_(TestAnnotator.top_level_title(), start['title'])
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination.next_page), next_link['href'])
+        expect = TestAnnotator.search_url(
+            fantasy_lane, "test", pagination.next_page, facets=facets
+        )
+        eq_(expect, next_link['href'])
+
+        # This is tested elsewhere, but let's make sure
+        # SearchFacets-specific fields like order and min_score are
+        # propagated to the next-page URL.
+        assert all(x in expect for x in ('order=author', 'min_score=10'))
 
         # This was the first page, so no previous link.
         eq_([], self.links(parsed, 'previous'))
@@ -1226,7 +1234,12 @@ class TestOPDS(DatabaseTest):
         feed = make_page(pagination.next_page)
         parsed = feedparser.parse(feed)
         [previous] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination), previous['href'])
+        expect = TestAnnotator.search_url(
+            fantasy_lane, "test", pagination, facets=facets
+        )
+        eq_(expect, previous['href'])
+        assert all(x in expect for x in ('order=author', 'min_score=10'))
+
         eq_(work2.title, parsed['entries'][0]['title'])
 
         # The feed has breadcrumb links
@@ -2244,7 +2257,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The make_link function that was passed in calls
         # TestAnnotator.search_url() when passed an EntryPoint.
-        first_page_url = 'http://wl/?entrypoint=Book'
+        first_page_url = 'http://wl/?available=all&collection=full&entrypoint=Book'
         eq_(first_page_url, make_link(EbooksEntryPoint))
 
         # Pagination information is not propagated through entry point links
