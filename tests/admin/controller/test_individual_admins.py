@@ -422,3 +422,23 @@ class TestIndividualAdmins(SettingsControllerTest):
 
         [role] = admin_match.roles
         eq_(AdminRole.SYSTEM_ADMIN, role.role)
+
+    def test_individual_admins_post_create_space(self):
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "admin@nypl.org "),
+                ("password", "pass"),
+                ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
+            ])
+            response = self.manager.admin_individual_admin_settings_controller.process_post()
+            eq_(response.status_code, 201)
+
+        # The admin was created.
+        admin_match = Admin.authenticate(self._db, "admin@nypl.org", "pass")
+        eq_(admin_match.email, response.response[0])
+        assert admin_match
+        assert admin_match.has_password("pass")
+
+        [role] = admin_match.roles
+        eq_(AdminRole.LIBRARY_MANAGER, role.role)
+        eq_(self._default_library, role.library)

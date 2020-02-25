@@ -48,6 +48,9 @@ class IndividualAdminSettingsController(SettingsController):
         if error:
             return error
 
+        # Strip whitespace from email
+        email = email.strip()
+
         # If there are no admins yet, anyone can create the first system admin.
         settingUp = (self._db.query(Admin).count() == 0)
         if settingUp and not flask.request.form.get("password"):
