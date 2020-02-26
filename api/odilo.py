@@ -303,9 +303,10 @@ class OdiloRepresentationExtractor(object):
         metadata.circulation = OdiloRepresentationExtractor.record_info_to_circulation(availability)
         # 'active' --> means that the book exists but it's no longer in the collection
         # (it could be available again in the future)
-        if not active:
-            metadata.circulation.licenses_owned = 0
-        metadata.circulation.formats = formats
+        if metadata.circulation:
+            if not active:
+                metadata.circulation.licenses_owned = 0
+            metadata.circulation.formats = formats
 
         return metadata, active
 

@@ -800,6 +800,20 @@ class TestOdiloRepresentationExtractor(OdiloAPITest):
 
         self.api.log.info('Testing book info with metadata finished ok !!')
 
+    def test_book_info_missing_metadata(self):
+        # Verify that we properly handle missing metadata from Odilo.
+        raw, book_json = self.sample_json("odilo_metadata.json")
+
+        # This was seen in real data.
+        book_json['series'] = ' '
+        book_json['seriesPosition'] = ' '
+
+        metadata, active = OdiloRepresentationExtractor.record_info_to_metadata(
+            book_json, {}
+        )
+        eq_(None, metadata.series)
+        eq_(None, metadata.series_position)
+
     def test_default_language_spanish(self):
         """Since Odilo primarily distributes Spanish-language titles, if a
         title comes in with no specified language, we assume it's
