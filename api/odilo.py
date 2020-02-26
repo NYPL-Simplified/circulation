@@ -191,8 +191,8 @@ class OdiloRepresentationExtractor(object):
 
         title = book.get('title')
         subtitle = book.get('subtitle')
-        series = book.get('series')
-        series_position = book.get('seriesPosition')
+        series = book.get('series').strip() or None
+        series_position = book.get('seriesPosition').strip() or None
 
         contributors = []
         sort_author = book.get('author')
@@ -478,7 +478,6 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             data = response.json()
         except ValueError:
             raise generic_exception
-
         if response.status_code == 200:
             self._update_credential(credential, data)
             self.token = credential.credential
@@ -515,6 +514,9 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             method, url, headers=headers, data=data,
             timeout=60
         )
+
+        # TODO: If Odilo doesn't recognize the patron it will send
+        # 404 in this case.
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.

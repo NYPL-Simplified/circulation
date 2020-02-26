@@ -714,8 +714,8 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, ProblemDetail):
             return lane
 
-        if not lane.sublanes:
-            # This lane has no sublanes. Although we can technically
+        if not lane.children:
+            # This lane has no children. Although we can technically
             # create a grouped feed, it would be an unsatisfying
             # gateway to a paginated feed. We should just serve the
             # paginated feed.

@@ -241,30 +241,25 @@ class NoveListAPI(object):
         )
         scrubbed_url = unicode(self.scrubbed_url(params))
 
-        # representation = self.cached_representation(scrubbed_url)
-        representation = None
-        if not representation:
-            self.log.info("No cached NoveList request available.")
+        url = self.build_query_url(params)
+        self.log.debug("NoveList lookup: %s",  url)
 
-            url = self.build_query_url(params)
-            self.log.debug("NoveList lookup: %s",  url)
+        # We want to make an HTTP request for `url` but cache the
+        # result under `scrubbed_url`. Define a 'URL normalization'
+        # function that always returns `scrubbed_url`.
+        def normalized_url(original):
+            return scrubbed_url
 
-            # TODO: The problem here is that we want to make an HTTP
-            # request for `url` but cache the result under `scrubbed_url`.
-            representation, from_cache = Representation.post(
-                self._db, unicode(url), '', max_age=self.MAX_REPRESENTATION_AGE,
-                response_reviewer=self.review_response,
-            )
+        representation, from_cache = Representation.post(
+            self._db, unicode(url), '', max_age=self.MAX_REPRESENTATION_AGE,
+            response_reviewer=self.review_response,
+            url_normalizer=normalized_url
+        )
 
-            # Remove credential information from the Representation URL. This
-            # avoids holding those details in an unexpected part of the database
-            # and lets multiple libraries to use the same cached representation.
-            representation.url = scrubbed_url
-
-            # Commit to the database immediately to reduce the chance
-            # that some other incoming request will try to create a
-            # duplicate Representation and crash.
-            self._db.commit()
+        # Commit to the database immediately to reduce the chance
+        # that some other incoming request will try to create a
+        # duplicate Representation and crash.
+        self._db.commit()
 
         return self.lookup_info_to_metadata(representation)
 
