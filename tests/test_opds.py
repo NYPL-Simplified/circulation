@@ -2211,10 +2211,9 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         eq_(first_page_url, make_link(EbooksEntryPoint))
 
     def test_search(self):
-        """When AcquisitionFeed.search() generates the first page of
-        search results, it will link to related searches for different
-        entry points, assuming the WorkList has different entry points.
-        """
+        # When AcquisitionFeed.search() generates the first page of
+        # search results, it will link to related searches for different
+        # entry points, assuming the WorkList has different entry points.
         def run(wl=None, facets=None, pagination=None):
             """Call search() and see what add_entrypoint_links
             was called with.
@@ -2257,7 +2256,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The make_link function that was passed in calls
         # TestAnnotator.search_url() when passed an EntryPoint.
-        first_page_url = 'http://wl/?available=all&collection=full&entrypoint=Book'
+        first_page_url = 'http://wl/?available=all&collection=full&entrypoint=Book&order=relevance'
         eq_(first_page_url, make_link(EbooksEntryPoint))
 
         # Pagination information is not propagated through entry point links
