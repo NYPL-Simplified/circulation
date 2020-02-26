@@ -356,6 +356,46 @@ class TestFacets(DatabaseTest):
                  entrypoint=None),
             facets.kwargs)
 
+    def test_default_facet_is_always_available(self):
+        # By definition, the default facet must be enabled. So if the
+        # default facet for a given facet group is not enabled by the
+        # current configuration, it's added to the beginning anyway.
+        class MockConfiguration(object):
+            def enabled_facets(self, facet_group_name):
+                self.called_with = facet_group_name
+                return ["facet1", "facet2"]
+
+        class MockFacets(Facets):
+            @classmethod
+            def default_facet(cls, config, facet_group_name):
+                cls.called_with = (config, facet_group_name)
+                return "facet3"
+
+        config = MockConfiguration()
+        available = MockFacets.available_facets(config, "some facet group")
+
+        # MockConfiguration.enabled_facets() was called to get the
+        # enabled facets for the facet group.
+        eq_("some facet group", config.called_with)
+
+        # Then Mock.default_facet() was called to get the default
+        # facet for that group.
+        eq_((config, "some facet group"), MockFacets.called_with)
+
+        # Since the default facet was not found in the 'enabled'
+        # group, it was added to the beginning of the list.
+        eq_(["facet3", "facet1", "facet2"], available)
+
+        # If the default facet _is_ found in the 'enabled' group, it's
+        # not added again.
+        class MockFacets(Facets):
+            @classmethod
+            def default_facet(cls, config, facet_group_name):
+                cls.called_with = (config, facet_group_name)
+                return "facet2"
+        available = MockFacets.available_facets(config, "some facet group")
+        eq_(["facet1", "facet2"], available)
+
     def test_default_availability(self):
 
         # Normally, the availability will be the library's default availability
@@ -1027,7 +1067,7 @@ class TestSearchFacets(DatabaseTest):
         eq_(None, defaults.entrypoint)
         eq_(None, defaults.languages)
         eq_(None, defaults.media)
-        eq_(None, defaults.order)
+        eq_(m.ORDER_BY_RELEVANCE, defaults.order)
         eq_(None, defaults.min_score)
 
         mock_entrypoint = object()
@@ -1188,6 +1228,7 @@ class TestSearchFacets(DatabaseTest):
         # string.
         eq_(
             [('entrypoint', EverythingEntryPoint.INTERNAL_NAME),
+             (Facets.ORDER_FACET_GROUP_NAME, SearchFacets.ORDER_BY_RELEVANCE),
              (Facets.AVAILABILITY_FACET_GROUP_NAME, Facets.AVAILABLE_ALL),
              (Facets.COLLECTION_FACET_GROUP_NAME, Facets.COLLECTION_FULL),
              ('media', Edition.BOOK_MEDIUM),
