@@ -343,7 +343,16 @@ class Facets(FacetsWithEntryPoint):
         elsewhere in this class. Right now this method implies more
         flexibility than actually exists.
         """
-        return config.enabled_facets(facet_group_name)
+        available = config.enabled_facets(facet_group_name)
+
+        # "The default facet isn't available" makes no sense. If the
+        # default facet is not in the available list for any reason,
+        # add it to the beginning of the list. This makes other code
+        # elsewhere easier to write.
+        default = cls.default_facet(config, facet_group_name)
+        if default not in available:
+            available = [default] + available
+        return available
 
     @classmethod
     def default_facet(cls, config, facet_group_name):
@@ -793,6 +802,8 @@ class SearchFacets(Facets):
     # the default cutoff point, determined empirically.
     DEFAULT_MIN_SCORE = 500
 
+    ORDER_BY_RELEVANCE = "relevance"
+
     def __init__(self, **kwargs):
         languages = kwargs.pop('languages', None)
         media = kwargs.pop('media', None)
@@ -809,10 +820,12 @@ class SearchFacets(Facets):
         kwargs.setdefault('availability', None)
         order = kwargs.setdefault('order', None)
 
-        if order:
-            default_min_score = self.DEFAULT_MIN_SCORE
-        else:
+        if order in (None, self.ORDER_BY_RELEVANCE):
+            # Search results are ordered by score, so there is no
+            # need for a score cutoff.
             default_min_score = None
+        else:
+            default_min_score = self.DEFAULT_MIN_SCORE
         self.min_score = kwargs.pop('min_score', default_min_score)
 
         super(SearchFacets, self).__init__(**kwargs)
@@ -839,7 +852,7 @@ class SearchFacets(Facets):
             return cls.AVAILABLE_ALL
 
         if group_name == cls.ORDER_FACET_GROUP_NAME:
-            return None
+            return cls.ORDER_BY_RELEVANCE
         return None
 
     def _ensure_list(self, x):
