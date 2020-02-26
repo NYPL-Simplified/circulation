@@ -685,18 +685,18 @@ class Representation(Base, MediaTypes):
         :param do_get: A function that takes arguments (url, headers)
            and retrieves a representation over the network.
 
+        :param accept: A value for the Accept HTTP header.
+
         :param extra_request_headers: Any additional HTTP headers to
            include with the request.
 
-        :param accept:
-
         :param max_age: A timedelta object representing the maximum
-        time to consider a cached representation fresh. (We ignore the
-        caching directives from web servers because they're usually
-        far too conservative for our purposes.)
+           time to consider a cached representation fresh. (We ignore the
+           caching directives from web servers because they're usually
+           far too conservative for our purposes.)
 
         :param pause_before: A number of seconds to pause before sending
-            the HTTP request. This is for use in situations where 
+            the HTTP request. This is for use in situations where
             HTTP requests are subject to throttling.
 
         :param allow_redirects: Not currently used. (TODO: this seems like
@@ -718,7 +718,7 @@ class Representation(Base, MediaTypes):
             (Representation, Exception, traceback) and handles
             an exceptional condition that occured during the HTTP request.
 
-        :param url_normalizer: A function that takes the URL to be used in 
+        :param url_normalizer: A function that takes the URL to be used in
             the HTTP request, and returns the URL to use when storing
             the corresponding Representation in the database. This can be
             used to strip irrelevant or sensitive information from
