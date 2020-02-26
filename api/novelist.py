@@ -226,8 +226,10 @@ class NoveListAPI(object):
         )
         return target_metadata[0], confidence
 
-    def lookup(self, identifier):
+    def lookup(self, identifier, **kwargs):
         """Requests NoveList metadata for a particular identifier
+
+        :param kwargs: Keyword arguments passed into Representation.post().
 
         :return: Metadata object or None
         """
@@ -251,9 +253,10 @@ class NoveListAPI(object):
             return scrubbed_url
 
         representation, from_cache = Representation.post(
-            self._db, unicode(url), '', max_age=self.MAX_REPRESENTATION_AGE,
+            _db=self._db, url=unicode(url), data='',
+            max_age=self.MAX_REPRESENTATION_AGE,
             response_reviewer=self.review_response,
-            url_normalizer=normalized_url
+            url_normalizer=normalized_url, **kwargs
         )
 
         # Commit to the database immediately to reduce the chance
@@ -298,21 +301,6 @@ class NoveListAPI(object):
         for name, value in params.items():
             urlencoded_params[name] = urllib.quote(value)
         return url % urlencoded_params
-
-    def cached_representation(self, scrubbed_url):
-        """Attempts to find a usable cached Representation for a given URL"""
-        representation = get_one(
-            self._db, Representation, 'interchangeable', url=scrubbed_url
-        )
-
-        if not representation:
-            return None
-        if not representation.is_fresher_than(self.MAX_REPRESENTATION_AGE):
-            # The Representation is nonexistent or stale. Delete it, so it
-            # can be replaced.
-            self._db.delete(representation)
-            return None
-        return representation
 
     def lookup_info_to_metadata(self, lookup_representation):
         """Transforms a NoveList JSON representation into a Metadata object"""

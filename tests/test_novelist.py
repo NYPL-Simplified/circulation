@@ -18,6 +18,7 @@ from core.model import (
     Identifier,
     Representation,
 )
+from core.testing import DummyHTTPClient
 from api.config import CannotLoadConfiguration
 from api.novelist import (
     MockNoveListAPI,
@@ -187,6 +188,72 @@ class TestNoveListAPI(DatabaseTest):
             metadata, series_info, book_info
         )
 
+    def test_lookup(self):
+        # Test the lookup() method.
+        h = DummyHTTPClient()
+        h.queue_response(200, "text/html", content="yay")
+        
+        class Mock(NoveListAPI):
+            def build_query_url(self, params):
+                self.build_query_url_called_with = params
+                return "http://query-url/"
+
+            def scrubbed_url(self, params):
+                self.scrubbed_url_called_with = params
+                return "http://scrubbed-url/"
+
+            def review_response(self, response):
+                self.review_response_called_with = response
+
+            def lookup_info_to_metadata(self, representation):
+                self.lookup_info_to_metadata_called_with = representation
+                return "some metadata"
+
+        novelist = Mock.from_config(self._default_library)
+        identifier = self._identifier(identifier_type=Identifier.ISBN)
+
+        # Do the lookup.
+        result = novelist.lookup(identifier, do_get=h.do_get)
+
+        # A number of parameters were passed into build_query_url() to
+        # get the URL of the HTTP request. The same parameters were
+        # also passed into scrubbed_url(), to get the URL that should
+        # be used when storing the Representation in the database.
+        params1 = novelist.build_query_url_called_with
+        params2 = novelist.scrubbed_url_called_with
+        eq_(params1, params2)
+
+        eq_(
+            dict(profile=novelist.profile,
+                 ClientIdentifier=identifier.urn,
+                 ISBN=identifier.identifier,
+                 password=novelist.password,
+                 version=novelist.version,
+            ),
+            params1
+        )
+
+        # The HTTP request went out to the query URL -- not the scrubbed URL.
+        eq_(["http://query-url/"], h.requests)
+
+        # The HTTP response was passed into novelist.review_response()
+        eq_(
+            (200, {'content-type': 'text/html'}, 'yay'),
+            novelist.review_response_called_with
+        )
+
+        # Finally, the Representation was passed into
+        # lookup_info_to_metadata, which returned a hard-coded string
+        # as the final result.
+        eq_("some metadata", result)
+
+        # Looking at the Representation we can see that it was stored
+        # in the database under its scrubbed URL, not the URL used to
+        # make the request.
+        rep = novelist.lookup_info_to_metadata_called_with
+        eq_("http://scrubbed-url/", rep.url)
+        eq_("yay", rep.content)
+
     def test_lookup_info_to_metadata_ignores_empty_responses(self):
         """API requests that return no data result return a None tuple"""
 
@@ -231,27 +298,6 @@ class TestNoveListAPI(DatabaseTest):
         # The method to create a scrubbed url returns the same result
         # as the NoveListAPI.build_query_url
         eq_(scrubbed_result, self.novelist.scrubbed_url(params))
-
-    def test_cached_representation(self):
-        url = self._url
-
-        # If there's no Representation, nothing is returned.
-        result = self.novelist.cached_representation(url)
-        eq_(None, result)
-
-        # If a recent Representation exists, it is returned.
-        representation, is_new = self._representation(url=url)
-        representation.content = 'content'
-        representation.fetched_at = datetime.datetime.utcnow() - datetime.timedelta(days=3)
-        result = self.novelist.cached_representation(url)
-        eq_(representation, result)
-
-        # If an old Representation exists, it's deleted.
-        representation.fetched_at = datetime.datetime.utcnow() - datetime.timedelta(days=30)
-        result = self.novelist.cached_representation(url)
-        eq_(None, result)
-        self._db.commit()
-        assert representation not in self._db
 
     def test_scrub_subtitle(self):
         """Unnecessary title segments are removed from subtitles"""
