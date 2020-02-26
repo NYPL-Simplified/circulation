@@ -1170,9 +1170,11 @@ class CirculationData(MetaToModelUtility):
         if replace is None:
             replace = ReplacementPolicy()
 
+        analytics = replace.analytics or Analytics(_db)
+
         pool = None
         if collection:
-            pool, ignore = self.license_pool(_db, collection, replace.analytics)
+            pool, ignore = self.license_pool(_db, collection, analytics)
 
         data_source = self.data_source(_db)
         identifier = self.primary_identifier(_db)
@@ -1276,13 +1278,12 @@ class CirculationData(MetaToModelUtility):
         if pool and self._availability_needs_update(pool):
             # Update availabily information. This may result in
             # the issuance of additional circulation events.
-            analytics = Analytics(_db)
             changed_availability = pool.update_availability(
                 new_licenses_owned=self.licenses_owned,
                 new_licenses_available=self.licenses_available,
                 new_licenses_reserved=self.licenses_reserved,
                 new_patrons_in_hold_queue=self.patrons_in_hold_queue,
-                analytics=replace.analytics,
+                analytics=analytics,
                 as_of=self.last_checked
             )
 
