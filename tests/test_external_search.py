@@ -3312,7 +3312,7 @@ class TestFilter(DatabaseTest):
         parent.media = Edition.AUDIO_MEDIUM
         parent.languages = ["eng", "fra"]
         parent.fiction = True
-        parent.audiences = [Classifier.AUDIENCE_CHILDREN]
+        parent.audiences = set([Classifier.AUDIENCE_CHILDREN])
         parent.target_age = NumericRange(10, 11, '[]')
         parent.genres = [self.horror, self.fantasy]
         parent.customlists = [self.best_sellers]
