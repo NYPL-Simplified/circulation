@@ -63,17 +63,9 @@ class TestS3Uploader(S3UploaderTest):
             MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3])
 
     def test_instantiation(self):
-        # If there is a configuration but it's misconfigured, an error
-        # is raised.
         integration = self._external_integration(
             ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL
         )
-        assert_raises_regexp(
-            CannotLoadConfiguration, 'without both access_key and secret_key',
-            MirrorUploader.implementation, integration
-        )
-
-        # Otherwise, it builds just fine.
         integration.username = 'your-access-key'
         integration.password = 'your-secret-key'
         integration.setting(S3Uploader.URL_TEMPLATE_KEY).value='a transform'
@@ -83,6 +75,15 @@ class TestS3Uploader(S3UploaderTest):
         # The URL_TEMPLATE_KEY setting becomes the .url_transform
         # attribute on the S3Uploader object.
         eq_('a transform', uploader.url_transform)
+
+    def test_empty_string(self):
+        settings = {'username': '', 'password': ''}
+        integration = self._external_integration(
+            ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL, settings=settings
+        )
+        uploader = S3Uploader(integration, client_class=MockS3Client)
+        eq_(uploader.client.access_key, None)
+        eq_(uploader.client.secret_key, None)
 
     def test_custom_client_class(self):
         """You can specify a client class to use instead of boto3.client."""

@@ -37,6 +37,10 @@ class TestAdmin(DatabaseTest):
         admin2.password = "password2"
         eq_(set([admin, admin2]), set(Admin.with_password(self._db).all()))
 
+    def test_with_email_spaces(self):
+        admin_spaces, ignore = create(self._db, Admin, email=u"test@email.com ")
+        eq_(u"test@email.com", admin_spaces.email)
+
     def test_has_password(self):
         eq_(True, self.admin.has_password(u"password"))
         eq_(False, self.admin.has_password(u"banana"))

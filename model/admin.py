@@ -19,7 +19,10 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import (
+    relationship,
+    validates
+)
 from sqlalchemy.orm.session import Session
 
 class Admin(Base, HasFullTableCache):
@@ -48,6 +51,11 @@ class Admin(Base, HasFullTableCache):
         if credential:
             self.credential = credential
         _db.commit()
+
+    @validates('email')
+    def validate_email(self, key, address):
+        # strip any whitespace from email address
+        return address.strip()
 
     @hybrid_property
     def password(self):
