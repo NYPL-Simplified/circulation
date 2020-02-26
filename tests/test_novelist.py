@@ -192,7 +192,7 @@ class TestNoveListAPI(DatabaseTest):
         # Test the lookup() method.
         h = DummyHTTPClient()
         h.queue_response(200, "text/html", content="yay")
-        
+
         class Mock(NoveListAPI):
             def build_query_url(self, params):
                 self.build_query_url_called_with = params
@@ -509,7 +509,7 @@ class TestNoveListAPI(DatabaseTest):
             self.novelist.create_item_object(book1_narrator_from_query, currentIdentifier, existingItem)
         )
         eq_(currentIdentifier, book1_narrator_from_query[2])
-        eq_(existingItem, 
+        eq_(existingItem,
             {"isbn": "23456",
             "mediaType": "EBook",
             "title": "Title 1",
