@@ -924,9 +924,11 @@ class Representation(Base, MediaTypes):
              **kwargs):
         """Finds or creates POST request as a Representation"""
 
+        original_do_get = kwargs.pop('do_get', cls.simple_http_post)
+
         def do_post(url, headers, **kwargs):
             kwargs.update({'data' : data})
-            return cls.simple_http_post(url, headers, **kwargs)
+            return original_do_get(url, headers, **kwargs)
 
         return cls.get(
             _db, url, do_get=do_post, max_age=max_age,
