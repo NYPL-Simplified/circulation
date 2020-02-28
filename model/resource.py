@@ -673,17 +673,59 @@ class Representation(Base, MediaTypes):
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
             accept=None, max_age=None, pause_before=0, allow_redirects=True,
             presumed_media_type=None, debug=True, response_reviewer=None,
-            exception_handler=None):
+            exception_handler=None, url_normalizer=None):
         """Retrieve a representation from the cache if possible.
         If not possible, retrieve it from the web and store it in the
         cache.
+
+        :param _db: A database connection.
+
+        :param url: The URL to use as the target of any HTTP request.
+
         :param do_get: A function that takes arguments (url, headers)
-        and retrieves a representation over the network.
+           and retrieves a representation over the network.
+
+        :param accept: A value for the Accept HTTP header.
+
+        :param extra_request_headers: Any additional HTTP headers to
+           include with the request.
+
         :param max_age: A timedelta object representing the maximum
-        time to consider a cached representation fresh. (We ignore the
-        caching directives from web servers because they're usually
-        far too conservative for our purposes.)
+           time to consider a cached representation fresh. (We ignore the
+           caching directives from web servers because they're usually
+           far too conservative for our purposes.)
+
+        :param pause_before: A number of seconds to pause before sending
+            the HTTP request. This is for use in situations where
+            HTTP requests are subject to throttling.
+
+        :param allow_redirects: Not currently used. (TODO: this seems like
+            a problem!)
+
+        :param presumed_media_type: If the response does not contain a
+            Content-Type header, or if the specified Content-Type is
+            too generic to use, the representation will be presumed to be
+            of this media type.
+
+        :param debug: If True, progress reports on the HTTP request will
+           be logged.
+
+        :param response_reviewer: A function that takes a 3-tuple
+           (status_code, headers, content) and raises an exception if
+           the response should not be treated as cacheable.
+
+        :param exception_handler: A function that takes a 3-tuple
+            (Representation, Exception, traceback) and handles
+            an exceptional condition that occured during the HTTP request.
+
+        :param url_normalizer: A function that takes the URL to be used in
+            the HTTP request, and returns the URL to use when storing
+            the corresponding Representation in the database. This can be
+            used to strip irrelevant or sensitive information from
+            URLs to increase the chances of a cache hit.
+
         :return: A 2-tuple (representation, obtained_from_cache)
+
         """
         representation = None
         do_get = do_get or cls.simple_http_get
@@ -698,7 +740,12 @@ class Representation(Base, MediaTypes):
         # the data sources we currently use, so for now we can treat
         # different representations of a URL as interchangeable.
 
-        a = dict(url=url)
+        if url_normalizer:
+            normalized_url = url_normalizer(url)
+        else:
+            normalized_url = url
+
+        a = dict(url=normalized_url)
         if accept:
             a['media_type'] = accept
         representation = get_one(_db, Representation, 'interchangeable', **a)
@@ -777,9 +824,11 @@ class Representation(Base, MediaTypes):
         # we had.
         if (not usable_representation
             or media_type != representation.media_type
-            or url != representation.url):
+            or normalized_url != representation.url):
             representation, is_new = get_one_or_create(
-                _db, Representation, url=url, media_type=unicode(media_type))
+                _db, Representation, url=normalized_url,
+                media_type=unicode(media_type)
+            )
 
         if fetch_exception:
             exception_handler(
@@ -871,16 +920,19 @@ class Representation(Base, MediaTypes):
         representation.fetch_exception = traceback
 
     @classmethod
-    def post(cls, _db, url, data, max_age=None, response_reviewer=None):
+    def post(cls, _db, url, data, max_age=None, response_reviewer=None,
+             **kwargs):
         """Finds or creates POST request as a Representation"""
+
+        original_do_get = kwargs.pop('do_get', cls.simple_http_post)
 
         def do_post(url, headers, **kwargs):
             kwargs.update({'data' : data})
-            return cls.simple_http_post(url, headers, **kwargs)
+            return original_do_get(url, headers, **kwargs)
 
         return cls.get(
             _db, url, do_get=do_post, max_age=max_age,
-            response_reviewer=response_reviewer
+            response_reviewer=response_reviewer, **kwargs
         )
 
     @property

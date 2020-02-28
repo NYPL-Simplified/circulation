@@ -626,6 +626,54 @@ class TestRepresentation(DatabaseTest):
                         check_for_redirect=['questionable-site.org'],
                         head_client=bad_redirect))
 
+    def test_get_with_url_normalizer(self):
+        # Verify our ability to store a Resource under a URL other than
+        # the exact URL used to make the HTTP request.
+
+        class Normalizer(object):
+            called_with = None
+            def normalize(self, url):
+                # Strip off a  session ID from an outgoing URL.
+                self.called_with = url
+                return url[:11]
+
+        normalizer = Normalizer()
+
+        h = DummyHTTPClient()
+        h.queue_response(200, content="yay")
+        original_url = "http://url/?sid=12345"
+
+        representation, from_cache = Representation.get(
+            self._db, original_url, do_get=h.do_get,
+            url_normalizer=normalizer.normalize
+        )
+
+        # The original URL was used to make the actual request.
+        eq_([original_url], h.requests)
+
+        # The original URL was then passed into Normalizer.normalize
+        eq_(original_url, normalizer.called_with)
+
+        # And the normalized URL was used as the Representation's
+        # storage key.
+        normalized_url = "http://url/"
+        eq_("yay", representation.content)
+        eq_(normalized_url, representation.url)
+        eq_(False, from_cache)
+
+        # Try again, and the Representation is retrieved from cache under
+        # the normalized URL.
+        #
+        # Replace do_get with a dud object to prove that no second
+        # request goes out 'over the wire'.
+        representation2, from_cache = Representation.get(
+            self._db, original_url, do_get=object(),
+            url_normalizer=normalizer.normalize
+        )
+        eq_(True, from_cache)
+        eq_(representation2, representation)
+        eq_(normalized_url, representation.url)
+
     def test_best_thumbnail(self):
         # This Representation has no thumbnails.
         representation, ignore = self._representation()

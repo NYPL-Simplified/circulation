@@ -2354,7 +2354,7 @@ class Filter(SearchBase):
         # At this point we know we have a specific list of audiences.
         # We're either going to return that list as-is, or we'll
         # return that list plus ALL_AGES.
-        with_all_ages = as_is + [Classifier.AUDIENCE_ALL_AGES]
+        with_all_ages = list(as_is) + [Classifier.AUDIENCE_ALL_AGES]
 
         if Classifier.AUDIENCE_ALL_AGES in as_is:
             # ALL_AGES is explicitly included.
