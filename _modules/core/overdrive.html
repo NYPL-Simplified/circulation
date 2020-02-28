@@ -250,6 +250,9 @@
 <span class="sd">           The server hostname will be interpolated automatically; you</span>
 <span class="sd">           don&#39;t have to pass it in.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;%(&#39;</span> <span class="ow">in</span> <span class="n">url</span><span class="p">:</span>
+            <span class="c1"># Nothing to interpolate.</span>
+            <span class="k">return</span> <span class="n">url</span>
         <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hosts</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">url</span> <span class="o">%</span> <span class="n">kwargs</span></div>
 

@@ -261,8 +261,10 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">target_metadata</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">confidence</span></div>
 
-<div class="viewcode-block" id="NoveListAPI.lookup"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.lookup">[docs]</a>    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+<div class="viewcode-block" id="NoveListAPI.lookup"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.lookup">[docs]</a>    <span class="k">def</span> <span class="nf">lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Requests NoveList metadata for a particular identifier</span>
+
+<span class="sd">        :param kwargs: Keyword arguments passed into Representation.post().</span>
 
 <span class="sd">        :return: Metadata object or None</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -276,30 +278,26 @@
         <span class="p">)</span>
         <span class="n">scrubbed_url</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scrubbed_url</span><span class="p">(</span><span class="n">params</span><span class="p">))</span>
 
-        <span class="c1"># representation = self.cached_representation(scrubbed_url)</span>
-        <span class="n">representation</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">representation</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No cached NoveList request available.&quot;</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_query_url</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;NoveList lookup: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>  <span class="n">url</span><span class="p">)</span>
 
-            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_query_url</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;NoveList lookup: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>  <span class="n">url</span><span class="p">)</span>
+        <span class="c1"># We want to make an HTTP request for `url` but cache the</span>
+        <span class="c1"># result under `scrubbed_url`. Define a &#39;URL normalization&#39;</span>
+        <span class="c1"># function that always returns `scrubbed_url`.</span>
+        <span class="k">def</span> <span class="nf">normalized_url</span><span class="p">(</span><span class="n">original</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">scrubbed_url</span>
 
-            <span class="c1"># TODO: The problem here is that we want to make an HTTP</span>
-            <span class="c1"># request for `url` but cache the result under `scrubbed_url`.</span>
-            <span class="n">representation</span><span class="p">,</span> <span class="n">from_cache</span> <span class="o">=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="n">url</span><span class="p">),</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_REPRESENTATION_AGE</span><span class="p">,</span>
-                <span class="n">response_reviewer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">review_response</span><span class="p">,</span>
-            <span class="p">)</span>
+        <span class="n">representation</span><span class="p">,</span> <span class="n">from_cache</span> <span class="o">=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">url</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+            <span class="n">max_age</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_REPRESENTATION_AGE</span><span class="p">,</span>
+            <span class="n">response_reviewer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">review_response</span><span class="p">,</span>
+            <span class="n">url_normalizer</span><span class="o">=</span><span class="n">normalized_url</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
 
-            <span class="c1"># Remove credential information from the Representation URL. This</span>
-            <span class="c1"># avoids holding those details in an unexpected part of the database</span>
-            <span class="c1"># and lets multiple libraries to use the same cached representation.</span>
-            <span class="n">representation</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">scrubbed_url</span>
-
-            <span class="c1"># Commit to the database immediately to reduce the chance</span>
-            <span class="c1"># that some other incoming request will try to create a</span>
-            <span class="c1"># duplicate Representation and crash.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="c1"># Commit to the database immediately to reduce the chance</span>
+        <span class="c1"># that some other incoming request will try to create a</span>
+        <span class="c1"># duplicate Representation and crash.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_info_to_metadata</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span></div>
 
@@ -338,21 +336,6 @@
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">urlencoded_params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">url</span> <span class="o">%</span> <span class="n">urlencoded_params</span></div>
-
-<div class="viewcode-block" id="NoveListAPI.cached_representation"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.cached_representation">[docs]</a>    <span class="k">def</span> <span class="nf">cached_representation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scrubbed_url</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Attempts to find a usable cached Representation for a given URL&quot;&quot;&quot;</span>
-        <span class="n">representation</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">scrubbed_url</span>
-        <span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">representation</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">representation</span><span class="o">.</span><span class="n">is_fresher_than</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MAX_REPRESENTATION_AGE</span><span class="p">):</span>
-            <span class="c1"># The Representation is nonexistent or stale. Delete it, so it</span>
-            <span class="c1"># can be replaced.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">representation</span><span class="p">)</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="n">representation</span></div>
 
 <div class="viewcode-block" id="NoveListAPI.lookup_info_to_metadata"><a class="viewcode-back" href="../../api.html#api.novelist.NoveListAPI.lookup_info_to_metadata">[docs]</a>    <span class="k">def</span> <span class="nf">lookup_info_to_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lookup_representation</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Transforms a NoveList JSON representation into a Metadata object&quot;&quot;&quot;</span>

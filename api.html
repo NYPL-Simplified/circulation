@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x46d4b10&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4d59db0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4867a60&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4d80590&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x488f6c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x4d94fe0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7071,7 +7071,7 @@ remote patron lookup later.</p>
 <span id="api-lanes-module"></span><h2>api.lanes module<a class="headerlink" href="#module-api.lanes" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="api.lanes.ContributorFacets">
-<em class="property">class </em><code class="descclassname">api.lanes.</code><code class="descname">ContributorFacets</code><span class="sig-paren">(</span><em>library</em>, <em>collection</em>, <em>availability</em>, <em>order</em>, <em>order_ascending=None</em>, <em>enabled_facets=None</em>, <em>entrypoint=None</em>, <em>entrypoint_is_default=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/lanes.html#ContributorFacets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.lanes.ContributorFacets" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.lanes.</code><code class="descname">ContributorFacets</code><span class="sig-paren">(</span><em>library</em>, <em>collection</em>, <em>availability</em>, <em>order</em>, <em>order_ascending=None</em>, <em>enabled_facets=None</em>, <em>entrypoint=None</em>, <em>entrypoint_is_default=False</em>, <em>**constructor_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/lanes.html#ContributorFacets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.lanes.ContributorFacets" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.lane.DefaultSortOrderFacets" title="core.lane.DefaultSortOrderFacets"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.DefaultSortOrderFacets</span></code></a></p>
 <p>A list with a contributor restriction is, by default, sorted by
 title.</p>
@@ -7280,7 +7280,7 @@ different ways of slicing up this WorkList.</li>
 
 <dl class="class">
 <dt id="api.lanes.CrawlableFacets">
-<em class="property">class </em><code class="descclassname">api.lanes.</code><code class="descname">CrawlableFacets</code><span class="sig-paren">(</span><em>library</em>, <em>collection</em>, <em>availability</em>, <em>order</em>, <em>order_ascending=None</em>, <em>enabled_facets=None</em>, <em>entrypoint=None</em>, <em>entrypoint_is_default=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/lanes.html#CrawlableFacets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.lanes.CrawlableFacets" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.lanes.</code><code class="descname">CrawlableFacets</code><span class="sig-paren">(</span><em>library</em>, <em>collection</em>, <em>availability</em>, <em>order</em>, <em>order_ascending=None</em>, <em>enabled_facets=None</em>, <em>entrypoint=None</em>, <em>entrypoint_is_default=False</em>, <em>**constructor_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/lanes.html#CrawlableFacets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.lanes.CrawlableFacets" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.lane.Facets" title="core.lane.Facets"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.Facets</span></code></a></p>
 <p>A special Facets class for crawlable feeds.</p>
 <dl class="attribute">
@@ -7473,7 +7473,7 @@ service.</li>
 
 <dl class="class">
 <dt id="api.lanes.SeriesFacets">
-<em class="property">class </em><code class="descclassname">api.lanes.</code><code class="descname">SeriesFacets</code><span class="sig-paren">(</span><em>library</em>, <em>collection</em>, <em>availability</em>, <em>order</em>, <em>order_ascending=None</em>, <em>enabled_facets=None</em>, <em>entrypoint=None</em>, <em>entrypoint_is_default=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/lanes.html#SeriesFacets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.lanes.SeriesFacets" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">api.lanes.</code><code class="descname">SeriesFacets</code><span class="sig-paren">(</span><em>library</em>, <em>collection</em>, <em>availability</em>, <em>order</em>, <em>order_ascending=None</em>, <em>enabled_facets=None</em>, <em>entrypoint=None</em>, <em>entrypoint_is_default=False</em>, <em>**constructor_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/lanes.html#SeriesFacets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.lanes.SeriesFacets" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#core.lane.DefaultSortOrderFacets" title="core.lane.DefaultSortOrderFacets"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.lane.DefaultSortOrderFacets</span></code></a></p>
 <p>A list with a series restriction is ordered by series position by
 default.</p>
@@ -8318,7 +8318,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 3, 1, 17, 33, 19, 168579)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 3, 9, 20, 3, 6, 165904)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8464,7 +8464,9 @@ SOURCE_OF_TRUTH_PROTOCOLS.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Metadata object or None</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>kwargs</strong> – Keyword arguments passed into Representation.post().</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Metadata object or None</td>
 </tr>
 </tbody>
 </table>
@@ -8540,12 +8542,6 @@ SOURCE_OF_TRUTH_PROTOCOLS.</p>
 <dt id="api.novelist.NoveListAPI.build_query_url">
 <em class="property">classmethod </em><code class="descname">build_query_url</code><span class="sig-paren">(</span><em>params</em>, <em>include_auth=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/novelist.html#NoveListAPI.build_query_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.novelist.NoveListAPI.build_query_url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Builds a unique and url-encoded query endpoint</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="api.novelist.NoveListAPI.cached_representation">
-<code class="descname">cached_representation</code><span class="sig-paren">(</span><em>scrubbed_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/novelist.html#NoveListAPI.cached_representation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.novelist.NoveListAPI.cached_representation" title="Permalink to this definition">¶</a></dt>
-<dd><p>Attempts to find a usable cached Representation for a given URL</p>
 </dd></dl>
 
 <dl class="method">
@@ -8640,13 +8636,15 @@ the Author property since there are multiple contributors.</p>
 
 <dl class="method">
 <dt id="api.novelist.NoveListAPI.lookup">
-<code class="descname">lookup</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/novelist.html#NoveListAPI.lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.novelist.NoveListAPI.lookup" title="Permalink to this definition">¶</a></dt>
+<code class="descname">lookup</code><span class="sig-paren">(</span><em>identifier</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/novelist.html#NoveListAPI.lookup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.novelist.NoveListAPI.lookup" title="Permalink to this definition">¶</a></dt>
 <dd><p>Requests NoveList metadata for a particular identifier</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Metadata object or None</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>kwargs</strong> – Keyword arguments passed into Representation.post().</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Metadata object or None</td>
 </tr>
 </tbody>
 </table>

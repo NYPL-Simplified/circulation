@@ -894,10 +894,22 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">MODEL_CLASS</span> <span class="o">=</span> <span class="n">Work</span>
 
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
+        <span class="n">search_index_client</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;search_index_client&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">WorkReaper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_index_client</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">search_index_client</span> <span class="ow">or</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">)</span>
+        <span class="p">)</span>
+
 <div class="viewcode-block" id="WorkReaper.query"><a class="viewcode-back" href="../../core.html#core.monitor.WorkReaper.query">[docs]</a>    <span class="k">def</span> <span class="nf">query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Work</span><span class="p">)</span><span class="o">.</span><span class="n">outerjoin</span><span class="p">(</span><span class="n">Work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">id</span><span class="o">==</span><span class="kc">None</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="WorkReaper.delete"><a class="viewcode-back" href="../../core.html#core.monitor.WorkReaper.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Delete work from elasticsearch and database.&quot;&quot;&quot;</span>
+        <span class="n">work</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">search_index_client</span><span class="p">)</span></div></div>
 
 <span class="n">ReaperMonitor</span><span class="o">.</span><span class="n">REGISTRY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">WorkReaper</span><span class="p">)</span>
 

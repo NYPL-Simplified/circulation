@@ -388,10 +388,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span><span class="n">facet_group_name</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Facets.from_request"><a class="viewcode-back" href="../../core.html#core.lane.Facets.from_request">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_request</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
-                     <span class="n">default_entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Load a faceting object from an HTTP request.&quot;&quot;&quot;</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_values_from_request</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">):</span>
         <span class="n">g</span> <span class="o">=</span> <span class="n">Facets</span><span class="o">.</span><span class="n">ORDER_FACET_GROUP_NAME</span>
         <span class="n">order</span> <span class="o">=</span> <span class="n">get_argument</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
         <span class="n">order_facets</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">available_facets</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
@@ -400,7 +398,6 @@
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;I don&#39;t know how to order a feed by &#39;</span><span class="si">%(order)s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">),</span>
                 <span class="mi">400</span>
             <span class="p">)</span>
-        <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;order&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">order</span>
 
         <span class="n">g</span> <span class="o">=</span> <span class="n">Facets</span><span class="o">.</span><span class="n">AVAILABILITY_FACET_GROUP_NAME</span>
         <span class="n">availability</span> <span class="o">=</span> <span class="n">get_argument</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
@@ -410,7 +407,6 @@
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;I don&#39;t understand the availability term &#39;</span><span class="si">%(availability)s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="n">availability</span><span class="o">=</span><span class="n">availability</span><span class="p">),</span>
                 <span class="mi">400</span>
             <span class="p">)</span>
-        <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;availability&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">availability</span>
 
         <span class="n">g</span> <span class="o">=</span> <span class="n">Facets</span><span class="o">.</span><span class="n">COLLECTION_FACET_GROUP_NAME</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="n">get_argument</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
@@ -420,13 +416,27 @@
                 <span class="n">_</span><span class="p">(</span><span class="s2">&quot;I don&#39;t understand what &#39;</span><span class="si">%(collection)s</span><span class="s2">&#39; refers to.&quot;</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">),</span>
                 <span class="mi">400</span>
             <span class="p">)</span>
-        <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;collection&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">collection</span>
 
-        <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;enabled_facets&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">enabled</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">Facets</span><span class="o">.</span><span class="n">ORDER_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">order_facets</span><span class="p">,</span>
             <span class="n">Facets</span><span class="o">.</span><span class="n">AVAILABILITY_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">availability_facets</span><span class="p">,</span>
             <span class="n">Facets</span><span class="o">.</span><span class="n">COLLECTION_FACET_GROUP_NAME</span> <span class="p">:</span> <span class="n">collection_facets</span><span class="p">,</span>
         <span class="p">}</span>
+
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">availability</span><span class="o">=</span><span class="n">availability</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">enabled_facets</span><span class="o">=</span><span class="n">enabled</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="Facets.from_request"><a class="viewcode-back" href="../../core.html#core.lane.Facets.from_request">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_request</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
+                     <span class="n">default_entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Load a faceting object from an HTTP request.&quot;&quot;&quot;</span>
+
+        <span class="n">values</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_values_from_request</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">values</span>
+        <span class="n">extra</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
         <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;library&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">library</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_request</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
@@ -434,7 +444,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">availability</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span>
                  <span class="n">order_ascending</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">enabled_facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">entrypoint_is_default</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                 <span class="n">entrypoint_is_default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param collection: This is not a Collection object; it&#39;s a value for</span>
@@ -444,7 +454,9 @@
 <span class="sd">        facet group is configured on a per-WorkList basis rather than</span>
 <span class="sd">        a per-library basis.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">Facets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entrypoint</span><span class="p">,</span> <span class="n">entrypoint_is_default</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Facets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">entrypoint</span><span class="p">,</span> <span class="n">entrypoint_is_default</span><span class="p">,</span> <span class="o">**</span><span class="n">constructor_kwargs</span>
+        <span class="p">)</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span>
             <span class="n">library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FACET_GROUP_NAME</span>
         <span class="p">)</span>
@@ -480,10 +492,10 @@
                  <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a slightly different Facets object from this one.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span>
-            <span class="n">collection</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
-            <span class="n">availability</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span><span class="p">,</span>
-            <span class="n">order</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
+            <span class="n">library</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">availability</span><span class="o">=</span><span class="n">availability</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span><span class="p">,</span>
+            <span class="n">order</span><span class="o">=</span><span class="n">order</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
             <span class="n">enabled_facets</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">facets_enabled_at_init</span><span class="p">,</span>
             <span class="n">entrypoint</span><span class="o">=</span><span class="p">(</span><span class="n">entrypoint</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">entrypoint</span><span class="p">),</span>
             <span class="n">entrypoint_is_default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -802,7 +814,7 @@
         <span class="k">return</span> <span class="nb">filter</span><span class="o">.</span><span class="n">featurability_scoring_functions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">random_seed</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="SearchFacets"><a class="viewcode-back" href="../../core.html#core.lane.SearchFacets">[docs]</a><span class="k">class</span> <span class="nc">SearchFacets</span><span class="p">(</span><span class="n">FacetsWithEntryPoint</span><span class="p">):</span>
+<div class="viewcode-block" id="SearchFacets"><a class="viewcode-back" href="../../core.html#core.lane.SearchFacets">[docs]</a><span class="k">class</span> <span class="nc">SearchFacets</span><span class="p">(</span><span class="n">Facets</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;A Facets object designed to filter search results.</span>
 
 <span class="sd">    Most search result filtering is handled by WorkList, but this</span>
@@ -810,8 +822,35 @@
 <span class="sd">    preferred language.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">media</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">entrypoint</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="c1"># If search results are to be ordered by some field other than</span>
+    <span class="c1"># score, we need a cutoff point so that marginal matches don&#39;t get</span>
+    <span class="c1"># top billing just because they&#39;re first alphabetically. This is</span>
+    <span class="c1"># the default cutoff point, determined empirically.</span>
+    <span class="n">DEFAULT_MIN_SCORE</span> <span class="o">=</span> <span class="mi">500</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">languages</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;languages&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">media</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;media&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># Our default_facets implementation will fill in values for</span>
+        <span class="c1"># the facet groups defined by the Facets class. This</span>
+        <span class="c1"># eliminates the need to explicitly specify a library, since</span>
+        <span class="c1"># the library is mainly used to determine these defaults --</span>
+        <span class="c1"># SearchFacets itself doesn&#39;t need one. However, in real</span>
+        <span class="c1"># usage, a Library will be provided via</span>
+        <span class="c1"># SearchFacets.from_request.</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;library&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;collection&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;availability&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;order&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">order</span><span class="p">:</span>
+            <span class="n">default_min_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_MIN_SCORE</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_min_score</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_score</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;min_score&#39;</span><span class="p">,</span> <span class="n">default_min_score</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">media</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">ALL_MEDIUM</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">media</span> <span class="o">=</span> <span class="n">media</span>
         <span class="k">else</span><span class="p">:</span>
@@ -819,6 +858,24 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">media_argument</span> <span class="o">=</span> <span class="n">media</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_list</span><span class="p">(</span><span class="n">languages</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SearchFacets.default_facet"><a class="viewcode-back" href="../../core.html#core.lane.SearchFacets.default_facet">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">default_facet</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ignore</span><span class="p">,</span> <span class="n">group_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The default facet settings for SearchFacets are hard-coded.</span>
+
+<span class="sd">        By default, we will search the full collection and all</span>
+<span class="sd">        availabilities, and order by match quality rather than any</span>
+<span class="sd">        bibliographic field.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">group_name</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">COLLECTION_FACET_GROUP_NAME</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">COLLECTION_FULL</span>
+
+        <span class="k">if</span> <span class="n">group_name</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABILITY_FACET_GROUP_NAME</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABLE_ALL</span>
+
+        <span class="k">if</span> <span class="n">group_name</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ORDER_FACET_GROUP_NAME</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
 
     <span class="k">def</span> <span class="nf">_ensure_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make sure x is a list of values, if there is a value at all.&quot;&quot;&quot;</span>
@@ -830,8 +887,13 @@
 
 <div class="viewcode-block" id="SearchFacets.from_request"><a class="viewcode-back" href="../../core.html#core.lane.SearchFacets.from_request">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_request</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>
-                     <span class="n">default_entrypoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">):</span>
+                     <span class="n">default_entrypoint</span><span class="o">=</span><span class="n">EverythingEntryPoint</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">):</span>
 
+        <span class="n">values</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_values_from_request</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">get_argument</span><span class="p">,</span> <span class="n">get_header</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">values</span>
+        <span class="n">extra</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+        <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;library&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">library</span>
         <span class="c1"># Searches against a WorkList will use the union of the</span>
         <span class="c1"># languages allowed by the WorkList and the languages found in</span>
         <span class="c1"># the client&#39;s Accept-Language header.</span>
@@ -843,6 +905,16 @@
             <span class="n">languages</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">LanguageCodes</span><span class="o">.</span><span class="n">iso_639_2_for_locale</span><span class="p">,</span> <span class="n">languages</span><span class="p">)</span>
             <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">languages</span> <span class="k">if</span> <span class="n">l</span><span class="p">]</span>
         <span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span> <span class="ow">or</span> <span class="kc">None</span>
+
+        <span class="c1"># The client can request a minimum score for search results.</span>
+        <span class="n">min_score</span> <span class="o">=</span> <span class="n">get_argument</span><span class="p">(</span><span class="s2">&quot;min_score&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">min_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">min_score</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">min_score</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">min_score</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">min_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">extra</span><span class="p">[</span><span class="s1">&#39;min_score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_score</span>
 
         <span class="c1"># The client can request an additional restriction on</span>
         <span class="c1"># the media types to be returned by searches.</span>
@@ -883,6 +955,12 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">modify_search_filter</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="nb">filter</span><span class="o">.</span><span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">filter</span><span class="o">.</span><span class="n">min_score</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># The user wants search results to be ordered by one of</span>
+            <span class="c1"># the data fields, not the match score; and no overriding</span>
+            <span class="c1"># score cutoff has been provided yet. Use ours.</span>
+            <span class="nb">filter</span><span class="o">.</span><span class="n">min_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_score</span>
+
         <span class="c1"># The incoming &#39;media&#39; argument takes precedence over any</span>
         <span class="c1"># media restriction defined by the WorkList or the EntryPoint.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">media</span> <span class="o">==</span> <span class="n">Edition</span><span class="o">.</span><span class="n">ALL_MEDIUM</span><span class="p">:</span>
@@ -916,13 +994,21 @@
         <span class="sd">&quot;&quot;&quot;Yields a 2-tuple for every active facet setting.</span>
 
 <span class="sd">        This means the EntryPoint (handled by the superclass)</span>
-<span class="sd">        as well as a setting for &#39;media&#39;.</span>
+<span class="sd">        as well as possible settings for &#39;media&#39; and &quot;min_score&quot;.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">yield</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_argument</span><span class="p">:</span>
-            <span class="k">yield</span> <span class="p">(</span><span class="s2">&quot;media&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_argument</span><span class="p">)</span></div></div>
+            <span class="k">yield</span> <span class="p">(</span><span class="s2">&quot;media&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_argument</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">(</span><span class="s1">&#39;min_score&#39;</span><span class="p">,</span> <span class="n">unicode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_score</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="SearchFacets.navigate"><a class="viewcode-back" href="../../core.html#core.lane.SearchFacets.navigate">[docs]</a>    <span class="k">def</span> <span class="nf">navigate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">min_score</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;min_score&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_score</span><span class="p">)</span>
+        <span class="n">new_facets</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">navigate</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">new_facets</span><span class="o">.</span><span class="n">min_score</span> <span class="o">=</span> <span class="n">min_score</span>
+        <span class="k">return</span> <span class="n">new_facets</span></div></div>
 
 <div class="viewcode-block" id="Pagination"><a class="viewcode-back" href="../../core.html#core.lane.Pagination">[docs]</a><span class="k">class</span> <span class="nc">Pagination</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 

@@ -749,8 +749,8 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">ProblemDetail</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">lane</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="o">.</span><span class="n">sublanes</span><span class="p">:</span>
-            <span class="c1"># This lane has no sublanes. Although we can technically</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">lane</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="c1"># This lane has no children. Although we can technically</span>
             <span class="c1"># create a grouped feed, it would be an unsatisfying</span>
             <span class="c1"># gateway to a paginated feed. We should just serve the</span>
             <span class="c1"># paginated feed.</span>

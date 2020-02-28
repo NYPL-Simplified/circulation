@@ -1205,9 +1205,11 @@
         <span class="k">if</span> <span class="n">replace</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">replace</span> <span class="o">=</span> <span class="n">ReplacementPolicy</span><span class="p">()</span>
 
+        <span class="n">analytics</span> <span class="o">=</span> <span class="n">replace</span><span class="o">.</span><span class="n">analytics</span> <span class="ow">or</span> <span class="n">Analytics</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+
         <span class="n">pool</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">collection</span><span class="p">:</span>
-            <span class="n">pool</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">replace</span><span class="o">.</span><span class="n">analytics</span><span class="p">)</span>
+            <span class="n">pool</span><span class="p">,</span> <span class="n">ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_pool</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">analytics</span><span class="p">)</span>
 
         <span class="n">data_source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_source</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_identifier</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
@@ -1311,13 +1313,12 @@
         <span class="k">if</span> <span class="n">pool</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_availability_needs_update</span><span class="p">(</span><span class="n">pool</span><span class="p">):</span>
             <span class="c1"># Update availabily information. This may result in</span>
             <span class="c1"># the issuance of additional circulation events.</span>
-            <span class="n">analytics</span> <span class="o">=</span> <span class="n">Analytics</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
             <span class="n">changed_availability</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span>
                 <span class="n">new_licenses_owned</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">licenses_owned</span><span class="p">,</span>
                 <span class="n">new_licenses_available</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">licenses_available</span><span class="p">,</span>
                 <span class="n">new_licenses_reserved</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">licenses_reserved</span><span class="p">,</span>
                 <span class="n">new_patrons_in_hold_queue</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">patrons_in_hold_queue</span><span class="p">,</span>
-                <span class="n">analytics</span><span class="o">=</span><span class="n">replace</span><span class="o">.</span><span class="n">analytics</span><span class="p">,</span>
+                <span class="n">analytics</span><span class="o">=</span><span class="n">analytics</span><span class="p">,</span>
                 <span class="n">as_of</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">last_checked</span>
             <span class="p">)</span>
 

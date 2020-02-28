@@ -226,8 +226,8 @@
 
         <span class="n">title</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">)</span>
         <span class="n">subtitle</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;subtitle&#39;</span><span class="p">)</span>
-        <span class="n">series</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;series&#39;</span><span class="p">)</span>
-        <span class="n">series_position</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;seriesPosition&#39;</span><span class="p">)</span>
+        <span class="n">series</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;series&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="n">series_position</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;seriesPosition&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
 
         <span class="n">contributors</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">sort_author</span> <span class="o">=</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;author&#39;</span><span class="p">)</span>
@@ -338,9 +338,10 @@
         <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span> <span class="o">=</span> <span class="n">OdiloRepresentationExtractor</span><span class="o">.</span><span class="n">record_info_to_circulation</span><span class="p">(</span><span class="n">availability</span><span class="p">)</span>
         <span class="c1"># &#39;active&#39; --&gt; means that the book exists but it&#39;s no longer in the collection</span>
         <span class="c1"># (it could be available again in the future)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">active</span><span class="p">:</span>
-            <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">formats</span> <span class="o">=</span> <span class="n">formats</span>
+        <span class="k">if</span> <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">active</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">metadata</span><span class="o">.</span><span class="n">circulation</span><span class="o">.</span><span class="n">formats</span> <span class="o">=</span> <span class="n">formats</span>
 
         <span class="k">return</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">active</span></div>
 
@@ -513,7 +514,6 @@
             <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">generic_exception</span>
-
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_update_credential</span><span class="p">(</span><span class="n">credential</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">token</span> <span class="o">=</span> <span class="n">credential</span><span class="o">.</span><span class="n">credential</span>
@@ -550,6 +550,9 @@
             <span class="n">method</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
             <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span>
         <span class="p">)</span>
+
+        <span class="c1"># TODO: If Odilo doesn&#39;t recognize the patron it will send</span>
+        <span class="c1"># 404 in this case.</span>
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">401</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">exception_on_401</span><span class="p">:</span>
                 <span class="c1"># This is our second try. Give up.</span>

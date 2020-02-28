@@ -107,6 +107,7 @@
     <span class="n">literal_column</span><span class="p">,</span>
     <span class="n">case</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">configuration</span> <span class="kn">import</span> <span class="n">CannotLoadConfiguration</span>
 
 <div class="viewcode-block" id="WorkGenre"><a class="viewcode-back" href="../../../core.model.html#core.monitor.WorkGenre">[docs]</a><span class="k">class</span> <span class="nc">WorkGenre</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An assignment of a genre to a work.&quot;&quot;&quot;</span>
@@ -1868,7 +1869,21 @@
             <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">work_id</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> \
             <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">WorkGenre</span><span class="o">.</span><span class="n">affinity</span><span class="o">.</span><span class="n">desc</span><span class="p">())</span> \
             <span class="o">.</span><span class="n">first</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">genre</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">genre</span> <span class="k">else</span> <span class="kc">None</span></div></div>
+        <span class="k">return</span> <span class="n">genre</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">genre</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Work.delete"><a class="viewcode-back" href="../../../core.model.html#core.monitor.Work.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Delete the work from both the DB and search index.&quot;&quot;&quot;</span>
+        <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">search_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">..external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
+                <span class="n">search_index</span> <span class="o">=</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># No search index is configured. This is fine -- just skip that part.</span>
+                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">search_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">search_index</span><span class="o">.</span><span class="n">remove_work</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

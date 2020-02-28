@@ -7131,17 +7131,56 @@ when mirroring.</p>
 
 <dl class="classmethod">
 <dt id="core.model.resource.Representation.get">
-<em class="property">classmethod </em><code class="descname">get</code><span class="sig-paren">(</span><em>_db</em>, <em>url</em>, <em>do_get=None</em>, <em>extra_request_headers=None</em>, <em>accept=None</em>, <em>max_age=None</em>, <em>pause_before=0</em>, <em>allow_redirects=True</em>, <em>presumed_media_type=None</em>, <em>debug=True</em>, <em>response_reviewer=None</em>, <em>exception_handler=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/resource.html#Representation.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.resource.Representation.get" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">get</code><span class="sig-paren">(</span><em>_db</em>, <em>url</em>, <em>do_get=None</em>, <em>extra_request_headers=None</em>, <em>accept=None</em>, <em>max_age=None</em>, <em>pause_before=0</em>, <em>allow_redirects=True</em>, <em>presumed_media_type=None</em>, <em>debug=True</em>, <em>response_reviewer=None</em>, <em>exception_handler=None</em>, <em>url_normalizer=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/resource.html#Representation.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.resource.Representation.get" title="Permalink to this definition">¶</a></dt>
 <dd><p>Retrieve a representation from the cache if possible.
 If not possible, retrieve it from the web and store it in the
-cache.
-:param do_get: A function that takes arguments (url, headers)
-and retrieves a representation over the network.
-:param max_age: A timedelta object representing the maximum
+cache.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>_db</strong> – A database connection.</li>
+<li><strong>url</strong> – The URL to use as the target of any HTTP request.</li>
+<li><strong>do_get</strong> – A function that takes arguments (url, headers)
+and retrieves a representation over the network.</li>
+<li><strong>accept</strong> – A value for the Accept HTTP header.</li>
+<li><strong>extra_request_headers</strong> – Any additional HTTP headers to
+include with the request.</li>
+<li><strong>max_age</strong> – A timedelta object representing the maximum
 time to consider a cached representation fresh. (We ignore the
 caching directives from web servers because they’re usually
-far too conservative for our purposes.)
-:return: A 2-tuple (representation, obtained_from_cache)</p>
+far too conservative for our purposes.)</li>
+<li><strong>pause_before</strong> – A number of seconds to pause before sending
+the HTTP request. This is for use in situations where
+HTTP requests are subject to throttling.</li>
+<li><strong>allow_redirects</strong> – Not currently used. (TODO: this seems like
+a problem!)</li>
+<li><strong>presumed_media_type</strong> – If the response does not contain a
+Content-Type header, or if the specified Content-Type is
+too generic to use, the representation will be presumed to be
+of this media type.</li>
+<li><strong>debug</strong> – If True, progress reports on the HTTP request will
+be logged.</li>
+<li><strong>response_reviewer</strong> – A function that takes a 3-tuple
+(status_code, headers, content) and raises an exception if
+the response should not be treated as cacheable.</li>
+<li><strong>exception_handler</strong> – A function that takes a 3-tuple
+(Representation, Exception, traceback) and handles
+an exceptional condition that occured during the HTTP request.</li>
+<li><strong>url_normalizer</strong> – A function that takes the URL to be used in
+the HTTP request, and returns the URL to use when storing
+the corresponding Representation in the database. This can be
+used to strip irrelevant or sensitive information from
+URLs to increase the chances of a cache hit.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A 2-tuple (representation, obtained_from_cache)</p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="classmethod">
@@ -7304,7 +7343,7 @@ Basically, images and books.</p>
 
 <dl class="classmethod">
 <dt id="core.model.resource.Representation.post">
-<em class="property">classmethod </em><code class="descname">post</code><span class="sig-paren">(</span><em>_db</em>, <em>url</em>, <em>data</em>, <em>max_age=None</em>, <em>response_reviewer=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/resource.html#Representation.post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.resource.Representation.post" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">post</code><span class="sig-paren">(</span><em>_db</em>, <em>url</em>, <em>data</em>, <em>max_age=None</em>, <em>response_reviewer=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/resource.html#Representation.post"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.resource.Representation.post" title="Permalink to this definition">¶</a></dt>
 <dd><p>Finds or creates POST request as a Representation</p>
 </dd></dl>
 
@@ -7684,6 +7723,12 @@ and make it our presentation edition.</p>
 <dt id="core.model.resource.Resource.Work.default_quality_by_data_source">
 <code class="descname">default_quality_by_data_source</code><em class="property"> = {u'Axis 360': 0.65, u'Bibliotheca': 0.65, u'Gutenberg': 0, u'Overdrive': 0.4, u'Plympton': 0.5, u'RBdigital': 0.4, u'Standard Ebooks': 0.8, u'unglue.it': 0.4}</em><a class="headerlink" href="#core.model.resource.Resource.Work.default_quality_by_data_source" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="core.model.resource.Resource.Work.delete">
+<code class="descname">delete</code><span class="sig-paren">(</span><em>search_index=None</em><span class="sig-paren">)</span><a class="headerlink" href="#core.model.resource.Resource.Work.delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delete the work from both the DB and search index.</p>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.resource.Resource.Work.detailed_representation">
@@ -8524,6 +8569,12 @@ and make it our presentation edition.</p>
 <dt id="core.model.work.Work.default_quality_by_data_source">
 <code class="descname">default_quality_by_data_source</code><em class="property"> = {u'Axis 360': 0.65, u'Bibliotheca': 0.65, u'Gutenberg': 0, u'Overdrive': 0.4, u'Plympton': 0.5, u'RBdigital': 0.4, u'Standard Ebooks': 0.8, u'unglue.it': 0.4}</em><a class="headerlink" href="#core.model.work.Work.default_quality_by_data_source" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="method">
+<dt id="core.model.work.Work.delete">
+<code class="descname">delete</code><span class="sig-paren">(</span><em>search_index=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/work.html#Work.delete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.work.Work.delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delete the work from both the DB and search index.</p>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.work.Work.detailed_representation">

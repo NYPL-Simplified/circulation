@@ -810,14 +810,6 @@
             <span class="p">)</span>
 
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">search_index</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="kn">from</span> <span class="nn">..external_search</span> <span class="kn">import</span> <span class="n">ExternalSearchIndex</span>
-                <span class="n">search_index</span> <span class="o">=</span> <span class="n">ExternalSearchIndex</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotLoadConfiguration</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-                <span class="c1"># No search index is configured. This is fine -- just skip</span>
-                <span class="c1"># that part.</span>
-                <span class="k">pass</span>
 
         <span class="c1"># Delete all the license pools. This should be the only part</span>
         <span class="c1"># of the application where LicensePools are permanently</span>
@@ -827,9 +819,8 @@
             <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">100</span><span class="p">:</span>
                 <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="n">search_index</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">:</span>
-                <span class="n">search_index</span><span class="o">.</span><span class="n">remove_work</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
-                <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">work</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">license_pools</span><span class="p">:</span>
+                <span class="n">work</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">search_index</span><span class="p">)</span>
 
         <span class="c1"># Now delete the Collection itself.</span>
         <span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>

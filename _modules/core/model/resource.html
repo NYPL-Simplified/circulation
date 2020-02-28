@@ -708,17 +708,59 @@
     <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_request_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">accept</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pause_before</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_redirects</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">presumed_media_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_reviewer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">exception_handler</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="n">exception_handler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">url_normalizer</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Retrieve a representation from the cache if possible.</span>
 <span class="sd">        If not possible, retrieve it from the web and store it in the</span>
 <span class="sd">        cache.</span>
+
+<span class="sd">        :param _db: A database connection.</span>
+
+<span class="sd">        :param url: The URL to use as the target of any HTTP request.</span>
+
 <span class="sd">        :param do_get: A function that takes arguments (url, headers)</span>
-<span class="sd">        and retrieves a representation over the network.</span>
+<span class="sd">           and retrieves a representation over the network.</span>
+
+<span class="sd">        :param accept: A value for the Accept HTTP header.</span>
+
+<span class="sd">        :param extra_request_headers: Any additional HTTP headers to</span>
+<span class="sd">           include with the request.</span>
+
 <span class="sd">        :param max_age: A timedelta object representing the maximum</span>
-<span class="sd">        time to consider a cached representation fresh. (We ignore the</span>
-<span class="sd">        caching directives from web servers because they&#39;re usually</span>
-<span class="sd">        far too conservative for our purposes.)</span>
+<span class="sd">           time to consider a cached representation fresh. (We ignore the</span>
+<span class="sd">           caching directives from web servers because they&#39;re usually</span>
+<span class="sd">           far too conservative for our purposes.)</span>
+
+<span class="sd">        :param pause_before: A number of seconds to pause before sending</span>
+<span class="sd">            the HTTP request. This is for use in situations where</span>
+<span class="sd">            HTTP requests are subject to throttling.</span>
+
+<span class="sd">        :param allow_redirects: Not currently used. (TODO: this seems like</span>
+<span class="sd">            a problem!)</span>
+
+<span class="sd">        :param presumed_media_type: If the response does not contain a</span>
+<span class="sd">            Content-Type header, or if the specified Content-Type is</span>
+<span class="sd">            too generic to use, the representation will be presumed to be</span>
+<span class="sd">            of this media type.</span>
+
+<span class="sd">        :param debug: If True, progress reports on the HTTP request will</span>
+<span class="sd">           be logged.</span>
+
+<span class="sd">        :param response_reviewer: A function that takes a 3-tuple</span>
+<span class="sd">           (status_code, headers, content) and raises an exception if</span>
+<span class="sd">           the response should not be treated as cacheable.</span>
+
+<span class="sd">        :param exception_handler: A function that takes a 3-tuple</span>
+<span class="sd">            (Representation, Exception, traceback) and handles</span>
+<span class="sd">            an exceptional condition that occured during the HTTP request.</span>
+
+<span class="sd">        :param url_normalizer: A function that takes the URL to be used in</span>
+<span class="sd">            the HTTP request, and returns the URL to use when storing</span>
+<span class="sd">            the corresponding Representation in the database. This can be</span>
+<span class="sd">            used to strip irrelevant or sensitive information from</span>
+<span class="sd">            URLs to increase the chances of a cache hit.</span>
+
 <span class="sd">        :return: A 2-tuple (representation, obtained_from_cache)</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">representation</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">do_get</span> <span class="o">=</span> <span class="n">do_get</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_get</span>
@@ -733,7 +775,12 @@
         <span class="c1"># the data sources we currently use, so for now we can treat</span>
         <span class="c1"># different representations of a URL as interchangeable.</span>
 
-        <span class="n">a</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">url_normalizer</span><span class="p">:</span>
+            <span class="n">normalized_url</span> <span class="o">=</span> <span class="n">url_normalizer</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">normalized_url</span> <span class="o">=</span> <span class="n">url</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">normalized_url</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">accept</span><span class="p">:</span>
             <span class="n">a</span><span class="p">[</span><span class="s1">&#39;media_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">accept</span>
         <span class="n">representation</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="s1">&#39;interchangeable&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">a</span><span class="p">)</span>
@@ -812,9 +859,11 @@
         <span class="c1"># we had.</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">usable_representation</span>
             <span class="ow">or</span> <span class="n">media_type</span> <span class="o">!=</span> <span class="n">representation</span><span class="o">.</span><span class="n">media_type</span>
-            <span class="ow">or</span> <span class="n">url</span> <span class="o">!=</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span><span class="p">):</span>
+            <span class="ow">or</span> <span class="n">normalized_url</span> <span class="o">!=</span> <span class="n">representation</span><span class="o">.</span><span class="n">url</span><span class="p">):</span>
             <span class="n">representation</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
-                <span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">media_type</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">media_type</span><span class="p">))</span>
+                <span class="n">_db</span><span class="p">,</span> <span class="n">Representation</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">normalized_url</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">media_type</span><span class="p">)</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">fetch_exception</span><span class="p">:</span>
             <span class="n">exception_handler</span><span class="p">(</span>
@@ -906,16 +955,19 @@
         <span class="n">representation</span><span class="o">.</span><span class="n">fetch_exception</span> <span class="o">=</span> <span class="n">traceback</span></div>
 
 <div class="viewcode-block" id="Representation.post"><a class="viewcode-back" href="../../../core.model.html#core.model.resource.Representation.post">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">response_reviewer</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">response_reviewer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+             <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Finds or creates POST request as a Representation&quot;&quot;&quot;</span>
+
+        <span class="n">original_do_get</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;do_get&#39;</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_post</span><span class="p">)</span>
 
         <span class="k">def</span> <span class="nf">do_post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
             <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;data&#39;</span> <span class="p">:</span> <span class="n">data</span><span class="p">})</span>
-            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">simple_http_post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">original_do_get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">do_get</span><span class="o">=</span><span class="n">do_post</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
-            <span class="n">response_reviewer</span><span class="o">=</span><span class="n">response_reviewer</span>
+            <span class="n">response_reviewer</span><span class="o">=</span><span class="n">response_reviewer</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
         <span class="p">)</span></div>
 
     <span class="nd">@property</span>
