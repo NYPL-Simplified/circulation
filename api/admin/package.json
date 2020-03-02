@@ -13,6 +13,6 @@
     "npm": ">=5.0.0"
   },
   "dependencies": {
-    "simplified-circulation-web": "0.4.12"
+    "simplified-circulation-web": "0.4.13"
   }
 }
