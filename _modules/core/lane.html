@@ -378,7 +378,16 @@
 <span class="sd">        elsewhere in this class. Right now this method implies more</span>
 <span class="sd">        flexibility than actually exists.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">enabled_facets</span><span class="p">(</span><span class="n">facet_group_name</span><span class="p">)</span></div>
+        <span class="n">available</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">enabled_facets</span><span class="p">(</span><span class="n">facet_group_name</span><span class="p">)</span>
+
+        <span class="c1"># &quot;The default facet isn&#39;t available&quot; makes no sense. If the</span>
+        <span class="c1"># default facet is not in the available list for any reason,</span>
+        <span class="c1"># add it to the beginning of the list. This makes other code</span>
+        <span class="c1"># elsewhere easier to write.</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">default_facet</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">facet_group_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">default</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
+            <span class="n">available</span> <span class="o">=</span> <span class="p">[</span><span class="n">default</span><span class="p">]</span> <span class="o">+</span> <span class="n">available</span>
+        <span class="k">return</span> <span class="n">available</span></div>
 
 <div class="viewcode-block" id="Facets.default_facet"><a class="viewcode-back" href="../../core.html#core.lane.Facets.default_facet">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">default_facet</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">facet_group_name</span><span class="p">):</span>
@@ -828,6 +837,8 @@
     <span class="c1"># the default cutoff point, determined empirically.</span>
     <span class="n">DEFAULT_MIN_SCORE</span> <span class="o">=</span> <span class="mi">500</span>
 
+    <span class="n">ORDER_BY_RELEVANCE</span> <span class="o">=</span> <span class="s2">&quot;relevance&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">languages</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;languages&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">media</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;media&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -844,10 +855,12 @@
         <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;availability&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">order</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;order&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">order</span><span class="p">:</span>
-            <span class="n">default_min_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_MIN_SCORE</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ORDER_BY_RELEVANCE</span><span class="p">):</span>
+            <span class="c1"># Search results are ordered by score, so there is no</span>
+            <span class="c1"># need for a score cutoff.</span>
             <span class="n">default_min_score</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">default_min_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_MIN_SCORE</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_score</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;min_score&#39;</span><span class="p">,</span> <span class="n">default_min_score</span><span class="p">)</span>
 
         <span class="nb">super</span><span class="p">(</span><span class="n">SearchFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
@@ -874,7 +887,7 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AVAILABLE_ALL</span>
 
         <span class="k">if</span> <span class="n">group_name</span> <span class="o">==</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ORDER_FACET_GROUP_NAME</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ORDER_BY_RELEVANCE</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
     <span class="k">def</span> <span class="nf">_ensure_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>

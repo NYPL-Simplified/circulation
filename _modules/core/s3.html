@@ -128,8 +128,11 @@
     <span class="p">}</span>
 
     <span class="n">SETTINGS</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Access Key&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
-        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Secret Key&quot;</span><span class="p">),</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">USERNAME</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Access Key&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">ExternalIntegration</span><span class="o">.</span><span class="n">PASSWORD</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Secret Key&quot;</span><span class="p">),</span>
+          <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;If the &lt;em&gt;Access Key&lt;/em&gt; and &lt;em&gt;Secret Key&lt;/em&gt; are not given here credentials will be used as outlined in the &lt;a href=&#39;https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials&#39;&gt;Boto3 documenation&lt;/a&gt;. If &lt;em&gt;Access Key&lt;/em&gt; is given, &lt;em&gt;Secrent Key&lt;/em&gt; must also be given.&quot;</span><span class="p">)</span>
+        <span class="p">},</span>
         <span class="p">{</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">BOOK_COVERS_BUCKET_KEY</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;Book Covers Bucket&quot;</span><span class="p">),</span>
           <span class="s2">&quot;description&quot;</span> <span class="p">:</span> <span class="n">_</span><span class="p">(</span><span class="s2">&quot;All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. &lt;p&gt;The bucket must already exist&amp;mdash;it will not be created automatically.&lt;/p&gt;&quot;</span><span class="p">)</span>
         <span class="p">},</span>
@@ -171,13 +174,9 @@
             <span class="n">client_class</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span>
 
         <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">client_class</span><span class="p">):</span>
-            <span class="n">access_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span>
-            <span class="n">secret_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">access_key</span> <span class="ow">and</span> <span class="n">secret_key</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">CannotLoadConfiguration</span><span class="p">(</span>
-                    <span class="s1">&#39;Cannot create S3Uploader without both&#39;</span>
-                    <span class="s1">&#39; access_key and secret_key.&#39;</span>
-                <span class="p">)</span>
+            <span class="c1"># Pass None into boto3 if we get an empty string.</span>
+            <span class="n">access_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">username</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">secret_key</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">password</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span> <span class="k">else</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client_class</span><span class="p">(</span>
                 <span class="s1">&#39;s3&#39;</span><span class="p">,</span>
                 <span class="n">aws_access_key_id</span><span class="o">=</span><span class="n">access_key</span><span class="p">,</span>

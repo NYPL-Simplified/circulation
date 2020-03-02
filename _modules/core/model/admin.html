@@ -54,7 +54,10 @@
     <span class="n">UniqueConstraint</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>
-<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">relationship</span><span class="p">,</span>
+    <span class="n">validates</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">Session</span>
 
 <div class="viewcode-block" id="Admin"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin">[docs]</a><span class="k">class</span> <span class="nc">Admin</span><span class="p">(</span><span class="n">Base</span><span class="p">,</span> <span class="n">HasFullTableCache</span><span class="p">):</span>
@@ -83,6 +86,11 @@
         <span class="k">if</span> <span class="n">credential</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">credential</span> <span class="o">=</span> <span class="n">credential</span>
         <span class="n">_db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Admin.validate_email"><a class="viewcode-back" href="../../../core.model.html#core.model.admin.Admin.validate_email">[docs]</a>    <span class="nd">@validates</span><span class="p">(</span><span class="s1">&#39;email&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_email</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">address</span><span class="p">):</span>
+        <span class="c1"># strip any whitespace from email address</span>
+        <span class="k">return</span> <span class="n">address</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
 
     <span class="nd">@hybrid_property</span>
     <span class="k">def</span> <span class="nf">password</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
