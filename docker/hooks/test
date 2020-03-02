@@ -4,7 +4,7 @@ set -ex
 
 # Create a container with test and production postgres databases.
 docker pull postgres:9.5;
-docker run -d --name pg postgres:9.5;
+docker run -d --env POSTGRES_HOST_AUTH_METHOD=trust --name pg postgres:9.5;
 
 # Sleep to let PostgreSQL start up.
 sleep 15;
@@ -64,12 +64,6 @@ fi
 # In a webapp container, check that nginx and uwsgi are running.
 check_service_status /etc/service/nginx
 check_service_status /home/simplified/service/uwsgi
-
-# Then create a library so the app will start.
-#
-# TODO: This is probably no longer necessary.
-docker exec -u postgres pg psql -U simplified -d docker_prod \
-  -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
 
 # Make sure the web server is running.
 healthcheck=$(docker exec circ /bin/bash -c "curl --write-out \"%{http_code}\" --silent --output /dev/null http://localhost/healthcheck.html")
