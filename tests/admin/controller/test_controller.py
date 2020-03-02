@@ -8,7 +8,7 @@ import json
 import os
 import re
 import feedparser
-from werkzeug import ImmutableMultiDict, MultiDict
+from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
 from StringIO import StringIO
 import base64
@@ -249,6 +249,37 @@ class TestViewController(AdminControllerTest):
             html = response.response[0]
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
+
+    def test_tos_link(self):
+
+        def assert_tos(expect_href, expect_text):
+            with self.app.test_request_context('/admin'):
+                flask.session['admin_email'] = self.admin.email
+                flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
+                response = self.manager.admin_view_controller("collection", "book")
+                eq_(200, response.status_code)
+                html = response.response[0]
+
+                assert ('tos_link_href: "%s",' % expect_href) in html
+                assert ('tos_link_text: "%s",' % expect_text) in html
+
+        # First, verify the default values, which very few circulation
+        # managers will have any need to change.
+        #
+        # The default value has an apostrophe in it, which gets
+        # escaped when the HTML is generated.
+        assert_tos(
+            Configuration.DEFAULT_TOS_HREF,
+            Configuration.DEFAULT_TOS_TEXT.replace("'", "&#39;"),
+        )
+
+        # Now set some custom values.
+        sitewide = ConfigurationSetting.sitewide
+        sitewide(self._db, Configuration.CUSTOM_TOS_HREF).value = "http://tos/"
+        sitewide(self._db, Configuration.CUSTOM_TOS_TEXT).value = "a tos"
+
+        # Verify that those values are picked up and used to build the page.
+        assert_tos("http://tos/", "a tos")
 
     def test_show_circ_events_download(self):
         # The local analytics provider will be configured by default if

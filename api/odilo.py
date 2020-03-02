@@ -191,8 +191,8 @@ class OdiloRepresentationExtractor(object):
 
         title = book.get('title')
         subtitle = book.get('subtitle')
-        series = book.get('series')
-        series_position = book.get('seriesPosition')
+        series = book.get('series').strip() or None
+        series_position = book.get('seriesPosition').strip() or None
 
         contributors = []
         sort_author = book.get('author')
@@ -303,9 +303,10 @@ class OdiloRepresentationExtractor(object):
         metadata.circulation = OdiloRepresentationExtractor.record_info_to_circulation(availability)
         # 'active' --> means that the book exists but it's no longer in the collection
         # (it could be available again in the future)
-        if not active:
-            metadata.circulation.licenses_owned = 0
-        metadata.circulation.formats = formats
+        if metadata.circulation:
+            if not active:
+                metadata.circulation.licenses_owned = 0
+            metadata.circulation.formats = formats
 
         return metadata, active
 
@@ -478,7 +479,6 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             data = response.json()
         except ValueError:
             raise generic_exception
-
         if response.status_code == 200:
             self._update_credential(credential, data)
             self.token = credential.credential
@@ -515,6 +515,9 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             method, url, headers=headers, data=data,
             timeout=60
         )
+
+        # TODO: If Odilo doesn't recognize the patron it will send
+        # 404 in this case.
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.

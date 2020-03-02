@@ -366,6 +366,16 @@ class ViewController(AdminController):
 
         csrf_token = flask.request.cookies.get("csrf_token") or self.generate_csrf_token()
 
+        # Find the URL and text to use when rendering the Terms of
+        # Service link in the footer.
+        sitewide_tos_href = ConfigurationSetting.sitewide(
+            self._db, Configuration.CUSTOM_TOS_HREF
+        ).value or Configuration.DEFAULT_TOS_HREF
+
+        sitewide_tos_text = ConfigurationSetting.sitewide(
+            self._db, Configuration.CUSTOM_TOS_TEXT
+        ).value or Configuration.DEFAULT_TOS_TEXT
+
         local_analytics = get_one(
             self._db, ExternalIntegration,
             protocol=LocalAnalyticsProvider.__module__,
@@ -375,6 +385,8 @@ class ViewController(AdminController):
         response = Response(flask.render_template_string(
             admin_template,
             csrf_token=csrf_token,
+            sitewide_tos_href=sitewide_tos_href,
+            sitewide_tos_text=sitewide_tos_text,
             show_circ_events_download=show_circ_events_download,
             setting_up=setting_up,
             email=email,

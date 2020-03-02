@@ -35,6 +35,20 @@ class Configuration(CoreConfiguration):
     # The name of the setting that controls how long static files are cached.
     STATIC_FILE_CACHE_TIME = u"static_file_cache_time"
 
+    # A custom link to a Terms of Service document to be understood by
+    # users of the administrative interface.
+    #
+    # This is _not_ the end-user terms of service for SimplyE or any
+    # other mobile client. The default value links to the terms of
+    # service for a library's inclusion in the SimplyE library
+    # registry.
+    CUSTOM_TOS_HREF = "tos_href"
+    DEFAULT_TOS_HREF = "https://librarysimplified.org/simplyetermsofservice2/"
+
+    # Custom text for the link defined in CUSTOM_TOS_LINK.
+    CUSTOM_TOS_TEXT = "tos_text"
+    DEFAULT_TOS_TEXT = "Terms of Service for presenting e-reading materials through NYPL's SimplyE mobile app"
+
     # A short description of the library, used in its Authentication
     # for OPDS document.
     LIBRARY_DESCRIPTION = 'library_description'
@@ -181,6 +195,20 @@ class Configuration(CoreConfiguration):
             "required": True,
             "type": "number",
         },
+        {
+            "key": CUSTOM_TOS_HREF,
+            "label": _("Custom Terms of Service link"),
+            "required": False,
+            "default": DEFAULT_TOS_HREF,
+            "description": _("If your inclusion in the SimplyE mobile app is governed by terms other than the default, put the URL to those terms in this link so that librarians will have access to them. This URL will be used for all libraries on this circulation manager.")
+        },
+        {
+            "key": CUSTOM_TOS_TEXT,
+            "label": _("Custom Terms of Service link text"),
+            "required": False,
+            "default": DEFAULT_TOS_TEXT,
+            "description": _("Custom text for the Terms of Service link in the footer of these administrative interface pages. This is primarily useful if you're not connecting this circulation manager to the SimplyE mobile app. This text will be used for all libraries on this circulation manager.")
+        }
     ]
 
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [

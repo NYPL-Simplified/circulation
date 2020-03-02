@@ -26,6 +26,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     SSL_CERTIFICATE = "ssl_certificate"
     SSL_KEY = "ssl_key"
     ILS = "ils"
+    PATRON_STATUS_BLOCK = "patron status block"
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("Server"), "required": True },
@@ -64,6 +65,17 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         },
         { "key": FIELD_SEPARATOR, "label": _("Field Separator"),
           "default": "|", "required": True,
+        },
+        { "key": PATRON_STATUS_BLOCK,
+          "label": _("SIP2 Patron Status Block"),
+          "description": _(
+            "Block patrons from borrowing based on the status of the SIP2 <em>patron status</em> field."),
+          "type": "select",
+          "options": [
+            {"key": "true", "label": _("Block based on patron status field")},
+            {"key": "false", "label": _("No blocks based on patron status field")},
+          ],
+          "default": "true",
         },
     ] + BasicAuthenticationProvider.SETTINGS
 
@@ -131,6 +143,11 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.ssl_key = integration.setting(self.SSL_KEY).value
         self.dialect = Sip2Dialect.load_dialect(integration.setting(self.ILS).value)
         self.client = client
+        patron_status_block = integration.setting(self.PATRON_STATUS_BLOCK).json_value
+        if patron_status_block is None or patron_status_block:
+            self.fields_that_deny_borrowing = SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES
+        else:
+            self.fields_that_deny_borrowing = []
 
     def patron_information(self, username, password):
         try:
@@ -230,10 +247,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                     ("Raw test patron information"),
                     raw_patron_information
                 )
-        
 
-    @classmethod
-    def info_to_patrondata(cls, info, validate_password=True):
+    def info_to_patrondata(self, info, validate_password=True):
 
         """Convert the SIP-specific dictionary obtained from
         SIPClient.patron_information() to an abstract,
@@ -272,7 +287,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:
             if expire_field in info:
                 value = info.get(expire_field)
-                value = cls.parse_date(value)
+                value = self.parse_date(value)
                 if value:
                     patrondata.authorization_expires = value
                     break
@@ -282,9 +297,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         # books.
         status = info['patron_status_parsed']
         block_reason = PatronData.NO_VALUE
-        for field in SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES:
+        for field in self.fields_that_deny_borrowing:
             if status.get(field) is True:
-                block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
+                block_reason = self.SPECIFIC_BLOCK_REASONS.get(
                     field, PatronData.UNKNOWN_BLOCK
                 )
                 if block_reason not in (PatronData.NO_VALUE,

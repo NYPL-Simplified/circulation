@@ -18,7 +18,6 @@ import pypostalcode
 from tests.admin.controller.test_controller import SettingsControllerTest
 import urllib
 import uszipcode
-from werkzeug import MultiDict
 
 class TestGeographicValidator(SettingsControllerTest):
     def test_validate_geographic_areas(self):
