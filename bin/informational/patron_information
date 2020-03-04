@@ -49,6 +49,7 @@ class PatronInformationScript(LibraryInputScript):
             print "Fines: $%s" % self.print_data(patron_data.fines)
             print "Block Reason: %s" % self.print_data(patron_data.block_reason)
             print "Library Identifier: %s" % self.print_data(patron_data.library_identifier)
+            print "Email Address: %s" % self.print_data(patron_data.email_address)
 
     def print_data(self, data):
         if data == PatronData.NO_VALUE:
