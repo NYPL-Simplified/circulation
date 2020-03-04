@@ -16,7 +16,7 @@ from api.authenticator import LibraryAuthenticator, PatronData
 class PatronInformationScript(LibraryInputScript):
     @classmethod
     def arg_parser(cls, _db):
-        parser = super(PatronInformationScript, cls).arg_parser(_db)
+        parser = super(PatronInformationScript, cls).arg_parser(_db, multiple_libraries=False)
         parser.add_argument(
             '--barcode',
             help="The barcode to lookup.",
