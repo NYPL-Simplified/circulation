@@ -118,6 +118,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.opds</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AcquisitionFeed</span><span class="p">,</span>
+    <span class="n">NavigationFacets</span><span class="p">,</span>
     <span class="n">NavigationFeed</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
@@ -835,7 +836,7 @@
             <span class="n">minimum_featured_quality</span><span class="o">=</span><span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">load_facets_from_request</span><span class="p">(</span>
-            <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">FeaturedFacets</span><span class="p">,</span>
+            <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">NavigationFacets</span><span class="p">,</span>
             <span class="n">base_class_constructor_kwargs</span><span class="o">=</span><span class="n">facet_class_kwargs</span>
         <span class="p">)</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
