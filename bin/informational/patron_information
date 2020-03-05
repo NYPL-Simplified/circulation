@@ -16,7 +16,7 @@ from api.authenticator import LibraryAuthenticator, PatronData
 class PatronInformationScript(LibraryInputScript):
     @classmethod
     def arg_parser(cls, _db):
-        parser = super(PatronInformationScript, cls).arg_parser(_db)
+        parser = super(PatronInformationScript, cls).arg_parser(_db, multiple_libraries=False)
         parser.add_argument(
             '--barcode',
             help="The barcode to lookup.",
@@ -38,17 +38,18 @@ class PatronInformationScript(LibraryInputScript):
 
     def explain(self, patron_data):
         if patron_data is None or patron_data is False:
-            print "Account does not exist."
+            print("Account does not exist.")
         else:
-            print "Permanent ID: %s" % self.print_data(patron_data.permanent_id)
-            print "Authorization Identifier: %s" % self.print_data(patron_data.authorization_identifier)
-            print "Username: %s" % self.print_data(patron_data.username)
-            print "Personal Name: %s" % self.print_data(patron_data.personal_name)
-            print "Authorization Expires: %s" % self.print_data(patron_data.authorization_expires)
-            print "External Type: %s" % self.print_data(patron_data.external_type)
-            print "Fines: $%s" % self.print_data(patron_data.fines)
-            print "Block Reason: %s" % self.print_data(patron_data.block_reason)
-            print "Library Identifier: %s" % self.print_data(patron_data.library_identifier)
+            print("Permanent ID: %s" % self.print_data(patron_data.permanent_id))
+            print("Authorization Identifier: %s" % self.print_data(patron_data.authorization_identifier))
+            print("Username: %s" % self.print_data(patron_data.username))
+            print("Personal Name: %s" % self.print_data(patron_data.personal_name))
+            print("Authorization Expires: %s" % self.print_data(patron_data.authorization_expires))
+            print("External Type: %s" % self.print_data(patron_data.external_type))
+            print("Fines: $%s" % self.print_data(patron_data.fines))
+            print("Block Reason: %s" % self.print_data(patron_data.block_reason))
+            print("Library Identifier: %s" % self.print_data(patron_data.library_identifier))
+            print("Email Address: %s" % self.print_data(patron_data.email_address))
 
     def print_data(self, data):
         if data == PatronData.NO_VALUE:
