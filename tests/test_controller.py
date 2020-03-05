@@ -150,6 +150,7 @@ import base64
 import feedparser
 from core.opds import (
     AcquisitionFeed,
+    NavigationFacets,
     NavigationFeed,
 )
 from core.util.opds_writer import (
@@ -3273,13 +3274,11 @@ class TestOPDSFeedController(CirculationControllerTest):
             # sublanes for English, Spanish, Chinese, and French.
             eq_(len(lane.sublanes), len(entries))
 
-        # A FeaturedFacets object was created from a combination of
-        # library configuration and lane configuration, and passed in
-        # to NavigationFeed.navigation().
+        # A NavigationFacets object was created and passed in to
+        # NavigationFeed.navigation().
         args, kwargs = self.called_with
         facets = kwargs['facets']
-        assert isinstance(facets, FeaturedFacets)
-        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
+        assert isinstance(facets, NavigationFacets)
         NavigationFeed.navigation = old_navigation
 
     def _set_update_times(self):
