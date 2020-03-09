@@ -1131,12 +1131,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     @classmethod
     def make_direct_download_link(cls, link):
-        """Convert an Overdrive Read link template to a direct-download link
-        for the manifest.
+        """Convert an Overdrive Read or Overdrive Listen link template to a
+        direct-download link for the manifest.
 
-        :param link: An Overdrive Read template link.
+        :param link: An Overdrive Read or Overdrive Listen template
+            link.
         """
-        # Remove the Overdrive Read authentication URL.
+        # Remove any Overdrive Read authentication URL.
         argument_re = re.compile("odreadauthurl={odreadauthurl}&?")
         link = argument_re.sub("", link)
 
