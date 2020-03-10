@@ -83,6 +83,7 @@ from core.model import (
 )
 from core.opds import (
     AcquisitionFeed,
+    NavigationFacets,
     NavigationFeed,
 )
 from core.util.opds_writer import (
@@ -800,7 +801,7 @@ class OPDSFeedController(CirculationManagerController):
             minimum_featured_quality=library.minimum_featured_quality,
         )
         facets = load_facets_from_request(
-            worklist=lane, base_class=FeaturedFacets,
+            worklist=lane, base_class=NavigationFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
         annotator = self.manager.annotator(lane, facets)
