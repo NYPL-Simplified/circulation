@@ -32,6 +32,7 @@ from core.model import (
     Credential,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Hold,
     Hyperlink,
@@ -447,7 +448,13 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         content_link = None
         content_type = None
         for link in links:
-            if link.get("rel") == "license":
+            # Depending on the format being served, the crucial information
+            # may be in 'manifest' or in 'license'.
+            #
+            # TODO: when both links are present, access to the
+            # DeliveryMechanism would be great for figuring out which
+            # one to use.
+            if link.get("rel") in ("manifest", "license"):
                 content_link = link.get("href")
                 content_type = link.get("type")
                 break
@@ -781,6 +788,10 @@ class ODLImporter(OPDSImporter):
     NAME = ODLAPI.NAME
     PARSER_CLASS = ODLXMLParser
 
+    # The media type for a License Info Docuemnt, used to get information
+    # about the license.
+    LICENSE_INFO_DOCUMENT_MEDIA_TYPE = 'application/vnd.odl.info+json'
+
     @classmethod
     def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None, do_get=None):
         do_get = do_get or Representation.cautious_http_get
@@ -794,30 +805,49 @@ class ODLImporter(OPDSImporter):
         licenses_owned = 0
         licenses_available = 0
         odl_license_tags = parser._xpath(entry_tag, 'odl:license') or []
+        medium = None
         for odl_license_tag in odl_license_tags:
             identifier = subtag(odl_license_tag, 'dcterms:identifier')
-            content_type = subtag(odl_license_tag, 'dcterms:format')
+            full_content_type = subtag(odl_license_tag, 'dcterms:format')
+
+            if not medium:
+                medium = Edition.medium_from_media_type(full_content_type)
+
+            # By default, dcterms:format includes the media type of a
+            # DRM-free resource.
+            content_type = full_content_type
             drm_schemes = []
-            protection_tags = parser._xpath(odl_license_tag, 'odl:protection') or []
+
+            # But it may instead describe an audiobook protected with
+            # the Feedbooks access-control scheme.
+            feedbooks_audio = "%s; protection=%s"  % (
+                MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+                DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
+            )
+            if full_content_type == feedbooks_audio:
+                content_type = MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE
+                drm_schemes.append(DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM)
+
+            # Additional DRM schemes may be described in <odl:protection>
+            # tags.
+            protection_tags = parser._xpath(
+                odl_license_tag, 'odl:protection'
+            ) or []
             for protection_tag in protection_tags:
                 drm_scheme = subtag(protection_tag, 'dcterms:format')
+                if drm_scheme:
+                    drm_schemes.append(drm_scheme)
 
-                if MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE in drm_scheme and DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM in drm_scheme:
-                    drm_scheme = DeliveryMechanism.FEEDBOOKS_AUDIOBOOK_DRM
-                
-                drm_schemes.append(drm_scheme)
-            if not drm_schemes:
-                formats.append(FormatData(
-                    content_type=content_type,
-                    drm_scheme=None,
-                    rights_uri=RightsStatus.IN_COPYRIGHT,
-                ))
-            for drm_scheme in drm_schemes:
-                formats.append(FormatData(
-                    content_type=content_type,
-                    drm_scheme=drm_scheme,
-                    rights_uri=RightsStatus.IN_COPYRIGHT,
-                ))
+            for drm_scheme in (drm_schemes or [None]):
+                formats.append(
+                    FormatData(
+                        content_type=content_type,
+                        drm_scheme=drm_scheme,
+                        rights_uri=RightsStatus.IN_COPYRIGHT,
+                    )
+                )
+
+            data['medium'] = medium
 
             expires = None
             remaining_checkouts = None
@@ -831,18 +861,24 @@ class ODLImporter(OPDSImporter):
                     checkout_link = link_tag.attrib.get("href")
                     break
 
+            # Look for a link to the License Info Document for this license.
             odl_status_link = None
             for link_tag in parser._xpath(odl_license_tag, 'atom:link') or []:
-                rel = link_tag.attrib.get("rel")
-                if rel == "self":
-                    odl_status_link = link_tag.attrib.get("href")
+                attrib = link_tag.attrib
+                rel = attrib.get("rel")
+                type = attrib.get("type", "")
+                if (rel == 'self'
+                    and type.startswith(cls.LICENSE_INFO_DOCUMENT_MEDIA_TYPE)):
+                    odl_status_link = attrib.get("href")
                     break
 
+            # If we found one, retrieve it and get licensing information about this book.
             if odl_status_link:
                 ignore, ignore, response = do_get(odl_status_link, headers={})
                 status = json.loads(response)
-                remaining_checkouts = status.get("checkouts", {}).get("left")
-                available_checkouts = status.get("checkouts", {}).get("available")
+                checkouts = status.get("checkouts", {})
+                remaining_checkouts = checkouts.get("left")
+                available_checkouts = checkouts.get("available")
 
             terms = parser._xpath(odl_license_tag, "odl:terms")
             if terms:

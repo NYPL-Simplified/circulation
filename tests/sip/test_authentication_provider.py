@@ -350,6 +350,35 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(None, patron.external_type)
         eq_('no borrowing privileges', patron.block_reason)
 
+    def test_patron_block_setting(self):
+        integration_block = self._external_integration(self._str, settings={SIP2AuthenticationProvider.PATRON_STATUS_BLOCK: "true"})
+        integration_noblock = self._external_integration(self._str, settings={SIP2AuthenticationProvider.PATRON_STATUS_BLOCK: "false"})
+        client = MockSIPClient()
+
+        # Test with blocked patron, block should be set
+        p = SIP2AuthenticationProvider(self._default_library, integration_block, client=client)
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
+        patron = p.info_to_patrondata(info)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("863716", patron.permanent_id)
+        eq_("Booth Expired Test", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(datetime(2008, 9, 7), patron.authorization_expires)
+        eq_(PatronData.NO_BORROWING_PRIVILEGES, patron.block_reason)
+
+        # Test with blocked patron, block should not be set
+        p = SIP2AuthenticationProvider(self._default_library, integration_noblock, client=client)
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.evergreen_expired_card)
+        patron = p.info_to_patrondata(info)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("863716", patron.permanent_id)
+        eq_("Booth Expired Test", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(datetime(2008, 9, 7), patron.authorization_expires)
+        eq_(PatronData.NO_VALUE, patron.block_reason)
+
     def test_run_self_tests(self):
         integration = self._external_integration(self._str)
         integration.url = "server.com"

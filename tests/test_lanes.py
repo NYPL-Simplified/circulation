@@ -31,6 +31,7 @@ from core.metadata_layer import (
 from core.lane import FacetsWithEntryPoint
 from core.model import (
     create,
+    CachedFeed,
     Contribution,
     Contributor,
     Edition,
@@ -217,14 +218,24 @@ class TestLaneCreation(DatabaseTest):
             eq_([Edition.BOOK_MEDIUM], x.media)
 
         eq_(
-            [set(['Adults Only', 'Adult']),
-             set(['Adults Only', 'Adult']),
+            [set(['All Ages', 'Adults Only', 'Adult']),
+             set(['All Ages', 'Adults Only', 'Adult']),
              set(['Young Adult', 'Children'])],
             [set(x.audiences) for x in sublanes]
         )
         eq_([True, False, None],
             [x.fiction for x in sublanes]
         )
+
+        # If a language name is not found, don't create any lanes.
+        languages = ['eng', 'mul', 'chi']
+        parent = self._lane()
+        priority = create_lane_for_small_collection(
+            self._db, self._default_library, parent, languages, priority=2
+        )
+        lane = self._db.query(Lane).filter(Lane.parent==parent)
+        eq_(priority, 0)
+        eq_(lane.count(), 0)
 
     def test_lane_for_tiny_collection(self):
         parent = self._lane()
@@ -239,6 +250,16 @@ class TestLaneCreation(DatabaseTest):
         eq_(['ger'], lane.languages)
         eq_(u'Deutsch', lane.display_name)
         eq_([], lane.children)
+
+        # No lane should be created when the language has no name.
+        new_parent = self._lane()
+        new_priority = create_lane_for_tiny_collection(
+            self._db, self._default_library, new_parent, ['spa', 'gaa', 'eng'],
+            priority=3
+        )
+        eq_(0, new_priority)
+        lane = self._db.query(Lane).filter(Lane.parent==new_parent)
+        eq_(lane.count(), 0)
 
     def test_create_default_lanes(self):
         library = self._default_library
@@ -380,6 +401,10 @@ class TestRelatedBooksLane(DatabaseTest):
         [self.lp] = self.work.license_pools
         self.edition = self.work.presentation_edition
 
+    def test_feed_type(self):
+        # All feeds from these lanes are cached as 'related works' feeds.
+        eq_(CachedFeed.RELATED_TYPE, RelatedBooksLane.CACHED_FEED_TYPE)
+
     def test_initialization(self):
         # Asserts that a RelatedBooksLane won't be initialized for a work
         # without related books
@@ -424,6 +449,12 @@ class TestRelatedBooksLane(DatabaseTest):
         mock_api.setup(response)
         result = RelatedBooksLane(self._default_library, self.work, "", novelist_api=mock_api)
         eq_(3, len(result.children))
+
+        [novelist_recommendations] = [
+            x for x in result.children if isinstance(x, RecommendationLane)
+        ]
+        eq_("Similar titles recommended by NoveList",
+            novelist_recommendations.display_name)
 
         # The book's language and audience list is passed down to all sublanes.
         eq_(['eng'], result.languages)
@@ -578,6 +609,10 @@ class TestSeriesFacets(DatabaseTest):
 
 class TestSeriesLane(LaneTest):
 
+    def test_feed_type(self):
+        # All feeds from these lanes are cached as series feeds.
+        eq_(CachedFeed.SERIES_TYPE, SeriesLane.CACHED_FEED_TYPE)
+
     def test_initialization(self):
         # An error is raised if SeriesLane is created with an empty string.
         assert_raises(
@@ -639,6 +674,10 @@ class TestContributorFacets(DatabaseTest):
 
 
 class TestContributorLane(LaneTest):
+
+    def test_feed_type(self):
+        # All feeds of this type are cached as contributor feeds.
+        eq_(CachedFeed.CONTRIBUTOR_TYPE, ContributorLane.CACHED_FEED_TYPE)
 
     def setup(self):
         super(TestContributorLane, self).setup()
@@ -719,6 +758,11 @@ class TestContributorLane(LaneTest):
 
 
 class TestCrawlableFacets(DatabaseTest):
+
+    def test_feed_type(self):
+        # All crawlable feeds are cached as such, no matter what
+        # WorkList they come from.
+        eq_(CachedFeed.CRAWLABLE_TYPE, CrawlableFacets.CACHED_FEED_TYPE)
 
     def test_default(self):
         facets = CrawlableFacets.default(self._default_library)

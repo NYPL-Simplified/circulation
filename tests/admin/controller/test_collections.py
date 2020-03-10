@@ -19,7 +19,7 @@ from core.model import (
     Library,
 )
 from core.model.configuration import ExternalIntegrationLink
-from werkzeug import MultiDict
+from werkzeug.datastructures import MultiDict
 
 from test_controller import SettingsControllerTest
 

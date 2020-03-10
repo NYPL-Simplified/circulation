@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import flask
 from flask import Response
+from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
 from api.nyt import NYTBestSellerAPI
 from api.novelist import NoveListAPI
@@ -18,14 +19,15 @@ class MetadataServicesController(SitewideRegistrationController):
 
     def __init__(self, manager):
         super(MetadataServicesController, self).__init__(manager)
-        provider_apis = [
+        self.provider_apis = [
                             NYTBestSellerAPI,
                             NoveListAPI,
                             MetadataWranglerOPDSLookup,
                         ]
 
-        self.protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="PROTOCOL")
+        self.protocols = self._get_integration_protocols(self.provider_apis, protocol_name_attr="PROTOCOL")
         self.goal = ExternalIntegration.METADATA_GOAL
+        self.type = _("metadata service")
 
     def process_metadata_services(self):
         self.require_system_admin()
@@ -36,9 +38,34 @@ class MetadataServicesController(SitewideRegistrationController):
 
     def process_get(self):
         metadata_services = self._get_integration_info(self.goal, self.protocols)
+        for service in metadata_services:
+            service_object = get_one(self._db, ExternalIntegration, id=service.get("id"), goal=ExternalIntegration.METADATA_GOAL)
+            protocol_class, tuple = self.find_protocol_class(service_object)
+            service["self_test_results"] = self._get_prior_test_results(service_object, protocol_class, *tuple)
+
         return dict(
             metadata_services=metadata_services,
             protocols=self.protocols,
+        )
+
+    def find_protocol_class(self, integration):
+        if integration.protocol == ExternalIntegration.METADATA_WRANGLER:
+            return (
+                MetadataWranglerOPDSLookup,
+                (MetadataWranglerOPDSLookup.from_config, self._db)
+            )
+        elif integration.protocol == ExternalIntegration.NYT:
+            return (
+                NYTBestSellerAPI,
+                (NYTBestSellerAPI.from_config, self._db)
+            )
+        elif integration.protocol == ExternalIntegration.NOVELIST:
+            return (
+                NoveListAPI,
+                (NoveListAPI.from_config, self._db)
+            )
+        raise NotImplementedError(
+            "No metadata self-test class for protocol %s" % integration.protocol
         )
 
     def process_post(self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post):
@@ -91,7 +118,6 @@ class MetadataServicesController(SitewideRegistrationController):
     def validate_form_fields(self, **fields):
         """The 'name' and 'protocol' fields cannot be blank, and the protocol must
         be selected from the list of recognized protocols.  The URL must be valid."""
-
         name = fields.get("name")
         protocol = fields.get("protocol")
         url = fields.get("url")

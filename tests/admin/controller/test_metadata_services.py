@@ -5,12 +5,14 @@ from nose.tools import (
 )
 import flask
 import json
-from werkzeug import MultiDict
+from werkzeug.datastructures import MultiDict
 from core.util.http import HTTP
+from api.nyt import NYTBestSellerAPI
 from api.admin.exceptions import *
 from api.admin.problem_details import INVALID_URL
 from api.novelist import NoveListAPI
 from api.admin.controller.metadata_services import MetadataServicesController
+from core.opds_import import MetadataWranglerOPDSLookup
 from core.model import (
     AdminRole,
     create,
@@ -21,6 +23,12 @@ from core.model import (
 from test_controller import SettingsControllerTest
 
 class TestMetadataServices(SettingsControllerTest):
+    def create_service(self, name):
+        return create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.__dict__.get(name) or "fake",
+            goal=ExternalIntegration.METADATA_GOAL
+        )[0]
 
     def test_process_metadata_services_dispatches_by_request_method(self):
         class Mock(MetadataServicesController):
@@ -56,11 +64,7 @@ class TestMetadataServices(SettingsControllerTest):
             assert "settings" in protocols[0]
 
     def test_process_get_with_one_service(self):
-        novelist_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.NOVELIST,
-            goal=ExternalIntegration.METADATA_GOAL,
-        )
+        novelist_service = self.create_service("NOVELIST")
         novelist_service.username = "user"
         novelist_service.password = "pass"
 
@@ -83,6 +87,34 @@ class TestMetadataServices(SettingsControllerTest):
             eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
+
+    def test_process_get_with_self_tests(self):
+        metadata_service = self.create_service("METADATA_WRANGLER")
+        metadata_service.name = "Test"
+        controller = self.manager.admin_metadata_services_controller
+
+        with self.request_context_with_admin("/"):
+            response = controller.process_get()
+            [service] = response.get("metadata_services")
+            eq_(metadata_service.id, service.get("id"))
+            eq_(ExternalIntegration.METADATA_WRANGLER, service.get("protocol"))
+            eq_(service.has_key("self_test_results"), True)
+            # The exception is because there isn't a library registered with the metadata service.
+            # But we just need to make sure that the response has a self_test_results attribute--for this test,
+            # it doesn't matter what it is--so that's fine.
+            eq_(
+                service.get("self_test_results").get("exception"),
+                "Exception getting self-test results for metadata service Test: Metadata Wrangler improperly configured."
+            )
+
+    def test_find_protocol_class(self):
+        [wrangler, nyt, novelist, fake] = [self.create_service(x) for x in ["METADATA_WRANGLER", "NYT", "NOVELIST", "FAKE"]]
+        m = self.manager.admin_metadata_services_controller.find_protocol_class
+
+        eq_(m(wrangler)[0], MetadataWranglerOPDSLookup)
+        eq_(m(nyt)[0], NYTBestSellerAPI)
+        eq_(m(novelist)[0], NoveListAPI)
+        assert_raises(NotImplementedError, m, fake)
 
     def test_metadata_services_post_errors(self):
         controller = self.manager.admin_metadata_services_controller
@@ -115,12 +147,8 @@ class TestMetadataServices(SettingsControllerTest):
             response = controller.process_post()
             eq_(response, MISSING_SERVICE)
 
-        service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.NOVELIST,
-            goal=ExternalIntegration.METADATA_GOAL,
-            name="name",
-        )
+        service = self.create_service("NOVELIST")
+        service.name = "name"
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -194,12 +222,7 @@ class TestMetadataServices(SettingsControllerTest):
         l2, ignore = create(
             self._db, Library, name="Library 2", short_name="L2",
         )
-
-        novelist_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.NOVELIST,
-            goal=ExternalIntegration.METADATA_GOAL,
-        )
+        novelist_service = self.create_service("NOVELIST")
         novelist_service.username = "olduser"
         novelist_service.password = "oldpass"
         novelist_service.libraries = [l1]
@@ -369,11 +392,7 @@ class TestMetadataServices(SettingsControllerTest):
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",
         )
-        novelist_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.NOVELIST,
-            goal=ExternalIntegration.METADATA_GOAL,
-        )
+        novelist_service = self.create_service("NOVELIST")
         novelist_service.username = "olduser"
         novelist_service.password = "oldpass"
         novelist_service.libraries = [l1]

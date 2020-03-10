@@ -6,7 +6,7 @@ from nose.tools import (
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 import feedparser
-from werkzeug import ImmutableMultiDict, MultiDict
+from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 import base64
 import flask
 import json

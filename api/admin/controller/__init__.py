@@ -107,7 +107,7 @@ from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, sele
 from api.admin.templates import admin as admin_template
 from api.authenticator import LibraryAuthenticator
 
-from core.opds_import import (OPDSImporter, OPDSImportMonitor)
+from core.opds_import import (MetadataWranglerOPDSLookup, OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
@@ -366,6 +366,16 @@ class ViewController(AdminController):
 
         csrf_token = flask.request.cookies.get("csrf_token") or self.generate_csrf_token()
 
+        # Find the URL and text to use when rendering the Terms of
+        # Service link in the footer.
+        sitewide_tos_href = ConfigurationSetting.sitewide(
+            self._db, Configuration.CUSTOM_TOS_HREF
+        ).value or Configuration.DEFAULT_TOS_HREF
+
+        sitewide_tos_text = ConfigurationSetting.sitewide(
+            self._db, Configuration.CUSTOM_TOS_TEXT
+        ).value or Configuration.DEFAULT_TOS_TEXT
+
         local_analytics = get_one(
             self._db, ExternalIntegration,
             protocol=LocalAnalyticsProvider.__module__,
@@ -375,6 +385,8 @@ class ViewController(AdminController):
         response = Response(flask.render_template_string(
             admin_template,
             csrf_token=csrf_token,
+            sitewide_tos_href=sitewide_tos_href,
+            sitewide_tos_text=sitewide_tos_text,
             show_circ_events_download=show_circ_events_download,
             setting_up=setting_up,
             email=email,
@@ -1563,7 +1575,7 @@ class SettingsController(AdminCirculationManagerController):
                 self_test_results = ExternalSearchIndex.prior_test_results(
                     self._db, None, self._db, item
                 )
-            elif self.type == "metadata service":
+            elif self.type == "metadata service" and protocol_class:
                 self_test_results = protocol_class.prior_test_results(
                     self._db, *extra_args
                 )
@@ -1581,10 +1593,10 @@ class SettingsController(AdminCirculationManagerController):
                     )
 
         except Exception, e:
-            # This is bad, but not so bad that we should short-circuit
-            # this whole process -- that might prevent an admin from
-            # making the configuration changes necessary to fix
-            # this problem.
+        #     # This is bad, but not so bad that we should short-circuit
+        #     # this whole process -- that might prevent an admin from
+        #     # making the configuration changes necessary to fix
+        #     # this problem.
             message = _("Exception getting self-test results for %s %s: %s")
             args = (self.type, item.name, e.message)
             logging.warn(message, *args, exc_info=e)

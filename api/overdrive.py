@@ -65,6 +65,23 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID"), "required": True },
         { "key": ExternalIntegration.USERNAME, "label": _("Client Key"), "required": True },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
+        {
+            "key": BaseOverdriveAPI.SERVER_NICKNAME,
+            "label": _("Server family"),
+            "description": _("Unless you hear otherwise from Overdrive, your integration should use their production servers."),
+            "type": "select",
+            "options": [
+                dict(
+                    label=_("Production"),
+                    key=BaseOverdriveAPI.PRODUCTION_SERVERS
+                ),
+                dict(
+                    label=_("Testing"),
+                    key=BaseOverdriveAPI.TESTING_SERVERS,
+                )
+            ],
+            "default": BaseOverdriveAPI.PRODUCTION_SERVERS,
+        },
     ] + BaseCirculationAPI.SETTINGS
 
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
@@ -176,6 +193,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 method = 'post'
             else:
                 method = 'get'
+        url = self.endpoint(url)
         response = HTTP.request_with_timeout(
             method, url, headers=headers, data=data
         )
@@ -336,8 +354,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         # The only case where this is likely to work is when the
         # loan exists but has not been locked to a delivery mechanism.
         overdrive_id = licensepool.identifier.identifier
-        url = self.CHECKOUT_ENDPOINT % dict(
-            overdrive_id=overdrive_id)
+        url = self.endpoint(self.CHECKOUT_ENDPOINT, overdrive_id=overdrive_id)
         return self.patron_request(patron, pin, url, method='DELETE')
 
     def perform_early_return(self, patron, pin, loan, http_get=None):
@@ -365,6 +382,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             patron, pin, loan.license_pool.identifier.identifier,
             internal_format
         )
+        # The URL comes from Overdrive, so it probably doesn't need
+        # interpolation, but just in case.
+        url = self.endpoint(url)
 
         # Make a regular, non-authenticated request to the fulfillment link.
         http_get = http_get or HTTP.get_with_timeout
@@ -422,7 +442,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         return data
 
     def get_hold(self, patron, pin, overdrive_id):
-        url = self.HOLD_ENDPOINT % dict(product_id=overdrive_id.upper())
+        url = self.endpoint(
+            self.HOLD_ENDPOINT, product_id=overdrive_id.upper()
+        )
         data = self.patron_request(patron, pin, url).json()
         self.raise_exception_on_error(data)
         return data
@@ -528,7 +550,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         else:
             fulfill_url=""
         download_link = download_link.replace("{odreadauthurl}", fulfill_url)
-
         download_response = self.patron_request(patron, pin, download_link)
         return self.extract_content_link(download_response.json())
 
@@ -541,7 +562,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         overdrive_id = overdrive_id.upper()
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, formatType=format_type)
-        url = self.FORMATS_ENDPOINT % dict(overdrive_id=overdrive_id)
+        url = self.endpoint(
+            self.FORMATS_ENDPOINT, overdrive_id=overdrive_id
+        )
         return self.patron_request(patron, pin, url, headers, document)
 
     @classmethod
@@ -717,10 +740,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
            this patron's hold notifications, or None if there is
            no such address.
         """
-        # We do _not_ want to call the superclass here. That will find
-        # a per-library default that trashes all of its input, which
-        # we don't want to use.
-        #
+
+        # We're calling the superclass implementation, but we have no
+        # intention of actually using the result. This is a
+        # per-library default that trashes all of its input, and
+        # Overdrive has a better solution.
+        trash_everything_address = super(
+            OverdriveAPI, self
+        ).default_notification_email_address(patron, pin)
+
         # Instead, we will ask _Overdrive_ if this patron has a
         # preferred email address for notifications.
         address = None
@@ -730,6 +758,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         if response.status_code == 200:
             data = response.json()
             address = data.get('lastHoldEmail')
+
+            # Great! Except, it's possible that this address is the
+            # 'trash everything' address, because we _used_ to send
+            # that address to Overdrive. If so, ignore it.
+            if address == trash_everything_address:
+                address = None
         else:
             self.log.error(
                 "Unable to get patron information for %s: %s",
@@ -833,8 +867,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             with Overdrive, or Overdrive refuses to release the hold for
             any reason.
         """
-        url = self.HOLD_ENDPOINT % dict(
-            product_id=licensepool.identifier.identifier)
+        url = self.endpoint(
+            self.HOLD_ENDPOINT,
+            product_id=licensepool.identifier.identifier
+        )
         response = self.patron_request(patron, pin, url, method='DELETE')
         if response.status_code // 100 == 2 or response.status_code == 404:
             return True
@@ -851,7 +887,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
     def circulation_lookup(self, book):
         if isinstance(book, basestring):
             book_id = book
-            circulation_link = self.AVAILABILITY_ENDPOINT % dict(
+            circulation_link = self.endpoint(
+                self.AVAILABILITY_ENDPOINT,
                 collection_token=self.collection_token,
                 product_id=book_id
             )

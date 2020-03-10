@@ -112,8 +112,8 @@ class TestEnkiAPI(BaseEnkiTest):
     def test__run_self_tests(self):
         # Mock every method that will be called by the self-test.
         class Mock(MockEnkiAPI):
-            def recent_activity(self, since):
-                self.recent_activity_called_with = since
+            def recent_activity(self, start, end):
+                self.recent_activity_called_with = (start, end)
                 yield 1
                 yield 2
 
@@ -157,7 +157,9 @@ class TestEnkiAPI(BaseEnkiTest):
         now = datetime.datetime.utcnow()
         one_hour_ago = now - datetime.timedelta(hours=1)
         one_day_ago = now - datetime.timedelta(hours=24)
-        assert (api.recent_activity_called_with - one_hour_ago).total_seconds() < 2
+        start, end = api.recent_activity_called_with
+        assert (start - one_hour_ago).total_seconds() < 2
+        assert (end - now).total_seconds() < 2
         eq_(True, circulation_changes.success)
         eq_("2 circulation events in the last hour", circulation_changes.result)
 

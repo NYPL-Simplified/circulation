@@ -52,7 +52,7 @@ class TestMetadataServiceSelfTests(SettingsControllerTest):
             eq_(response_metadata_service.get("protocol").get("label"), NYTBestSellerAPI.NAME)
             eq_(response_metadata_service.get("goal"), metadata_service.goal)
             eq_(
-                response_metadata_service.get("self_test_results"), 
+                response_metadata_service.get("self_test_results"),
                 HasSelfTests.prior_test_results()
             )
         HasSelfTests.prior_test_results = old_prior_test_results
@@ -66,7 +66,7 @@ class TestMetadataServiceSelfTests(SettingsControllerTest):
             protocol=ExternalIntegration.NYT,
             goal=ExternalIntegration.METADATA_GOAL
         )
-        m = self.manager.admin_metadata_service_self_tests_controller.process_post
+        m = self.manager.admin_metadata_service_self_tests_controller.self_tests_process_post
         with self.request_context_with_admin("/", method="POST"):
             response = m(metadata_service.id)
             eq_(response._status, "200 OK")

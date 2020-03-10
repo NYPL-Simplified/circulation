@@ -8,7 +8,7 @@ import flask
 import json
 import urllib
 from StringIO import StringIO
-from werkzeug import ImmutableMultiDict, MultiDict
+from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 from api.admin.exceptions import *
 from api.config import Configuration
 from api.registry import (

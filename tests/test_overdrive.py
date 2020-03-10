@@ -210,13 +210,24 @@ class TestOverdriveAPI(OverdriveAPITest):
         patron = self._patron()
 
         # The site default for notification emails will never be used.
-        ConfigurationSetting.for_library(
+        configuration_setting = ConfigurationSetting.for_library(
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
-            self._default_library).value = "notifications@example.com"
+            self._default_library
+        )
+        configuration_setting.value = "notifications@example.com"
 
         # If the patron has used a particular email address to put
         # books on hold, use that email address, not the site default.
         eq_("foo@bar.com",
+            self.api.default_notification_email_address(patron, 'pin'))
+
+        # If the patron's email address according to Overdrive _is_
+        # the site default, it is ignored. This can only happen if
+        # this patron placed a hold using an older version of the
+        # circulation manager.
+        patron_with_email['lastHoldEmail'] = configuration_setting.value
+        self.api.queue_response(200, content=patron_with_email)
+        eq_(None,
             self.api.default_notification_email_address(patron, 'pin'))
 
         # If the patron has never before put an Overdrive book on
@@ -448,7 +459,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         pool = self._licensepool(None)
         patron = self._patron()
         pin = object()
-        expect_url = overdrive.CHECKOUT_ENDPOINT % dict(
+        expect_url = overdrive.endpoint(
+            overdrive.CHECKOUT_ENDPOINT,
             overdrive_id=pool.identifier.identifier
         )
 

@@ -11,7 +11,7 @@ from core.model import (
     ConfigurationSetting
 )
 from test_controller import SettingsControllerTest
-from werkzeug import ImmutableMultiDict, MultiDict
+from werkzeug.datastructures import ImmutableMultiDict, MultiDict
 import flask
 
 class TestSitewideSettings(SettingsControllerTest):

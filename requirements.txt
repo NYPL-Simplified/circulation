@@ -10,7 +10,7 @@ sqlalchemy==1.2.0
 flask-sqlalchemy-session
 lxml
 flask>1.0.1
-werkzeug>=0.14
+werkzeug
 isbnlib
 nose
 python-dateutil

@@ -81,7 +81,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=1" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=1" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -138,7 +138,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=2" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=2" rel="self"/>
 </odl:license>
 <odl:license>
   <dcterms:identifier xsi:type="dcterms:URI">3</dcterms:identifier>
@@ -159,7 +159,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=3" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=3" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -207,7 +207,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=4" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=4" rel="self"/>
 </odl:license>
 <odl:license>
   <dcterms:identifier xsi:type="dcterms:URI">5</dcterms:identifier>
@@ -229,7 +229,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=5" rel="self"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/license/status/?uuid=5" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -254,46 +254,55 @@
   <category term="florida everglades" label="florida everglades"/>
   <category term="united states department of the interior" label="united states department of the interior"/>
 </entry>
-<entry>
-  <title>Short Poetry Collection 087</title>
-  <id>urn:uuid:92f9da47-f0fd-4cef-aa11-639f79d23847</id>
-  <updated>2010-04-08T23:23:44Z</updated>
-  <link href="https://api.archivelab.org/books/short_poetry_087_1004_librivox/opds_audio_manifest" type="application/audiobook+json" rel="http://opds-spec.org/acquisition" />
-  <link href="https://archive.org/services/img/short_poetry_087_1004_librivox" type="image/jpeg" rel="http://opds-spec.org/image"/>
-  <link href="https://archive.org/services/img/short_poetry_087_1004_librivox" type="image/jpeg" rel="http://opds-spec.org/image/thumbnail"/>
-  <dcterms:issued>2010</dcterms:issued>
-  <dcterms:language>en</dcterms:language>
-  <published>2010-04-08T00:00:00Z</published>
-  <author>
-  <name>Various</name>
-  </author>
-  <category term="librivox" label="librivox"/>
-  <category term="short poetry" label="short poetry"/>
-  <category term="short poems" label="short poems"/>
-  <summary type="html">
-  This is a collection of poems read by LibriVox volunteers for the month of March 2010. LibriVox project page: Short Poetry Collection 087 For more information, or to volunteer, please visit LibriVox.org M4B Audiobook (17MB)
-  </summary>
-  <odl:license>
-    <dcterms:identifier xsi:type="dcterms:URI">6</dcterms:identifier>
-    <dcterms:format>application/audiobook+json</dcterms:format>
-    <dcterms:source>http://www.feedbooks.com</dcterms:source>
-    <opds:price currencycode="USD">60.00</opds:price>
-    <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781250100771</dcterms:source>
-    <created>2010-04-08T23:23:44Z</created>
-    <odl:terms>
-      <odl:total_checkouts>10</odl:total_checkouts>
-      <odl:concurrent_checkouts>5</odl:concurrent_checkouts>
-      <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
-    </odl:terms>
-    <odl:protection>
-      <dcterms:format>application/application/audiobook+json;profile=http://www.feedbooks.com/audiobooks/access-restriction</dcterms:format>
-      <odl:max_devices>6</odl:max_devices>
-      <odl:copy>false</odl:copy>
-      <odl:print>false</odl:print>
-      <odl:tts>false</odl:tts>
-    </odl:protection>
-  </odl:license>
-  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
-  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=6" rel="self"/>
+<entry xmlns="http://www.w3.org/2005/Atom" xmlns:schema="http://schema.org/" xmlns:odl="http://opds-spec.org/odl" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:thr="http://purl.org/syndication/thread/1.0" xmlns:app="http://www.w3.org/2007/app" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" schema:additionalType="http://schema.org/Audiobook">
+<title>Rise of the Dragons, Book 1</title>
+<id>http://www.feedbooks.com/item/3264308</id>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781338331042</dcterms:identifier>
+<author>
+  <name>Angie Sage</name>
+  <uri>https://www.feedbooks.com/search?query=contributor%3A%22Angie+Sage%22</uri>
+</author>
+<published>2020-01-23T15:43:59Z</published>
+<updated>2020-01-23T15:48:46Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>Scholastic Inc. Audio</dcterms:publisher>
+<dcterms:issued>2019-07-31</dcterms:issued>
+<summary>Mega bestselling author Angie Sage takes flight with an epic adventure that imagines dragons in the modern world.
+
+Once our world was full of dragons who lived in harmony with humans. Dragons counseled kings and queens. They fought in human battle...</summary>
+<dcterms:extent>517 MB</dcterms:extent>
+<category scheme="http://www.feedbooks.com/categories" term="FBFIC000000" label="Fiction"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBJUV000000" label="Juvenile &amp; Young Adult"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBJUV037000" label="Fantasy, Magic"/>
+<schema:duration>1080</schema:duration>
+<schema:abridged>false</schema:abridged>
+<link type="text/html" title="View on Feedbooks" rel="alternate" href="https://www.feedbooks.com/item/3264308"/>
+<link type="image/jpeg" rel="http://opds-spec.org/image" href="http://covers.feedbooks.net/item/3264308.jpg?size=large&amp;t=1579794526"/>
+<link type="image/jpeg" rel="http://opds-spec.org/image/thumbnail" href="http://covers.feedbooks.net/item/3264308.jpg?size=large&amp;t=1579794526"/>
+<content type="html">&lt;p&gt;Mega bestselling author Angie Sage takes flight with an epic adventure that imagines dragons in the modern world.&lt;/p&gt;
+
+&lt;p&gt;Once our world was full of dragons who lived in harmony with humans. Dragons counseled kings and queens. They fought in human battles. And they gave humans the most precious gift of all: magic.&lt;/p&gt;
+
+&lt;p&gt;But after a group of rogue dragons, the Raptors, tried to take over Earth, all dragons were banished to another realm.&lt;/p&gt;
+
+&lt;p&gt;Most humans forgot about the dragons, claiming they never existed. Eleven-year-old Sirin knows the truth -- she grew up with stories passed down through the generations. However, when her mother falls ill, even Sirin has trouble believing in magic . . . until she sees a mysterious streak of silver in the night sky.&lt;/p&gt;
+
+&lt;p&gt;Sirin becomes the first child to "lock" with a dragon in centuries -- forming a deep friendship unlike anything she's ever imagined. But Sirin learns that not all dragons returned with good intentions, and soon she finds herself at the center of a battle between the dragons who want to protect the humans . . . and those who want to destroy them.&lt;/p&gt;</content>
+<odl:license>
+  <dcterms:identifier xsi:type="dcterms:URI">urn:uuid:01234567-890a-bcde-f012-3456789abcde</dcterms:identifier>
+  <dcterms:format>application/audiobook+json; protection=http://www.feedbooks.com/audiobooks/access-restriction</dcterms:format>
+  <dcterms:format>text/html</dcterms:format>
+  <dcterms:source>http://www.entrepotnumerique.com/</dcterms:source>
+  <opds:price currencycode="USD">74.99</opds:price>
+  <dcterms:source xsi:type="dcterms:URI">urn:ISBN:cant-2434138-24161087916422216-libraries</dcterms:source>
+  <created>2020-01-24T01:03:29+01:00</created>
+  <odl:terms>
+    <odl:total_checkouts>15</odl:total_checkouts>
+    <odl:concurrent_checkouts>5</odl:concurrent_checkouts>
+    <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
+  </odl:terms>
+  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://license.feedbooks.net/loan/status/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.info+json" href="https://license.feedbooks.net/copy/status/?uuid=5" rel="self"/>
+</odl:license>
 </entry>
 </feed>
