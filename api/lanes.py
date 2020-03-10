@@ -857,7 +857,7 @@ class WorkBasedLane(DynamicLane):
 class RecommendationLane(WorkBasedLane):
     """A lane of recommended Works based on a particular Work"""
 
-    DISPLAY_NAME = "Recommended Books"
+    DISPLAY_NAME = "Titles recommended by NoveList"
     ROUTE = "recommendations"
 
     # Cache for 24 hours -- would ideally be much longer but availability
@@ -1062,8 +1062,8 @@ class RelatedBooksLane(WorkBasedLane):
 
     * ContributorLane: Works by one of the contributors to this work.
     * SeriesLane: Works in the same series.
-    * RecommendationLane: Works provided by a third-party recommendation
-      service.
+    * RecommendationLane: Works provided by a third-party
+      recommendation service (currently NoveList).
     """
     CACHED_FEED_TYPE = CachedFeed.RELATED_TYPE
     DISPLAY_NAME = "Related Books"
