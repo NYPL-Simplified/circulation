@@ -450,6 +450,12 @@ class TestRelatedBooksLane(DatabaseTest):
         result = RelatedBooksLane(self._default_library, self.work, "", novelist_api=mock_api)
         eq_(3, len(result.children))
 
+        [novelist_recommendations] = [
+            x for x in result.children if isinstance(x, RecommendationLane)
+        ]
+        eq_("Similar titles recommended by NoveList",
+            novelist_recommendations.display_name)
+
         # The book's language and audience list is passed down to all sublanes.
         eq_(['eng'], result.languages)
         for sublane in result.children:

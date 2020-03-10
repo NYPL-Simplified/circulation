@@ -2651,7 +2651,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Here's the sublane for recommendations from NoveList.
         [recommended_href, recommended_entry] = by_collection_link[
-            'Recommendations for Quite British by John Bull'
+            'Similar titles recommended by NoveList'
         ]
         eq_("Same author and series", recommended_entry['title'])
         work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
