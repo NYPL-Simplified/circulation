@@ -1167,9 +1167,7 @@
 
     <span class="k">def</span> <span class="nf">_recommendation_sublane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">novelist_api</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a recommendations sublane.&quot;&quot;&quot;</span>
-        <span class="n">lane_name</span> <span class="o">=</span> <span class="s2">&quot;Recommendations for </span><span class="si">%s</span><span class="s2"> by </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">author</span>
-        <span class="p">)</span>
+        <span class="n">lane_name</span> <span class="o">=</span> <span class="s2">&quot;Similar titles recommended by NoveList&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">recommendation_lane</span> <span class="o">=</span> <span class="n">RecommendationLane</span><span class="p">(</span>
                 <span class="n">library</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">),</span> <span class="n">work</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">work</span><span class="p">,</span>
