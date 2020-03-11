@@ -642,6 +642,14 @@ class TestSeriesLane(LaneTest):
         eq_([work_based_lane.source_audience], child.audiences)
         eq_(work_based_lane.languages, child.languages)
 
+        # If for some reason the parent has no audience, the audience
+        # filter on the child lane is inherited from the parent.
+        work_based_lane.source_audience = None
+        child = SeriesLane(
+            self._default_library, "No Audience", parent=work_based_lane
+        )
+        eq_(work_based_lane.audiences, child.audiences)
+
     def test_modify_search_filter_hook(self):
         lane = SeriesLane(self._default_library, "So That Happened")
         filter = Filter()
