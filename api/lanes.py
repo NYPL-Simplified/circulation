@@ -955,7 +955,7 @@ class SeriesLane(DynamicLane):
         self.series = series_name
         if parent:
             parent.append_child(self)
-            if isinstance(parent, WorkBasedLane):
+            if isinstance(parent, WorkBasedLane) and parent.source_audience:
                 # WorkBasedLane forces self.audiences to values
                 # compatible with the work in the WorkBasedLane, but
                 # that's not enough for us. We want to force
