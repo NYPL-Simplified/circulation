@@ -857,7 +857,7 @@ class WorkBasedLane(DynamicLane):
 class RecommendationLane(WorkBasedLane):
     """A lane of recommended Works based on a particular Work"""
 
-    DISPLAY_NAME = "Recommended Books"
+    DISPLAY_NAME = "Titles recommended by NoveList"
     ROUTE = "recommendations"
 
     # Cache for 24 hours -- would ideally be much longer but availability

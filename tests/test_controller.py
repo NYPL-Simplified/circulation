@@ -2472,7 +2472,7 @@ class TestWorkController(CirculationControllerTest):
         # ExternalSearchIndex.
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Recommended Books', feed['feed']['title'])
+        eq_('Titles recommended by NoveList', feed['feed']['title'])
         [entry] = feed.entries
         eq_(self.english_1.title, entry['title'])
         author = self.edition.author_contributors[0]
@@ -2496,7 +2496,7 @@ class TestWorkController(CirculationControllerTest):
 
         kwargs = Mock.called_with
         eq_(self._db, kwargs.pop('_db'))
-        eq_('Recommended Books', kwargs.pop('title'))
+        eq_('Titles recommended by NoveList', kwargs.pop('title'))
 
         # The RecommendationLane is set up to ask for recommendations
         # for this book.
