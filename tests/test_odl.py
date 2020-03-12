@@ -1304,7 +1304,9 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         # it extracts format information from 'odl:license' tags and creates
         # LicensePoolDeliveryMechanisms.
 
+
         # The importer created 6 editions, pools, and works.
+        eq_({}, failures)
         eq_(6, len(imported_editions))
         eq_(6, len(imported_pools))
         eq_(6, len(imported_works))
@@ -1328,6 +1330,7 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
         [warrior_pool] = [p for p in imported_pools if p.identifier == warrior.primary_identifier]
         eq_(False, warrior_pool.open_access)
         [lpdm] = warrior_pool.delivery_mechanisms
+        eq_(Edition.BOOK_MEDIUM, warrior_pool.presentation_edition.medium)
         eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
         eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)

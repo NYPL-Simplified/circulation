@@ -31,6 +31,7 @@ from core.metadata_layer import (
 from core.lane import FacetsWithEntryPoint
 from core.model import (
     create,
+    CachedFeed,
     Contribution,
     Contributor,
     Edition,
@@ -400,6 +401,10 @@ class TestRelatedBooksLane(DatabaseTest):
         [self.lp] = self.work.license_pools
         self.edition = self.work.presentation_edition
 
+    def test_feed_type(self):
+        # All feeds from these lanes are cached as 'related works' feeds.
+        eq_(CachedFeed.RELATED_TYPE, RelatedBooksLane.CACHED_FEED_TYPE)
+
     def test_initialization(self):
         # Asserts that a RelatedBooksLane won't be initialized for a work
         # without related books
@@ -444,6 +449,12 @@ class TestRelatedBooksLane(DatabaseTest):
         mock_api.setup(response)
         result = RelatedBooksLane(self._default_library, self.work, "", novelist_api=mock_api)
         eq_(3, len(result.children))
+
+        [novelist_recommendations] = [
+            x for x in result.children if isinstance(x, RecommendationLane)
+        ]
+        eq_("Similar titles recommended by NoveList",
+            novelist_recommendations.display_name)
 
         # The book's language and audience list is passed down to all sublanes.
         eq_(['eng'], result.languages)
@@ -598,6 +609,10 @@ class TestSeriesFacets(DatabaseTest):
 
 class TestSeriesLane(LaneTest):
 
+    def test_feed_type(self):
+        # All feeds from these lanes are cached as series feeds.
+        eq_(CachedFeed.SERIES_TYPE, SeriesLane.CACHED_FEED_TYPE)
+
     def test_initialization(self):
         # An error is raised if SeriesLane is created with an empty string.
         assert_raises(
@@ -626,6 +641,15 @@ class TestSeriesLane(LaneTest):
         # languages were changed to values consistent with its parent.
         eq_([work_based_lane.source_audience], child.audiences)
         eq_(work_based_lane.languages, child.languages)
+
+        # If for some reason there's no audience for the work used as
+        # a basis for the parent lane, the parent lane's audience
+        # filter is used as a basis for the child lane's audience filter.
+        work_based_lane.source_audience = None
+        child = SeriesLane(
+            self._default_library, "No Audience", parent=work_based_lane
+        )
+        eq_(work_based_lane.audiences, child.audiences)
 
     def test_modify_search_filter_hook(self):
         lane = SeriesLane(self._default_library, "So That Happened")
@@ -659,6 +683,10 @@ class TestContributorFacets(DatabaseTest):
 
 
 class TestContributorLane(LaneTest):
+
+    def test_feed_type(self):
+        # All feeds of this type are cached as contributor feeds.
+        eq_(CachedFeed.CONTRIBUTOR_TYPE, ContributorLane.CACHED_FEED_TYPE)
 
     def setup(self):
         super(TestContributorLane, self).setup()
@@ -739,6 +767,11 @@ class TestContributorLane(LaneTest):
 
 
 class TestCrawlableFacets(DatabaseTest):
+
+    def test_feed_type(self):
+        # All crawlable feeds are cached as such, no matter what
+        # WorkList they come from.
+        eq_(CachedFeed.CRAWLABLE_TYPE, CrawlableFacets.CACHED_FEED_TYPE)
 
     def test_default(self):
         facets = CrawlableFacets.default(self._default_library)

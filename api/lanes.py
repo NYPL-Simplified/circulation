@@ -857,7 +857,7 @@ class WorkBasedLane(DynamicLane):
 class RecommendationLane(WorkBasedLane):
     """A lane of recommended Works based on a particular Work"""
 
-    DISPLAY_NAME = "Recommended Books"
+    DISPLAY_NAME = "Titles recommended by NoveList"
     ROUTE = "recommendations"
 
     # Cache for 24 hours -- would ideally be much longer but availability
@@ -955,7 +955,7 @@ class SeriesLane(DynamicLane):
         self.series = series_name
         if parent:
             parent.append_child(self)
-            if isinstance(parent, WorkBasedLane):
+            if isinstance(parent, WorkBasedLane) and parent.source_audience:
                 # WorkBasedLane forces self.audiences to values
                 # compatible with the work in the WorkBasedLane, but
                 # that's not enough for us. We want to force
@@ -1132,9 +1132,7 @@ class RelatedBooksLane(WorkBasedLane):
 
     def _recommendation_sublane(self, _db, novelist_api):
         """Create a recommendations sublane."""
-        lane_name = "Recommendations for %s by %s" % (
-            self.work.title, self.work.author
-        )
+        lane_name = "Similar titles recommended by NoveList"
         try:
             recommendation_lane = RecommendationLane(
                 library=self.get_library(_db), work=self.work,

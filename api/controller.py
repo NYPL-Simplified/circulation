@@ -59,7 +59,6 @@ from core.model import (
     production_session,
     Admin,
     Annotation,
-    CachedFeed,
     CachedMARCFile,
     CirculationEvent,
     Collection,
@@ -84,6 +83,7 @@ from core.model import (
 )
 from core.opds import (
     AcquisitionFeed,
+    NavigationFacets,
     NavigationFeed,
 )
 from core.util.opds_writer import (
@@ -702,13 +702,26 @@ class IndexController(CirculationManagerController):
 class OPDSFeedController(CirculationManagerController):
 
     def groups(self, lane_identifier, feed_class=AcquisitionFeed):
-        """Build or retrieve a grouped acquisition feed."""
+        """Build or retrieve a grouped acquisition feed.
 
+        :param lane_identifier: An identifier that uniquely identifiers
+            the WorkList whose feed we want.
+        :param feed_class: A replacement for AcquisitionFeed, for use in
+            tests.
+        """
         library = flask.request.library
 
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
+
+        if not lane.children:
+            # This lane has no children. Although we can technically
+            # create a grouped feed, it would be an unsatisfying
+            # gateway to a paginated feed. We should just serve the
+            # paginated feed.
+            return self.feed(lane_identifier, feed_class)
+
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
         )
@@ -730,13 +743,19 @@ class OPDSFeedController(CirculationManagerController):
 
         annotator = self.manager.annotator(lane, facets)
         feed = feed_class.groups(
-            _db=self._db, title=lane.display_name, url=url, lane=lane,
+            _db=self._db, title=lane.display_name, url=url, worklist=lane,
             annotator=annotator, facets=facets, search_engine=search_engine
         )
         return feed_response(feed)
 
     def feed(self, lane_identifier, feed_class=AcquisitionFeed):
-        """Build or retrieve a paginated acquisition feed."""
+        """Build or retrieve a paginated acquisition feed.
+
+        :param lane_identifier: An identifier that uniquely identifiers
+            the WorkList whose feed we want.
+        :param feed_class: A replacement for AcquisitionFeed, for use in
+            tests.
+        """
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
@@ -759,7 +778,7 @@ class OPDSFeedController(CirculationManagerController):
         annotator = self.manager.annotator(lane, facets=facets)
         feed = feed_class.page(
             _db=self._db, title=lane.display_name,
-            url=url, lane=lane, annotator=annotator,
+            url=url, worklist=lane, annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine
         )
@@ -782,7 +801,7 @@ class OPDSFeedController(CirculationManagerController):
             minimum_featured_quality=library.minimum_featured_quality,
         )
         facets = load_facets_from_request(
-            worklist=lane, base_class=FeaturedFacets,
+            worklist=lane, base_class=NavigationFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
         annotator = self.manager.annotator(lane, facets)
@@ -803,7 +822,7 @@ class OPDSFeedController(CirculationManagerController):
         title = library.name
         lane = CrawlableCollectionBasedLane()
         lane.initialize(library)
-        return self._crawlable_feed(title=title, url=url, lane=lane)
+        return self._crawlable_feed(title=title, url=url, worklist=lane)
 
     def crawlable_collection_feed(self, collection_name):
         """Build or retrieve a crawlable acquisition feed for the
@@ -825,7 +844,7 @@ class OPDSFeedController(CirculationManagerController):
             # We'll get a generic CirculationManagerAnnotator.
             annotator = None
         return self._crawlable_feed(
-            title=title, url=url, lane=lane, annotator=annotator
+            title=title, url=url, worklist=lane, annotator=annotator
         )
 
     def crawlable_list_feed(self, list_name):
@@ -847,15 +866,15 @@ class OPDSFeedController(CirculationManagerController):
         )
         lane = CrawlableCustomListBasedLane()
         lane.initialize(library, list)
-        return self._crawlable_feed(title=title, url=url, lane=lane)
+        return self._crawlable_feed(title=title, url=url, worklist=lane)
 
-    def _crawlable_feed(self, title, url, lane, annotator=None,
+    def _crawlable_feed(self, title, url, worklist, annotator=None,
                         feed_class=AcquisitionFeed):
         """Helper method to create a crawlable feed.
 
         :param title: The title to use for the feed.
         :param url: The URL from which the feed will be served.
-        :param lane: A crawlable Lane which controls which works show up
+        :param worklist: A crawlable Lane which controls which works show up
             in the feed.
         :param annotator: A custom Annotator to use when generating the feed.
         :param feed_class: A drop-in replacement for AcquisitionFeed
@@ -871,16 +890,16 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(search_engine, ProblemDetail):
             return search_engine
 
-        annotator = annotator or self.manager.annotator(lane)
+        annotator = annotator or self.manager.annotator(worklist)
 
         # A crawlable feed has only one possible set of Facets,
         # so library settings are irrelevant.
         facets = CrawlableFacets.default(None)
 
         feed = feed_class.page(
-            _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
+            _db=self._db, title=title, url=url, worklist=worklist,
+            annotator=annotator,
             facets=facets, pagination=pagination,
-            cache_type=CrawlableFacets.CACHED_FEED_TYPE,
             search_engine=search_engine
         )
         return feed_response(feed)
@@ -1647,10 +1666,9 @@ class WorkController(CirculationManagerController):
         )
 
         feed = feed_class.page(
-            _db=self._db, title=lane.display_name, url=url, lane=lane,
+            _db=self._db, title=lane.display_name, url=url, worklist=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
-            search_engine=search_engine
+            annotator=annotator, search_engine=search_engine
         )
         return feed_response(unicode(feed))
 
@@ -1716,9 +1734,8 @@ class WorkController(CirculationManagerController):
 
         feed = feed_class.groups(
             _db=self._db, title=lane.DISPLAY_NAME,
-            url=url, lane=lane, annotator=annotator,
+            url=url, worklist=lane, annotator=annotator,
             facets=facets, search_engine=search_engine,
-            cache_type=lane.CACHED_FEED_TYPE
         )
         return feed_response(unicode(feed))
 
@@ -1764,10 +1781,9 @@ class WorkController(CirculationManagerController):
         )
 
         feed = feed_class.page(
-            _db=self._db, title=lane.DISPLAY_NAME, url=url, lane=lane,
+            _db=self._db, title=lane.DISPLAY_NAME, url=url, worklist=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
-            search_engine=search_engine
+            annotator=annotator, search_engine=search_engine
         )
         return feed_response(unicode(feed))
 
@@ -1825,10 +1841,9 @@ class WorkController(CirculationManagerController):
 
         url = annotator.feed_url(lane, facets=facets, pagination=pagination)
         feed = feed_class.page(
-            _db=self._db, title=lane.display_name, url=url, lane=lane,
+            _db=self._db, title=lane.display_name, url=url, worklist=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
-            search_engine=search_engine
+            annotator=annotator, search_engine=search_engine
         )
         return feed_response(unicode(feed))
 

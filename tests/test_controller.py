@@ -150,6 +150,7 @@ import base64
 import feedparser
 from core.opds import (
     AcquisitionFeed,
+    NavigationFacets,
     NavigationFeed,
 )
 from core.util.opds_writer import (
@@ -1154,7 +1155,6 @@ class TestIndexController(CirculationControllerTest):
         key = data.get('public_key')
         eq_('RSA', key['type'])
         assert 'BEGIN PUBLIC KEY' in key['value']
-
 
 class TestMultipleLibraries(CirculationControllerTest):
 
@@ -2377,7 +2377,6 @@ class TestWorkController(CirculationControllerTest):
 
         eq_(self._db, kwargs.pop('_db'))
         eq_(self.manager._external_search, kwargs.pop('search_engine'))
-        eq_(CachedFeed.CONTRIBUTOR_TYPE, kwargs.pop('cache_type'))
 
         # The feed is named after the contributor the request asked
         # about.
@@ -2395,7 +2394,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(sort_key, pagination.last_item_on_previous_page)
         eq_(100, pagination.size)
 
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, ContributorLane)
         assert isinstance(lane.contributor, ContributorData)
 
@@ -2509,7 +2508,7 @@ class TestWorkController(CirculationControllerTest):
         # ExternalSearchIndex.
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Recommended Books', feed['feed']['title'])
+        eq_('Titles recommended by NoveList', feed['feed']['title'])
         [entry] = feed.entries
         eq_(self.english_1.title, entry['title'])
         author = self.edition.author_contributors[0]
@@ -2533,12 +2532,11 @@ class TestWorkController(CirculationControllerTest):
 
         kwargs = Mock.called_with
         eq_(self._db, kwargs.pop('_db'))
-        eq_('Recommended Books', kwargs.pop('title'))
-        eq_(RecommendationLane.CACHED_FEED_TYPE, kwargs.pop('cache_type'))
+        eq_('Titles recommended by NoveList', kwargs.pop('title'))
 
         # The RecommendationLane is set up to ask for recommendations
         # for this book.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, RecommendationLane)
         library = self._default_library
         eq_(library.id, lane.library_id)
@@ -2689,7 +2687,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Here's the sublane for recommendations from NoveList.
         [recommended_href, recommended_entry] = by_collection_link[
-            'Recommendations for Quite British by John Bull'
+            'Similar titles recommended by NoveList'
         ]
         eq_("Same author and series", recommended_entry['title'])
         work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
@@ -2720,7 +2718,6 @@ class TestWorkController(CirculationControllerTest):
         eq_(self._db, kwargs.pop('_db'))
         eq_(self.manager.external_search, kwargs.pop('search_engine'))
         eq_("Related Books", kwargs.pop('title'))
-        eq_(CachedFeed.RELATED_TYPE, kwargs.pop('cache_type'))
 
         # We're passing in a FeaturedFacets. Each lane will have a chance
         # to adapt it to a faceting object appropriate for that lane.
@@ -2730,7 +2727,7 @@ class TestWorkController(CirculationControllerTest):
 
         # We're generating a grouped feed using a RelatedBooksLane
         # that has three sublanes.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, RelatedBooksLane)
         contributor_lane, novelist_lane, series_lane = lane.children
 
@@ -2903,14 +2900,13 @@ class TestWorkController(CirculationControllerTest):
 
         kwargs = self.called_with
         eq_(self._db, kwargs.pop('_db'))
-        eq_(CachedFeed.SERIES_TYPE, kwargs.pop('cache_type'))
 
         # The feed is titled after the series.
         eq_(series_name, kwargs.pop('title'))
 
         # A SeriesLane was created to ask the search index for
         # matching works.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, SeriesLane)
         eq_(self._default_library.id, lane.library_id)
         eq_(series_name, lane.series)
@@ -2962,7 +2958,12 @@ class TestWorkController(CirculationControllerTest):
         eq_("series", facets.order)
 
 
-class TestFeedController(CirculationControllerTest):
+class TestOPDSFeedController(CirculationControllerTest):
+    """Test most of the methods of OPDSFeedController.
+
+    Methods relating to crawlable feeds are tested in
+    TestCrawlableFeed.
+    """
 
     BOOKS = list(CirculationControllerTest.BOOKS) + [
         ["english_2", "Totally American", "Uncle Sam", "eng", False],
@@ -3123,7 +3124,7 @@ class TestFeedController(CirculationControllerTest):
         eq_(kwargs.pop('url'), expect_url)
         eq_(self._db, kwargs.pop('_db'))
         eq_(self.english_adult_fiction.display_name, kwargs.pop('title'))
-        eq_(self.english_adult_fiction, kwargs.pop('lane'))
+        eq_(self.english_adult_fiction, kwargs.pop('worklist'))
 
         # Query string arguments were taken into account when
         # creating the Facets and Pagination objects.
@@ -3153,8 +3154,8 @@ class TestFeedController(CirculationControllerTest):
     def test_groups(self):
         # AcquisitionFeed.groups is tested in core/test_opds.py, and a
         # full end-to-end test would require setting up a real search
-        # index, so we're just going to test that groups() is called
-        # properly.
+        # index, so we're just going to test that groups() (or, in one
+        # case, page()) is called properly.
         library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0.15
         library.setting(library.FEATURED_LANE_SIZE).value = 2
@@ -3181,8 +3182,19 @@ class TestFeedController(CirculationControllerTest):
         class Mock(object):
             @classmethod
             def groups(cls, **kwargs):
-                self.called_with = kwargs
+                # This method ends up being called most of the time
+                # the grouped feed controller is activated.
+                self.groups_called_with = kwargs
+                self.page_called_with = None
                 return "An OPDS feed"
+
+            @classmethod
+            def page(cls, **kwargs):
+                # But for lanes that have no children, this method
+                # ends up being called instead.
+                self.groups_called_with = None
+                self.page_called_with = kwargs
+
 
         with self.request_context_with_library("/?entrypoint=Audio"):
             # In default_config, there are no LARGE_COLLECTION_LANGUAGES,
@@ -3210,9 +3222,9 @@ class TestFeedController(CirculationControllerTest):
                 library_short_name=library.short_name,
             )
 
-        kwargs = self.called_with
+        kwargs = self.groups_called_with
         eq_(self._db, kwargs.pop('_db'))
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         eq_(expect_lane, lane)
         eq_(lane.display_name, kwargs.pop('title'))
         eq_(expect_url, kwargs.pop('url'))
@@ -3232,11 +3244,48 @@ class TestFeedController(CirculationControllerTest):
 
         # Finally, let's try again with a specific lane rather than
         # None.
+
+        # This lane has no sublanes, so our call to groups()
+        # is going to become a call to page().
         with self.request_context_with_library("/?entrypoint=Audio"):
             response = self.manager.opds_feeds.groups(
                 self.english_adult_fiction.id, feed_class=Mock
             )
-        eq_(self.english_adult_fiction, self.called_with.pop('lane'))
+
+            # While we're in request context, generate the URL we
+            # expect to be used for this feed.
+            expect_url = self.manager.opds_feeds.cdn_url_for(
+                "feed", lane_identifier=self.english_adult_fiction.id,
+                library_short_name=library.short_name,
+            )
+
+        eq_(self.english_adult_fiction, self.page_called_with.pop('worklist'))
+
+        # The canonical URL for this feed is a page-type URL, not a
+        # groups-type URL.
+        eq_(expect_url, self.page_called_with.pop('url'))
+
+        # The faceting and pagination objects are typical for the
+        # first page of a paginated feed.
+        pagination = self.page_called_with.pop('pagination')
+        assert isinstance(pagination, SortKeyPagination)
+        facets = self.page_called_with.pop('facets')
+        assert isinstance(facets, Facets)
+
+        # groups() was never called.
+        eq_(None, self.groups_called_with)
+
+        # Give this lane a sublane, and the call to groups() goes
+        # through as normal.
+        sublane = self._lane(parent=self.english_adult_fiction)
+        with self.request_context_with_library("/?entrypoint=Audio"):
+            response = self.manager.opds_feeds.groups(
+                self.english_adult_fiction.id, feed_class=Mock
+            )
+        eq_(None, self.page_called_with)
+        eq_(self.english_adult_fiction, self.groups_called_with.pop('worklist'))
+        assert isinstance(self.groups_called_with.pop('facets'), FeaturedFacets)
+        assert 'pagination' not in self.groups_called_with
 
     def test_navigation(self):
         library = self._default_library
@@ -3261,13 +3310,11 @@ class TestFeedController(CirculationControllerTest):
             # sublanes for English, Spanish, Chinese, and French.
             eq_(len(lane.sublanes), len(entries))
 
-        # A FeaturedFacets object was created from a combination of
-        # library configuration and lane configuration, and passed in
-        # to NavigationFeed.navigation().
+        # A NavigationFacets object was created and passed in to
+        # NavigationFeed.navigation().
         args, kwargs = self.called_with
         facets = kwargs['facets']
-        assert isinstance(facets, FeaturedFacets)
-        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
+        assert isinstance(facets, NavigationFacets)
         NavigationFeed.navigation = old_navigation
 
     def _set_update_times(self):
@@ -3348,6 +3395,10 @@ class TestFeedController(CirculationControllerTest):
 
         kwargs = self.called_with
         eq_(self._db, kwargs.pop('_db'))
+
+        # Unlike other types of feeds, here the argument is called
+        # 'lane' instead of 'worklist', because a Lane is the _only_
+        # kind of WorkList that is currently searchable.
         lane = kwargs.pop('lane')
         eq_(expect_lane, lane)
         query = kwargs.pop("query")
@@ -3448,10 +3499,10 @@ class TestCrawlableFeed(CirculationControllerTest):
         """
         controller = self.manager.opds_feeds
         original = controller._crawlable_feed
-        def mock(title, url, lane, annotator=None,
+        def mock(title, url, worklist, annotator=None,
                  feed_class=AcquisitionFeed):
             self._crawlable_feed_called_with = dict(
-                title=title, url=url, lane=lane, annotator=annotator,
+                title=title, url=url, worklist=worklist, annotator=annotator,
                 feed_class=feed_class
             )
             return "An OPDS feed."
@@ -3486,7 +3537,7 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         # A CrawlableCollectionBasedLane has been set up to show
         # everything in any of the requested library's collections.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, CrawlableCollectionBasedLane)
         eq_(library.id, lane.library_id)
         eq_([x.id for x in library.collections], lane.collection_ids)
@@ -3531,7 +3582,7 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         # A CrawlableCollectionBasedLane has been set up to show
         # everything in the requested collection.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, CrawlableCollectionBasedLane)
         eq_(None, lane.library_id)
         eq_([collection.id], lane.collection_ids)
@@ -3554,7 +3605,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         annotator = kwargs['annotator']
         assert isinstance(annotator, SharedCollectionAnnotator)
         eq_(collection, annotator.collection)
-        eq_(kwargs['lane'], annotator.lane)
+        eq_(kwargs['worklist'], annotator.lane)
 
     def test_crawlable_list_feed(self):
         # Test the creation of a crawlable feed for everything in
@@ -3598,7 +3649,7 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         # A CrawlableCustomListBasedLane was created to fetch only
         # the works in the custom list.
-        lane = kwargs.pop('lane')
+        lane = kwargs.pop('worklist')
         assert isinstance(lane, CrawlableCustomListBasedLane)
         eq_([customlist.id], lane.customlist_ids)
         eq_({}, kwargs)
@@ -3635,7 +3686,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         in_kwargs = dict(
             title="Lane title",
             url="Lane URL",
-            lane=mock_lane,
+            worklist=mock_lane,
             feed_class=MockFeed
         )
 
@@ -3668,10 +3719,9 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_(self._db, out_kwargs.pop('_db'))
         eq_(self.manager.opds_feeds.search_engine,
             out_kwargs.pop('search_engine'))
-        eq_(in_kwargs['lane'], out_kwargs.pop('lane'))
+        eq_(in_kwargs['worklist'], out_kwargs.pop('worklist'))
         eq_(in_kwargs['title'], out_kwargs.pop('title'))
         eq_(in_kwargs['url'], out_kwargs.pop('url'))
-        eq_('crawlable', out_kwargs.pop('cache_type'))
 
         # Since no annotator was provided and the request did not
         # happen in a library context, a generic
