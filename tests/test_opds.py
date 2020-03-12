@@ -59,6 +59,7 @@ from ..opds import (
     AcquisitionFeed,
     Annotator,
     LookupAcquisitionFeed,
+    NavigationFacets,
     NavigationFeed,
     OPDSFeed,
     UnfulfillableWork,
@@ -915,9 +916,8 @@ class TestOPDS(DatabaseTest):
         assert '<entry>foo</entry>' in feed
 
     def test_page_feed(self):
-        """Test the ability to create a paginated feed of works for a given
-        lane.
-        """
+        # Test the ability to create a paginated feed of works for a given
+        # lane.
         lane = self.contemporary_romance
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
@@ -974,23 +974,6 @@ class TestOPDS(DatabaseTest):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
 
-        # When a feed is created without a cache_type of NO_CACHE,
-        # CachedFeeds aren't used.
-        old_cache_count = self._db.query(CachedFeed).count()
-        raw_page = AcquisitionFeed.page(
-            self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
-            search_engine=search_engine
-        )
-
-        # Unicode is returned instead of a CachedFeed object.
-        eq_(True, isinstance(raw_page, unicode))
-        # No new CachedFeeds have been created.
-        eq_(old_cache_count, self._db.query(CachedFeed).count())
-        # The entries in the feed are the same as they were when
-        # they were cached before.
-        eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
-
     def test_page_feed_for_worklist(self):
         # Test the ability to create a paginated feed of works for a
         # WorkList instead of a Lane.
@@ -1038,23 +1021,6 @@ class TestOPDS(DatabaseTest):
         root = ET.fromstring(cached_works)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         eq_(None, breadcrumbs)
-
-        # When a feed is created without a cache_type of NO_CACHE,
-        # CachedFeeds aren't used.
-        old_cache_count = self._db.query(CachedFeed).count()
-        raw_page = AcquisitionFeed.page(
-            self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
-            search_engine=search_engine
-        )
-
-        # Unicode is returned instead of a CachedFeed object.
-        eq_(True, isinstance(raw_page, unicode))
-        # No new CachedFeeds have been created.
-        eq_(old_cache_count, self._db.query(CachedFeed).count())
-        # The entries in the feed are the same as they were when
-        # they were cached before.
-        eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
 
     def test_from_query(self):
         """Test creating a feed for a custom list from a query.
@@ -1138,7 +1104,7 @@ class TestOPDS(DatabaseTest):
         annotator = TestAnnotatorWithGroup()
         cached_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
-            force_refresh=True, search_engine=search_engine,
+            max_age=0, search_engine=search_engine,
             search_debug=True
         )
         parsed = feedparser.parse(cached_groups)
@@ -1183,91 +1149,41 @@ class TestOPDS(DatabaseTest):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(annotator.lane_url(lane), links[i+1].get("href"))
 
-        # When a feed is created without a cache_type of NO_CACHE,
-        # CachedFeeds aren't used.
-        old_cache_count = self._db.query(CachedFeed).count()
-        annotator = TestAnnotatorWithGroup()
-        raw_groups = AcquisitionFeed.groups(
-            self._db, "test", self._url, self.fantasy, annotator,
-            cache_type=AcquisitionFeed.NO_CACHE, search_engine=search_engine,
-        )
+    def test_empty_groups_feed(self):
+        # Test the case where a grouped feed turns up nothing.
 
-        # Unicode is returned instead of a CachedFeed object.
-        eq_(True, isinstance(raw_groups, unicode))
-        # No new CachedFeeds have been created.
-        eq_(old_cache_count, self._db.query(CachedFeed).count())
-        # The entries in the feed are the same as they were when
-        # they were cached before.
-        eq_(parsed.entries, feedparser.parse(raw_groups).entries)
-
-    def test_groups_feed_with_empty_sublanes_is_page_feed(self):
-        # Test that a page feed is returned when the requested groups
-        # feed has no books in the groups.
-        library = self._default_library
-
+        # A Lane, and a Work not in the Lane.
         test_lane = self._lane("Test Lane", genres=['Mystery'])
+        work1 = self._work(genre=History, with_open_access_download=True)
 
-        # If groups()
-        class MockGroups(object):
-            called_with = None
-            def groups(self, *args, **kwargs):
-                self.called_with = (args, kwargs)
-                return []
-        mock = MockGroups()
-        test_lane.groups = mock.groups
-
-        work1 = self._work(genre=Mystery, with_open_access_download=True)
-        work1.quality = 0.75
-        work2 = self._work(genre=Mystery, with_open_access_download=True)
-        work2.quality = 0.75
+        # Mock search index and Annotator.
         search_engine = MockExternalSearchIndex()
-        search_engine.bulk_update([work1, work2])
+        class Mock(TestAnnotator):
+            def annotate_feed(self, feed, worklist):
+                self.called = True
+        annotator = Mock()
 
-        library.setting(library.FEATURED_LANE_SIZE).value = 2
-        annotator = TestAnnotator()
-
+        # Build a grouped feed for the lane.
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True, search_engine=search_engine
+            max_age=0, search_engine=search_engine
         )
 
-        # The lane has no sublanes, so a page feed was created for it
-        # and filed as a groups feed.
+        # A grouped feed was cached for the lane, but there were no
+        # relevant works found,.
         cached = get_one(self._db, CachedFeed, lane=test_lane)
         eq_(CachedFeed.GROUPS_TYPE, cached.type)
 
+        # So the feed contains no entries.
         parsed = feedparser.parse(feed)
+        eq_([], parsed['entries'])
 
-        # There are two entries, one for each work.
-        e1, e2 = parsed['entries']
-
-        # The entries have no links (no collection links).
-        assert all('links' not in entry for entry in [e1, e2])
-
-        # groups() was never called.
-        eq_(None, mock.called_with)
-
-        # Now the lane has a sublane, but Lane.groups(), once called,
-        # returns nothing.
-        self._db.delete(cached)
-        sublane = self._lane(parent=test_lane)
-        feed = AcquisitionFeed.groups(
-            self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True, search_engine=search_engine
-        )
-        assert mock.called_with is not None
-
-        # So again, we get a page-type feed filed as a groups-type
-        # feed, containing two entries with no collection links.
-        eq_(CachedFeed.GROUPS_TYPE, cached.type)
-        parsed = feedparser.parse(feed)
-        e1, e2 = parsed['entries']
-        assert all('links' not in entry for entry in [e1, e2])
+        # but our mock Annotator got a chance to modify the feed in place.
+        eq_(True, annotator.called)
 
     def test_search_feed(self):
-        """Test the ability to create a paginated feed of works for a given
-        search query.
-        """
+        # Test the ability to create a paginated feed of works for a given
+        # search query.
         fantasy_lane = self.fantasy
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
@@ -1275,12 +1191,14 @@ class TestOPDS(DatabaseTest):
         pagination = Pagination(size=1)
         search_client = MockExternalSearchIndex()
         search_client.bulk_update([work1, work2])
+        facets = SearchFacets(order="author", min_score=10)
 
         def make_page(pagination):
             return AcquisitionFeed.search(
                 self._db, "test", self._url, fantasy_lane, search_client,
                 "fantasy",
                 pagination=pagination,
+                facets=facets,
                 annotator=TestAnnotator,
             )
         feed = make_page(pagination)
@@ -1293,7 +1211,15 @@ class TestOPDS(DatabaseTest):
         eq_(TestAnnotator.top_level_title(), start['title'])
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination.next_page), next_link['href'])
+        expect = TestAnnotator.search_url(
+            fantasy_lane, "test", pagination.next_page, facets=facets
+        )
+        eq_(expect, next_link['href'])
+
+        # This is tested elsewhere, but let's make sure
+        # SearchFacets-specific fields like order and min_score are
+        # propagated to the next-page URL.
+        assert all(x in expect for x in ('order=author', 'min_score=10'))
 
         # This was the first page, so no previous link.
         eq_([], self.links(parsed, 'previous'))
@@ -1308,7 +1234,12 @@ class TestOPDS(DatabaseTest):
         feed = make_page(pagination.next_page)
         parsed = feedparser.parse(feed)
         [previous] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.search_url(fantasy_lane, "test", pagination), previous['href'])
+        expect = TestAnnotator.search_url(
+            fantasy_lane, "test", pagination, facets=facets
+        )
+        eq_(expect, previous['href'])
+        assert all(x in expect for x in ('order=author', 'min_score=10'))
+
         eq_(work2.title, parsed['entries'][0]['title'])
 
         # The feed has breadcrumb links
@@ -1332,7 +1263,6 @@ class TestOPDS(DatabaseTest):
 
         search_engine = MockExternalSearchIndex()
         search_engine.bulk_update([work1])
-
         def make_page():
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator,
@@ -1474,55 +1404,6 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # This means the 'activeFacet' attribute is not present.
         assert '{http://opds-spec.org/2010/catalog}activeFacet' not in l
-
-    def test_groups_propagates_facets(self):
-        # AcquisitionFeed.groups() might call several different
-        # methods that each need a facet object.
-        class Mock(object):
-            """Contains all the mock methods used by this test."""
-            def fetch(self, *args, **kwargs):
-                self.fetch_called_with = kwargs['facets']
-                return None, False
-
-            def groups(self, _db, facets, *args, **kwargs):
-                self.groups_called_with = facets
-                return []
-
-            def page(self, *args, **kwargs):
-                self.page_called_with = facets
-                return []
-
-        mock = Mock()
-        old_cachedfeed_fetch = CachedFeed.fetch
-        CachedFeed.fetch = mock.fetch
-
-        lane = self._lane()
-        sublane = self._lane(parent=lane)
-        lane.groups = mock.groups
-
-        old_acquisitionfeed_page = AcquisitionFeed.page
-        AcquisitionFeed.page = mock.page
-
-        # Here's the MacGuffin -- watch it!
-        facets = object()
-
-        AcquisitionFeed.groups(
-            self._db, "title", "url", lane, TestAnnotator, facets=facets
-        )
-        # We called CachedFeed.fetch with the given facets object.
-        eq_(facets, mock.fetch_called_with)
-
-        # That didn't return anything usable, so we passed the
-        # facets into lane.groups().
-        eq_(facets, mock.groups_called_with)
-
-        # That didn't return anything either, so as a last ditch
-        # effort we passed the facets into AcquisitionFeed.page().
-        eq_(facets, mock.page_called_with)
-
-        # Un-mock the methods that we mocked.
-        CachedFeed.fetch = old_cachedfeed_fetch
-        AcquisitionFeed.page = old_acquisitionfeed_page
 
     def test_license_tags_no_loan_or_hold(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -2259,7 +2140,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
             self.mock.called_with = None
             AcquisitionFeed.groups(
                 self._db, "title", "url", wl, self.annotator,
-                cache_type=AcquisitionFeed.NO_CACHE, facets=facets,
+                max_age=0, facets=facets,
             )
             return self.mock.called_with
 
@@ -2295,7 +2176,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
             self.mock.called_with = None
             AcquisitionFeed.page(
                 self._db, "title", "url", wl, self.annotator,
-                cache_type=AcquisitionFeed.NO_CACHE, facets=facets,
+                max_age=0, facets=facets,
                 pagination=pagination
             )
             return self.mock.called_with
@@ -2330,10 +2211,9 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         eq_(first_page_url, make_link(EbooksEntryPoint))
 
     def test_search(self):
-        """When AcquisitionFeed.search() generates the first page of
-        search results, it will link to related searches for different
-        entry points, assuming the WorkList has different entry points.
-        """
+        # When AcquisitionFeed.search() generates the first page of
+        # search results, it will link to related searches for different
+        # entry points, assuming the WorkList has different entry points.
         def run(wl=None, facets=None, pagination=None):
             """Call search() and see what add_entrypoint_links
             was called with.
@@ -2376,7 +2256,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The make_link function that was passed in calls
         # TestAnnotator.search_url() when passed an EntryPoint.
-        first_page_url = 'http://wl/?entrypoint=Book'
+        first_page_url = 'http://wl/?available=all&collection=full&entrypoint=Book&order=relevance'
         eq_(first_page_url, make_link(EbooksEntryPoint))
 
         # Pagination information is not propagated through entry point links
@@ -2386,6 +2266,15 @@ class TestEntrypointLinkInsertion(DatabaseTest):
             self.wl, facets, pagination
         )
         eq_(first_page_url, make_link(EbooksEntryPoint))
+
+
+class TestNavigationFacets(object):
+
+    def test_feed_type(self):
+        # If a navigation feed is built via CachedFeed.fetch, it will be
+        # filed as a navigation feed.
+        eq_(CachedFeed.NAVIGATION_TYPE, NavigationFacets.CACHED_FEED_TYPE)
+
 
 class TestNavigationFeed(DatabaseTest):
 
@@ -2438,17 +2327,7 @@ class TestNavigationFeed(DatabaseTest):
 
         # The feed was cached.
         eq_(1, self._db.query(CachedFeed).count())
-
-        # When a feed is created without a cache_type of NO_CACHE,
-        # CachedFeeds aren't used.
-        uncached_feed = NavigationFeed.navigation(
-            self._db, "test", self._url, self.romance,
-            TestAnnotator, cache_type=NavigationFeed.NO_CACHE,
-        )
-
-        # No new CachedFeeds were created.
-        eq_(1, self._db.query(CachedFeed).count())
-        
+       
     def test_navigation_without_sublanes(self):
         feed = NavigationFeed.navigation(
             self._db, "Navigation", "http://navigation",

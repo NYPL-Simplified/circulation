@@ -146,11 +146,16 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         expect_args['extra'] = 'val'
         eq_(result, template % expect_args)
 
-        # The string has been completel interpolated.
+        # The string has been completely interpolated.
         assert '%' not in result
 
         # Once interpolation has happened, doing it again has no effect.
         eq_(result, self.api.endpoint(result, extra="something else"))
+
+        # This is important because an interpolated URL may superficially
+        # appear to contain extra formatting characters.
+        eq_(result + "%3A",
+            self.api.endpoint(result +"%3A", extra="something else"))
 
     def test_token_post_success(self):
         self.api.queue_response(200, content="some content")

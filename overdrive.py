@@ -219,6 +219,9 @@ class OverdriveAPI(object):
            The server hostname will be interpolated automatically; you
            don't have to pass it in.
         """
+        if not '%(' in url:
+            # Nothing to interpolate.
+            return url
         kwargs.update(self.hosts)
         return url % kwargs
 

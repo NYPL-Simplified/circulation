@@ -578,78 +578,65 @@ class VerboseAnnotator(Annotator):
 class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
-    NO_CACHE = object()
+
+    # TODO: This is used in feed_response to set the Cache-Control
+    # headers. It should be replaced with a system where the
+    # Cache-Control max-age value is derived from the lifetime of the
+    # corresponding CachedFeed object, if any.
     FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
-    def groups(cls, _db, title, url, lane, annotator,
-               cache_type=None, force_refresh=False, facets=None,
-               search_engine=None, search_debug=False
+    def groups(cls, _db, title, url, worklist, annotator,
+               facets=None, max_age=None, 
+               search_engine=None, search_debug=False,
     ):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
+        NOTE: If the lane has no sublanes, a grouped feed will
+        probably be unsatisfying. Call page() instead with an
+        appropriate Facets object.
+
         :param facets: A GroupsFacet object.
 
-        :return: CachedFeed (if use_cache is True) or unicode
+        :return: A Unicode string containing a (potentially cached) OPDS feed.
         """
-        works_and_lanes = None
-        if lane.children:
-            # Since this lane has children, it's reasonable to at least
-            # try to create a groups feed for it.
-            if not annotator:
-                annotator = Annotator
-            if callable(annotator):
-                annotator = annotator()
-            cached = None
-            use_cache = cache_type != cls.NO_CACHE
-            facets = facets or FeaturedFacets.default(lane)
-            if use_cache:
-                cache_type = cache_type or CachedFeed.GROUPS_TYPE
-                cached, usable = CachedFeed.fetch(
-                    _db,
-                    lane=lane,
-                    type=cache_type,
-                    facets=facets,
-                    pagination=None,
-                    annotator=annotator,
-                    force_refresh=force_refresh,
-                )
-                if usable:
-                    return cached.content
-            works_and_lanes = lane.groups(
+        annotator = cls._make_annotator(annotator)
+        facets = facets or FeaturedFacets.default(worklist.get_library(_db))
+
+        def refresh():
+            return cls._generate_groups(
+                _db, title, url, worklist, annotator, facets,
+                search_engine, search_debug
+            )
+
+        cached = CachedFeed.fetch(
+            _db, worklist=worklist, facets=facets, pagination=None,
+            refresher_method=refresh, max_age=max_age
+        )
+        return cached.content
+
+    @classmethod
+    def _generate_groups(
+        cls, _db, title, url, worklist, annotator,
+        facets, search_engine, search_debug
+    ):
+        """Internal method called by groups() when a grouped feed
+        must be regenerated.
+        """
+
+        # Try to get a set of (Work, WorkList) 2-tuples
+        # to make a normal grouped feed.
+        works_and_lanes = [
+            x for x in worklist.groups(
                 _db=_db, facets=facets, search_engine=search_engine,
                 debug=search_debug
             )
-
-        if not works_and_lanes:
-            # We cannot generate a groups feed, either because we
-            # tried and did not find enough works, or because the lane
-            # has no sublanes. So we need to display a paginated feed
-            # instead.
-            #
-            # Generate a page-type feed with a default set of facets.
-            # File it as a groups-type feed, so it will show up when
-            # the client asks for it.
-            #
-            # TODO: In theory, this lane might have multiple entry
-            # points. Since entry points are only associated with
-            # grouped feeds, the generated feed will not mention entry
-            # points.  However this is not likely to be a problem in
-            # real life.
-            cache_type = cache_type or CachedFeed.GROUPS_TYPE
-            cached = cls.page(
-                _db, title, url, lane, annotator,
-                cache_type=cache_type,
-                force_refresh=force_refresh,
-                facets=None, search_engine=search_engine,
-                search_debug=search_debug
-            )
-            return cached
-
+        ]
+        # Make a typical grouped feed.
         all_works = []
         for work, sublane in works_and_lanes:
-            if sublane==lane:
+            if sublane==worklist:
                 # We are looking at the groups feed for (e.g.)
                 # "Science Fiction", and we're seeing a book
                 # that is featured within "Science Fiction" itself
@@ -661,8 +648,8 @@ class AcquisitionFeed(OPDSFeed):
                 # (as opposed to the groups feed, which is where we
                 # are now).
                 v = dict(
-                    lane=lane,
-                    label=lane.display_name_for_all,
+                    lane=worklist,
+                    label=worklist.display_name_for_all,
                     link_to_list_feed=True,
                 )
             else:
@@ -680,61 +667,65 @@ class AcquisitionFeed(OPDSFeed):
         all_works = annotator.sort_works_for_groups_feed(all_works)
         feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
+        # Regardless of whether or not the entries in feed can be
+        # grouped together, we want to apply certain feed-level
+        # annotations.
+
         # A grouped feed may link to alternate entry points into
         # the data.
-        entrypoints = facets.selectable_entrypoints(lane)
+        entrypoints = facets.selectable_entrypoints(worklist)
         if entrypoints:
             def make_link(ep):
                 return annotator.groups_url(
-                    lane, facets=facets.navigate(entrypoint=ep)
+                    worklist, facets=facets.navigate(entrypoint=ep)
                 )
             cls.add_entrypoint_links(
                 feed, make_link, entrypoints, facets.entrypoint
             )
 
-        feed.add_breadcrumb_links(lane, facets.entrypoint)
-        annotator.annotate_feed(feed, lane)
+        # A grouped feed may have breadcrumb links.
+        feed.add_breadcrumb_links(worklist, facets.entrypoint)
 
-        content = unicode(feed)
-        if cached and use_cache:
-            cached.update(_db, content)
-        return content
+        # Miscellaneous.
+        annotator.annotate_feed(feed, worklist)
+
+        return feed
 
     @classmethod
-    def page(cls, _db, title, url, lane, annotator,
-             cache_type=None, facets=None, pagination=None,
-             force_refresh=False, search_engine=None,
+    def page(cls, _db, title, url, worklist, annotator,
+             facets=None, pagination=None,
+             max_age=None, search_engine=None,
              search_debug=False
     ):
         """Create a feed representing one page of works from a given lane.
 
-        :return: CachedFeed (if use_cache is True) or unicode
+        :return: A Unicode string containing a (potentially cached) OPDS feed.
         """
-        if isinstance(lane, Lane):
-            library = lane.library
-        elif isinstance(lane, WorkList):
-            library = lane.get_library(_db)
-        else:
-            library = None
+        library = worklist.get_library(_db)
         facets = facets or Facets.default(library)
         pagination = pagination or Pagination.default()
+        annotator = cls._make_annotator(annotator)
 
-        cached = None
-        use_cache = cache_type != cls.NO_CACHE
-        if use_cache:
-            cache_type = cache_type or CachedFeed.PAGE_TYPE
-            cached, usable = CachedFeed.fetch(
-                _db,
-                lane=lane,
-                type=cache_type,
-                facets=facets,
-                pagination=pagination,
-                annotator=annotator,
-                force_refresh=force_refresh,
-            )
-            if usable:
-                return cached.content
+        def refresh():
+            return cls._generate_page(
+                _db, title, url, worklist, annotator, facets, pagination,
+                search_engine, search_debug
+            )                      
 
+        cached = CachedFeed.fetch(
+            _db, worklist=worklist, facets=facets, pagination=pagination,
+            refresher_method=refresh, max_age=max_age            
+        )
+        return cached.content
+
+    @classmethod
+    def _generate_page(
+        cls, _db, title, url, lane, annotator, facets, pagination,
+        search_engine, search_debug
+    ):
+        """Internal method called by page() when a cached feed
+        must be regenerated.
+        """
         works = lane.works(
             _db, facets=facets, pagination=pagination,
             search_engine=search_engine, debug=search_debug
@@ -784,11 +775,7 @@ class AcquisitionFeed(OPDSFeed):
             feed.add_breadcrumb_links(lane, facets.entrypoint)
 
         annotator.annotate_feed(feed, lane)
-
-        content = unicode(feed)
-        if cached and use_cache:
-            cached.update(_db, content)
-        return content
+        return feed
 
     @classmethod
     def from_query(cls, query, _db, feed_name, url, pagination, url_fn, annotator):
@@ -812,6 +799,15 @@ class AcquisitionFeed(OPDSFeed):
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=url_fn(pagination.previous_page.offset))
 
         return feed
+
+    @classmethod
+    def _make_annotator(cls, annotator):
+        """Helper method to make sure there's some kind of Annotator."""
+        if not annotator:
+            annotator = Annotator
+        if callable(annotator):
+            annotator = annotator()
+        return annotator
 
     @classmethod
     def facet_link(cls, href, title, facet_group_name, is_active):
@@ -1662,61 +1658,65 @@ class LookupAcquisitionFeed(AcquisitionFeed):
                 "I know about this work but can offer no way of fulfilling it."
             )
 
+class NavigationFacets(FeaturedFacets):
+    CACHED_FEED_TYPE = CachedFeed.NAVIGATION_TYPE
+
 class NavigationFeed(OPDSFeed):
 
-    NO_CACHE = object()
+    # TODO: This is used in feed_response to set the Cache-Control
+    # headers. It should be replaced with a system where the
+    # Cache-Control max-age value is derived from the lifetime of the
+    # corresponding CachedFeed object, if any.
     FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
-    def navigation(cls, _db, title, url, lane, annotator,
-                   cache_type=None, force_refresh=False, facets=None):
+    def navigation(cls, _db, title, url, worklist, annotator,
+                   facets=None, max_age=None):
         """The navigation feed with links to a given lane's sublanes."""
 
-        if not annotator:
-            annotator = Annotator
-        if callable(annotator):
-            annotator = annotator()
-        cached = None
-        use_cache = cache_type != cls.NO_CACHE
-        facets = facets or FeaturedFacets.default(lane)
-        if use_cache:
-            cache_type = cache_type or CachedFeed.NAVIGATION_TYPE
-            cached, usable = CachedFeed.fetch(
-                _db,
-                lane=lane,
-                type=cache_type,
-                facets=facets,
-                pagination=None,
-                annotator=annotator,
-                force_refresh=force_refresh,
+        annotator = AcquisitionFeed._make_annotator(annotator)
+        facets = facets or NavigationFacets.default(worklist)
+
+        def refresh():
+            return cls._generate_navigation(
+                _db, title, url, worklist, annotator
             )
-            if usable:
-                return cached.content
+
+        cached = CachedFeed.fetch(
+            _db,
+            worklist=worklist,
+            facets=facets,
+            pagination=None,
+            refresher_method=refresh,
+            max_age=max_age,
+        )
+        return cached.content
+
+    @classmethod
+    def _generate_navigation(cls, _db, title, url, worklist,
+                             annotator):
 
         feed = NavigationFeed(title, url)
 
-        if not lane.children:
-            # We can't generate links to sublanes since this lane has no sublanes,
-            # so we'll generate a link to its page-type feed instead.
-            title = "All " + lane.display_name
-            page_url = annotator.feed_url(lane)
+        if not worklist.children:
+            # We can't generate links to children, since this Worklist
+            # has no children, so we'll generate a link to the
+            # Worklist's page-type feed instead.
+            title = "All " + worklist.display_name
+            page_url = annotator.feed_url(worklist)
             feed.add_entry(page_url, title, cls.ACQUISITION_FEED_TYPE)
 
-        for sublane in lane.visible_children:
-            title = sublane.display_name
-            if sublane.children:
-                sublane_url = annotator.navigation_url(sublane)
-                feed.add_entry(sublane_url, title, cls.NAVIGATION_FEED_TYPE)
+        for child in worklist.visible_children:
+            title = child.display_name
+            if child.children:
+                child_url = annotator.navigation_url(child)
+                feed.add_entry(child_url, title, cls.NAVIGATION_FEED_TYPE)
             else:
-                sublane_url = annotator.feed_url(sublane)
-                feed.add_entry(sublane_url, title, cls.ACQUISITION_FEED_TYPE)
+                child_url = annotator.feed_url(child)
+                feed.add_entry(child_url, title, cls.ACQUISITION_FEED_TYPE)
 
-        annotator.annotate_feed(feed, lane)
-
-        content = unicode(feed)
-        if cached and use_cache:
-            cached.update(_db, content)
-        return content
+        annotator.annotate_feed(feed, worklist)
+        return feed
 
     def add_entry(self, url, title, type=OPDSFeed.NAVIGATION_FEED_TYPE):
         """Create an OPDS navigation entry for a URL."""

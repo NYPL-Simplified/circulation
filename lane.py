@@ -105,6 +105,12 @@ class BaseFacets(FacetConstants):
     This is intended solely for use as a base class.
     """
 
+    # If the use of a certain faceting object has implications for the
+    # type of feed (the way FeaturedFacets always implies a 'groups' feed),
+    # set the type of feed here. This will override any CACHED_FEED_TYPE
+    # associated with the WorkList.
+    CACHED_FEED_TYPE = None
+
     def items(self):
         """Yields a 2-tuple for every active facet setting.
 
@@ -337,7 +343,16 @@ class Facets(FacetsWithEntryPoint):
         elsewhere in this class. Right now this method implies more
         flexibility than actually exists.
         """
-        return config.enabled_facets(facet_group_name)
+        available = config.enabled_facets(facet_group_name)
+
+        # "The default facet isn't available" makes no sense. If the
+        # default facet is not in the available list for any reason,
+        # add it to the beginning of the list. This makes other code
+        # elsewhere easier to write.
+        default = cls.default_facet(config, facet_group_name)
+        if default not in available:
+            available = [default] + available
+        return available
 
     @classmethod
     def default_facet(cls, config, facet_group_name):
@@ -348,9 +363,7 @@ class Facets(FacetsWithEntryPoint):
         return config.default_facet(facet_group_name)
 
     @classmethod
-    def from_request(cls, library, config, get_argument, get_header, worklist,
-                     default_entrypoint=None, **extra):
-        """Load a faceting object from an HTTP request."""
+    def _values_from_request(cls, config, get_argument, get_header):
         g = Facets.ORDER_FACET_GROUP_NAME
         order = get_argument(g, cls.default_facet(config, g))
         order_facets = cls.available_facets(config, g)
@@ -359,7 +372,6 @@ class Facets(FacetsWithEntryPoint):
                 _("I don't know how to order a feed by '%(order)s'", order=order),
                 400
             )
-        extra['order'] = order
 
         g = Facets.AVAILABILITY_FACET_GROUP_NAME
         availability = get_argument(g, cls.default_facet(config, g))
@@ -369,7 +381,6 @@ class Facets(FacetsWithEntryPoint):
                 _("I don't understand the availability term '%(availability)s'", availability=availability),
                 400
             )
-        extra['availability'] = availability
 
         g = Facets.COLLECTION_FACET_GROUP_NAME
         collection = get_argument(g, cls.default_facet(config, g))
@@ -379,13 +390,27 @@ class Facets(FacetsWithEntryPoint):
                 _("I don't understand what '%(collection)s' refers to.", collection=collection),
                 400
             )
-        extra['collection'] = collection
 
-        extra['enabled_facets'] = {
+        enabled = {
             Facets.ORDER_FACET_GROUP_NAME : order_facets,
             Facets.AVAILABILITY_FACET_GROUP_NAME : availability_facets,
             Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
         }
+
+        return dict(
+            order=order, availability=availability, collection=collection,
+            enabled_facets=enabled
+        )
+
+    @classmethod
+    def from_request(cls, library, config, get_argument, get_header, worklist,
+                     default_entrypoint=None, **extra):
+        """Load a faceting object from an HTTP request."""
+
+        values = cls._values_from_request(config, get_argument, get_header)
+        if isinstance(values, ProblemDetail):
+            return values
+        extra.update(values)
         extra['library'] = library
 
         return cls._from_request(config, get_argument, get_header, worklist,
@@ -393,7 +418,7 @@ class Facets(FacetsWithEntryPoint):
 
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None, entrypoint=None,
-                 entrypoint_is_default=False):
+                 entrypoint_is_default=False, **constructor_kwargs):
         """Constructor.
 
         :param collection: This is not a Collection object; it's a value for
@@ -403,7 +428,9 @@ class Facets(FacetsWithEntryPoint):
         facet group is configured on a per-WorkList basis rather than
         a per-library basis.
         """
-        super(Facets, self).__init__(entrypoint, entrypoint_is_default)
+        super(Facets, self).__init__(
+            entrypoint, entrypoint_is_default, **constructor_kwargs
+        )
         collection = collection or self.default_facet(
             library, self.COLLECTION_FACET_GROUP_NAME
         )
@@ -439,10 +466,10 @@ class Facets(FacetsWithEntryPoint):
                  entrypoint=None):
         """Create a slightly different Facets object from this one."""
         return self.__class__(
-            self.library,
-            collection or self.collection,
-            availability or self.availability,
-            order or self.order,
+            library=self.library,
+            collection=collection or self.collection,
+            availability=availability or self.availability,
+            order=order or self.order,
             enabled_facets=self.facets_enabled_at_init,
             entrypoint=(entrypoint or self.entrypoint),
             entrypoint_is_default=False,
@@ -712,6 +739,9 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
+    # This Facets class is used exclusively for grouped feeds.
+    CACHED_FEED_TYPE = CachedFeed.GROUPS_TYPE
+
     def __init__(self, minimum_featured_quality, entrypoint=None,
                  random_seed=None, **kwargs):
         """Set up an object that finds featured books in a given
@@ -732,6 +762,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
                 library = lane
             else:
                 library = lane.library
+
         if library:
             quality = library.minimum_featured_quality
         else:
@@ -757,7 +788,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         return filter.featurability_scoring_functions(self.random_seed)
 
 
-class SearchFacets(FacetsWithEntryPoint):
+class SearchFacets(Facets):
     """A Facets object designed to filter search results.
 
     Most search result filtering is handled by WorkList, but this
@@ -765,8 +796,39 @@ class SearchFacets(FacetsWithEntryPoint):
     preferred language.
     """
 
-    def __init__(self, entrypoint=None, media=None, languages=None, **kwargs):
-        super(SearchFacets, self).__init__(entrypoint, **kwargs)
+    # If search results are to be ordered by some field other than
+    # score, we need a cutoff point so that marginal matches don't get
+    # top billing just because they're first alphabetically. This is
+    # the default cutoff point, determined empirically.
+    DEFAULT_MIN_SCORE = 500
+
+    ORDER_BY_RELEVANCE = "relevance"
+
+    def __init__(self, **kwargs):
+        languages = kwargs.pop('languages', None)
+        media = kwargs.pop('media', None)
+
+        # Our default_facets implementation will fill in values for
+        # the facet groups defined by the Facets class. This
+        # eliminates the need to explicitly specify a library, since
+        # the library is mainly used to determine these defaults --
+        # SearchFacets itself doesn't need one. However, in real
+        # usage, a Library will be provided via
+        # SearchFacets.from_request.
+        kwargs.setdefault('library', None)
+        kwargs.setdefault('collection', None)
+        kwargs.setdefault('availability', None)
+        order = kwargs.setdefault('order', None)
+
+        if order in (None, self.ORDER_BY_RELEVANCE):
+            # Search results are ordered by score, so there is no
+            # need for a score cutoff.
+            default_min_score = None
+        else:
+            default_min_score = self.DEFAULT_MIN_SCORE
+        self.min_score = kwargs.pop('min_score', default_min_score)
+
+        super(SearchFacets, self).__init__(**kwargs)
         if media == Edition.ALL_MEDIUM:
             self.media = media
         else:
@@ -774,6 +836,24 @@ class SearchFacets(FacetsWithEntryPoint):
         self.media_argument = media
 
         self.languages = self._ensure_list(languages)
+
+    @classmethod
+    def default_facet(cls, ignore, group_name):
+        """The default facet settings for SearchFacets are hard-coded.
+
+        By default, we will search the full collection and all
+        availabilities, and order by match quality rather than any
+        bibliographic field.
+        """
+        if group_name == cls.COLLECTION_FACET_GROUP_NAME:
+            return cls.COLLECTION_FULL
+
+        if group_name == cls.AVAILABILITY_FACET_GROUP_NAME:
+            return cls.AVAILABLE_ALL
+
+        if group_name == cls.ORDER_FACET_GROUP_NAME:
+            return cls.ORDER_BY_RELEVANCE
+        return None
 
     def _ensure_list(self, x):
         """Make sure x is a list of values, if there is a value at all."""
@@ -785,8 +865,13 @@ class SearchFacets(FacetsWithEntryPoint):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     default_entrypoint=None, **extra):
+                     default_entrypoint=EverythingEntryPoint, **extra):
 
+        values = cls._values_from_request(config, get_argument, get_header)
+        if isinstance(values, ProblemDetail):
+            return values
+        extra.update(values)
+        extra['library'] = library
         # Searches against a WorkList will use the union of the
         # languages allowed by the WorkList and the languages found in
         # the client's Accept-Language header.
@@ -798,6 +883,16 @@ class SearchFacets(FacetsWithEntryPoint):
             languages = map(LanguageCodes.iso_639_2_for_locale, languages)
             languages = [l for l in languages if l]
         languages = languages or None
+
+        # The client can request a minimum score for search results.
+        min_score = get_argument("min_score", None)
+        if min_score is not None:
+            try:
+                min_score = int(min_score)
+            except ValueError, e:
+                min_score = None
+        if min_score is not None:
+            extra['min_score'] = min_score
 
         # The client can request an additional restriction on
         # the media types to be returned by searches.
@@ -838,6 +933,12 @@ class SearchFacets(FacetsWithEntryPoint):
         """
         super(SearchFacets, self).modify_search_filter(filter)
 
+        if filter.order is not None and filter.min_score is None:
+            # The user wants search results to be ordered by one of
+            # the data fields, not the match score; and no overriding
+            # score cutoff has been provided yet. Use ours.
+            filter.min_score = self.min_score
+
         # The incoming 'media' argument takes precedence over any
         # media restriction defined by the WorkList or the EntryPoint.
         if self.media == Edition.ALL_MEDIUM:
@@ -871,13 +972,21 @@ class SearchFacets(FacetsWithEntryPoint):
         """Yields a 2-tuple for every active facet setting.
 
         This means the EntryPoint (handled by the superclass)
-        as well as a setting for 'media'.
+        as well as possible settings for 'media' and "min_score".
         """
         for k, v in super(SearchFacets, self).items():
             yield k, v
         if self.media_argument:
             yield ("media", self.media_argument)
 
+        if self.min_score is not None:
+            yield ('min_score', unicode(self.min_score))
+
+    def navigate(self, **kwargs):
+        min_score = kwargs.pop('min_score', self.min_score)
+        new_facets = super(SearchFacets, self).navigate(**kwargs)
+        new_facets.min_score = min_score
+        return new_facets
 
 class Pagination(object):
 
@@ -1034,16 +1143,22 @@ class WorkList(object):
     # default. Most WorkList subclasses will override this.
     MAX_CACHE_AGE = 14*24*60*60
 
-    # In your subclass, set MAX_CACHE_AGE to this value to guarantee
-    # that cached feeds never expire -- they must be explicitly
-    # regenerated.
-    CACHE_FOREVER = 'forever'
+    # If a certain type of Worklist should always have its OPDS feeds
+    # cached under a specific type, define that type as
+    # CACHED_FEED_TYPE.
+    CACHED_FEED_TYPE = None
 
     # By default, a WorkList is always visible.
     visible = True
 
     # By default, a WorkList does not draw from CustomLists
     uses_customlists = False
+
+    def max_cache_age(self, type):
+        """Determine how long a feed for this WorkList should be cached
+        internally.
+        """
+        return self.MAX_CACHE_AGE
 
     @classmethod
     def top_level_for_library(self, _db, library):
@@ -1349,6 +1464,7 @@ class WorkList(object):
             full_parentage.insert(0, self.library.short_name)
         return " / ".join(full_parentage)
 
+
     @property
     def language_key(self):
         """Return a string identifying the languages used in this WorkList.
@@ -1370,6 +1486,18 @@ class WorkList(object):
             audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
             key += ','.join(audiences)
         return key
+
+    @property
+    def unique_key(self):
+        """A string key that uniquely describes this WorkList within
+        its Library.
+
+        This is used when caching feeds for this WorkList. For Lanes,
+        the lane_id is used instead.
+        """
+        return "%s-%s-%s" % (
+            self.display_name, self.language_key, self.audience_key
+        )
 
     def overview_facets(self, _db, facets):
         """Convert a generic FeaturedFacets to some other faceting object,
@@ -2453,6 +2581,22 @@ class Lane(Base, DatabaseBackedWorkList):
             and self.parent.uses_customlists):
             return True
         return False
+
+    def max_cache_age(self, type):
+        """Determine how long a feed for this WorkList should be cached
+        internally.
+
+        :param type: The type of feed.
+        """
+        if type == CachedFeed.GROUPS_TYPE:
+            # Generating grouped feeds on the fly for Lanes is not incredibly
+            # expensive, but it's slow enough that we prefer to regenerate
+            # them in the background (using force_refresh=True) rather
+            # than while someone is waiting for an HTTP response.
+            return CachedFeed.CACHE_FOREVER
+
+        # Other than that, we have no opinion -- use the default.
+        return super(Lane, self).max_cache_age(type)
 
     def update_size(self, _db, search_engine=None):
         """Update the stored estimate of the number of Works in this Lane."""

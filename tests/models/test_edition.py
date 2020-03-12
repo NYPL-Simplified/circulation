@@ -10,17 +10,34 @@ from ...model import (
     get_one_or_create,
     PresentationCalculationPolicy,
 )
+from ...model.constants import MediaTypes
 from ...model.coverage import CoverageRecord
 from ...model.contributor import Contributor
 from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.identifier import Identifier
+from ...model.licensing import DeliveryMechanism
 from ...model.resource import (
     Hyperlink,
     Representation,
 )
 
 class TestEdition(DatabaseTest):
+
+    def test_medium_from_media_type(self):
+        # Verify that we can guess a value for Edition.medium from a
+        # media type.
+
+        m = Edition.medium_from_media_type
+        for audio_type in MediaTypes.AUDIOBOOK_MEDIA_TYPES:
+            eq_(Edition.AUDIO_MEDIUM, m(audio_type))
+            eq_(Edition.AUDIO_MEDIUM, m(audio_type + ";param=value"))
+
+        for book_type in MediaTypes.BOOK_MEDIA_TYPES:
+            eq_(Edition.BOOK_MEDIUM, m(book_type))
+            eq_(Edition.BOOK_MEDIUM, m(book_type + ";param=value"))
+
+        eq_(Edition.BOOK_MEDIUM, m(DeliveryMechanism.ADOBE_DRM))
 
     def test_license_pools(self):
         # Here are two collections that provide access to the same book.

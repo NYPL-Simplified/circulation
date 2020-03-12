@@ -3,7 +3,7 @@
   <title>Lookup results</title>
   <updated>2016-06-29T16:04:36Z</updated>
   <link href="http://content/lookup?urn=https%3A%2F%2Funglue.it%2Fapi%2Fid%2Fwork%2F98398%2F" rel="self"/>
-  <entry schema:additionalType="http://schema.org/EBook">
+  <entry>
     <id>https://unglue.it/api/id/work/98398/</id>
     <title>Howards End</title>
     <bibframe:distribution bibframe:ProviderName="unglue.it"/>
@@ -22,6 +22,7 @@
     <category term="18" scheme="http://schema.org/typicalAgeRange" label="18"/>
     <category term="http://librarysimplified.org/terms/fiction/Fiction" scheme="http://librarysimplified.org/terms/fiction/" label="Fiction"/>
     <dcterms:language>en</dcterms:language>
+    <dcterms:format>application/audiobook+json;protection="http://www.feedbooks.com/audiobooks/access-restriction"</dcterms:format>
     <published>2016-01-22T17:39:23Z</published>
   </entry>
 </feed>

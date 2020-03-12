@@ -47,6 +47,7 @@ from ..lane import (
     FeaturedFacets,
     Lane,
     Pagination,
+    SearchFacets,
     WorkList,
 )
 from ..metadata_layer import (
@@ -1031,6 +1032,53 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         biography_wl = WorkList()
         biography_wl.initialize(self._default_library, genres=[biography])
         eq_([[self.lincoln, self.obama]], pages(biography_wl))
+
+        # Search results may be sorted by some field other than search
+        # quality.
+        f = SearchFacets
+        by_author = f(
+            library=self._default_library, collection=f.COLLECTION_FULL,
+            availability=f.AVAILABLE_ALL, order=f.ORDER_AUTHOR
+        )
+        by_author = Filter(facets=by_author)
+
+        by_title = f(
+            library=self._default_library, collection=f.COLLECTION_FULL,
+            availability=f.AVAILABLE_ALL, order=f.ORDER_TITLE
+        )
+        by_title = Filter(facets=by_title)
+
+        # By default, search results sorted by a bibliographic field
+        # are also filtered to eliminate low-quality results.  In a
+        # real collection the default filter level works well, but it
+        # makes it difficult to test the feature in this limited test
+        # collection.
+        expect([self.moby_dick], "moby dick", by_author)
+        expect([self.ya_romance], "romance", by_author)
+        expect([], "moby", by_author)
+        expect([], "president", by_author)
+
+        # Let's lower the score so we can test the ordering properly.
+        by_title.min_score = 50
+        by_author.min_score = 50
+
+        expect([self.moby_dick, self.moby_duck], "moby", by_title)
+        expect([self.moby_duck, self.moby_dick], "moby", by_author)
+        expect([self.ya_romance, self.modern_romance], "romance", by_title)
+        expect([self.modern_romance, self.ya_romance], "romance", by_author)
+
+        # Lower it even more and we can start picking up search results
+        # that only match because of words in the description.
+        by_title.min_score=10
+        by_author.min_score=10
+        results = [self.no_age, self.age_4_5, self.dodger,
+                   self.age_9_10, self.obama]
+        expect(results, "president", by_title)
+
+        # Reverse the sort order to demonstrate that these works are being
+        # sorted by title rather than randomly.
+        by_title.order_ascending = False
+        expect(list(reversed(results)), "president", by_title)
 
         # Finally, verify that we can run multiple queries
         # simultaneously.
@@ -3101,6 +3149,7 @@ class TestFilter(DatabaseTest):
         audiences = ["somestring"]
         author = object()
         match_nothing = object()
+        min_score = object()
 
         # Test the easy stuff -- these arguments just get stored on
         # the Filter object. If necessary, they'll be cleaned up
@@ -3108,7 +3157,7 @@ class TestFilter(DatabaseTest):
         filter = Filter(
             media=media, languages=languages,
             fiction=fiction, audiences=audiences, author=author,
-            match_nothing=match_nothing
+            match_nothing=match_nothing, min_score=min_score
         )
         eq_(media, filter.media)
         eq_(languages, filter.languages)
@@ -3116,6 +3165,7 @@ class TestFilter(DatabaseTest):
         eq_(audiences, filter.audiences)
         eq_(author, filter.author)
         eq_(match_nothing, filter.match_nothing)
+        eq_(min_score, filter.min_score)
 
         # Test the `collections` argument.
 
@@ -3262,7 +3312,7 @@ class TestFilter(DatabaseTest):
         parent.media = Edition.AUDIO_MEDIUM
         parent.languages = ["eng", "fra"]
         parent.fiction = True
-        parent.audiences = [Classifier.AUDIENCE_CHILDREN]
+        parent.audiences = set([Classifier.AUDIENCE_CHILDREN])
         parent.target_age = NumericRange(10, 11, '[]')
         parent.genres = [self.horror, self.fantasy]
         parent.customlists = [self.best_sellers]
@@ -3396,7 +3446,7 @@ class TestFilter(DatabaseTest):
         Filter.build() returns a main filter and no nested filters.
         """
         final_query = {'bool': {'must_not': [RESEARCH.to_dict()]}}
-        
+
         if expect:
             final_query['bool']['must'] = expect
         main, nested = filter.build(_chain_filters)

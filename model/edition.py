@@ -13,6 +13,7 @@ from constants import (
     DataSourceConstants,
     EditionConstants,
     LinkRelations,
+    MediaTypes,
 )
 from contributor import (
     Contributor,
@@ -20,7 +21,10 @@ from contributor import (
 )
 from datasource import DataSource
 from identifier import Identifier
-from licensing import LicensePool
+from licensing import (
+    DeliveryMechanism,
+    LicensePool,
+)
 
 from collections import defaultdict
 import logging
@@ -224,6 +228,32 @@ class Edition(Base, EditionConstants):
             # want to put them down as 'author'.
             return []
 
+
+    @classmethod
+    def medium_from_media_type(cls, media_type):
+        """Derive a value for Edition.medium from a media type.
+
+        TODO: It's not necessary right now, but we could theoretically
+        derive this information from some other types such as
+        our internal types for Overdrive manifests.
+
+        :param media_type: A media type with optional parameters
+        :return: A value for Edition.medium.
+        """
+        if not media_type:
+            return None
+
+        for types, conclusion in (
+            (MediaTypes.AUDIOBOOK_MEDIA_TYPES, Edition.AUDIO_MEDIUM),
+            (MediaTypes.BOOK_MEDIA_TYPES, Edition.BOOK_MEDIUM),
+        ):
+            if any(media_type.startswith(x) for x in types):
+                return conclusion
+
+        if media_type.startswith(DeliveryMechanism.ADOBE_DRM):
+            # Adobe DRM is only applied to ebooks.
+            return Edition.BOOK_MEDIUM
+        return None
 
     @classmethod
     def for_foreign_id(cls, _db, data_source,

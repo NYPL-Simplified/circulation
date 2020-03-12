@@ -93,8 +93,11 @@ class S3Uploader(MirrorUploader):
     }
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Access Key"), "required": True },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key"), "required": True },
+        { "key": ExternalIntegration.USERNAME, "label": _("Access Key")
+        },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key"),
+          "description": _("If the <em>Access Key</em> and <em>Secret Key</em> are not given here credentials will be used as outlined in the <a href='https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuring-credentials'>Boto3 documenation</a>. If <em>Access Key</em> is given, <em>Secrent Key</em> must also be given.")
+        },
         { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"),
           "description" : _("All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
         },
@@ -136,13 +139,9 @@ class S3Uploader(MirrorUploader):
             client_class = boto3.client
 
         if callable(client_class):
-            access_key = integration.username
-            secret_key = integration.password
-            if not (access_key and secret_key):
-                raise CannotLoadConfiguration(
-                    'Cannot create S3Uploader without both'
-                    ' access_key and secret_key.'
-                )
+            # Pass None into boto3 if we get an empty string.
+            access_key = integration.username if integration.username != '' else None
+            secret_key = integration.password if integration.password != '' else None
             self.client = client_class(
                 's3',
                 aws_access_key_id=access_key,

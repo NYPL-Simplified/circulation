@@ -471,7 +471,7 @@ class TestWork(DatabaseTest):
         m([i1.id, i2.id], [], [])
         eq_(l1.resource.representation.content, w.summary_text)
 
-    def test_set_presentation_ready(self):
+    def test_set_presentation_ready_based_on_content(self):
 
         work = self._work(with_license_pool=True)
 
@@ -491,30 +491,55 @@ class TestWork(DatabaseTest):
 
         # But the work of adding it to the search engine has been
         # registered.
-        [record] = [
-            x for x in work.coverage_records
-            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-        ]
-        eq_(WorkCoverageRecord.REGISTERED, record.status)
+        def assert_record():
+            # Verify the search index WorkCoverageRecord for this work
+            # is in the REGISTERED state.
+            [record] = [
+                x for x in work.coverage_records
+                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            ]
+            eq_(WorkCoverageRecord.REGISTERED, record.status)
+        assert_record()
 
-        # This work is presentation ready because it has a title
-
+        # This work is presentation ready because it has a title.
         # Remove the title, and the work stops being presentation
         # ready.
         presentation.title = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)
 
-        # The work has been removed from the search index.
-        eq_([], search.docs.keys())
+        # The search engine WorkCoverageRecord is still in the
+        # REGISTERED state, but its meaning has changed -- the work
+        # will now be _removed_ from the search index, rather than
+        # updated.
+        assert_record()
 
         # Restore the title, and everything is fixed.
         presentation.title = u"foo"
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
 
+        # Remove the medium, and the work stops being presentation ready.
+        presentation.medium = None
+        work.set_presentation_ready_based_on_content(search_index_client=search)
+        eq_(False, work.presentation_ready)
+
+        presentation.medium = Edition.BOOK_MEDIUM
+        work.set_presentation_ready_based_on_content(search_index_client=search)
+        eq_(True, work.presentation_ready)
+
+        # Remove the language, and it stops being presentation ready.
+        presentation.language = None
+        work.set_presentation_ready_based_on_content(search_index_client=search)
+        eq_(False, work.presentation_ready)
+
+        presentation.language = 'eng'
+        work.set_presentation_ready_based_on_content(search_index_client=search)
+        eq_(True, work.presentation_ready)
+
         # Remove the fiction status, and the work is still
-        # presentation ready.
+        # presentation ready. Fiction status used to make a difference, but
+        # it no longer does.
         work.fiction = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
@@ -1469,6 +1494,20 @@ class TestWork(DatabaseTest):
         pool2.presentation_edition.title = None
         eq_(pool1, work.active_license_pool())
 
+    def test_delete_work(self):
+        # Search mock
+        class MockSearchIndex():
+            removed = []
+            def remove_work(self, work):
+                self.removed.append(work)
+
+        s = MockSearchIndex();
+        work = self._work(with_license_pool=True)
+        work.delete(search_index=s)
+
+        eq_([], self._db.query(Work).filter(Work.id==work.id).all())
+        eq_(1, len(s.removed))
+        eq_(s.removed, [work])
 
 class TestWorkConsolidation(DatabaseTest):
 

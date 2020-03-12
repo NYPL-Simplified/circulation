@@ -1,5 +1,6 @@
 import os
 import datetime
+import random
 import urllib
 from StringIO import StringIO
 from nose.tools import (
@@ -52,6 +53,7 @@ from ..model import (
     Identifier,
     Edition,
     Measurement,
+    MediaTypes,
     Representation,
     RightsStatus,
     Subject,
@@ -549,12 +551,19 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_get_medium_from_links(self):
         audio_links = [
-            LinkData(href="url", rel="http://opds-spec.org/acquisition/", media_type="application/audiobook+json"),
+            LinkData(href="url", rel="http://opds-spec.org/acquisition/",
+                     media_type="application/audiobook+json;param=value"
+            ),
             LinkData(href="url", rel="http://opds-spec.org/image"),
         ]
         book_links = [
             LinkData(href="url", rel="http://opds-spec.org/image"),
-            LinkData(href="url", rel="http://opds-spec.org/acquisition/", media_type="application/epub+zip"),
+            LinkData(
+                href="url", rel="http://opds-spec.org/acquisition/",
+                media_type=random.choice(
+                    MediaTypes.BOOK_MEDIA_TYPES
+                ) + ";param=value"
+            ),
         ]
 
         m = OPDSImporter.get_medium_from_links
@@ -747,6 +756,51 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_('urn:librarysimplified.org/terms/id/Gutenberg ID/100', message.urn)
         eq_(404, message.status_code)
         eq_("I've never heard of this work.", message.message)
+
+    def test_extract_medium(self):
+        m = OPDSImporter.extract_medium
+
+        # No tag -- the default is used.
+        eq_("Default", m(None, "Default"))
+
+        def medium(additional_type, format, default="Default"):
+            # Make an <atom:entry> tag with the given tags.
+            # Parse it and call extract_medium on it.
+            entry= '<entry xmlns:schema="http://schema.org/" xmlns:dcterms="http://purl.org/dc/terms/"'
+            if additional_type:
+                entry += ' schema:additionalType="%s"' % additional_type
+            entry += '>'
+            if format:
+                entry += '<dcterms:format>%s</dcterms:format>' % format
+            entry += '</entry>'
+            tag = etree.parse(StringIO(entry))
+            return m(tag.getroot(), default=default)
+
+        audio_type = random.choice(MediaTypes.AUDIOBOOK_MEDIA_TYPES) + ";param=value"
+        ebook_type = random.choice(MediaTypes.BOOK_MEDIA_TYPES) + ";param=value"
+
+        # schema:additionalType is checked first. If present, any
+        # potentially contradictory information in dcterms:format is
+        # ignored.
+        eq_(
+            Edition.AUDIO_MEDIUM,
+            medium("http://bib.schema.org/Audiobook", ebook_type)
+        )
+        eq_(
+            Edition.BOOK_MEDIUM,
+            medium("http://schema.org/EBook", audio_type)
+        )
+
+        # When schema:additionalType is missing or not useful, the
+        # value of dcterms:format is mapped to a medium using
+        # Edition.medium_from_media_type.
+        eq_(Edition.AUDIO_MEDIUM, medium("something-else", audio_type))
+        eq_(Edition.BOOK_MEDIUM, medium(None, ebook_type))
+
+        # If both pieces of information are missing or useless, the
+        # default is used.
+        eq_("Default", medium(None, None))
+        eq_("Default", medium("something-else", "image/jpeg"))
 
     def test_handle_failure(self):
         axis_id = self._identifier(identifier_type=Identifier.AXIS_360_ID)
@@ -1368,6 +1422,10 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_("Howards End", edition.title)
         eq_([], imported_pools)
         eq_([], imported_works)
+
+        # We were able to figure out the medium of the Edition
+        # based on its <dcterms:format> tag.
+        eq_(Edition.AUDIO_MEDIUM, edition.medium)
 
     def test_build_identifier_mapping(self):
         """Reverse engineers an identifier_mapping based on a list of URNs"""

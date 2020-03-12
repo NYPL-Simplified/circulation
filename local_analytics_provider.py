@@ -68,7 +68,7 @@ class LocalAnalyticsProvider(object):
             _db, license_pool, event_type, old_value, new_value, start=time,
             library=library, location=neighborhood
         )
-    
+
     @classmethod
     def initialize(cls, _db):
         """Find or create a local analytics service.
