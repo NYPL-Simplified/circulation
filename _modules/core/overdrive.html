@@ -71,6 +71,7 @@
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">Library</span><span class="p">,</span>
     <span class="n">Measurement</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Subject</span><span class="p">,</span>
 <span class="p">)</span>
@@ -162,11 +163,14 @@
 
     <span class="n">EVENT_DELAY</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
 
-    <span class="c1"># The ebook formats we care about.</span>
-    <span class="n">FORMATS</span> <span class="o">=</span> <span class="s2">&quot;ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open&quot;</span>
+    <span class="c1"># The formats we care about.</span>
+    <span class="n">FORMATS</span> <span class="o">=</span> <span class="s2">&quot;ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open,audiobook-overdrive&quot;</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
 
     <span class="c1"># The formats that can be read by the default Library Simplified reader.</span>
-    <span class="n">DEFAULT_READABLE_FORMATS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;ebook-epub-open&quot;</span><span class="p">,</span> <span class="s2">&quot;ebook-epub-adobe&quot;</span><span class="p">])</span>
+    <span class="n">DEFAULT_READABLE_FORMATS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;ebook-epub-open&quot;</span><span class="p">,</span> <span class="s2">&quot;ebook-epub-adobe&quot;</span><span class="p">,</span> <span class="s2">&quot;ebook-pdf-open&quot;</span><span class="p">,</span> 
+         <span class="s2">&quot;audiobook-overdrive&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
 
     <span class="c1"># The formats that indicate the book has been fulfilled on an</span>
     <span class="c1"># incompatible platform and just can&#39;t be fulfilled on Simplified</span>
@@ -700,9 +704,6 @@
             <span class="n">link</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">link</span></div>
 
-    <span class="n">media_type_for_overdrive_format</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="p">}</span>
-
     <span class="n">format_data_for_overdrive_format</span> <span class="o">=</span> <span class="p">{</span>
 
         <span class="s2">&quot;ebook-pdf-adobe&quot;</span> <span class="p">:</span> <span class="p">(</span>
@@ -723,17 +724,29 @@
         <span class="s2">&quot;music-mp3&quot;</span> <span class="p">:</span> <span class="p">(</span>
             <span class="s2">&quot;application/x-od-media&quot;</span><span class="p">,</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">OVERDRIVE_DRM</span>
         <span class="p">),</span>
-        <span class="s2">&quot;ebook-overdrive&quot;</span> <span class="p">:</span> <span class="p">(</span>
-            <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_TEXT_CONTENT_TYPE</span><span class="p">,</span>
-            <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">OVERDRIVE_DRM</span>
-        <span class="p">),</span>
-        <span class="s2">&quot;audiobook-overdrive&quot;</span> <span class="p">:</span> <span class="p">(</span>
-            <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_AUDIO_CONTENT_TYPE</span><span class="p">,</span>
-            <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">OVERDRIVE_DRM</span>
-        <span class="p">),</span>
+        <span class="s2">&quot;ebook-overdrive&quot;</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="p">(</span>
+                <span class="n">MediaTypes</span><span class="o">.</span><span class="n">OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span>
+                <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">LIBBY_DRM</span>
+            <span class="p">),</span>
+            <span class="p">(</span>
+                <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_TEXT_CONTENT_TYPE</span><span class="p">,</span>
+                <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_DRM</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;audiobook-overdrive&quot;</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="p">(</span>
+                <span class="n">MediaTypes</span><span class="o">.</span><span class="n">OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span>
+                <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">LIBBY_DRM</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="p">(</span>
+                <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_AUDIO_CONTENT_TYPE</span><span class="p">,</span>
+                <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_DRM</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
         <span class="s1">&#39;video-streaming&#39;</span> <span class="p">:</span> <span class="p">(</span>
             <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_VIDEO_CONTENT_TYPE</span><span class="p">,</span>
-            <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">OVERDRIVE_DRM</span>
+            <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_DRM</span>
         <span class="p">),</span>
         <span class="s2">&quot;ebook-kindle&quot;</span> <span class="p">:</span> <span class="p">(</span>
             <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">KINDLE_CONTENT_TYPE</span><span class="p">,</span>
@@ -745,10 +758,24 @@
         <span class="p">),</span>
     <span class="p">}</span>
 
-    <span class="n">ignorable_overdrive_formats</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
-        <span class="s1">&#39;ebook-overdrive&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;audiobook-overdrive&#39;</span><span class="p">,</span>
-    <span class="p">])</span>
+<div class="viewcode-block" id="OverdriveRepresentationExtractor.internal_formats"><a class="viewcode-back" href="../../core.html#core.overdrive.OverdriveRepresentationExtractor.internal_formats">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">internal_formats</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">overdrive_format</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Yield all internal formats for the given Overdrive format.</span>
+
+<span class="sd">        Some Overdrive formats become multiple internal formats.</span>
+
+<span class="sd">        :yield: A sequence of (content type, DRM system) 2-tuples</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">format_data_for_overdrive_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">overdrive_format</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">i</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">result</span></div>
+
+    <span class="n">ignorable_overdrive_formats</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
 
     <span class="n">overdrive_role_to_simplified_role</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;actor&quot;</span> <span class="p">:</span> <span class="n">Contributor</span><span class="o">.</span><span class="n">ACTOR_ROLE</span><span class="p">,</span>
@@ -1031,21 +1058,22 @@
 
                 <span class="c1"># Samples become links.</span>
                 <span class="k">if</span> <span class="s1">&#39;samples&#39;</span> <span class="ow">in</span> <span class="nb">format</span><span class="p">:</span>
-
-                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">format</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">format_data_for_overdrive_format</span><span class="p">:</span>
+                    <span class="n">overdrive_name</span> <span class="o">=</span> <span class="nb">format</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
+                    <span class="n">internal_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">internal_formats</span><span class="p">(</span><span class="n">overdrive_name</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">internal_names</span><span class="p">:</span>
                         <span class="c1"># Useless to us.</span>
                         <span class="k">continue</span>
-                    <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">format_data_for_overdrive_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">format</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
-                    <span class="k">if</span> <span class="n">Representation</span><span class="o">.</span><span class="n">is_media_type</span><span class="p">(</span><span class="n">content_type</span><span class="p">):</span>
-                        <span class="k">for</span> <span class="n">sample_info</span> <span class="ow">in</span> <span class="nb">format</span><span class="p">[</span><span class="s1">&#39;samples&#39;</span><span class="p">]:</span>
-                            <span class="n">href</span> <span class="o">=</span> <span class="n">sample_info</span><span class="p">[</span><span class="s1">&#39;url&#39;</span><span class="p">]</span>
-                            <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                                <span class="n">LinkData</span><span class="p">(</span>
-                                    <span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">SAMPLE</span><span class="p">,</span>
-                                    <span class="n">href</span><span class="o">=</span><span class="n">href</span><span class="p">,</span>
-                                    <span class="n">media_type</span><span class="o">=</span><span class="n">content_type</span>
+                    <span class="k">for</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="ow">in</span> <span class="n">internal_names</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">Representation</span><span class="o">.</span><span class="n">is_media_type</span><span class="p">(</span><span class="n">content_type</span><span class="p">):</span>
+                            <span class="k">for</span> <span class="n">sample_info</span> <span class="ow">in</span> <span class="nb">format</span><span class="p">[</span><span class="s1">&#39;samples&#39;</span><span class="p">]:</span>
+                                <span class="n">href</span> <span class="o">=</span> <span class="n">sample_info</span><span class="p">[</span><span class="s1">&#39;url&#39;</span><span class="p">]</span>
+                                <span class="n">links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                                    <span class="n">LinkData</span><span class="p">(</span>
+                                        <span class="n">rel</span><span class="o">=</span><span class="n">Hyperlink</span><span class="o">.</span><span class="n">SAMPLE</span><span class="p">,</span>
+                                        <span class="n">href</span><span class="o">=</span><span class="n">href</span><span class="p">,</span>
+                                        <span class="n">media_type</span><span class="o">=</span><span class="n">content_type</span>
+                                    <span class="p">)</span>
                                 <span class="p">)</span>
-                            <span class="p">)</span>
 
             <span class="c1"># A cover and its thumbnail become a single LinkData.</span>
             <span class="k">if</span> <span class="s1">&#39;images&#39;</span> <span class="ow">in</span> <span class="n">book</span><span class="p">:</span>
@@ -1138,15 +1166,15 @@
             <span class="n">formats</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="nb">format</span> <span class="ow">in</span> <span class="n">book</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formats&#39;</span><span class="p">,</span> <span class="p">[]):</span>
                 <span class="n">format_id</span> <span class="o">=</span> <span class="nb">format</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span>
-                <span class="k">if</span> <span class="n">format_id</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">format_data_for_overdrive_format</span><span class="p">:</span>
-                    <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">format_data_for_overdrive_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">format_id</span><span class="p">)</span>
-                    <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FormatData</span><span class="p">(</span><span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">))</span>
+                <span class="n">internal_formats</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">internal_formats</span><span class="p">(</span><span class="n">format_id</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">internal_formats</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="ow">in</span> <span class="n">internal_formats</span><span class="p">:</span>
+                        <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FormatData</span><span class="p">(</span><span class="n">content_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">))</span>
                 <span class="k">elif</span> <span class="n">format_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">ignorable_overdrive_formats</span><span class="p">:</span>
                     <span class="bp">cls</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                         <span class="s2">&quot;Could not process Overdrive format </span><span class="si">%s</span><span class="s2"> for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
                         <span class="n">format_id</span><span class="p">,</span> <span class="n">overdrive_id</span>
                     <span class="p">)</span>
-
 
             <span class="c1"># Also make a CirculationData so we can write the formats,</span>
             <span class="n">circulationdata</span> <span class="o">=</span> <span class="n">CirculationData</span><span class="p">(</span>

@@ -5054,7 +5054,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-35592321-81dc-49a7-b307-9c23756f97ea'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-1a405651-602a-48b8-8e93-9fca3f9a6264'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8800,7 +8800,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.DEFAULT_READABLE_FORMATS">
-<code class="descname">DEFAULT_READABLE_FORMATS</code><em class="property"> = set(['ebook-epub-adobe', 'ebook-epub-open'])</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.DEFAULT_READABLE_FORMATS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">DEFAULT_READABLE_FORMATS</code><em class="property"> = set(['audiobook-overdrive', 'ebook-epub-adobe', 'ebook-epub-open', 'ebook-pdf-open'])</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.DEFAULT_READABLE_FORMATS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -8820,7 +8820,7 @@ whether to queue a response in a given test.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveAPI.FORMATS">
-<code class="descname">FORMATS</code><em class="property"> = 'ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open'</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.FORMATS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">FORMATS</code><em class="property"> = ['ebook-epub-open', 'ebook-epub-adobe', 'ebook-pdf-adobe', 'ebook-pdf-open', 'audiobook-overdrive']</em><a class="headerlink" href="#core.overdrive.OverdriveAPI.FORMATS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -9214,18 +9214,33 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.format_data_for_overdrive_format">
-<code class="descname">format_data_for_overdrive_format</code><em class="property"> = {'audiobook-mp3': ('application/x-od-media', u'Overdrive DRM'), 'audiobook-overdrive': (u'Streaming Audio', u'Overdrive DRM'), 'ebook-epub-adobe': (u'application/epub+zip', u'application/vnd.adobe.adept+xml'), 'ebook-epub-open': (u'application/epub+zip', None), 'ebook-kindle': (u'Kindle via Amazon', u'Kindle DRM'), 'ebook-overdrive': (u'Streaming Text', u'Overdrive DRM'), 'ebook-pdf-adobe': (u'application/pdf', u'application/vnd.adobe.adept+xml'), 'ebook-pdf-open': (u'application/pdf', None), 'music-mp3': ('application/x-od-media', u'Overdrive DRM'), 'periodicals-nook': (u'Nook via B&amp;N', u'Nook DRM'), 'video-streaming': (u'Streaming Video', u'Overdrive DRM')}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.format_data_for_overdrive_format" title="Permalink to this definition">¶</a></dt>
+<code class="descname">format_data_for_overdrive_format</code><em class="property"> = {'audiobook-mp3': ('application/x-od-media', u'Overdrive DRM'), 'audiobook-overdrive': [(u'application/vnd.overdrive.circulation.api+json;profile=audiobook', u'Libby DRM'), (u'Streaming Audio', u'Streaming')], 'ebook-epub-adobe': (u'application/epub+zip', u'application/vnd.adobe.adept+xml'), 'ebook-epub-open': (u'application/epub+zip', None), 'ebook-kindle': (u'Kindle via Amazon', u'Kindle DRM'), 'ebook-overdrive': [(u'application/vnd.overdrive.circulation.api+json;profile=ebook', u'Libby DRM'), (u'Streaming Text', u'Streaming')], 'ebook-pdf-adobe': (u'application/pdf', u'application/vnd.adobe.adept+xml'), 'ebook-pdf-open': (u'application/pdf', None), 'music-mp3': ('application/x-od-media', u'Overdrive DRM'), 'periodicals-nook': (u'Nook via B&amp;N', u'Nook DRM'), 'video-streaming': (u'Streaming Video', u'Streaming')}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.format_data_for_overdrive_format" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.ignorable_overdrive_formats">
-<code class="descname">ignorable_overdrive_formats</code><em class="property"> = set(['audiobook-overdrive', 'ebook-overdrive'])</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.ignorable_overdrive_formats" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ignorable_overdrive_formats</code><em class="property"> = set([])</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.ignorable_overdrive_formats" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.image_link_to_linkdata">
 <em class="property">classmethod </em><code class="descname">image_link_to_linkdata</code><span class="sig-paren">(</span><em>link</em>, <em>rel</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveRepresentationExtractor.image_link_to_linkdata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.image_link_to_linkdata" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="core.overdrive.OverdriveRepresentationExtractor.internal_formats">
+<em class="property">classmethod </em><code class="descname">internal_formats</code><span class="sig-paren">(</span><em>overdrive_format</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/overdrive.html#OverdriveRepresentationExtractor.internal_formats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.internal_formats" title="Permalink to this definition">¶</a></dt>
+<dd><p>Yield all internal formats for the given Overdrive format.</p>
+<p>Some Overdrive formats become multiple internal formats.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Yield:</th><td class="field-body">A sequence of (content type, DRM system) 2-tuples</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="classmethod">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.link">
@@ -9235,11 +9250,6 @@ from the json data that goes into the book_info_to_circulation() method.</p>
 <dl class="attribute">
 <dt id="core.overdrive.OverdriveRepresentationExtractor.log">
 <code class="descname">log</code><em class="property"> = &lt;logging.Logger object&gt;</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.log" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="core.overdrive.OverdriveRepresentationExtractor.media_type_for_overdrive_format">
-<code class="descname">media_type_for_overdrive_format</code><em class="property"> = {}</em><a class="headerlink" href="#core.overdrive.OverdriveRepresentationExtractor.media_type_for_overdrive_format" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

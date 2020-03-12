@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x53dda60&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x544f6e0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x53db620&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x53b5510&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x53f05c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x55cc2c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -3664,6 +3664,14 @@ when fulfilling that part.</li>
 <code class="descname">internal_format</code><span class="sig-paren">(</span><em>delivery_mechanism</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation.html#BaseCirculationAPI.internal_format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation.BaseCirculationAPI.internal_format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Look up the internal format for this delivery mechanism or
 raise an exception.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>delivery_mechanism</strong> – A LicensePoolDeliveryMechanism</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -3970,6 +3978,21 @@ given Loan; None otherwise.</p>
 <dd><p>Bases: <a class="reference internal" href="#api.circulation.CirculationInfo" title="api.circulation.CirculationInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.CirculationInfo</span></code></a></p>
 <p>A record of a technique that can be used <em>right now</em> to fulfill
 a loan.</p>
+<dl class="attribute">
+<dt id="api.circulation.FulfillmentInfo.as_response">
+<code class="descname">as_response</code><a class="headerlink" href="#api.circulation.FulfillmentInfo.as_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bypass the normal process of creating a Flask Response.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A Response object, or None if you’re okay with the
+normal process.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="class">
@@ -8318,7 +8341,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 3, 21, 15, 57, 36, 376029)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 3, 22, 18, 15, 24, 281356)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10822,6 +10845,16 @@ RecentOverdriveCollectionMonitor.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="api.overdrive.OverdriveAPI.LOCK_IN_FORMATS">
+<code class="descname">LOCK_IN_FORMATS</code><em class="property"> = ['ebook-epub-adobe', 'ebook-pdf-adobe']</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.LOCK_IN_FORMATS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.overdrive.OverdriveAPI.MANIFEST_INTERNAL_FORMATS">
+<code class="descname">MANIFEST_INTERNAL_FORMATS</code><em class="property"> = set(['audiobook-overdrive-manifest', 'ebook-overdrive-manifest'])</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.MANIFEST_INTERNAL_FORMATS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="api.overdrive.OverdriveAPI.NAME">
 <code class="descname">NAME</code><em class="property"> = u'Overdrive'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -10838,7 +10871,7 @@ RecentOverdriveCollectionMonitor.</p>
 
 <dl class="attribute">
 <dt id="api.overdrive.OverdriveAPI.STREAMING_FORMATS">
-<code class="descname">STREAMING_FORMATS</code><em class="property"> = ['ebook-overdrive']</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.STREAMING_FORMATS" title="Permalink to this definition">¶</a></dt>
+<code class="descname">STREAMING_FORMATS</code><em class="property"> = ['ebook-overdrive', 'audiobook-overdrive']</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.STREAMING_FORMATS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10914,7 +10947,7 @@ no such address.</td>
 
 <dl class="attribute">
 <dt id="api.overdrive.OverdriveAPI.delivery_mechanism_to_internal_format">
-<code class="descname">delivery_mechanism_to_internal_format</code><em class="property"> = {(u'Streaming Text', u'Overdrive DRM'): 'ebook-overdrive', (u'application/epub+zip', None): 'ebook-epub-open', (u'application/epub+zip', u'application/vnd.adobe.adept+xml'): 'ebook-epub-adobe', (u'application/pdf', None): 'ebook-pdf-open', (u'application/pdf', u'application/vnd.adobe.adept+xml'): 'ebook-pdf-adobe'}</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.delivery_mechanism_to_internal_format" title="Permalink to this definition">¶</a></dt>
+<code class="descname">delivery_mechanism_to_internal_format</code><em class="property"> = {(u'Streaming Audio', u'Streaming'): 'audiobook-overdrive', (u'Streaming Text', u'Streaming'): 'ebook-overdrive', (u'application/epub+zip', None): 'ebook-epub-open', (u'application/epub+zip', u'application/vnd.adobe.adept+xml'): 'ebook-epub-adobe', (u'application/pdf', None): 'ebook-pdf-open', (u'application/pdf', u'application/vnd.adobe.adept+xml'): 'ebook-pdf-adobe', (u'application/vnd.overdrive.circulation.api+json;profile=audiobook', u'Libby DRM'): 'audiobook-overdrive-manifest'}</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.delivery_mechanism_to_internal_format" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10954,7 +10987,7 @@ ExternalIntegration, and self-test status will not be stored.</p>
 
 <dl class="classmethod">
 <dt id="api.overdrive.OverdriveAPI.extract_download_link">
-<em class="property">classmethod </em><code class="descname">extract_download_link</code><span class="sig-paren">(</span><em>format</em>, <em>error_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.extract_download_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.extract_download_link" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">extract_download_link</code><span class="sig-paren">(</span><em>format</em>, <em>error_url</em>, <em>fetch_manifest=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.extract_download_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.extract_download_link" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
@@ -10987,12 +11020,32 @@ which are not relevant to this vendor.</td>
 <dl class="classmethod">
 <dt id="api.overdrive.OverdriveAPI.get_download_link">
 <em class="property">classmethod </em><code class="descname">get_download_link</code><span class="sig-paren">(</span><em>checkout_response</em>, <em>format_type</em>, <em>error_url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.get_download_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.get_download_link" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Extract a download link from the given response.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>checkout_response</strong> – A JSON document describing a checkout-type
+response from the Overdrive API.</li>
+<li><strong>format_type</strong> – The internal (Overdrive-facing) format type
+that should be retrieved. ‘x-manifest’ format types are treated
+as a variant of the ‘x’ format type – Overdrive doesn’t recognise
+‘x-manifest’ and uses ‘x’ for delivery of both streaming content
+and manifests.</li>
+<li><strong>error_url</strong> – Value to interpolate for the {errorpageurl}
+URI template value.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="api.overdrive.OverdriveAPI.get_fulfillment_link">
 <code class="descname">get_fulfillment_link</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>overdrive_id</em>, <em>format_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.get_fulfillment_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.get_fulfillment_link" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the link to the ACSM file corresponding to an existing loan.</p>
+<dd><p>Get the link to the ACSM or manifest for an existing loan.</p>
 </dd></dl>
 
 <dl class="method">
@@ -11038,10 +11091,31 @@ loans.</p>
 <code class="descname">get_patron_information</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.get_patron_information"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.get_patron_information" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="api.overdrive.OverdriveAPI.libby_drm">
+<code class="descname">libby_drm</code><em class="property"> = u'Libby DRM'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.libby_drm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="api.overdrive.OverdriveAPI.lock_in_format">
 <code class="descname">lock_in_format</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>overdrive_id</em>, <em>format_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.lock_in_format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.lock_in_format" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="api.overdrive.OverdriveAPI.make_direct_download_link">
+<em class="property">classmethod </em><code class="descname">make_direct_download_link</code><span class="sig-paren">(</span><em>link</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.make_direct_download_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.make_direct_download_link" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert an Overdrive Read or Overdrive Listen link template to a
+direct-download link for the manifest.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>link</strong> – An Overdrive Read or Overdrive Listen template
+link.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="api.overdrive.OverdriveAPI.no_drm">
@@ -11049,8 +11123,8 @@ loans.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="api.overdrive.OverdriveAPI.overdrive_drm">
-<code class="descname">overdrive_drm</code><em class="property"> = u'Overdrive DRM'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.overdrive_drm" title="Permalink to this definition">¶</a></dt>
+<dt id="api.overdrive.OverdriveAPI.overdrive_audiobook_manifest">
+<code class="descname">overdrive_audiobook_manifest</code><em class="property"> = u'application/vnd.overdrive.circulation.api+json;profile=audiobook'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.overdrive_audiobook_manifest" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -11174,6 +11248,25 @@ any reason.</td>
 </table>
 </dd></dl>
 
+<dl class="method">
+<dt id="api.overdrive.OverdriveAPI.scope_string">
+<code class="descname">scope_string</code><span class="sig-paren">(</span><em>library</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.scope_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.scope_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create the Overdrive scope string for the given library.</p>
+<p>This is used when setting up Patron Authentication, and when
+generating the X-Overdrive-Scope header used by SimplyE to set up
+its own Patron Authentication.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.overdrive.OverdriveAPI.streaming_audio">
+<code class="descname">streaming_audio</code><em class="property"> = u'Streaming Audio'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.streaming_audio" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.overdrive.OverdriveAPI.streaming_drm">
+<code class="descname">streaming_drm</code><em class="property"> = u'Streaming'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.streaming_drm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="attribute">
 <dt id="api.overdrive.OverdriveAPI.streaming_text">
 <code class="descname">streaming_text</code><em class="property"> = u'Streaming Text'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.streaming_text" title="Permalink to this definition">¶</a></dt>
@@ -11215,6 +11308,11 @@ coverage. If the new Edition is the only candidate for the
 pool’s presentation_edition, promote it to presentation
 status.</p>
 </dd></dl>
+
+<dl class="attribute">
+<dt id="api.overdrive.OverdriveAPI.x">
+<code class="descname">x</code><em class="property"> = 'audiobook-overdrive'</em><a class="headerlink" href="#api.overdrive.OverdriveAPI.x" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -11337,6 +11435,17 @@ in our collection.</p>
 <code class="descname">process_item</code><span class="sig-paren">(</span><em>identifier</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveFormatSweep.process_item"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveFormatSweep.process_item" title="Permalink to this definition">¶</a></dt>
 <dd><p>Do the work that needs to be done for a given item.</p>
 </dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="api.overdrive.OverdriveManifestFulfillmentInfo">
+<em class="property">class </em><code class="descclassname">api.overdrive.</code><code class="descname">OverdriveManifestFulfillmentInfo</code><span class="sig-paren">(</span><em>collection</em>, <em>content_link</em>, <em>overdrive_identifier</em>, <em>scope_string</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveManifestFulfillmentInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveManifestFulfillmentInfo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.circulation.FulfillmentInfo" title="api.circulation.FulfillmentInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation.FulfillmentInfo</span></code></a></p>
+<dl class="attribute">
+<dt id="api.overdrive.OverdriveManifestFulfillmentInfo.as_response">
+<code class="descname">as_response</code><a class="headerlink" href="#api.overdrive.OverdriveManifestFulfillmentInfo.as_response" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -13229,6 +13338,14 @@ when fulfilling that part.</li>
 <code class="descname">internal_format</code><span class="sig-paren">(</span><em>delivery_mechanism</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/testing.html#MockRemoteAPI.internal_format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.testing.MockRemoteAPI.internal_format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Look up the internal format for this delivery mechanism or
 raise an exception.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>delivery_mechanism</strong> – A LicensePoolDeliveryMechanism</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">

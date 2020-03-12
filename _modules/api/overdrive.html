@@ -38,6 +38,7 @@
 <span class="kn">import</span> <span class="nn">dateutil</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">pytz</span>
+<span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">import</span> <span class="nn">flask</span>
 <span class="kn">import</span> <span class="nn">urlparse</span>
@@ -75,6 +76,7 @@
     <span class="n">Identifier</span><span class="p">,</span>
     <span class="n">LicensePool</span><span class="p">,</span>
     <span class="n">Loan</span><span class="p">,</span>
+    <span class="n">MediaTypes</span><span class="p">,</span>
     <span class="n">Representation</span><span class="p">,</span>
     <span class="n">Session</span><span class="p">,</span>
 <span class="p">)</span>
@@ -141,19 +143,41 @@
     <span class="n">pdf</span> <span class="o">=</span> <span class="n">Representation</span><span class="o">.</span><span class="n">PDF_MEDIA_TYPE</span>
     <span class="n">adobe_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">ADOBE_DRM</span>
     <span class="n">no_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">NO_DRM</span>
+    <span class="n">streaming_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_DRM</span>
     <span class="n">streaming_text</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_TEXT_CONTENT_TYPE</span>
-    <span class="n">overdrive_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">OVERDRIVE_DRM</span>
+    <span class="n">streaming_audio</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_AUDIO_CONTENT_TYPE</span>
+    <span class="n">overdrive_audiobook_manifest</span> <span class="o">=</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE</span>
+    <span class="n">libby_drm</span> <span class="o">=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">LIBBY_DRM</span>
 
+    <span class="c1"># These are not real Overdrive formats; we use them internally so</span>
+    <span class="c1"># we can distinguish between (e.g.) using &quot;audiobook-overdrive&quot;</span>
+    <span class="c1"># to get into Overdrive Read, and using it to get a link to a</span>
+    <span class="c1"># manifest file.</span>
+    <span class="n">MANIFEST_INTERNAL_FORMATS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+        <span class="p">[</span><span class="s1">&#39;audiobook-overdrive-manifest&#39;</span><span class="p">,</span> <span class="s1">&#39;ebook-overdrive-manifest&#39;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># When a request comes in for a given DeliveryMechanism, what</span>
+    <span class="c1"># do we tell Overdrive?</span>
     <span class="n">delivery_mechanism_to_internal_format</span> <span class="o">=</span> <span class="p">{</span>
         <span class="p">(</span><span class="n">epub</span><span class="p">,</span> <span class="n">no_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-epub-open&#39;</span><span class="p">,</span>
         <span class="p">(</span><span class="n">epub</span><span class="p">,</span> <span class="n">adobe_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-epub-adobe&#39;</span><span class="p">,</span>
         <span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">no_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-pdf-open&#39;</span><span class="p">,</span>
         <span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">adobe_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-pdf-adobe&#39;</span><span class="p">,</span>
-        <span class="p">(</span><span class="n">streaming_text</span><span class="p">,</span> <span class="n">overdrive_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-overdrive&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">streaming_text</span><span class="p">,</span> <span class="n">streaming_drm</span><span class="p">):</span> <span class="s1">&#39;ebook-overdrive&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">streaming_audio</span><span class="p">,</span> <span class="n">streaming_drm</span><span class="p">):</span> <span class="s1">&#39;audiobook-overdrive&#39;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">overdrive_audiobook_manifest</span><span class="p">,</span> <span class="n">libby_drm</span><span class="p">):</span> <span class="s1">&#39;audiobook-overdrive-manifest&#39;</span>
     <span class="p">}</span>
 
+    <span class="c1"># Once you choose an Adobe format you&#39;re locked into it and can&#39;t</span>
+    <span class="c1"># use other formats.</span>
+    <span class="n">LOCK_IN_FORMATS</span> <span class="o">=</span> <span class="p">[</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">BaseOverdriveAPI</span><span class="o">.</span><span class="n">FORMATS</span> <span class="k">if</span> <span class="s1">&#39;adobe&#39;</span> <span class="ow">in</span> <span class="n">x</span> <span class="p">]</span>
+
+    <span class="c1"># These formats can be delivered either as manifest files or as</span>
+    <span class="c1"># links to websites that stream the content.</span>
     <span class="n">STREAMING_FORMATS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="s1">&#39;ebook-overdrive&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;audiobook-overdrive&#39;</span><span class="p">,</span>
     <span class="p">]</span>
 
     <span class="c1"># TODO: This is a terrible choice but this URL should never be</span>
@@ -259,6 +283,17 @@
         <span class="k">return</span> <span class="n">Credential</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span> <span class="s2">&quot;OAuth Token&quot;</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">refresh</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="OverdriveAPI.scope_string"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.scope_string">[docs]</a>    <span class="k">def</span> <span class="nf">scope_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create the Overdrive scope string for the given library.</span>
+
+<span class="sd">        This is used when setting up Patron Authentication, and when</span>
+<span class="sd">        generating the X-Overdrive-Scope header used by SimplyE to set up</span>
+<span class="sd">        its own Patron Authentication.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;websiteid:</span><span class="si">%s</span><span class="s2"> authorizationname:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">website_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ils_name</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
 <div class="viewcode-block" id="OverdriveAPI.refresh_patron_access_token"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.refresh_patron_access_token">[docs]</a>    <span class="k">def</span> <span class="nf">refresh_patron_access_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">credential</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Request an OAuth bearer token that allows us to act on</span>
 <span class="sd">        behalf of a specific patron.</span>
@@ -268,8 +303,7 @@
         <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
             <span class="n">grant_type</span><span class="o">=</span><span class="s2">&quot;password&quot;</span><span class="p">,</span>
             <span class="n">username</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">authorization_identifier</span><span class="p">,</span>
-            <span class="n">scope</span><span class="o">=</span><span class="s2">&quot;websiteid:</span><span class="si">%s</span><span class="s2"> authorizationname:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">website_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ils_name</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">))</span>
+            <span class="n">scope</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scope_string</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">pin</span><span class="p">:</span>
             <span class="c1"># A PIN was provided.</span>
@@ -500,8 +534,15 @@
 <span class="sd">        :return: a FulfillmentInfo object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">url</span><span class="p">,</span> <span class="n">media_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fulfillment_link</span><span class="p">(</span>
-                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">internal_format</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fulfillment_link</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span> <span class="n">internal_format</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">FulfillmentInfo</span><span class="p">):</span>
+                <span class="c1"># The fulfillment process was short-circuited, probably</span>
+                <span class="c1"># by the creation of an OverdriveManifestFulfillmentInfo.</span>
+                <span class="k">return</span> <span class="n">result</span>
+
+            <span class="n">url</span><span class="p">,</span> <span class="n">media_type</span> <span class="o">=</span> <span class="n">result</span>
             <span class="k">if</span> <span class="n">internal_format</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STREAMING_FORMATS</span><span class="p">:</span>
                 <span class="n">media_type</span> <span class="o">+=</span> <span class="n">DeliveryMechanism</span><span class="o">.</span><span class="n">STREAMING_PROFILE</span>
         <span class="k">except</span> <span class="n">FormatNotAvailable</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
@@ -531,16 +572,17 @@
 
 
 <div class="viewcode-block" id="OverdriveAPI.get_fulfillment_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_fulfillment_link">[docs]</a>    <span class="k">def</span> <span class="nf">get_fulfillment_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get the link to the ACSM file corresponding to an existing loan.</span>
+        <span class="sd">&quot;&quot;&quot;Get the link to the ACSM or manifest for an existing loan.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">loan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_loan</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">NoActiveLoan</span><span class="p">(</span><span class="s2">&quot;Could not find active loan for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">overdrive_id</span><span class="p">)</span>
         <span class="n">download_link</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span><span class="p">[</span><span class="s1">&#39;isFormatLockedIn&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">format_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STREAMING_FORMATS</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">loan</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;isFormatLockedIn&#39;</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">LOCK_IN_FORMATS</span><span class="p">):</span>
             <span class="c1"># The format is not locked in. Lock it in.</span>
             <span class="c1"># This will happen the first time someone tries to fulfill</span>
-            <span class="c1"># a loan.</span>
+            <span class="c1"># a loan with a lock-in format (basically Adobe-gated formats)</span>
             <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock_in_format</span><span class="p">(</span>
                 <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">201</span><span class="p">,</span> <span class="mi">200</span><span class="p">):</span>
@@ -563,18 +605,27 @@
 
         <span class="k">if</span> <span class="n">format_type</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">download_link</span><span class="p">:</span>
             <span class="n">download_link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_download_link</span><span class="p">(</span>
-                <span class="n">loan</span><span class="p">,</span> <span class="n">format_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_ERROR_URL</span><span class="p">)</span>
+                <span class="n">loan</span><span class="p">,</span> <span class="n">format_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_ERROR_URL</span>
+            <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">download_link</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span>
                     <span class="s2">&quot;No download link for </span><span class="si">%s</span><span class="s2">, format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
                         <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">download_link</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">MANIFEST_INTERNAL_FORMATS</span><span class="p">:</span>
+                <span class="c1"># The client must authenticate using its own</span>
+                <span class="c1"># credentials to fulfill this URL; we can&#39;t do it.</span>
+                <span class="n">scope_string</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope_string</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">OverdriveManifestFulfillmentInfo</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">download_link</span><span class="p">,</span>
+                    <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">scope_string</span>
+                <span class="p">)</span>
+
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fulfillment_link_from_download_link</span><span class="p">(</span>
                 <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">download_link</span><span class="p">)</span>
 
         <span class="k">raise</span> <span class="n">CannotFulfill</span><span class="p">(</span><span class="s2">&quot;Cannot obtain a download link for patron[</span><span class="si">%r</span><span class="s2">], overdrive_id[</span><span class="si">%s</span><span class="s2">], format_type[</span><span class="si">%s</span><span class="s2">].&quot;</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">overdrive_id</span><span class="p">,</span> <span class="n">format_type</span><span class="p">)</span></div>
-
 
 <div class="viewcode-block" id="OverdriveAPI.get_fulfillment_link_from_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_fulfillment_link_from_download_link">[docs]</a>    <span class="k">def</span> <span class="nf">get_fulfillment_link_from_download_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">download_link</span><span class="p">,</span> <span class="n">fulfill_url</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="c1"># If this for Overdrive&#39;s streaming reader, and the link expires,</span>
@@ -742,14 +793,19 @@
             <span class="c1"># Either the book has been locked into a specific format,</span>
             <span class="c1"># or only one usable format is available. We don&#39;t know</span>
             <span class="c1"># which case we&#39;re looking at, but for our purposes the</span>
-            <span class="c1"># book is locked.</span>
-            <span class="p">[</span><span class="nb">format</span><span class="p">]</span> <span class="o">=</span> <span class="n">usable_formats</span>
-            <span class="n">media_type</span><span class="p">,</span> <span class="n">drm_scheme</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">format_data_for_overdrive_format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                    <span class="nb">format</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="c1"># book is locked -- unless, of course, what Overdrive</span>
+            <span class="c1"># considers &quot;one format&quot; corresponds to more than one</span>
+            <span class="c1"># format on our side.</span>
+            <span class="p">[</span><span class="n">overdrive_format</span><span class="p">]</span> <span class="o">=</span> <span class="n">usable_formats</span>
+
+            <span class="n">internal_formats</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="n">OverdriveRepresentationExtractor</span><span class="o">.</span><span class="n">internal_formats</span><span class="p">(</span>
+                    <span class="n">overdrive_format</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="n">media_type</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">internal_formats</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="p">[(</span><span class="n">media_type</span><span class="p">,</span> <span class="n">drm_scheme</span><span class="p">)]</span> <span class="o">=</span> <span class="n">internal_formats</span>
                 <span class="c1"># Make it clear that Overdrive will only deliver the content</span>
                 <span class="c1"># in one specific media type.</span>
                 <span class="n">locked_to</span> <span class="o">=</span> <span class="n">DeliveryMechanismInfo</span><span class="p">(</span>
@@ -1043,13 +1099,31 @@
 
 <div class="viewcode-block" id="OverdriveAPI.get_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.get_download_link">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">get_download_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">checkout_response</span><span class="p">,</span> <span class="n">format_type</span><span class="p">,</span> <span class="n">error_url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a download link from the given response.</span>
+
+<span class="sd">        :param checkout_response: A JSON document describing a checkout-type</span>
+<span class="sd">           response from the Overdrive API.</span>
+<span class="sd">        :param format_type: The internal (Overdrive-facing) format type</span>
+<span class="sd">           that should be retrieved. &#39;x-manifest&#39; format types are treated</span>
+<span class="sd">           as a variant of the &#39;x&#39; format type -- Overdrive doesn&#39;t recognise</span>
+<span class="sd">           &#39;x-manifest&#39; and uses &#39;x&#39; for delivery of both streaming content</span>
+<span class="sd">           and manifests.</span>
+<span class="sd">        :param error_url: Value to interpolate for the {errorpageurl}</span>
+<span class="sd">           URI template value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">link</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="nb">format</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">available_formats</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">format_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">MANIFEST_INTERNAL_FORMATS</span><span class="p">:</span>
+            <span class="n">use_format_type</span> <span class="o">=</span> <span class="n">format_type</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-manifest&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">fetch_manifest</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">use_format_type</span> <span class="o">=</span> <span class="n">format_type</span>
+            <span class="n">fetch_manifest</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">checkout_response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formats&#39;</span><span class="p">,</span> <span class="p">[]):</span>
             <span class="n">this_type</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s1">&#39;formatType&#39;</span><span class="p">]</span>
             <span class="n">available_formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">this_type</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">this_type</span> <span class="o">==</span> <span class="n">format_type</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">this_type</span> <span class="o">==</span> <span class="n">use_format_type</span><span class="p">:</span>
                 <span class="nb">format</span> <span class="o">=</span> <span class="n">f</span>
                 <span class="k">break</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">format</span><span class="p">:</span>
@@ -1065,25 +1139,51 @@
                 <span class="n">format_list</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available_formats</span><span class="p">)</span>
                 <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Could not find specified format </span><span class="si">%s</span><span class="s2">. Available formats: </span><span class="si">%s</span><span class="s2">&quot;</span>
                 <span class="k">raise</span> <span class="n">NoAcceptableFormat</span><span class="p">(</span>
-                    <span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">format_type</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available_formats</span><span class="p">))</span>
+                    <span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">use_format_type</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available_formats</span><span class="p">))</span>
                 <span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_download_link</span><span class="p">(</span><span class="nb">format</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_download_link</span><span class="p">(</span><span class="nb">format</span><span class="p">,</span> <span class="n">error_url</span><span class="p">,</span> <span class="n">fetch_manifest</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OverdriveAPI.extract_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.extract_download_link">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">extract_download_link</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">format</span><span class="p">,</span> <span class="n">error_url</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">extract_download_link</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">format</span><span class="p">,</span> <span class="n">error_url</span><span class="p">,</span> <span class="n">fetch_manifest</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="n">format_type</span> <span class="o">=</span> <span class="nb">format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formatType&#39;</span><span class="p">,</span> <span class="s1">&#39;(unknown)&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;linkTemplates&#39;</span> <span class="ow">in</span> <span class="nb">format</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No linkTemplates for format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
         <span class="n">templates</span> <span class="o">=</span> <span class="nb">format</span><span class="p">[</span><span class="s1">&#39;linkTemplates&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;downloadLink&#39;</span> <span class="ow">in</span> <span class="n">templates</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No downloadLink for format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
-        <span class="n">download_link</span> <span class="o">=</span> <span class="n">templates</span><span class="p">[</span><span class="s1">&#39;downloadLink&#39;</span><span class="p">][</span><span class="s1">&#39;href&#39;</span><span class="p">]</span>
+        <span class="n">download_link_data</span> <span class="o">=</span> <span class="n">templates</span><span class="p">[</span><span class="s1">&#39;downloadLink&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;href&#39;</span> <span class="ow">in</span> <span class="n">download_link_data</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No downloadLink href for format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
+        <span class="n">download_link</span> <span class="o">=</span> <span class="n">download_link_data</span><span class="p">[</span><span class="s1">&#39;href&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">download_link</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">download_link</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{errorpageurl}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span>
+            <span class="n">download_link</span> <span class="o">=</span> <span class="n">download_link</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{errorpageurl}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">fetch_manifest</span><span class="p">:</span>
+                <span class="n">download_link</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">make_direct_download_link</span><span class="p">(</span><span class="n">download_link</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">download_link</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span></div></div>
+            <span class="k">return</span> <span class="kc">None</span></div>
 
+<div class="viewcode-block" id="OverdriveAPI.make_direct_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.make_direct_download_link">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_direct_download_link</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">link</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert an Overdrive Read or Overdrive Listen link template to a</span>
+<span class="sd">        direct-download link for the manifest.</span>
+
+<span class="sd">        :param link: An Overdrive Read or Overdrive Listen template</span>
+<span class="sd">            link.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Remove any Overdrive Read authentication URL.</span>
+        <span class="n">argument_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;odreadauthurl=</span><span class="si">{odreadauthurl}</span><span class="s2">&amp;?&quot;</span><span class="p">)</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="n">argument_re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">link</span><span class="p">)</span>
+
+        <span class="c1"># Add the contentfile=true argument.</span>
+        <span class="k">if</span> <span class="s1">&#39;?&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">link</span><span class="p">:</span>
+            <span class="n">link</span> <span class="o">+=</span> <span class="s1">&#39;?contentfile=true&#39;</span>
+        <span class="k">elif</span> <span class="n">link</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&amp;&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">link</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;?&#39;</span><span class="p">):</span>
+            <span class="n">link</span> <span class="o">+=</span> <span class="s1">&#39;contentfile=true&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">link</span> <span class="o">+=</span> <span class="s1">&#39;&amp;contentfile=true&#39;</span>
+        <span class="k">return</span> <span class="n">link</span></div></div>
 
 <div class="viewcode-block" id="MockOverdriveResponse"><a class="viewcode-back" href="../../api.html#api.overdrive.MockOverdriveResponse">[docs]</a><span class="k">class</span> <span class="nc">MockOverdriveResponse</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
@@ -1324,6 +1424,39 @@
             <span class="nb">print</span> <span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">book</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
                 <span class="k">break</span></div></div>
+
+
+<div class="viewcode-block" id="OverdriveManifestFulfillmentInfo"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveManifestFulfillmentInfo">[docs]</a><span class="k">class</span> <span class="nc">OverdriveManifestFulfillmentInfo</span><span class="p">(</span><span class="n">FulfillmentInfo</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">content_link</span><span class="p">,</span> <span class="n">overdrive_identifier</span><span class="p">,</span>
+                 <span class="n">scope_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        Most of the arguments to the superconstructor can be assumed,</span>
+<span class="sd">        and none of them matter all that much, since this class</span>
+<span class="sd">        overrides the normal process by which a FulfillmentInfo becomes</span>
+<span class="sd">        a Flask response.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OverdriveManifestFulfillmentInfo</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">data_source_name</span><span class="o">=</span><span class="n">DataSource</span><span class="o">.</span><span class="n">OVERDRIVE</span><span class="p">,</span>
+            <span class="n">identifier_type</span><span class="o">=</span><span class="n">Identifier</span><span class="o">.</span><span class="n">OVERDRIVE_ID</span><span class="p">,</span>
+            <span class="n">identifier</span><span class="o">=</span><span class="n">overdrive_identifier</span><span class="p">,</span>
+            <span class="n">content_link</span><span class="o">=</span><span class="n">content_link</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">content_expires</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scope_string</span> <span class="o">=</span> <span class="n">scope_string</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">as_response</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Location&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_link</span><span class="p">,</span>
+            <span class="s2">&quot;X-Overdrive-Scope&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope_string</span><span class="p">,</span>
+            <span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span> <span class="ow">or</span> <span class="s1">&#39;text/plain&#39;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">flask</span><span class="o">.</span><span class="n">Response</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">302</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

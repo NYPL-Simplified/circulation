@@ -746,10 +746,10 @@
 </li>
       <li><a href="api.html#module-api.custom_index">api.custom_index (module)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.custom_patron_catalog">api.custom_patron_catalog (module)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.enki">api.enki (module)</a>
 </li>
       <li><a href="api.html#module-api.feedbooks">api.feedbooks (module)</a>
@@ -1014,6 +1014,12 @@
         <li><a href="api.html#api.circulation_exceptions.RemoteInitiatedServerError.as_problem_detail_document">(api.circulation_exceptions.RemoteInitiatedServerError method)</a>
 </li>
         <li><a href="core.util.html#core.util.http.RemoteIntegrationException.as_problem_detail_document">(core.util.http.RemoteIntegrationException method)</a>
+</li>
+      </ul></li>
+      <li><a href="api.html#api.circulation.FulfillmentInfo.as_response">as_response (api.circulation.FulfillmentInfo attribute)</a>
+
+      <ul>
+        <li><a href="api.html#api.overdrive.OverdriveManifestFulfillmentInfo.as_response">(api.overdrive.OverdriveManifestFulfillmentInfo attribute)</a>
 </li>
       </ul></li>
       <li><a href="core.html#core.external_search.Filter.asc">asc (core.external_search.Filter attribute)</a>
@@ -6469,7 +6475,11 @@
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI.internal_format_to_delivery_mechanism">internal_format_to_delivery_mechanism (api.bibliotheca.BibliothecaAPI attribute)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.ItemListParser.internal_formats">internal_formats() (api.bibliotheca.ItemListParser class method)</a>
+
+      <ul>
+        <li><a href="core.html#core.overdrive.OverdriveRepresentationExtractor.internal_formats">(core.overdrive.OverdriveRepresentationExtractor class method)</a>
 </li>
+      </ul></li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.INTERNAL_LOGGING">INTERNAL_LOGGING (core.model.configuration.ExternalIntegration attribute)</a>
 </li>
       <li><a href="core.util.html#core.util.http.BadResponseException.internal_message">internal_message (core.util.http.BadResponseException attribute)</a>
@@ -6974,6 +6984,10 @@
         <li><a href="core.model.html#core.model.classification.Subject.LEXILE_SCORE">(core.model.classification.Subject attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.libby_drm">libby_drm (api.overdrive.OverdriveAPI attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.LIBBY_DRM">LIBBY_DRM (core.model.licensing.DeliveryMechanism attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.admin.AdminRole.LIBRARIAN">LIBRARIAN (core.model.admin.AdminRole attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.collection.Collection.libraries">libraries (core.model.collection.Collection attribute)</a>
@@ -7454,6 +7468,8 @@
 </li>
       <li><a href="api.html#api.overdrive.OverdriveAPI.lock_in_format">lock_in_format() (api.overdrive.OverdriveAPI method)</a>
 </li>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.LOCK_IN_FORMATS">LOCK_IN_FORMATS (api.overdrive.OverdriveAPI attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.classification.Subject.locked">locked (core.model.classification.Subject attribute)</a>
 </li>
       <li><a href="api.html#api.axis.Axis360API.log">log (api.axis.Axis360API attribute)</a>
@@ -7714,6 +7730,8 @@
 </li>
       <li><a href="core.html#core.testing.DatabaseTest.make_default_library">make_default_library() (core.testing.DatabaseTest class method)</a>
 </li>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.make_direct_download_link">make_direct_download_link() (api.overdrive.OverdriveAPI class method)</a>
+</li>
       <li><a href="core.model.html#core.model.resource.Resource.Work.make_exclusive_open_access_for_permanent_work_id">make_exclusive_open_access_for_permanent_work_id() (core.model.resource.Resource.Work method)</a>
 
       <ul>
@@ -7755,6 +7773,8 @@
       <li><a href="core.html#core.monitor.MakePresentationReadyMonitor">MakePresentationReadyMonitor (class in core.monitor)</a>
 </li>
       <li><a href="core.util.html#core.util.web_publication_manifest.Manifest">Manifest (class in core.util.web_publication_manifest)</a>
+</li>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.MANIFEST_INTERNAL_FORMATS">MANIFEST_INTERNAL_FORMATS (api.overdrive.OverdriveAPI attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.MANUAL">MANUAL (core.model.configuration.ExternalIntegration attribute)</a>
 
@@ -7941,8 +7961,6 @@
 </li>
       </ul></li>
       <li><a href="core.model.html#core.model.constants.MediaTypes.MEDIA_TYPE_FOR_EXTENSION">MEDIA_TYPE_FOR_EXTENSION (core.model.constants.MediaTypes attribute)</a>
-</li>
-      <li><a href="core.html#core.overdrive.OverdriveRepresentationExtractor.media_type_for_overdrive_format">media_type_for_overdrive_format (core.overdrive.OverdriveRepresentationExtractor attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.MEDIA_TYPES_FOR_STREAMING">MEDIA_TYPES_FOR_STREAMING (core.model.licensing.DeliveryMechanism attribute)</a>
 </li>
@@ -9058,14 +9076,14 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.open_access_download_url">open_access_download_url (core.model.licensing.LicensePool attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.resource.Resource.Work.open_access_for_permanent_work_id">open_access_for_permanent_work_id() (core.model.resource.Resource.Work class method)</a>
 
       <ul>
         <li><a href="core.model.html#core.model.work.Work.open_access_for_permanent_work_id">(core.model.work.Work class method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.opds.CirculationManagerAnnotator.open_access_link">open_access_link() (api.opds.CirculationManagerAnnotator method)</a>
 
       <ul>
@@ -9190,13 +9208,19 @@
         <li><a href="core.model.html#core.model.constants.DataSourceConstants.OVERDRIVE">(core.model.constants.DataSourceConstants attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api.html#api.overdrive.OverdriveAPI.overdrive_drm">overdrive_drm (api.overdrive.OverdriveAPI attribute)</a>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.overdrive_audiobook_manifest">overdrive_audiobook_manifest (api.overdrive.OverdriveAPI attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.constants.MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE">OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.OVERDRIVE_DRM">OVERDRIVE_DRM (core.model.licensing.DeliveryMechanism attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.constants.MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE">OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.OVERDRIVE_ID">OVERDRIVE_ID (core.model.constants.IdentifierConstants attribute)</a>
 </li>
       <li><a href="core.html#core.config.Configuration.OVERDRIVE_INTEGRATION">OVERDRIVE_INTEGRATION (core.config.Configuration attribute)</a>
+</li>
+      <li><a href="core.model.html#core.model.constants.MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE">OVERDRIVE_MANIFEST_MEDIA_TYPE (core.model.constants.MediaTypes attribute)</a>
 </li>
       <li><a href="core.html#core.overdrive.OverdriveRepresentationExtractor.overdrive_medium_to_simplified_medium">overdrive_medium_to_simplified_medium (core.overdrive.OverdriveRepresentationExtractor attribute)</a>
 </li>
@@ -9223,6 +9247,8 @@
       <li><a href="api.html#api.overdrive.OverdriveCollectionReaper">OverdriveCollectionReaper (class in api.overdrive)</a>
 </li>
       <li><a href="api.html#api.overdrive.OverdriveFormatSweep">OverdriveFormatSweep (class in api.overdrive)</a>
+</li>
+      <li><a href="api.html#api.overdrive.OverdriveManifestFulfillmentInfo">OverdriveManifestFulfillmentInfo (class in api.overdrive)</a>
 </li>
       <li><a href="core.html#core.overdrive.OverdriveRepresentationExtractor">OverdriveRepresentationExtractor (class in core.overdrive)</a>
 </li>
@@ -11456,6 +11482,8 @@
 </li>
       <li><a href="core.util.html#core.util.opds_writer.AtomFeed.SCHEMA_NS">SCHEMA_NS (core.util.opds_writer.AtomFeed attribute)</a>
 </li>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.scope_string">scope_string() (api.overdrive.OverdriveAPI method)</a>
+</li>
       <li><a href="core.html#core.monitor.CustomListEntrySweepMonitor.scope_to_collection">scope_to_collection() (core.monitor.CustomListEntrySweepMonitor method)</a>
 
       <ul>
@@ -12090,10 +12118,10 @@
 </li>
       <li><a href="api.html#api.routes.shared_collection_loan_info">shared_collection_loan_info() (in module api.routes)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_register">shared_collection_register() (in module api.routes)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_revoke_hold">shared_collection_revoke_hold() (in module api.routes)</a>
 </li>
       <li><a href="api.html#api.routes.shared_collection_revoke_loan">shared_collection_revoke_loan() (in module api.routes)</a>
@@ -12604,7 +12632,11 @@
       </ul></li>
       <li><a href="core.html#core.log.CloudwatchLogs.STREAM">STREAM (core.log.CloudwatchLogs attribute)</a>
 </li>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.streaming_audio">streaming_audio (api.overdrive.OverdriveAPI attribute)</a>
+</li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE">STREAMING_AUDIO_CONTENT_TYPE (core.model.licensing.DeliveryMechanism attribute)</a>
+</li>
+      <li><a href="api.html#api.overdrive.OverdriveAPI.streaming_drm">streaming_drm (api.overdrive.OverdriveAPI attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.licensing.DeliveryMechanism.STREAMING_DRM">STREAMING_DRM (core.model.licensing.DeliveryMechanism attribute)</a>
 </li>
@@ -14059,6 +14091,8 @@
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.x">x (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 
       <ul>
+        <li><a href="api.html#api.overdrive.OverdriveAPI.x">(api.overdrive.OverdriveAPI attribute)</a>
+</li>
         <li><a href="core.classifier.html#core.classifier.Classifier.x">(core.classifier.Classifier attribute)</a>
 </li>
         <li><a href="core.classifier.html#core.classifier.age.AgeClassifier.x">(core.classifier.age.AgeClassifier attribute)</a>

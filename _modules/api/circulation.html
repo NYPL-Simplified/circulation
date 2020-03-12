@@ -229,7 +229,6 @@
 <span class="sd">            `content_type`).</span>
 <span class="sd">        :param content_expires: A time after which the &quot;next step&quot;</span>
 <span class="sd">            link or content will no longer be usable.</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">FulfillmentInfo</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">collection</span><span class="p">,</span> <span class="n">data_source_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span>
@@ -246,7 +245,16 @@
             <span class="n">blength</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;FulfillmentInfo: content_link: </span><span class="si">%r</span><span class="s2">, content_type: </span><span class="si">%r</span><span class="s2">, content: </span><span class="si">%d</span><span class="s2"> bytes, expires: </span><span class="si">%r</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">content_link</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">content_type</span><span class="p">,</span> <span class="n">blength</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content_expires</span><span class="p">))</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content_expires</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">as_response</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Bypass the normal process of creating a Flask Response.</span>
+
+<span class="sd">        :return: A Response object, or None if you&#39;re okay with the</span>
+<span class="sd">           normal process.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="APIAwareFulfillmentInfo"><a class="viewcode-back" href="../../api.html#api.circulation.APIAwareFulfillmentInfo">[docs]</a><span class="k">class</span> <span class="nc">APIAwareFulfillmentInfo</span><span class="p">(</span><span class="n">FulfillmentInfo</span><span class="p">):</span>
@@ -1288,6 +1296,8 @@
 <div class="viewcode-block" id="BaseCirculationAPI.internal_format"><a class="viewcode-back" href="../../api.html#api.circulation.BaseCirculationAPI.internal_format">[docs]</a>    <span class="k">def</span> <span class="nf">internal_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_mechanism</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Look up the internal format for this delivery mechanism or</span>
 <span class="sd">        raise an exception.</span>
+
+<span class="sd">        :param delivery_mechanism: A LicensePoolDeliveryMechanism</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">delivery_mechanism</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>

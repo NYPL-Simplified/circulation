@@ -2841,7 +2841,7 @@ has this value.</li>
 
 <dl class="attribute">
 <dt id="core.model.constants.MediaTypes.AUDIOBOOK_MEDIA_TYPES">
-<code class="descname">AUDIOBOOK_MEDIA_TYPES</code><em class="property"> = [u'application/audiobook+json']</em><a class="headerlink" href="#core.model.constants.MediaTypes.AUDIOBOOK_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
+<code class="descname">AUDIOBOOK_MEDIA_TYPES</code><em class="property"> = [u'application/vnd.overdrive.circulation.api+json;profile=audiobook', u'application/audiobook+json']</em><a class="headerlink" href="#core.model.constants.MediaTypes.AUDIOBOOK_MEDIA_TYPES" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -2917,6 +2917,21 @@ has this value.</li>
 <dl class="attribute">
 <dt id="core.model.constants.MediaTypes.OCTET_STREAM_MEDIA_TYPE">
 <code class="descname">OCTET_STREAM_MEDIA_TYPE</code><em class="property"> = u'application/octet-stream'</em><a class="headerlink" href="#core.model.constants.MediaTypes.OCTET_STREAM_MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.constants.MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE">
+<code class="descname">OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE</code><em class="property"> = u'application/vnd.overdrive.circulation.api+json;profile=audiobook'</em><a class="headerlink" href="#core.model.constants.MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.constants.MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE">
+<code class="descname">OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE</code><em class="property"> = u'application/vnd.overdrive.circulation.api+json;profile=ebook'</em><a class="headerlink" href="#core.model.constants.MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="core.model.constants.MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE">
+<code class="descname">OVERDRIVE_MANIFEST_MEDIA_TYPE</code><em class="property"> = u'application/vnd.overdrive.circulation.api+json'</em><a class="headerlink" href="#core.model.constants.MediaTypes.OVERDRIVE_MANIFEST_MEDIA_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5453,8 +5468,13 @@ informal name (“Kindle via Amazon”).</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.model.licensing.DeliveryMechanism.LIBBY_DRM">
+<code class="descname">LIBBY_DRM</code><em class="property"> = u'Libby DRM'</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.LIBBY_DRM" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.model.licensing.DeliveryMechanism.MEDIA_TYPES_FOR_STREAMING">
-<code class="descname">MEDIA_TYPES_FOR_STREAMING</code><em class="property"> = {u'Streaming Text': u'text/html'}</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.MEDIA_TYPES_FOR_STREAMING" title="Permalink to this definition">¶</a></dt>
+<code class="descname">MEDIA_TYPES_FOR_STREAMING</code><em class="property"> = {u'Streaming Audio': u'text/html', u'Streaming Text': u'text/html'}</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.MEDIA_TYPES_FOR_STREAMING" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5547,12 +5567,12 @@ content type, assuming it’s represented as a media type.</p>
 
 <dl class="attribute">
 <dt id="core.model.licensing.DeliveryMechanism.default_client_can_fulfill_lookup">
-<code class="descname">default_client_can_fulfill_lookup</code><em class="property"> = set([(None, u'application/vnd.librarysimplified.findaway.license+json'), (u'application/audiobook+json', None), (u'application/audiobook+json', u'application/vnd.librarysimplified.bearer-token+json'), (u'application/epub+zip', None), (u'application/epub+zip', u'application/vnd.adobe.adept+xml'), (u'application/epub+zip', u'application/vnd.librarysimplified.bearer-token+json'), (u'application/pdf', None), (u'application/pdf', u'application/vnd.librarysimplified.bearer-token+json')])</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.default_client_can_fulfill_lookup" title="Permalink to this definition">¶</a></dt>
+<code class="descname">default_client_can_fulfill_lookup</code><em class="property"> = set([(None, u'application/vnd.librarysimplified.findaway.license+json'), (u'application/audiobook+json', None), (u'application/audiobook+json', u'application/vnd.librarysimplified.bearer-token+json'), (u'application/epub+zip', None), (u'application/epub+zip', u'application/vnd.adobe.adept+xml'), (u'application/epub+zip', u'application/vnd.librarysimplified.bearer-token+json'), (u'application/pdf', None), (u'application/pdf', u'application/vnd.librarysimplified.bearer-token+json'), (u'application/vnd.overdrive.circulation.api+json;profile=audiobook', u'Libby DRM')])</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.default_client_can_fulfill_lookup" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.model.licensing.DeliveryMechanism.drm">
-<code class="descname">drm</code><em class="property"> = u'application/vnd.librarysimplified.findaway.license+json'</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.drm" title="Permalink to this definition">¶</a></dt>
+<code class="descname">drm</code><em class="property"> = u'application/vnd.adobe.adept+xml'</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.drm" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -5602,7 +5622,7 @@ available through this DeliveryMechanism?</p>
 
 <dl class="attribute">
 <dt id="core.model.licensing.DeliveryMechanism.media_type">
-<code class="descname">media_type</code><em class="property"> = None</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.media_type" title="Permalink to this definition">¶</a></dt>
+<code class="descname">media_type</code><em class="property"> = u'application/epub+zip'</em><a class="headerlink" href="#core.model.licensing.DeliveryMechanism.media_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

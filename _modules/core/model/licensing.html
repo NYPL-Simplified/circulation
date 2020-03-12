@@ -1435,14 +1435,25 @@
     <span class="n">KINDLE_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Kindle DRM&quot;</span>
     <span class="n">NOOK_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Nook DRM&quot;</span>
     <span class="n">STREAMING_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Streaming&quot;</span>
+
+    <span class="c1"># This represents the DRM system used by the app called &#39;Overdrive&#39;</span>
+    <span class="c1"># and associated with the application/x-od-media media type.</span>
     <span class="n">OVERDRIVE_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Overdrive DRM&quot;</span>
+
+    <span class="c1"># This represents the DRM system used by the app called &#39;Libby&#39; and</span>
+    <span class="c1"># associated with the</span>
+    <span class="c1"># application/vnd.overdrive.circulation.api+json media type and</span>
+    <span class="c1"># its profiles.</span>
+    <span class="n">LIBBY_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;Libby DRM&quot;</span>
+
     <span class="n">BEARER_TOKEN</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;application/vnd.librarysimplified.bearer-token+json&quot;</span>
     <span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;http://www.feedbooks.com/audiobooks/access-restriction&quot;</span>
 
     <span class="n">FEEDBOOKS_AUDIOBOOK_PROFILE</span> <span class="o">=</span> <span class="s1">&#39;;profile=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="n">FEEDBOOKS_AUDIOBOOK_DRM</span>
     <span class="n">STREAMING_PROFILE</span> <span class="o">=</span> <span class="s1">&#39;;profile=&quot;http://librarysimplified.org/terms/profiles/streaming-media&quot;&#39;</span>
     <span class="n">MEDIA_TYPES_FOR_STREAMING</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">STREAMING_TEXT_CONTENT_TYPE</span><span class="p">:</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">TEXT_HTML_MEDIA_TYPE</span>
+        <span class="n">STREAMING_TEXT_CONTENT_TYPE</span><span class="p">:</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span>
+        <span class="n">STREAMING_AUDIO_CONTENT_TYPE</span><span class="p">:</span> <span class="n">MediaTypes</span><span class="o">.</span><span class="n">TEXT_HTML_MEDIA_TYPE</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">__tablename__</span> <span class="o">=</span> <span class="s1">&#39;deliverymechanisms&#39;</span>
@@ -1470,6 +1481,8 @@
         <span class="c1"># Various audiobook formats</span>
         <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">FINDAWAY_DRM</span><span class="p">),</span>
         <span class="p">(</span><span class="n">MediaTypes</span><span class="o">.</span><span class="n">AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span> <span class="n">NO_DRM</span><span class="p">),</span>
+
+        <span class="p">(</span><span class="n">MediaTypes</span><span class="o">.</span><span class="n">OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE</span><span class="p">,</span> <span class="n">LIBBY_DRM</span><span class="p">),</span>
     <span class="p">])</span>
 
     <span class="c1"># If the default client supports a given media type with no DRM,</span>

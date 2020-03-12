@@ -1408,6 +1408,12 @@
                 <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
             <span class="p">)</span>
 
+        <span class="c1"># A subclass of FulfillmentInfo may want to bypass the whole</span>
+        <span class="c1"># response creation process.</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">as_response</span>
+        <span class="k">if</span> <span class="n">response</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">response</span>
+
         <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="n">encoding_header</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">fulfillment</span><span class="o">.</span><span class="n">data_source_name</span> <span class="o">==</span> <span class="n">DataSource</span><span class="o">.</span><span class="n">ENKI</span>
