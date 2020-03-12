@@ -2133,7 +2133,6 @@ class Filter(SearchBase):
         :param facets: A SearchFacets object.
         """
         library = worklist.get_library(_db)
-
         # For most configuration settings there is a single value --
         # either defined on the WorkList or defined by its parent.
         inherit_one = worklist.inherited_value
