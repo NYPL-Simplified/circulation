@@ -1701,6 +1701,42 @@ class TestLoanController(CirculationControllerTest):
             )
             eq_(expect, fulfill_part_url(part))
 
+    def test_fulfill_returns_fulfillment_info_implementing_as_response(self):
+        # If CirculationAPI.fulfill returns a FulfillmentInfo that
+        # defines as_response, the result of as_response is returned
+        # directly and the normal process of converting a FulfillmentInfo
+        # to a Flask response is skipped.
+        class MockFulfillmentInfo(FulfillmentInfo):
+            @property
+            def as_response(self):
+                return "Here's your response"
+
+        class MockCirculationAPI(object):
+            def fulfill(slf, *args, **kwargs):
+                return MockFulfillmentInfo(
+                    self._default_collection, None, None, None, None,
+                    None, None, None
+                )
+
+        controller = self.manager.loans
+        mock = MockCirculationAPI()
+        controller.manager.circulation_apis[self._default_library.id] = mock
+
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            authenticated = controller.authenticated_patron_from_request()
+            loan, ignore = self.pool.loan_to(authenticated)
+
+            # Fulfill the loan.
+            result = controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id
+            )
+
+            # The result of MockFulfillmentInfo.as_response was
+            # returned directly.
+            eq_("Here's your response", result)
+
     def test_fulfill_without_active_loan(self):
 
         controller = self.manager.loans
@@ -2472,7 +2508,7 @@ class TestWorkController(CirculationControllerTest):
         # ExternalSearchIndex.
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Recommended Books', feed['feed']['title'])
+        eq_('Titles recommended by NoveList', feed['feed']['title'])
         [entry] = feed.entries
         eq_(self.english_1.title, entry['title'])
         author = self.edition.author_contributors[0]
@@ -2496,7 +2532,7 @@ class TestWorkController(CirculationControllerTest):
 
         kwargs = Mock.called_with
         eq_(self._db, kwargs.pop('_db'))
-        eq_('Recommended Books', kwargs.pop('title'))
+        eq_('Titles recommended by NoveList', kwargs.pop('title'))
 
         # The RecommendationLane is set up to ask for recommendations
         # for this book.

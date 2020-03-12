@@ -1373,6 +1373,12 @@ class LoanController(CirculationManagerController):
                 unicode(e), status_code=e.status_code
             )
 
+        # A subclass of FulfillmentInfo may want to bypass the whole
+        # response creation process.
+        response = fulfillment.as_response
+        if response:
+            return response
+
         headers = dict()
         encoding_header = dict()
         if (fulfillment.data_source_name == DataSource.ENKI
