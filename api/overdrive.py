@@ -3,6 +3,7 @@ import datetime
 import dateutil
 import json
 import pytz
+import re
 import requests
 import flask
 import urlparse
@@ -40,6 +41,7 @@ from core.model import (
     Identifier,
     LicensePool,
     Loan,
+    MediaTypes,
     Representation,
     Session,
 )
@@ -106,19 +108,41 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
     pdf = Representation.PDF_MEDIA_TYPE
     adobe_drm = DeliveryMechanism.ADOBE_DRM
     no_drm = DeliveryMechanism.NO_DRM
+    streaming_drm = DeliveryMechanism.STREAMING_DRM
     streaming_text = DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
-    overdrive_drm = DeliveryMechanism.OVERDRIVE_DRM
+    streaming_audio = DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE
+    overdrive_audiobook_manifest = MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE
+    libby_drm = DeliveryMechanism.LIBBY_DRM
 
+    # These are not real Overdrive formats; we use them internally so
+    # we can distinguish between (e.g.) using "audiobook-overdrive"
+    # to get into Overdrive Read, and using it to get a link to a
+    # manifest file.
+    MANIFEST_INTERNAL_FORMATS = set(
+        ['audiobook-overdrive-manifest', 'ebook-overdrive-manifest']
+    )
+
+    # When a request comes in for a given DeliveryMechanism, what
+    # do we tell Overdrive?
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'ebook-epub-open',
         (epub, adobe_drm): 'ebook-epub-adobe',
         (pdf, no_drm): 'ebook-pdf-open',
         (pdf, adobe_drm): 'ebook-pdf-adobe',
-        (streaming_text, overdrive_drm): 'ebook-overdrive',
+        (streaming_text, streaming_drm): 'ebook-overdrive',
+        (streaming_audio, streaming_drm): 'audiobook-overdrive',
+        (overdrive_audiobook_manifest, libby_drm): 'audiobook-overdrive-manifest'
     }
 
+    # Once you choose an Adobe format you're locked into it and can't
+    # use other formats.
+    LOCK_IN_FORMATS = [ x for x in BaseOverdriveAPI.FORMATS if 'adobe' in x ]
+
+    # These formats can be delivered either as manifest files or as
+    # links to websites that stream the content.
     STREAMING_FORMATS = [
         'ebook-overdrive',
+        'audiobook-overdrive',
     ]
 
     # TODO: This is a terrible choice but this URL should never be
@@ -224,6 +248,17 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         return Credential.lookup(
             self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
 
+    def scope_string(self, library):
+        """Create the Overdrive scope string for the given library.
+
+        This is used when setting up Patron Authentication, and when
+        generating the X-Overdrive-Scope header used by SimplyE to set up
+        its own Patron Authentication.
+        """
+        return "websiteid:%s authorizationname:%s" % (
+            self.website_id, self.ils_name(library)
+        )
+
     def refresh_patron_access_token(self, credential, patron, pin):
         """Request an OAuth bearer token that allows us to act on
         behalf of a specific patron.
@@ -233,8 +268,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         payload = dict(
             grant_type="password",
             username=patron.authorization_identifier,
-            scope="websiteid:%s authorizationname:%s" % (
-                self.website_id, self.ils_name(patron.library))
+            scope=self.scope_string(patron.library)
         )
         if pin:
             # A PIN was provided.
@@ -465,8 +499,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         :return: a FulfillmentInfo object.
         """
         try:
-            url, media_type = self.get_fulfillment_link(
-                patron, pin, licensepool.identifier.identifier, internal_format)
+            result = self.get_fulfillment_link(
+                patron, pin, licensepool.identifier.identifier, internal_format
+            )
+            if isinstance(result, FulfillmentInfo):
+                # The fulfillment process was short-circuited, probably
+                # by the creation of an OverdriveManifestFulfillmentInfo.
+                return result
+
+            url, media_type = result
             if internal_format in self.STREAMING_FORMATS:
                 media_type += DeliveryMechanism.STREAMING_PROFILE
         except FormatNotAvailable, e:
@@ -496,16 +537,17 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
 
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
-        """Get the link to the ACSM file corresponding to an existing loan.
+        """Get the link to the ACSM or manifest for an existing loan.
         """
         loan = self.get_loan(patron, pin, overdrive_id)
         if not loan:
             raise NoActiveLoan("Could not find active loan for %s" % overdrive_id)
         download_link = None
-        if not loan['isFormatLockedIn'] and format_type not in self.STREAMING_FORMATS:
+        if (not loan.get('isFormatLockedIn')
+            and format_type in self.LOCK_IN_FORMATS):
             # The format is not locked in. Lock it in.
             # This will happen the first time someone tries to fulfill
-            # a loan.
+            # a loan with a lock-in format (basically Adobe-gated formats)
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
@@ -528,18 +570,27 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
         if format_type and not download_link:
             download_link = self.get_download_link(
-                loan, format_type, self.DEFAULT_ERROR_URL)
+                loan, format_type, self.DEFAULT_ERROR_URL
+            )
             if not download_link:
                 raise CannotFulfill(
                     "No download link for %s, format %s" % (
                         overdrive_id, format_type))
 
         if download_link:
+            if format_type in self.MANIFEST_INTERNAL_FORMATS:
+                # The client must authenticate using its own
+                # credentials to fulfill this URL; we can't do it.
+                scope_string = self.scope_string(patron.library)
+                return OverdriveManifestFulfillmentInfo(
+                    self.collection, download_link,
+                    overdrive_id, scope_string
+                )
+
             return self.get_fulfillment_link_from_download_link(
                 patron, pin, download_link)
 
         raise CannotFulfill("Cannot obtain a download link for patron[%r], overdrive_id[%s], format_type[%s].", patron, overdrive_id, format_type)
-
 
     def get_fulfillment_link_from_download_link(self, patron, pin, download_link, fulfill_url=None):
         # If this for Overdrive's streaming reader, and the link expires,
@@ -707,14 +758,19 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             # Either the book has been locked into a specific format,
             # or only one usable format is available. We don't know
             # which case we're looking at, but for our purposes the
-            # book is locked.
-            [format] = usable_formats
-            media_type, drm_scheme = (
-                OverdriveRepresentationExtractor.format_data_for_overdrive_format.get(
-                    format, (None, None)
+            # book is locked -- unless, of course, what Overdrive
+            # considers "one format" corresponds to more than one
+            # format on our side.
+            [overdrive_format] = usable_formats
+
+            internal_formats = list(
+                OverdriveRepresentationExtractor.internal_formats(
+                    overdrive_format
                 )
             )
-            if media_type:
+
+            if len(internal_formats) == 1:
+                [(media_type, drm_scheme)] = internal_formats
                 # Make it clear that Overdrive will only deliver the content
                 # in one specific media type.
                 locked_to = DeliveryMechanismInfo(
@@ -1008,13 +1064,31 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     @classmethod
     def get_download_link(self, checkout_response, format_type, error_url):
+        """Extract a download link from the given response.
+
+        :param checkout_response: A JSON document describing a checkout-type
+           response from the Overdrive API.
+        :param format_type: The internal (Overdrive-facing) format type
+           that should be retrieved. 'x-manifest' format types are treated
+           as a variant of the 'x' format type -- Overdrive doesn't recognise
+           'x-manifest' and uses 'x' for delivery of both streaming content
+           and manifests.
+        :param error_url: Value to interpolate for the {errorpageurl}
+           URI template value.
+        """
         link = None
         format = None
         available_formats = []
+        if format_type in self.MANIFEST_INTERNAL_FORMATS:
+            use_format_type = format_type.replace("-manifest", "")
+            fetch_manifest = True
+        else:
+            use_format_type = format_type
+            fetch_manifest = False
         for f in checkout_response.get('formats', []):
             this_type = f['formatType']
             available_formats.append(this_type)
-            if this_type == format_type:
+            if this_type == use_format_type:
                 format = f
                 break
         if not format:
@@ -1030,25 +1104,51 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 format_list = ", ".join(available_formats)
                 msg = "Could not find specified format %s. Available formats: %s"
                 raise NoAcceptableFormat(
-                    msg % (format_type, ", ".join(available_formats))
+                    msg % (use_format_type, ", ".join(available_formats))
                 )
 
-        return self.extract_download_link(format, error_url)
+        return self.extract_download_link(format, error_url, fetch_manifest)
 
     @classmethod
-    def extract_download_link(cls, format, error_url):
+    def extract_download_link(cls, format, error_url, fetch_manifest=False):
         format_type = format.get('formatType', '(unknown)')
         if not 'linkTemplates' in format:
             raise IOError("No linkTemplates for format %s" % format_type)
         templates = format['linkTemplates']
         if not 'downloadLink' in templates:
             raise IOError("No downloadLink for format %s" % format_type)
-        download_link = templates['downloadLink']['href']
+        download_link_data = templates['downloadLink']
+        if not 'href' in download_link_data:
+            raise IOError("No downloadLink href for format %s" % format_type)
+        download_link = download_link_data['href']
         if download_link:
-            return download_link.replace("{errorpageurl}", error_url)
+            download_link = download_link.replace("{errorpageurl}", error_url)
+            if fetch_manifest:
+                download_link = cls.make_direct_download_link(download_link)
+            return download_link
         else:
             return None
 
+    @classmethod
+    def make_direct_download_link(cls, link):
+        """Convert an Overdrive Read or Overdrive Listen link template to a
+        direct-download link for the manifest.
+
+        :param link: An Overdrive Read or Overdrive Listen template
+            link.
+        """
+        # Remove any Overdrive Read authentication URL.
+        argument_re = re.compile("odreadauthurl={odreadauthurl}&?")
+        link = argument_re.sub("", link)
+
+        # Add the contentfile=true argument.
+        if '?' not in link:
+            link += '?contentfile=true'
+        elif link.endswith('&') or link.endswith('?'):
+            link += 'contentfile=true'
+        else:
+            link += '&contentfile=true'
+        return link
 
 class MockOverdriveResponse(object):
     def __init__(self, status_code, headers, content):
@@ -1289,3 +1389,36 @@ class OverdriveAdvantageAccountListScript(Script):
             print " ", book['title']
             if i > 10:
                 break
+
+
+class OverdriveManifestFulfillmentInfo(FulfillmentInfo):
+
+    def __init__(self, collection, content_link, overdrive_identifier,
+                 scope_string):
+        """Constructor.
+
+        Most of the arguments to the superconstructor can be assumed,
+        and none of them matter all that much, since this class
+        overrides the normal process by which a FulfillmentInfo becomes
+        a Flask response.
+        """
+        super(OverdriveManifestFulfillmentInfo, self).__init__(
+            collection=collection,
+            data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID,
+            identifier=overdrive_identifier,
+            content_link=content_link,
+            content_type=None,
+            content=None,
+            content_expires=None,
+        )
+        self.scope_string = scope_string
+
+    @property
+    def as_response(self):
+        headers = {
+            "Location": self.content_link,
+            "X-Overdrive-Scope": self.scope_string,
+            "Content-Type": self.content_type or 'text/plain',
+        }
+        return flask.Response("", 302, headers)
