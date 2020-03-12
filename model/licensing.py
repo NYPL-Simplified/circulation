@@ -1400,14 +1400,25 @@ class DeliveryMechanism(Base, HasFullTableCache):
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
+
+    # This represents the DRM system used by the app called 'Overdrive'
+    # and associated with the application/x-od-media media type.
     OVERDRIVE_DRM = u"Overdrive DRM"
+
+    # This represents the DRM system used by the app called 'Libby' and
+    # associated with the
+    # application/vnd.overdrive.circulation.api+json media type and
+    # its profiles.
+    LIBBY_DRM = u"Libby DRM"
+
     BEARER_TOKEN = u"application/vnd.librarysimplified.bearer-token+json"
     FEEDBOOKS_AUDIOBOOK_DRM = u"http://www.feedbooks.com/audiobooks/access-restriction"
 
     FEEDBOOKS_AUDIOBOOK_PROFILE = ';profile="%s"' % FEEDBOOKS_AUDIOBOOK_DRM
     STREAMING_PROFILE = ';profile="http://librarysimplified.org/terms/profiles/streaming-media"'
     MEDIA_TYPES_FOR_STREAMING = {
-        STREAMING_TEXT_CONTENT_TYPE: MediaTypes.TEXT_HTML_MEDIA_TYPE
+        STREAMING_TEXT_CONTENT_TYPE: MediaTypes.TEXT_HTML_MEDIA_TYPE,
+        STREAMING_AUDIO_CONTENT_TYPE: MediaTypes.TEXT_HTML_MEDIA_TYPE,
     }
 
     __tablename__ = 'deliverymechanisms'
@@ -1435,6 +1446,8 @@ class DeliveryMechanism(Base, HasFullTableCache):
         # Various audiobook formats
         (None, FINDAWAY_DRM),
         (MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE, NO_DRM),
+
+        (MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE, LIBBY_DRM),
     ])
 
     # If the default client supports a given media type with no DRM,
