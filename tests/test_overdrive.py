@@ -34,6 +34,7 @@ from ..model import (
     Representation,
     Subject,
     Measurement,
+    MediaTypes,
     Hyperlink,
 )
 from ..scripts import RunCollectionCoverageProviderScript
@@ -464,12 +465,42 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
 
+    def test_audiobook_info(self):
+        # This book will be available in three formats: a link to the
+        # Overdrive Read website, a manifest file that SimplyE can
+        # download, and the legacy format used by the mobile app
+        # called 'Overdrive'.
+        raw, info = self.sample_json("audiobook.json")
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
+        streaming, manifest, legacy = sorted(
+            metadata.circulation.formats, key=lambda x: x.content_type
+        )
+        eq_(DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE,
+            streaming.content_type)
+        eq_(MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+            manifest.content_type)
+        eq_("application/x-od-media", legacy.content_type)
 
     def test_book_info_with_sample(self):
+        # This book has two samples; one available as a direct download and
+        # one available through a manifest file.
         raw, info = self.sample_json("has_sample.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
-        [sample] = [x for x in metadata.links if x.rel == Hyperlink.SAMPLE]
-        eq_("http://excerpts.contentreserve.com/FormatType-410/1071-1/9BD/24F/82/BridesofConvenienceBundle9781426803697.epub", sample.href)
+        samples = [x for x in metadata.links if x.rel == Hyperlink.SAMPLE]
+        epub_sample, manifest_sample = sorted(
+            samples, key=lambda x: x.media_type
+        )
+
+        # Here's the direct download.
+        eq_("http://excerpts.contentreserve.com/FormatType-410/1071-1/9BD/24F/82/BridesofConvenienceBundle9781426803697.epub",
+            epub_sample.href)
+        eq_(MediaTypes.EPUB_MEDIA_TYPE, epub_sample.media_type)
+
+        # Here's the manifest.
+        eq_("https://samples.overdrive.com/?crid=9BD24F82-35C0-4E0A-B5E7-BCFED07835CF&.epub-sample.overdrive.com",
+            manifest_sample.href)
+        eq_(MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE,
+            manifest_sample.media_type)
 
     def test_book_info_with_grade_levels(self):
         raw, info = self.sample_json("has_grade_levels.json")
@@ -521,6 +552,48 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         # Stand-in cover images are detected and filtered out.
         data = m(dict(href="https://img1.od-cdn.com/ImageType-100/0293-1/{00000000-0000-0000-0000-000000000002}Img100.jpg"))
         eq_(None, data)
+
+    def test_internal_formats(self):
+        # Overdrive's internal format names may correspond to one or more
+        # delivery mechanisms.
+        def assert_formats(overdrive_name, *expect):
+            actual = OverdriveRepresentationExtractor.internal_formats(
+                overdrive_name
+            )
+            eq_(list(expect), list(actual))
+
+        # Most formats correspond to one delivery mechanism.
+        assert_formats(
+            'ebook-pdf-adobe',
+            (MediaTypes.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
+        )
+
+        assert_formats(
+            'ebook-epub-open',
+            (MediaTypes.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        )
+
+        # ebook-overdrive and audiobook-overdrive each correspond to
+        # two delivery mechanisms.
+        assert_formats(
+            'ebook-overdrive',
+            (MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE,
+             DeliveryMechanism.LIBBY_DRM),
+            (DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+             DeliveryMechanism.STREAMING_DRM),
+        )
+
+        assert_formats(
+            'audiobook-overdrive',
+            (MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+             DeliveryMechanism.LIBBY_DRM),
+            (DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE,
+             DeliveryMechanism.STREAMING_DRM),
+        )
+
+        # An unrecognized format does not correspond to any delivery
+        # mechanisms.
+        assert_formats('no-such-format')
 
 class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
 

@@ -36,6 +36,7 @@ from model import (
     Identifier,
     Library,
     Measurement,
+    MediaTypes,
     Representation,
     Subject,
 )
@@ -127,11 +128,14 @@ class OverdriveAPI(object):
 
     EVENT_DELAY = datetime.timedelta(minutes=120)
 
-    # The ebook formats we care about.
-    FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open"
+    # The formats we care about.
+    FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open,audiobook-overdrive".split(",")
 
     # The formats that can be read by the default Library Simplified reader.
-    DEFAULT_READABLE_FORMATS = set(["ebook-epub-open", "ebook-epub-adobe"])
+    DEFAULT_READABLE_FORMATS = set(
+        ["ebook-epub-open", "ebook-epub-adobe", "ebook-pdf-open", 
+         "audiobook-overdrive"]
+    )
 
     # The formats that indicate the book has been fulfilled on an
     # incompatible platform and just can't be fulfilled on Simplified
@@ -665,9 +669,6 @@ class OverdriveRepresentationExtractor(object):
             link = None
         return link
 
-    media_type_for_overdrive_format = {
-    }
-
     format_data_for_overdrive_format = {
 
         "ebook-pdf-adobe" : (
@@ -688,17 +689,29 @@ class OverdriveRepresentationExtractor(object):
         "music-mp3" : (
             "application/x-od-media", DeliveryMechanism.OVERDRIVE_DRM
         ),
-        "ebook-overdrive" : (
-            DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
-            DeliveryMechanism.OVERDRIVE_DRM
-        ),
-        "audiobook-overdrive" : (
-            DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE,
-            DeliveryMechanism.OVERDRIVE_DRM
-        ),
+        "ebook-overdrive" : [
+            (
+                MediaTypes.OVERDRIVE_EBOOK_MANIFEST_MEDIA_TYPE,
+                DeliveryMechanism.LIBBY_DRM
+            ),
+            (
+                DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+                DeliveryMechanism.STREAMING_DRM
+            ),
+        ],
+        "audiobook-overdrive" : [
+            (
+                MediaTypes.OVERDRIVE_AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+                DeliveryMechanism.LIBBY_DRM,
+            ),
+            (
+                DeliveryMechanism.STREAMING_AUDIO_CONTENT_TYPE,
+                DeliveryMechanism.STREAMING_DRM
+            ),
+        ],
         'video-streaming' : (
             DeliveryMechanism.STREAMING_VIDEO_CONTENT_TYPE,
-            DeliveryMechanism.OVERDRIVE_DRM
+            DeliveryMechanism.STREAMING_DRM
         ),
         "ebook-kindle" : (
             DeliveryMechanism.KINDLE_CONTENT_TYPE,
@@ -710,10 +723,24 @@ class OverdriveRepresentationExtractor(object):
         ),
     }
 
-    ignorable_overdrive_formats = set([
-        'ebook-overdrive',
-        'audiobook-overdrive',
-    ])
+    @classmethod
+    def internal_formats(cls, overdrive_format):
+        """Yield all internal formats for the given Overdrive format.
+
+        Some Overdrive formats become multiple internal formats.
+
+        :yield: A sequence of (content type, DRM system) 2-tuples
+        """
+        result = cls.format_data_for_overdrive_format.get(overdrive_format)
+        if not result:
+            return
+        if isinstance(result, list):
+            for i in result:
+                yield i
+        else:
+            yield result
+
+    ignorable_overdrive_formats = set([])
 
     overdrive_role_to_simplified_role = {
         "actor" : Contributor.ACTOR_ROLE,
@@ -996,21 +1023,22 @@ class OverdriveRepresentationExtractor(object):
 
                 # Samples become links.
                 if 'samples' in format:
-
-                    if not format['id'] in cls.format_data_for_overdrive_format:
+                    overdrive_name = format['id']
+                    internal_names = list(cls.internal_formats(overdrive_name))
+                    if not internal_names:
                         # Useless to us.
                         continue
-                    content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format['id'])
-                    if Representation.is_media_type(content_type):
-                        for sample_info in format['samples']:
-                            href = sample_info['url']
-                            links.append(
-                                LinkData(
-                                    rel=Hyperlink.SAMPLE,
-                                    href=href,
-                                    media_type=content_type
+                    for content_type, drm_scheme in internal_names:
+                        if Representation.is_media_type(content_type):
+                            for sample_info in format['samples']:
+                                href = sample_info['url']
+                                links.append(
+                                    LinkData(
+                                        rel=Hyperlink.SAMPLE,
+                                        href=href,
+                                        media_type=content_type
+                                    )
                                 )
-                            )
 
             # A cover and its thumbnail become a single LinkData.
             if 'images' in book:
@@ -1103,15 +1131,15 @@ class OverdriveRepresentationExtractor(object):
             formats = []
             for format in book.get('formats', []):
                 format_id = format['id']
-                if format_id in cls.format_data_for_overdrive_format:
-                    content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format_id)
-                    formats.append(FormatData(content_type, drm_scheme))
+                internal_formats = list(cls.internal_formats(format_id))
+                if internal_formats:
+                    for content_type, drm_scheme in internal_formats:
+                        formats.append(FormatData(content_type, drm_scheme))
                 elif format_id not in cls.ignorable_overdrive_formats:
                     cls.log.error(
                         "Could not process Overdrive format %s for %s",
                         format_id, overdrive_id
                     )
-
 
             # Also make a CirculationData so we can write the formats,
             circulationdata = CirculationData(
