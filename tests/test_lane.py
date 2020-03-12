@@ -670,7 +670,7 @@ class TestFacets(DatabaseTest):
         eq_(Facets.COLLECTION_FULL, result.collection)
 
     def test_modify_search_filter(self):
-        
+
         # Test superclass behavior -- filter is modified by entrypoint.
         facets = Facets(
             self._default_library, None, None, None,
@@ -691,7 +691,7 @@ class TestFacets(DatabaseTest):
         eq_(self._default_library.minimum_featured_quality,
             filter.minimum_featured_quality)
 
-        # Availability and collection are propagated with no 
+        # Availability and collection are propagated with no
         # validation.
         eq_("some availability", filter.availability)
         eq_("some collection", filter.subcollection)
@@ -812,7 +812,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
         ):
             eq_(f1.available_facets(self._default_library, group),
                 f2.available_facets(self._default_library, group))
-            
+
     def test_default_facets(self):
         # If the configured default sort order is not available,
         # DatabaseBackedFacets chooses the first enabled sort order.
@@ -844,12 +844,12 @@ class TestDatabaseBackedFacets(DatabaseTest):
         # A Facets object uses the 'time added to collection' order by
         # default.
         config = Mock()
-        eq_(f1.ORDER_ADDED_TO_COLLECTION, 
+        eq_(f1.ORDER_ADDED_TO_COLLECTION,
             f1.default_facet(config, f1.ORDER_FACET_GROUP_NAME))
 
         # A DatabaseBacked Facets can't do that. It finds the first
         # enabled sort order that it can support, and uses it instead.
-        eq_(f2.ORDER_TITLE, 
+        eq_(f2.ORDER_TITLE,
             f2.default_facet(config, f2.ORDER_FACET_GROUP_NAME))
 
         # If no enabled sort orders are supported, it just sorts
@@ -888,7 +888,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
         actual = order(Facets.ORDER_TITLE, True)
         compare(expect, actual)
 
-        expect = [W.last_update_time.asc(), E.sort_author.asc(), 
+        expect = [W.last_update_time.asc(), E.sort_author.asc(),
                   E.sort_title.asc(), W.id.asc()]
         actual = order(Facets.ORDER_LAST_UPDATE, True)
         compare(expect, actual)
@@ -1181,6 +1181,35 @@ class TestSearchFacets(DatabaseTest):
         facets = from_request()
         eq_(None, facets.media)
         eq_(None, facets.languages)
+
+    def test_from_request_from_admin_search(self):
+        # If the SearchFacets object is being created by a search run from the admin interface,
+        # there might be order and language arguments which should be used to filter search results.
+
+        arguments = dict(order="author", language="fre", entrypoint=EbooksEntryPoint.INTERNAL_NAME,
+                         media=Edition.AUDIO_MEDIUM, min_score="123")
+        headers = {"Accept-Language" : "da, en-gb;q=0.8"}
+        get_argument = arguments.get
+        get_header = headers.get
+
+        unused = object()
+
+        library = self._default_library
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
+        )
+
+        def from_request(**extra):
+            return SearchFacets.from_request(
+                self._default_library, self._default_library, get_argument,
+                get_header, unused, **extra
+            )
+
+        facets = from_request(extra="value")
+        # The SearchFacets implementation uses the order and language values submitted by the admin.
+        eq_("author", facets.order)
+        eq_(['fre'], facets.languages)
+
 
     def test_selectable_entrypoints(self):
         """If the WorkList has more than one facet, an 'everything' facet
@@ -2196,7 +2225,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
              'modify_database_query_hook'],
             result.clauses
         )
-        
+
         # bibliographic_filter_clauses used a different mechanism, but
         # since it stored the MockQuery it was called with, we can see
         # when it was called -- just after
@@ -2232,7 +2261,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
                 result = self.wl._stage(
                     "facets", _db, qu, qu_is_previous_stage=False
                 )
-                
+
                 distinct = result.distinct("some other field")
                 self.wl.stages.append(distinct)
                 return distinct
@@ -2488,7 +2517,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         )
         eq_(original_qu, final_qu)
         language, medium, fiction, datasource = clauses
-        
+
         # NOTE: str() doesn't prove that the values are the same, only
         # that the constraints are similar.
         eq_(str(language), str(Edition.language.in_(wl.languages)))

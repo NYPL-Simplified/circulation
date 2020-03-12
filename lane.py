@@ -876,13 +876,14 @@ class SearchFacets(Facets):
         # languages allowed by the WorkList and the languages found in
         # the client's Accept-Language header.
         language_header = get_header("Accept-Language")
-        languages = None
-        if language_header:
-            languages = parse_accept_language(language_header)
-            languages = [l[0] for l in languages]
-            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
-            languages = [l for l in languages if l]
-        languages = languages or None
+        languages = get_argument("language") or None
+        if not languages:
+            if language_header:
+                languages = parse_accept_language(language_header)
+                languages = [l[0] for l in languages]
+                languages = map(LanguageCodes.iso_639_2_for_locale, languages)
+                languages = [l for l in languages if l]
+            languages = languages or None
 
         # The client can request a minimum score for search results.
         min_score = get_argument("min_score", None)

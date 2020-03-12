@@ -587,7 +587,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, worklist, annotator,
-               facets=None, max_age=None, 
+               facets=None, max_age=None,
                search_engine=None, search_debug=False,
     ):
         """The acquisition feed for 'featured' items from a given lane's
@@ -710,11 +710,11 @@ class AcquisitionFeed(OPDSFeed):
             return cls._generate_page(
                 _db, title, url, worklist, annotator, facets, pagination,
                 search_engine, search_debug
-            )                      
+            )
 
         cached = CachedFeed.fetch(
             _db, worklist=worklist, facets=facets, pagination=pagination,
-            refresher_method=refresh, max_age=max_age            
+            refresher_method=refresh, max_age=max_age
         )
         return cached.content
 
