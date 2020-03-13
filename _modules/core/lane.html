@@ -911,13 +911,14 @@
         <span class="c1"># languages allowed by the WorkList and the languages found in</span>
         <span class="c1"># the client&#39;s Accept-Language header.</span>
         <span class="n">language_header</span> <span class="o">=</span> <span class="n">get_header</span><span class="p">(</span><span class="s2">&quot;Accept-Language&quot;</span><span class="p">)</span>
-        <span class="n">languages</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">language_header</span><span class="p">:</span>
-            <span class="n">languages</span> <span class="o">=</span> <span class="n">parse_accept_language</span><span class="p">(</span><span class="n">language_header</span><span class="p">)</span>
-            <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">languages</span><span class="p">]</span>
-            <span class="n">languages</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">LanguageCodes</span><span class="o">.</span><span class="n">iso_639_2_for_locale</span><span class="p">,</span> <span class="n">languages</span><span class="p">)</span>
-            <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">languages</span> <span class="k">if</span> <span class="n">l</span><span class="p">]</span>
-        <span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="n">languages</span> <span class="o">=</span> <span class="n">get_argument</span><span class="p">(</span><span class="s2">&quot;language&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">languages</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">language_header</span><span class="p">:</span>
+                <span class="n">languages</span> <span class="o">=</span> <span class="n">parse_accept_language</span><span class="p">(</span><span class="n">language_header</span><span class="p">)</span>
+                <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">languages</span><span class="p">]</span>
+                <span class="n">languages</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">LanguageCodes</span><span class="o">.</span><span class="n">iso_639_2_for_locale</span><span class="p">,</span> <span class="n">languages</span><span class="p">)</span>
+                <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">languages</span> <span class="k">if</span> <span class="n">l</span><span class="p">]</span>
+            <span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span> <span class="ow">or</span> <span class="kc">None</span>
 
         <span class="c1"># The client can request a minimum score for search results.</span>
         <span class="n">min_score</span> <span class="o">=</span> <span class="n">get_argument</span><span class="p">(</span><span class="s2">&quot;min_score&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>

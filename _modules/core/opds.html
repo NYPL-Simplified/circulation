@@ -622,7 +622,7 @@
 
 <div class="viewcode-block" id="AcquisitionFeed.groups"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.groups">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-               <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+               <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The acquisition feed for &#39;featured&#39; items from a given lane&#39;s</span>
@@ -745,11 +745,11 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_generate_page</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span>
                 <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
-            <span class="p">)</span>                      
+            <span class="p">)</span>
 
         <span class="n">cached</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span>            
+            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span></div>
 
