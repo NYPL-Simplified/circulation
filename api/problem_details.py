@@ -65,6 +65,10 @@ ALREADY_CHECKED_OUT = pd(
       _("You have already checked out this book."),
 )
 
+# TODO: This is only used in situations where the _ebook vendor_ has imposed a loan
+# limit. It should also be used in situations where the _library_ has imposed a loan
+# limit. That's tricky because it means keeping track of whether the patron's likely
+# intent was to borrow or place a hold.
 LOAN_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/loan-limit-reached",
       403,
@@ -72,11 +76,15 @@ LOAN_LIMIT_REACHED = pd(
       _("You have reached your loan limit. You cannot borrow anything further until you return something."),
 )
 
+# TODO: The wording here is deliberately vague as a workaround for
+# https://jira.nypl.org/browse/SIMPLY-2657. In the medium term this
+# should be restored to a more specific description that is used
+# alongside LOAN_LIMIT_REACHED (see above).
 HOLD_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/hold-limit-reached",
       403,
-      _("Hold limit reached."),
-      _("You have reached your hold limit and cannot put more books on hold."),
+      _("Limit reached."),
+      _("You have reached your library's limit for this action. Consult your library's policy for more details."),
 )
 
 OUTSTANDING_FINES = pd(
