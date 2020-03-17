@@ -414,6 +414,7 @@ class Configuration(CoreConfiguration):
             "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
             "format": "url",
             "category": "Patron Support",
+            "allowed": ["nypl.card-creator:https://patrons.librarysimplified.org/"]
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,
