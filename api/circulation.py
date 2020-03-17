@@ -553,7 +553,11 @@ class CirculationAPI(object):
         # to an external service to get the book.
         #
         # This also means that our internal model of whether this book
-        # is currently on loan or on hold might be wrong.
+        # is currently on loan or on hold might be wrong. But it's good
+        # enough to see whether the patron _thinks_ they're going for a
+        # loan or a hold, and to enforce any limits on loans or holds.
+        title_seems_available = (licensepool.licenses_available > 0)
+
         api = self.api_for_license_pool(licensepool)
         if not api:
             # If there's no API for the pool, the pool is probably associated
@@ -605,72 +609,78 @@ class CirculationAPI(object):
         non_open_access_loans_with_end_date = [loan for loan in patron.loans if loan.license_pool.open_access == False and loan.end]
         at_loan_limit = (loan_limit and len(non_open_access_loans_with_end_date) >= loan_limit)
 
-        # If we're at the loan limit, skip trying to check out the book and just try
-        # to place a hold. Otherwise, try to check out the book even if we think it's
-        # not available.
-        if not at_loan_limit:
-            try:
-                loan_info = api.checkout(
-                    patron, pin, licensepool, internal_format
-                )
+        if at_loan_limit and title_seems_available:
+            # Patron is at their loan limit and it looks like they
+            # expect a loan. Short-circuit the operation without
+            # checking against the API or falling back to a hold: it
+            # doesn't make sense to take out a hold on a title that's
+            # available.
+            raise PatronLoanLimitReached()
 
-                if isinstance(loan_info, HoldInfo):
-                    # If the API couldn't give us a loan, it may have given us
-                    # a hold instead of raising an exception.
-                    hold_info = loan_info
-                    loan_info = None
-                else:
-                    # We asked the API to create a loan and it gave us a
-                    # LoanInfo object, rather than raising an exception like
-                    # AlreadyCheckedOut.
-                    #
-                    # For record-keeping purposes we're going to treat this as
-                    # a newly transacted loan, although it's possible that the
-                    # API does something unusual like return LoanInfo instead
-                    # of raising AlreadyCheckedOut.
-                    new_loan = True
-            except AlreadyCheckedOut:
-                # This is good, but we didn't get the real loan info.
-                # Just fake it.
-                identifier = licensepool.identifier
-                loan_info = LoanInfo(
-                    licensepool.collection,
-                    licensepool.data_source,
-                    identifier.type,
-                    identifier.identifier,
-                    start_date=None,
-                    end_date=now + datetime.timedelta(hours=1)
+        # At this point it makes sense to try to check out the book even if we believe
+        # it's not available -- someone else may have just checked it in.
+        try:
+            loan_info = api.checkout(
+                patron, pin, licensepool, internal_format
+            )
+
+            if isinstance(loan_info, HoldInfo):
+                # If the API couldn't give us a loan, it may have given us
+                # a hold instead of raising an exception.
+                hold_info = loan_info
+                loan_info = None
+            else:
+                # We asked the API to create a loan and it gave us a
+                # LoanInfo object, rather than raising an exception like
+                # AlreadyCheckedOut.
+                #
+                # For record-keeping purposes we're going to treat this as
+                # a newly transacted loan, although it's possible that the
+                # API does something unusual like return LoanInfo instead
+                # of raising AlreadyCheckedOut.
+                new_loan = True
+        except AlreadyCheckedOut:
+            # This is good, but we didn't get the real loan info.
+            # Just fake it.
+            identifier = licensepool.identifier
+            loan_info = LoanInfo(
+                licensepool.collection,
+                licensepool.data_source,
+                identifier.type,
+                identifier.identifier,
+                start_date=None,
+                end_date=now + datetime.timedelta(hours=1)
+            )
+            if existing_loan:
+                loan_info.external_identifier=existing_loan.external_identifier
+        except AlreadyOnHold:
+            # We're trying to check out a book that we already have on hold.
+            hold_info = HoldInfo(
+                licensepool.collection, licensepool.data_source,
+                licensepool.identifier.type, licensepool.identifier.identifier,
+                None, None, None
+            )
+        except NoAvailableCopies:
+            if existing_loan:
+                # The patron tried to renew a loan but there are
+                # people waiting in line for them to return the book,
+                # so renewals are not allowed.
+                raise CannotRenew(
+                    _("You cannot renew a loan if other patrons have the work on hold.")
                 )
-                if existing_loan:
-                    loan_info.external_identifier=existing_loan.external_identifier
-            except AlreadyOnHold:
-                # We're trying to check out a book that we already have on hold.
-                hold_info = HoldInfo(
-                    licensepool.collection, licensepool.data_source,
-                    licensepool.identifier.type, licensepool.identifier.identifier,
-                    None, None, None
-                )
-            except NoAvailableCopies:
-                if existing_loan:
-                    # The patron tried to renew a loan but there are
-                    # people waiting in line for them to return the book,
-                    # so renewals are not allowed.
-                    raise CannotRenew(
-                        _("You cannot renew a loan if other patrons have the work on hold.")
-                    )
-                else:
-                    # That's fine, we'll just (try to) place a hold.
-                    #
-                    # Since the patron incorrectly believed there were
-                    # copies available, update availability information
-                    # immediately.
-                    api.update_availability(licensepool)
-            except NoLicenses, e:
+            else:
+                # That's fine, we'll just (try to) place a hold.
+                #
                 # Since the patron incorrectly believed there were
-                # licenses available, update availability information
+                # copies available, update availability information
                 # immediately.
                 api.update_availability(licensepool)
-                raise e
+        except NoLicenses, e:
+            # Since the patron incorrectly believed there were
+            # licenses available, update availability information
+            # immediately.
+            api.update_availability(licensepool)
+            raise e
 
         if loan_info:
             # We successfuly secured a loan.  Now create it in our
@@ -721,11 +731,6 @@ class CirculationAPI(object):
                     licensepool.identifier.type, licensepool.identifier.identifier,
                     None, None, None
                 )
-            except CannotHold, e:
-                if at_loan_limit:
-                    raise PatronLoanLimitReached()
-                else:
-                    raise e
 
         # It's pretty rare that we'd go from having a loan for a book
         # to needing to put it on hold, but we do check for that case.

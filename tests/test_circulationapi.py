@@ -457,6 +457,9 @@ class TestCirculationAPI(DatabaseTest):
         self.remote.queue_hold(CurrentlyAvailable())
         assert_raises(PatronLoanLimitReached, self.borrow)
 
+        # The queued response was never needed, because we didn't make a request.
+        eq_(1, len(self.remote.responses))
+
         # If we increase the limit, borrow succeeds.
         self.patron.library.setting(Configuration.LOAN_LIMIT).value = 2
         loaninfo = LoanInfo(
