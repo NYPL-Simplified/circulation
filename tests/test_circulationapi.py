@@ -454,13 +454,21 @@ class TestCirculationAPI(DatabaseTest):
 
         # If the patron tried to check out when they're at the loan limit,
         # the API will try to place a hold instead, and catch the error.
-        self.remote.queue_hold(CurrentlyAvailable())
+        #
+        # Note that we don't queue a response -- no call is ever sent
+        # out to the API.
         assert_raises(PatronLoanLimitReached, self.borrow)
 
-        # The queued response was never needed, because we didn't make a request.
-        eq_(1, len(self.remote.responses))
-
-        # If we increase the limit, borrow succeeds.
+        # If it looks like the book isn't available, we don't raise
+        # PatronLoanLimitReached--we try to take out a loan, since that's
+        # a necessary prerequisite for placing a hold.
+        self.pool.licenses_available = 0
+        foo = self.borrow()
+        set_trace()
+        
+        # If we increase the limit, borrow succeeds, even though we thought
+        # the book was not available -- the API knows better.
+        self.remote.queue_loan(CurrentlyAvailable())
         self.patron.library.setting(Configuration.LOAN_LIMIT).value = 2
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
