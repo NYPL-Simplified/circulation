@@ -458,17 +458,11 @@ class TestCirculationAPI(DatabaseTest):
         # Note that we don't queue a response -- no call is ever sent
         # out to the API.
         assert_raises(PatronLoanLimitReached, self.borrow)
-
-        # If it looks like the book isn't available, we don't raise
-        # PatronLoanLimitReached--we try to take out a loan, since that's
-        # a necessary prerequisite for placing a hold.
-        self.pool.licenses_available = 0
-        foo = self.borrow()
-        set_trace()
-        
-        # If we increase the limit, borrow succeeds, even though we thought
-        # the book was not available -- the API knows better.
-        self.remote.queue_loan(CurrentlyAvailable())
+       
+        # If we increase the limit, borrow succeeds. We think
+        # the book is not available, but when we ask the external API for a hold, it
+        # raises CurrentlyAvailable() and we end up with a loan.
+        self.remote.queue_checkout(CurrentlyAvailable())
         self.patron.library.setting(Configuration.LOAN_LIMIT).value = 2
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
@@ -489,22 +483,7 @@ class TestCirculationAPI(DatabaseTest):
         assert loan != None
 
         # And that loan doesn't count towards the limit.
-        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 3
-
-        pool2 = self._licensepool(None,
-            data_source_name=DataSource.BIBLIOTHECA,
-            collection=self.collection)
-        loaninfo = LoanInfo(
-            pool2.collection, pool2.data_source,
-            pool2.identifier.type,
-            pool2.identifier.identifier,
-            now, now + timedelta(seconds=3600),
-        )
-        self.remote.queue_checkout(loaninfo)
-        loan, hold, is_new = self.circulation.borrow(
-            self.patron, '1234', pool2, self.delivery_mechanism
-        )
-        assert loan != None
+        eq_(False, self.circulation.patron_at_loan_limit(self.patron))
 
         # A loan with no end date also doesn't count toward the limit.
         previous_loan.end = None
@@ -522,6 +501,7 @@ class TestCirculationAPI(DatabaseTest):
             self.patron, '1234', pool2, self.delivery_mechanism
         )
         assert loan != None
+        eq_(False, self.circulation.patron_at_loan_limit(self.patron))
 
     def test_borrow_hold_limit_reached(self):
         # The hold limit is 1, and the patron has a previous hold.
