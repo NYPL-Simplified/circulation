@@ -749,11 +749,9 @@ class CirculationAPI(object):
         """Enforce library-specific patron loan and hold limits.
 
         :param patron: A Patron.
-
         :param pool: A LicensePool the patron is trying to access. As
-           a side effect, this method updates `pool` with the latest
+           a side effect, this method may update `pool` with the latest
            availability information from the remote API.
-
         :raises PatronLoanLimitReached: If `pool` is currently
             available but the patron is at their loan limit.
         :raises PatronHoldLimitReached: If `pool` is currently
@@ -769,19 +767,18 @@ class CirculationAPI(object):
 
         if at_loan_limit and at_hold_limit:
             # This patron can neither take out a loan or place a hold.
-            # Raise PatronLoanLimitReached since that's what they were
-            # hoping for _eventually_.
+            # Raise PatronLoanLimitReached for the most understandable
+            # error message.
             raise PatronLoanLimitReached()
 
         # At this point it's important that we get up-to-date
         # availability information about this LicensePool, to reduce
         # the risk that (e.g.) we apply the loan limit to a book that
-        # must be placed on hold.
+        # would be placed on hold instead.
         api = self.api_for_license_pool(pool)
         api.update_availability(pool)
 
         currently_available = pool.licenses_available > 0
-
         if currently_available and at_loan_limit:
              raise PatronLoanLimitReached()
         if not currently_available and at_hold_limit:
@@ -802,7 +799,8 @@ class CirculationAPI(object):
         # Open-access loans, and loans of indefinite duration, don't count towards the loan limit
         # because they don't block anyone else.
         non_open_access_loans_with_end_date = [
-            loan for loan in patron.loans if loan.license_pool.open_access == False and loan.end
+            loan for loan in patron.loans
+            if loan.license_pool and loan.license_pool.open_access == False and loan.end
         ]
         return loan_limit and len(non_open_access_loans_with_end_date) >= loan_limit
 
