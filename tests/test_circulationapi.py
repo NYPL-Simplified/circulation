@@ -445,21 +445,40 @@ class TestCirculationAPI(DatabaseTest):
         eq_([self.pool], self.remote.availability_updated_for)
 
     def test_borrow_calls_enforce_limits(self):
-        # Verify that the nbormal behavior of CirculationAPI.borrow()
-        # is to call enforce_limits before trying to check out the
+        # Verify that the normal behavior of CirculationAPI.borrow()
+        # is to call enforce_limits() before trying to check out the
         # book.
-        class Mock(MockCirculationAPI):
+        class MockVendorAPI(BaseCirculationAPI):
+            # Short-circuit the borrowing process -- we just need to make sure
+            # enforce_limits is called before checkout()
+            def __init__(self):
+                self.availability_updated = []
+
+            def internal_format(self, *args, **kwargs):
+                return "some format"
+
+            def checkout(self, *args, **kwargs):
+                raise NotImplementedError()
+        api = MockVendorAPI()
+
+        class MockCirculationAPI(CirculationAPI):
             def __init__(self, *args, **kwargs):
-                super(Mock, self).__init__(*args, **kwargs)
+                super(MockCirculationAPI, self).__init__(*args, **kwargs)
                 self.enforce_limits_calls = []
 
             def enforce_limits(self, patron, licensepool):
                 self.enforce_limits_calls.append((patron, licensepool))
 
+            def api_for_license_pool(self, pool):
+                # Always return the same mock MockVendorAPI.
+                return api
         self.circulation = MockCirculationAPI(self._db, self._default_library)
-        self.remote.queue_checkout(NotImplementedError())
+
+        # checkout() raised the expected NotImplementedError
         assert_raises(NotImplementedError, self.borrow)
-        eq_((self.patron, self.pool), self.circulation.enforce_limits_calls)
+
+        # But before that happened, enforce_limits was called once.
+        eq_([(self.patron, self.pool)], self.circulation.enforce_limits_calls)
 
     def test_patron_at_loan_limit(self):
         # The loan limit is a per-library setting.
@@ -548,8 +567,8 @@ class TestCirculationAPI(DatabaseTest):
         # Verify that enforce_limits works whether the patron is at one, both,
         # or neither of their loan limits.
 
-        class MockAPI(object):
-            # Simulate CirculationAPI so we can watch license pool
+        class MockVendorAPI(object):
+            # Simulate a vendor API so we can watch license pool
             # availability being updated.
             def __init__(self):
                 self.availability_updated = []
@@ -557,7 +576,7 @@ class TestCirculationAPI(DatabaseTest):
             def update_availability(self, pool):
                 self.availability_updated.append(pool)
 
-        api = MockAPI()
+        api = MockVendorAPI()
 
         class Mock(MockCirculationAPI):
             # Mock the loan and hold limit settings, and return a mock
@@ -572,7 +591,7 @@ class TestCirculationAPI(DatabaseTest):
                 self.at_hold_limit = False
 
             def api_for_license_pool(self, pool):
-                # Always return the same mock CirculationAPI.
+                # Always return the same mock vendor API
                 self.api_for_license_pool_calls.append(pool)
                 return self.api
 
