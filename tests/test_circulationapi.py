@@ -693,44 +693,25 @@ class TestCirculationAPI(DatabaseTest):
         eq_(patron, circulation.patron_at_hold_limit_calls.pop())
         eq_(pool, api.availability_updated.pop())
 
-
-
-        # An open access book can be borrowed even if the patron's at the limit.
-        open_access_pool = self._licensepool(None, with_open_access_download=True)
-
-        loan, hold, is_new = self.circulation.borrow(
-            self.patron, '1234', open_access_pool, self.delivery_mechanism
-        )
-        assert loan != None
-
-        # And that loan doesn't count towards the limit.
-        eq_(None, self.circulation.patron_at_loan_limit(self.patron))
-
-        # A loan with no end date also doesn't count toward the limit.
-        previous_loan.end = None
-        pool3 = self._licensepool(None,
-            data_source_name=DataSource.BIBLIOTHECA,
-            collection=self.collection)
-        loaninfo = LoanInfo(
-            pool3.collection, pool3.data_source,
-            pool3.identifier.type,
-            pool3.identifier.identifier,
-            now, now + timedelta(seconds=3600),
-        )
-        self.remote.queue_checkout(loaninfo)
-        loan, hold, is_new = self.circulation.borrow(
-            self.patron, '1234', pool2, self.delivery_mechanism
-        )
-        assert loan != None
-        eq_(False, self.circulation.patron_at_loan_limit(self.patron))
-
     def test_borrow_hold_limit_reached(self):
+        # Verify that you can't place a hold on an unavailable book
+        # if you're at your hold limit.
+        #
+        # NOTE: This is redundant except as an end-to-end test.
+
         # The hold limit is 1, and the patron has a previous hold.
         self.patron.library.setting(Configuration.HOLD_LIMIT).value = 1
         other_pool = self._licensepool(None)
         other_pool.open_access = False
         other_pool.on_hold_to(self.patron)
 
+        # The patron wants to take out a loan on an unavailable title.
+        self.pool.licenses_available = 0
+        assert_raises(PatronHoldLimitReached, self.borrow)
+
+        # If we increase the limit, borrow succeeds.
+        self.patron.library.setting(Configuration.HOLD_LIMIT).value = 2
+        self.remote.queue_checkout(NoAvailableCopies())
         now = datetime.now()
         holdinfo = HoldInfo(
             self.pool.collection, self.pool.data_source,
@@ -738,14 +719,7 @@ class TestCirculationAPI(DatabaseTest):
             self.pool.identifier.identifier,
             now, now + timedelta(seconds=3600), 10
         )
-        self.remote.queue_checkout(NoAvailableCopies())
         self.remote.queue_hold(holdinfo)
-
-        assert_raises(PatronHoldLimitReached, self.borrow)
-
-        # If we increase the limit, borrow succeeds.
-        self.patron.library.setting(Configuration.HOLD_LIMIT).value = 2
-        self.remote.queue_checkout(NoAvailableCopies())
         loan, hold, is_new = self.borrow()
         assert hold != None
 
