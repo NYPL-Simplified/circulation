@@ -551,12 +551,6 @@ class CirculationAPI(object):
 
         # Okay, it's not an open-access book. This means we need to go
         # to an external service to get the book.
-        #
-        # This also means that our internal model of whether this book
-        # is currently on loan or on hold might be wrong. But it's good
-        # enough to see whether the patron _thinks_ they're going for a
-        # loan or a hold, and to enforce any limits on loans or holds.
-        title_seems_available = (licensepool.licenses_available > 0)
 
         api = self.api_for_license_pool(licensepool)
         if not api:
@@ -773,6 +767,12 @@ class CirculationAPI(object):
             # limits don't apply.
             return
 
+        if at_loan_limit and at_hold_limit:
+            # This patron can neither take out a loan or place a hold.
+            # Raise PatronLoanLimitReached since that's what they were
+            # hoping for _eventually_.
+            raise PatronLoanLimitReached()
+
         # At this point it's important that we get up-to-date
         # availability information about this LicensePool, to reduce
         # the risk that (e.g.) we apply the loan limit to a book that
@@ -796,6 +796,8 @@ class CirculationAPI(object):
         :param patron: A Patron.
         """
         loan_limit = patron.library.setting(Configuration.LOAN_LIMIT).int_value            
+        if loan_limit is None:
+            return False
 
         # Open-access loans, and loans of indefinite duration, don't count towards the loan limit
         # because they don't block anyone else.
@@ -812,8 +814,9 @@ class CirculationAPI(object):
 
         :param patron: A Patron.
         """
-        hold_limit = patron.library.setting(Configuration.LOAN_LIMIT).int_value            
-
+        hold_limit = patron.library.setting(Configuration.HOLD_LIMIT).int_value            
+        if hold_limit is None:
+            return False
         return hold_limit and len(patron.holds) >= hold_limit
 
     def can_fulfill_without_loan(self, patron, pool, lpdm):

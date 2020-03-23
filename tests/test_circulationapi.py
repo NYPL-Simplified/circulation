@@ -444,35 +444,237 @@ class TestCirculationAPI(DatabaseTest):
         # so that we don't keep offering the book.
         eq_([self.pool], self.remote.availability_updated_for)
 
-    def test_borrow_loan_limit_reached(self):
-        # The loan limit is 1, and the patron has a previous loan.
-        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 1
-        previous_loan_pool = self._licensepool(None)
-        previous_loan_pool.open_access = False
-        now = datetime.now()
-        previous_loan, ignore = previous_loan_pool.loan_to(self.patron, end=now + timedelta(days=2))
+    def test_borrow_calls_enforce_limits(self):
+        # Verify that the nbormal behavior of CirculationAPI.borrow()
+        # is to call enforce_limits before trying to check out the
+        # book.
+        class Mock(MockCirculationAPI):
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.enforce_limits_calls = []
 
-        # If the patron tried to check out when they're at the loan limit,
-        # the API will try to place a hold instead, and catch the error.
+            def enforce_limits(self, patron, licensepool):
+                self.enforce_limits_calls.append((patron, licensepool))
+
+        self.circulation = MockCirculationAPI(self._db, self._default_library)
+        self.remote.queue_checkout(NotImplementedError())
+        assert_raises(NotImplementedError, self.borrow)
+        eq_((self.patron, self.pool), self.circulation.enforce_limits_calls)
+
+    def test_patron_at_loan_limit(self):
+        # The loan limit is a per-library setting.
+        setting = self.patron.library.setting(Configuration.LOAN_LIMIT)
+
+        future = datetime.utcnow() + timedelta(hours=1)
+
+        # This patron has two loans that count towards the loan limit
+        patron = self.patron
+        self.pool.loan_to(self.patron, end=future)
+        pool2 = self._licensepool(None)
+        pool2.loan_to(self.patron, end=future)
+
+        # An open-access loan doesn't count towards the limit.
+        open_access_pool = self._licensepool(None, with_open_access_download=True)
+        open_access_pool.loan_to(self.patron)
+
+        # A loan of indefinite duration (no end date) doesn't count
+        # towards the limit.
+        indefinite_pool = self._licensepool(None)
+        indefinite_pool.loan_to(self.patron, end=None)
+
+        # Another patron's loans don't affect your limit.
+        patron2 = self._patron()
+        self.pool.loan_to(patron2)
+
+        # patron_at_loan_limit returns True if your number of relevant
+        # loans equals or exceeds the limit.
+        m = self.circulation.patron_at_loan_limit
+        eq_(None, setting.value)
+        eq_(False, m(patron))
+
+        setting.value = 1
+        eq_(True, m(patron))
+        setting.value = 2
+        eq_(True, m(patron))
+        setting.value = 3
+        eq_(False, m(patron))
+
+        # Setting the loan limit to 0 is treated the same as disabling it.
+        setting.value = 0
+        eq_(False, m(patron))
+
+        # Another library's setting doesn't affect your limit.
+        other_library = self._library()
+        other_library.setting(Configuration.LOAN_LIMIT).value = 1
+        eq_(False, m(patron))
+
+    def test_patron_at_hold_limit(self):
+        # The hold limit is a per-library setting.
+        setting = self.patron.library.setting(Configuration.HOLD_LIMIT)
+
+        # Unlike the loan limit, it's pretty simple -- every hold counts towards your limit.
+        patron = self.patron
+        self.pool.on_hold_to(self.patron)
+        pool2 = self._licensepool(None)
+        pool2.on_hold_to(self.patron)
+
+        # Another patron's holds don't affect your limit.
+        patron2 = self._patron()
+        self.pool.on_hold_to(patron2)
+
+        # patron_at_hold_limit returns True if your number of holds
+        # equals or exceeds the limit.
+        m = self.circulation.patron_at_hold_limit
+        eq_(None, setting.value)
+        eq_(False, m(patron))
+
+        setting.value = 1
+        eq_(True, m(patron))
+        setting.value = 2
+        eq_(True, m(patron))
+        setting.value = 3
+        eq_(False, m(patron))
+
+        # Setting the hold limit to 0 is treated the same as disabling it.
+        setting.value = 0
+        eq_(False, m(patron))
+
+        # Another library's setting doesn't affect your limit.
+        other_library = self._library()
+        other_library.setting(Configuration.HOLD_LIMIT).value = 1
+        eq_(False, m(patron))
+
+    def test_enforce_limits(self):
+        # Verify that enforce_limits works whether the patron is at one, both,
+        # or neither of their loan limits.
+
+        class MockAPI(object):
+            # Simulate CirculationAPI so we can watch license pool
+            # availability being updated.
+            def __init__(self):
+                self.availability_updated = []
+
+            def update_availability(self, pool):
+                self.availability_updated.append(pool)
+
+        api = MockAPI()
+
+        class Mock(MockCirculationAPI):
+            # Mock the loan and hold limit settings, and return a mock
+            # CirculationAPI as needed.
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.api = api
+                self.api_for_license_pool_calls = []
+                self.patron_at_loan_limit_calls = []
+                self.patron_at_hold_limit_calls = []
+                self.at_loan_limit = False
+                self.at_hold_limit = False
+
+            def api_for_license_pool(self, pool):
+                # Always return the same mock CirculationAPI.
+                self.api_for_license_pool_calls.append(pool)
+                return self.api
+
+            def patron_at_loan_limit(self, patron):
+                # Return the value set for self.at_loan_limit
+                self.patron_at_loan_limit_calls.append(patron)
+                return self.at_loan_limit
+
+            def patron_at_hold_limit(self, patron):
+                # Return the value set for self.at_hold_limit
+                self.patron_at_hold_limit_calls.append(patron)
+                return self.at_hold_limit
+
+        circulation = Mock(self._db, self._default_library)
+
+        # Sub-test 1: patron has reached neither limit.
         #
-        # Note that we don't queue a response -- no call is ever sent
-        # out to the API.
-        assert_raises(PatronLoanLimitReached, self.borrow)
-       
-        # If we increase the limit, borrow succeeds. We think
-        # the book is not available, but when we ask the external API for a hold, it
-        # raises CurrentlyAvailable() and we end up with a loan.
-        self.remote.queue_checkout(CurrentlyAvailable())
-        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 2
-        loaninfo = LoanInfo(
-            self.pool.collection, self.pool.data_source,
-            self.pool.identifier.type,
-            self.pool.identifier.identifier,
-            now, now + timedelta(seconds=3600),
+        patron = self.patron
+        pool = object()
+        circulation.at_loan_limit = False
+        circulation.at_hold_limit = False
+
+        eq_(None, circulation.enforce_limits(patron, pool))
+
+        # To determine that the patron is under their limit, it was
+        # necessary to call patron_at_loan_limit and
+        # patron_at_hold_limit.
+        eq_(patron, circulation.patron_at_loan_limit_calls.pop())
+        eq_(patron, circulation.patron_at_hold_limit_calls.pop())
+
+        # But it was not necessary to update the availability for the
+        # LicensePool, since the patron was not at either limit.
+        eq_([], api.availability_updated)
+
+        # Sub-test 2: patron has reached both limits.
+        #
+        circulation.at_loan_limit = True
+        circulation.at_hold_limit = True
+        assert_raises(PatronLoanLimitReached, circulation.enforce_limits, patron, pool)
+
+        # We were able to deduce that the patron can't do anything
+        # with this book, without having to ask the API about
+        # availability.
+        eq_(patron, circulation.patron_at_loan_limit_calls.pop())
+        eq_(patron, circulation.patron_at_hold_limit_calls.pop())
+        eq_([], api.availability_updated)
+
+        # At this point we need to start using a real LicensePool.
+        pool = self.pool
+
+        # Sub-test 3: patron is at loan limit but not hold limit.
+        #
+        circulation.at_loan_limit = True
+        circulation.at_hold_limit = False
+
+        # If the book is available, we get PatronLoanLimitReached
+        pool.licenses_available = 1
+        assert_raises(
+            PatronLoanLimitReached, circulation.enforce_limits, patron, pool
         )
-        self.remote.queue_checkout(loaninfo)
-        loan, hold, is_new = self.borrow()
-        assert loan != None
+
+        # Reaching this conclusion required checking both patron
+        # limits and asking the remote API for updated availability
+        # information for this LicensePool.
+        eq_(patron, circulation.patron_at_loan_limit_calls.pop())
+        eq_(patron, circulation.patron_at_hold_limit_calls.pop())
+        eq_(pool, api.availability_updated.pop())
+
+        # If the LicensePool is not available, we pass the
+        # test. Placing a hold is fine here.
+        pool.licenses_available = 0
+        eq_(None, circulation.enforce_limits(patron, pool))
+        eq_(patron, circulation.patron_at_loan_limit_calls.pop())
+        eq_(patron, circulation.patron_at_hold_limit_calls.pop())
+        eq_(pool, api.availability_updated.pop())
+
+        # Sub-test 3: patron is at hold limit but not loan limit
+        #
+        circulation.at_loan_limit = False
+        circulation.at_hold_limit = True
+
+        # If the book is not available, we get PatronHoldLimitReached
+        pool.licenses_available = 0
+        assert_raises(
+            PatronHoldLimitReached, circulation.enforce_limits, patron, pool
+        )
+
+        # Reaching this conclusion required checking both patron
+        # limits and asking the remote API for updated availability
+        # information for this LicensePool.
+        eq_(patron, circulation.patron_at_loan_limit_calls.pop())
+        eq_(patron, circulation.patron_at_hold_limit_calls.pop())
+        eq_(pool, api.availability_updated.pop())
+
+        # If the book is available, we're fine -- we're not at our loan limit.
+        pool.licenses_available = 1
+        eq_(None, circulation.enforce_limits(patron, pool))
+        eq_(patron, circulation.patron_at_loan_limit_calls.pop())
+        eq_(patron, circulation.patron_at_hold_limit_calls.pop())
+        eq_(pool, api.availability_updated.pop())
+
+
 
         # An open access book can be borrowed even if the patron's at the limit.
         open_access_pool = self._licensepool(None, with_open_access_download=True)
@@ -483,7 +685,7 @@ class TestCirculationAPI(DatabaseTest):
         assert loan != None
 
         # And that loan doesn't count towards the limit.
-        eq_(False, self.circulation.patron_at_loan_limit(self.patron))
+        eq_(None, self.circulation.patron_at_loan_limit(self.patron))
 
         # A loan with no end date also doesn't count toward the limit.
         previous_loan.end = None
