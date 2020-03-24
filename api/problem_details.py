@@ -76,15 +76,11 @@ LOAN_LIMIT_REACHED = pd(
       _("You have reached your loan limit. You cannot borrow anything further until you return something."),
 )
 
-# TODO: The wording here is deliberately vague as a workaround for
-# https://jira.nypl.org/browse/SIMPLY-2657. In the medium term this
-# should be restored to a more specific description that is used
-# alongside LOAN_LIMIT_REACHED (see above).
 HOLD_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/hold-limit-reached",
       403,
       _("Limit reached."),
-      _("You have reached your library's limit for this action. Consult your library's policy for more details."),
+      _("You have reached your hold limit. You cannot place another item on hold until you borrow something or remove a hold."),
 )
 
 OUTSTANDING_FINES = pd(
