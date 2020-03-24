@@ -66,7 +66,7 @@ ALREADY_CHECKED_OUT = pd(
 )
 
 GENERIC_LOAN_LIMIT_MESSAGE = _("You have reached your loan limit. You cannot borrow anything further until you return something.")
-SPECIFIC_LOAN_LIMIT_MESSAGE = _("You have reached your loan limit of %(limit)d items. You cannot borrow anything further until you return something.")
+SPECIFIC_LOAN_LIMIT_MESSAGE = _("You have reached your loan limit of %(limit)d. You cannot borrow anything further until you return something.")
 LOAN_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/loan-limit-reached",
       403,
@@ -75,7 +75,7 @@ LOAN_LIMIT_REACHED = pd(
 )
 
 GENERIC_HOLD_LIMIT_MESSAGE = _("You have reached your hold limit. You cannot place another item on hold until you borrow something or remove a hold.")
-SPECIFIC_HOLD_LIMIT_MESSAGE = _("You have reached your hold limit of %(limit)d items. You cannot place another item on hold until you borrow something or remove a hold.")
+SPECIFIC_HOLD_LIMIT_MESSAGE = _("You have reached your hold limit of %(limit)d. You cannot place another item on hold until you borrow something or remove a hold.")
 HOLD_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/hold-limit-reached",
       403,

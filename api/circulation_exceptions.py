@@ -1,5 +1,6 @@
 from flask_babel import lazy_gettext as _
 
+from api.config import Configuration
 from core.config import IntegrationException
 from core.problem_details import (
     INTEGRATION_ERROR,
@@ -104,7 +105,18 @@ class AuthorizationBlocked(CannotLoan):
         """Return a suitable problem detail document."""
         return BLOCKED_CREDENTIALS
 
-class LimitReached(object):
+class LimitReached(CirculationException):
+    """The patron cannot carry out an operation because it would push them above
+    some limit set by library policy.
+
+    This exception cannot be used on its own. It must be subclassed and the following constants defined:
+        * `BASE_DOC`: A ProblemDetail, used as the basis for conversion of this exception into a
+           problem detail document.
+        * `SETTING_NAME`: Then name of the library-specific ConfigurationSetting whose numeric
+          value is the limit that cannot be exceeded.
+        * `MESSAGE_WITH_LIMIT` A string containing the interpolation value "%(limit)s", which
+          offers a more specific explanation of the limit exceeded.
+    """
     status_code = 403
     BASE_DOC = None
     SETTING_NAME = None
@@ -112,18 +124,18 @@ class LimitReached(object):
 
     def as_problem_detail_document(self, debug=False, library=None):
         """Return a suitable problem detail document."""
-        doc = BASE_DOC
+        doc = self.BASE_DOC
         if not library:
             return doc
-        limit = library.setting(self.SETTING_NAME).value
+        limit = library.setting(self.SETTING_NAME).int_value
         if limit:
-            instance = self.MESSAGE_WITH_LIMIT % dict(limit=limit)
-            return doc.detailed(instance=instance
-)
+            detail = self.MESSAGE_WITH_LIMIT % dict(limit=limit)
+            return doc.detailed(detail=detail)
+        return doc
 
 class PatronLoanLimitReached(CannotLoan, LimitReached):
     BASE_DOC = LOAN_LIMIT_REACHED
-    SPECIFIC_MESSAGE = SPECIFIC_LOAN_LIMIT_MESSAGE
+    MESSAGE_WITH_LIMIT = SPECIFIC_LOAN_LIMIT_MESSAGE
     SETTING_NAME = Configuration.LOAN_LIMIT
 
 class CannotReturn(CirculationException):
@@ -134,7 +146,7 @@ class CannotHold(CirculationException):
 
 class PatronHoldLimitReached(CannotHold, LimitReached):
     BASE_DOC = HOLD_LIMIT_REACHED
-    SPECIFIC_MESSAGE = SPECIFIC_HOLD_LIMIT_MESSAGE
+    MESSAGE_WITH_LIMIT = SPECIFIC_HOLD_LIMIT_MESSAGE
     SETTING_NAME = Configuration.HOLD_LIMIT
 
 class CannotReleaseHold(CirculationException):
