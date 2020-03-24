@@ -586,9 +586,7 @@
 
         <span class="c1"># Okay, it&#39;s not an open-access book. This means we need to go</span>
         <span class="c1"># to an external service to get the book.</span>
-        <span class="c1">#</span>
-        <span class="c1"># This also means that our internal model of whether this book</span>
-        <span class="c1"># is currently on loan or on hold might be wrong.</span>
+
         <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">api</span><span class="p">:</span>
             <span class="c1"># If there&#39;s no API for the pool, the pool is probably associated</span>
@@ -636,76 +634,81 @@
 
         <span class="n">new_loan</span> <span class="o">=</span> <span class="kc">False</span>
 
-        <span class="n">loan_limit</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">LOAN_LIMIT</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
-        <span class="n">non_open_access_loans_with_end_date</span> <span class="o">=</span> <span class="p">[</span><span class="n">loan</span> <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">patron</span><span class="o">.</span><span class="n">loans</span> <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">False</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">end</span><span class="p">]</span>
-        <span class="n">at_loan_limit</span> <span class="o">=</span> <span class="p">(</span><span class="n">loan_limit</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_open_access_loans_with_end_date</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">loan_limit</span><span class="p">)</span>
+        <span class="c1"># Enforce any library-specific limits on loans or holds.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enforce_limits</span><span class="p">(</span><span class="n">patron</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">)</span>
 
-        <span class="c1"># If we&#39;re at the loan limit, skip trying to check out the book and just try</span>
-        <span class="c1"># to place a hold. Otherwise, try to check out the book even if we think it&#39;s</span>
-        <span class="c1"># not available.</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">at_loan_limit</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">loan_info</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span>
-                    <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span>
-                <span class="p">)</span>
+        <span class="c1"># Since that didn&#39;t raise an exception, we know that the</span>
+        <span class="c1"># patron is able to get a loan or a hold. There are race</span>
+        <span class="c1"># conditions that will allow someone to get a hold in excess</span>
+        <span class="c1"># of their hold limit (because we thought they were getting a</span>
+        <span class="c1"># loan but someone else checked out the book right before we</span>
+        <span class="c1"># got to it) but they&#39;re rare and not serious.</span>
 
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan_info</span><span class="p">,</span> <span class="n">HoldInfo</span><span class="p">):</span>
-                    <span class="c1"># If the API couldn&#39;t give us a loan, it may have given us</span>
-                    <span class="c1"># a hold instead of raising an exception.</span>
-                    <span class="n">hold_info</span> <span class="o">=</span> <span class="n">loan_info</span>
-                    <span class="n">loan_info</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="c1"># We asked the API to create a loan and it gave us a</span>
-                    <span class="c1"># LoanInfo object, rather than raising an exception like</span>
-                    <span class="c1"># AlreadyCheckedOut.</span>
-                    <span class="c1">#</span>
-                    <span class="c1"># For record-keeping purposes we&#39;re going to treat this as</span>
-                    <span class="c1"># a newly transacted loan, although it&#39;s possible that the</span>
-                    <span class="c1"># API does something unusual like return LoanInfo instead</span>
-                    <span class="c1"># of raising AlreadyCheckedOut.</span>
-                    <span class="n">new_loan</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="k">except</span> <span class="n">AlreadyCheckedOut</span><span class="p">:</span>
-                <span class="c1"># This is good, but we didn&#39;t get the real loan info.</span>
-                <span class="c1"># Just fake it.</span>
-                <span class="n">identifier</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span>
-                <span class="n">loan_info</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
-                    <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                    <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
-                    <span class="n">start_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                    <span class="n">end_date</span><span class="o">=</span><span class="n">now</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># We try to check out the book even if we believe it&#39;s not</span>
+        <span class="c1"># available -- someone else may have checked it in since we</span>
+        <span class="c1"># last looked.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loan_info</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span>
+                <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span> <span class="n">internal_format</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan_info</span><span class="p">,</span> <span class="n">HoldInfo</span><span class="p">):</span>
+                <span class="c1"># If the API couldn&#39;t give us a loan, it may have given us</span>
+                <span class="c1"># a hold instead of raising an exception.</span>
+                <span class="n">hold_info</span> <span class="o">=</span> <span class="n">loan_info</span>
+                <span class="n">loan_info</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># We asked the API to create a loan and it gave us a</span>
+                <span class="c1"># LoanInfo object, rather than raising an exception like</span>
+                <span class="c1"># AlreadyCheckedOut.</span>
+                <span class="c1">#</span>
+                <span class="c1"># For record-keeping purposes we&#39;re going to treat this as</span>
+                <span class="c1"># a newly transacted loan, although it&#39;s possible that the</span>
+                <span class="c1"># API does something unusual like return LoanInfo instead</span>
+                <span class="c1"># of raising AlreadyCheckedOut.</span>
+                <span class="n">new_loan</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">except</span> <span class="n">AlreadyCheckedOut</span><span class="p">:</span>
+            <span class="c1"># This is good, but we didn&#39;t get the real loan info.</span>
+            <span class="c1"># Just fake it.</span>
+            <span class="n">identifier</span> <span class="o">=</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span>
+            <span class="n">loan_info</span> <span class="o">=</span> <span class="n">LoanInfo</span><span class="p">(</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                <span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="n">start_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">end_date</span><span class="o">=</span><span class="n">now</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
+                <span class="n">loan_info</span><span class="o">.</span><span class="n">external_identifier</span><span class="o">=</span><span class="n">existing_loan</span><span class="o">.</span><span class="n">external_identifier</span>
+        <span class="k">except</span> <span class="n">AlreadyOnHold</span><span class="p">:</span>
+            <span class="c1"># We&#39;re trying to check out a book that we already have on hold.</span>
+            <span class="n">hold_info</span> <span class="o">=</span> <span class="n">HoldInfo</span><span class="p">(</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
+                <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
+                <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">NoAvailableCopies</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
+                <span class="c1"># The patron tried to renew a loan but there are</span>
+                <span class="c1"># people waiting in line for them to return the book,</span>
+                <span class="c1"># so renewals are not allowed.</span>
+                <span class="k">raise</span> <span class="n">CannotRenew</span><span class="p">(</span>
+                    <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You cannot renew a loan if other patrons have the work on hold.&quot;</span><span class="p">)</span>
                 <span class="p">)</span>
-                <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
-                    <span class="n">loan_info</span><span class="o">.</span><span class="n">external_identifier</span><span class="o">=</span><span class="n">existing_loan</span><span class="o">.</span><span class="n">external_identifier</span>
-            <span class="k">except</span> <span class="n">AlreadyOnHold</span><span class="p">:</span>
-                <span class="c1"># We&#39;re trying to check out a book that we already have on hold.</span>
-                <span class="n">hold_info</span> <span class="o">=</span> <span class="n">HoldInfo</span><span class="p">(</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">data_source</span><span class="p">,</span>
-                    <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
-                    <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
-                <span class="p">)</span>
-            <span class="k">except</span> <span class="n">NoAvailableCopies</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">existing_loan</span><span class="p">:</span>
-                    <span class="c1"># The patron tried to renew a loan but there are</span>
-                    <span class="c1"># people waiting in line for them to return the book,</span>
-                    <span class="c1"># so renewals are not allowed.</span>
-                    <span class="k">raise</span> <span class="n">CannotRenew</span><span class="p">(</span>
-                        <span class="n">_</span><span class="p">(</span><span class="s2">&quot;You cannot renew a loan if other patrons have the work on hold.&quot;</span><span class="p">)</span>
-                    <span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="c1"># That&#39;s fine, we&#39;ll just (try to) place a hold.</span>
-                    <span class="c1">#</span>
-                    <span class="c1"># Since the patron incorrectly believed there were</span>
-                    <span class="c1"># copies available, update availability information</span>
-                    <span class="c1"># immediately.</span>
-                    <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">NoLicenses</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># That&#39;s fine, we&#39;ll just (try to) place a hold.</span>
+                <span class="c1">#</span>
                 <span class="c1"># Since the patron incorrectly believed there were</span>
-                <span class="c1"># licenses available, update availability information</span>
+                <span class="c1"># copies available, update availability information</span>
                 <span class="c1"># immediately.</span>
                 <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">except</span> <span class="n">NoLicenses</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Since the patron incorrectly believed there were</span>
+            <span class="c1"># licenses available, update availability information</span>
+            <span class="c1"># immediately.</span>
+            <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">licensepool</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
 
         <span class="k">if</span> <span class="n">loan_info</span><span class="p">:</span>
             <span class="c1"># We successfuly secured a loan.  Now create it in our</span>
@@ -741,10 +744,6 @@
         <span class="c1"># Checking out a book didn&#39;t work, so let&#39;s try putting</span>
         <span class="c1"># the book on hold.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">hold_info</span><span class="p">:</span>
-            <span class="n">hold_limit</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">HOLD_LIMIT</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
-            <span class="k">if</span> <span class="n">hold_limit</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">holds</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">hold_limit</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">PatronHoldLimitReached</span><span class="p">()</span>
-
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">hold_info</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">place_hold</span><span class="p">(</span>
                     <span class="n">patron</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">licensepool</span><span class="p">,</span>
@@ -756,11 +755,6 @@
                     <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">licensepool</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">identifier</span><span class="p">,</span>
                     <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotHold</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">at_loan_limit</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">PatronLoanLimitReached</span><span class="p">()</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">e</span>
 
         <span class="c1"># It&#39;s pretty rare that we&#39;d go from having a loan for a book</span>
         <span class="c1"># to needing to put it on hold, but we do check for that case.</span>
@@ -785,6 +779,78 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">existing_loan</span><span class="p">)</span>
         <span class="n">__transaction</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">hold</span><span class="p">,</span> <span class="n">is_new</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.enforce_limits"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.enforce_limits">[docs]</a>    <span class="k">def</span> <span class="nf">enforce_limits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Enforce library-specific patron loan and hold limits.</span>
+
+<span class="sd">        :param patron: A Patron.</span>
+<span class="sd">        :param pool: A LicensePool the patron is trying to access. As</span>
+<span class="sd">           a side effect, this method may update `pool` with the latest</span>
+<span class="sd">           availability information from the remote API.</span>
+<span class="sd">        :raises PatronLoanLimitReached: If `pool` is currently</span>
+<span class="sd">            available but the patron is at their loan limit.</span>
+<span class="sd">        :raises PatronHoldLimitReached: If `pool` is currently</span>
+<span class="sd">            unavailable and the patron is at their hold limit.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">at_loan_limit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_at_loan_limit</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+        <span class="n">at_hold_limit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patron_at_hold_limit</span><span class="p">(</span><span class="n">patron</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">at_loan_limit</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">at_hold_limit</span><span class="p">:</span>
+            <span class="c1"># This patron can take out either a loan or a hold, so the</span>
+            <span class="c1"># limits don&#39;t apply.</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="n">at_loan_limit</span> <span class="ow">and</span> <span class="n">at_hold_limit</span><span class="p">:</span>
+            <span class="c1"># This patron can neither take out a loan or place a hold.</span>
+            <span class="c1"># Raise PatronLoanLimitReached for the most understandable</span>
+            <span class="c1"># error message.</span>
+            <span class="k">raise</span> <span class="n">PatronLoanLimitReached</span><span class="p">(</span><span class="n">library</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+
+        <span class="c1"># At this point it&#39;s important that we get up-to-date</span>
+        <span class="c1"># availability information about this LicensePool, to reduce</span>
+        <span class="c1"># the risk that (e.g.) we apply the loan limit to a book that</span>
+        <span class="c1"># would be placed on hold instead.</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_for_license_pool</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
+        <span class="n">api</span><span class="o">.</span><span class="n">update_availability</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
+
+        <span class="n">currently_available</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">currently_available</span> <span class="ow">and</span> <span class="n">at_loan_limit</span><span class="p">:</span>
+             <span class="k">raise</span> <span class="n">PatronLoanLimitReached</span><span class="p">(</span><span class="n">library</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">currently_available</span> <span class="ow">and</span> <span class="n">at_hold_limit</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PatronHoldLimitReached</span><span class="p">(</span><span class="n">library</span><span class="o">=</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.patron_at_loan_limit"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.patron_at_loan_limit">[docs]</a>    <span class="k">def</span> <span class="nf">patron_at_loan_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Is the given patron at their loan limit?</span>
+
+<span class="sd">        This doesn&#39;t belong in Patron because the loan limit is not core functionality.</span>
+<span class="sd">        Of course, Patron itself isn&#39;t really core functionality...</span>
+
+<span class="sd">        :param patron: A Patron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loan_limit</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">LOAN_LIMIT</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>            
+        <span class="k">if</span> <span class="n">loan_limit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Open-access loans, and loans of indefinite duration, don&#39;t count towards the loan limit</span>
+        <span class="c1"># because they don&#39;t block anyone else.</span>
+        <span class="n">non_open_access_loans_with_end_date</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">loan</span> <span class="k">for</span> <span class="n">loan</span> <span class="ow">in</span> <span class="n">patron</span><span class="o">.</span><span class="n">loans</span>
+            <span class="k">if</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">False</span> <span class="ow">and</span> <span class="n">loan</span><span class="o">.</span><span class="n">end</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">loan_limit</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_open_access_loans_with_end_date</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">loan_limit</span></div>
+
+<div class="viewcode-block" id="CirculationAPI.patron_at_hold_limit"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.patron_at_hold_limit">[docs]</a>    <span class="k">def</span> <span class="nf">patron_at_hold_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Is the given patron at their hold limit?</span>
+
+<span class="sd">        This doesn&#39;t belong in Patron because the hold limit is not core functionality.</span>
+<span class="sd">        Of course, Patron itself isn&#39;t really core functionality...</span>
+
+<span class="sd">        :param patron: A Patron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">hold_limit</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">HOLD_LIMIT</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>            
+        <span class="k">if</span> <span class="n">hold_limit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">hold_limit</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">holds</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">hold_limit</span></div>
 
 <div class="viewcode-block" id="CirculationAPI.can_fulfill_without_loan"><a class="viewcode-back" href="../../api.html#api.circulation.CirculationAPI.can_fulfill_without_loan">[docs]</a>    <span class="k">def</span> <span class="nf">can_fulfill_without_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">lpdm</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Can we deliver the given book in the given format to the given</span>

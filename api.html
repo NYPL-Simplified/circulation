@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x40dd360&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x49b3880&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x40bf3e0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x49ac0c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x40bf090&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x49ac3a0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -3810,6 +3810,34 @@ API class Y to handle that collection.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="api.circulation.CirculationAPI.enforce_limits">
+<code class="descname">enforce_limits</code><span class="sig-paren">(</span><em>patron</em>, <em>pool</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation.html#CirculationAPI.enforce_limits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation.CirculationAPI.enforce_limits" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enforce library-specific patron loan and hold limits.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>patron</strong> – A Patron.</li>
+<li><strong>pool</strong> – A LicensePool the patron is trying to access. As
+a side effect, this method may update <cite>pool</cite> with the latest
+availability information from the remote API.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><ul class="first last simple">
+<li><a class="reference internal" href="#api.circulation_exceptions.PatronLoanLimitReached" title="api.circulation_exceptions.PatronLoanLimitReached"><strong>PatronLoanLimitReached</strong></a> – If <cite>pool</cite> is currently
+available but the patron is at their loan limit.</li>
+<li><a class="reference internal" href="#api.circulation_exceptions.PatronHoldLimitReached" title="api.circulation_exceptions.PatronHoldLimitReached"><strong>PatronHoldLimitReached</strong></a> – If <cite>pool</cite> is currently
+unavailable and the patron is at their hold limit.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
 <dt id="api.circulation.CirculationAPI.fulfill">
 <code class="descname">fulfill</code><span class="sig-paren">(</span><em>patron</em>, <em>pin</em>, <em>licensepool</em>, <em>delivery_mechanism</em>, <em>part=None</em>, <em>fulfill_part_url=None</em>, <em>sync_on_failure=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation.html#CirculationAPI.fulfill"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation.CirculationAPI.fulfill" title="Permalink to this definition">¶</a></dt>
 <dd><p>Fulfil a book that a patron has previously checked out.</p>
@@ -3885,6 +3913,38 @@ vis-a-vis all relevant external loan sources.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A 2-tuple (loans, holds) containing <cite>HoldInfo</cite> and
 <cite>LoanInfo</cite> objects.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.circulation.CirculationAPI.patron_at_hold_limit">
+<code class="descname">patron_at_hold_limit</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation.html#CirculationAPI.patron_at_hold_limit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation.CirculationAPI.patron_at_hold_limit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is the given patron at their hold limit?</p>
+<p>This doesn’t belong in Patron because the hold limit is not core functionality.
+Of course, Patron itself isn’t really core functionality…</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>patron</strong> – A Patron.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="api.circulation.CirculationAPI.patron_at_loan_limit">
+<code class="descname">patron_at_loan_limit</code><span class="sig-paren">(</span><em>patron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation.html#CirculationAPI.patron_at_loan_limit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation.CirculationAPI.patron_at_loan_limit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is the given patron at their loan limit?</p>
+<p>This doesn’t belong in Patron because the loan limit is not core functionality.
+Of course, Patron itself isn’t really core functionality…</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>patron</strong> – A Patron.</td>
 </tr>
 </tbody>
 </table>
@@ -4315,6 +4375,55 @@ exclusive to that platform.</p>
 </dd></dl>
 
 <dl class="exception">
+<dt id="api.circulation_exceptions.LimitReached">
+<em class="property">exception </em><code class="descclassname">api.circulation_exceptions.</code><code class="descname">LimitReached</code><span class="sig-paren">(</span><em>message=None</em>, <em>debug_info=None</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#LimitReached"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.LimitReached" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.circulation_exceptions.CirculationException" title="api.circulation_exceptions.CirculationException"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.CirculationException</span></code></a></p>
+<p>The patron cannot carry out an operation because it would push them above
+some limit set by library policy.</p>
+<dl class="docutils">
+<dt>This exception cannot be used on its own. It must be subclassed and the following constants defined:</dt>
+<dd><ul class="first last simple">
+<li><dl class="first docutils">
+<dt><cite>BASE_DOC</cite>: A ProblemDetail, used as the basis for conversion of this exception into a</dt>
+<dd>problem detail document.</dd>
+</dl>
+</li>
+<li><cite>SETTING_NAME</cite>: Then name of the library-specific ConfigurationSetting whose numeric
+value is the limit that cannot be exceeded.</li>
+<li><cite>MESSAGE_WITH_LIMIT</cite> A string containing the interpolation value “%(limit)s”, which
+offers a more specific explanation of the limit exceeded.</li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="api.circulation_exceptions.LimitReached.BASE_DOC">
+<code class="descname">BASE_DOC</code><em class="property"> = None</em><a class="headerlink" href="#api.circulation_exceptions.LimitReached.BASE_DOC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.circulation_exceptions.LimitReached.MESSAGE_WITH_LIMIT">
+<code class="descname">MESSAGE_WITH_LIMIT</code><em class="property"> = None</em><a class="headerlink" href="#api.circulation_exceptions.LimitReached.MESSAGE_WITH_LIMIT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.circulation_exceptions.LimitReached.SETTING_NAME">
+<code class="descname">SETTING_NAME</code><em class="property"> = None</em><a class="headerlink" href="#api.circulation_exceptions.LimitReached.SETTING_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="api.circulation_exceptions.LimitReached.as_problem_detail_document">
+<code class="descname">as_problem_detail_document</code><span class="sig-paren">(</span><em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#LimitReached.as_problem_detail_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.LimitReached.as_problem_detail_document" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a suitable problem detail document.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="api.circulation_exceptions.LimitReached.status_code">
+<code class="descname">status_code</code><em class="property"> = 403</em><a class="headerlink" href="#api.circulation_exceptions.LimitReached.status_code" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
 <dt id="api.circulation_exceptions.NoAcceptableFormat">
 <em class="property">exception </em><code class="descclassname">api.circulation_exceptions.</code><code class="descname">NoAcceptableFormat</code><span class="sig-paren">(</span><em>message=None</em>, <em>debug_info=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#NoAcceptableFormat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.NoAcceptableFormat" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.circulation_exceptions.CannotFulfill" title="api.circulation_exceptions.CannotFulfill"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.CannotFulfill</span></code></a></p>
@@ -4442,23 +4551,42 @@ policy.</p>
 
 <dl class="exception">
 <dt id="api.circulation_exceptions.PatronHoldLimitReached">
-<em class="property">exception </em><code class="descclassname">api.circulation_exceptions.</code><code class="descname">PatronHoldLimitReached</code><span class="sig-paren">(</span><em>message=None</em>, <em>debug_info=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#PatronHoldLimitReached"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.PatronHoldLimitReached" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.circulation_exceptions.CannotHold" title="api.circulation_exceptions.CannotHold"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.CannotHold</span></code></a></p>
-<dl class="method">
-<dt id="api.circulation_exceptions.PatronHoldLimitReached.as_problem_detail_document">
-<code class="descname">as_problem_detail_document</code><span class="sig-paren">(</span><em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#PatronHoldLimitReached.as_problem_detail_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.PatronHoldLimitReached.as_problem_detail_document" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return a suitable problem detail document.</p>
-</dd></dl>
+<em class="property">exception </em><code class="descclassname">api.circulation_exceptions.</code><code class="descname">PatronHoldLimitReached</code><span class="sig-paren">(</span><em>message=None</em>, <em>debug_info=None</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#PatronHoldLimitReached"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.PatronHoldLimitReached" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.circulation_exceptions.CannotHold" title="api.circulation_exceptions.CannotHold"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.CannotHold</span></code></a>, <a class="reference internal" href="#api.circulation_exceptions.LimitReached" title="api.circulation_exceptions.LimitReached"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.LimitReached</span></code></a></p>
+<dl class="attribute">
+<dt id="api.circulation_exceptions.PatronHoldLimitReached.BASE_DOC">
+<code class="descname">BASE_DOC</code><em class="property"> = &lt;core.util.problem_detail.ProblemDetail object&gt;</em><a class="headerlink" href="#api.circulation_exceptions.PatronHoldLimitReached.BASE_DOC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.circulation_exceptions.PatronHoldLimitReached.MESSAGE_WITH_LIMIT">
+<code class="descname">MESSAGE_WITH_LIMIT</code><em class="property"> = l'You have reached your hold limit of %(limit)d. You cannot place another item on hold until you borrow something or remove a hold.'</em><a class="headerlink" href="#api.circulation_exceptions.PatronHoldLimitReached.MESSAGE_WITH_LIMIT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.circulation_exceptions.PatronHoldLimitReached.SETTING_NAME">
+<code class="descname">SETTING_NAME</code><em class="property"> = u'hold_limit'</em><a class="headerlink" href="#api.circulation_exceptions.PatronHoldLimitReached.SETTING_NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
 <dl class="exception">
 <dt id="api.circulation_exceptions.PatronLoanLimitReached">
-<em class="property">exception </em><code class="descclassname">api.circulation_exceptions.</code><code class="descname">PatronLoanLimitReached</code><span class="sig-paren">(</span><em>message=None</em>, <em>debug_info=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#PatronLoanLimitReached"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.PatronLoanLimitReached" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#api.circulation_exceptions.CannotLoan" title="api.circulation_exceptions.CannotLoan"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.CannotLoan</span></code></a></p>
+<em class="property">exception </em><code class="descclassname">api.circulation_exceptions.</code><code class="descname">PatronLoanLimitReached</code><span class="sig-paren">(</span><em>message=None</em>, <em>debug_info=None</em>, <em>library=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/circulation_exceptions.html#PatronLoanLimitReached"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.circulation_exceptions.PatronLoanLimitReached" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#api.circulation_exceptions.CannotLoan" title="api.circulation_exceptions.CannotLoan"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.CannotLoan</span></code></a>, <a class="reference internal" href="#api.circulation_exceptions.LimitReached" title="api.circulation_exceptions.LimitReached"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.circulation_exceptions.LimitReached</span></code></a></p>
 <dl class="attribute">
-<dt id="api.circulation_exceptions.PatronLoanLimitReached.status_code">
-<code class="descname">status_code</code><em class="property"> = 403</em><a class="headerlink" href="#api.circulation_exceptions.PatronLoanLimitReached.status_code" title="Permalink to this definition">¶</a></dt>
+<dt id="api.circulation_exceptions.PatronLoanLimitReached.BASE_DOC">
+<code class="descname">BASE_DOC</code><em class="property"> = &lt;core.util.problem_detail.ProblemDetail object&gt;</em><a class="headerlink" href="#api.circulation_exceptions.PatronLoanLimitReached.BASE_DOC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.circulation_exceptions.PatronLoanLimitReached.MESSAGE_WITH_LIMIT">
+<code class="descname">MESSAGE_WITH_LIMIT</code><em class="property"> = l'You have reached your loan limit of %(limit)d. You cannot borrow anything further until you return something.'</em><a class="headerlink" href="#api.circulation_exceptions.PatronLoanLimitReached.MESSAGE_WITH_LIMIT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="api.circulation_exceptions.PatronLoanLimitReached.SETTING_NAME">
+<code class="descname">SETTING_NAME</code><em class="property"> = u'loan_limit'</em><a class="headerlink" href="#api.circulation_exceptions.PatronLoanLimitReached.SETTING_NAME" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8341,7 +8469,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 3, 27, 15, 48, 44, 671607)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 4, 3, 17, 5, 33, 476357)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

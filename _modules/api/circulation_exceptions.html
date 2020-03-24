@@ -35,6 +35,7 @@
   <h1>Source code for api.circulation_exceptions</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
+<span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.config</span> <span class="kn">import</span> <span class="n">IntegrationException</span>
 <span class="kn">from</span> <span class="nn">core.problem_details</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">INTEGRATION_ERROR</span><span class="p">,</span>
@@ -139,9 +140,42 @@
         <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">BLOCKED_CREDENTIALS</span></div></div>
 
+<div class="viewcode-block" id="LimitReached"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.LimitReached">[docs]</a><span class="k">class</span> <span class="nc">LimitReached</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The patron cannot carry out an operation because it would push them above</span>
+<span class="sd">    some limit set by library policy.</span>
 
-<div class="viewcode-block" id="PatronLoanLimitReached"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronLoanLimitReached">[docs]</a><span class="k">class</span> <span class="nc">PatronLoanLimitReached</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">):</span>
-    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">403</span></div>
+<span class="sd">    This exception cannot be used on its own. It must be subclassed and the following constants defined:</span>
+<span class="sd">        * `BASE_DOC`: A ProblemDetail, used as the basis for conversion of this exception into a</span>
+<span class="sd">           problem detail document.</span>
+<span class="sd">        * `SETTING_NAME`: Then name of the library-specific ConfigurationSetting whose numeric</span>
+<span class="sd">          value is the limit that cannot be exceeded.</span>
+<span class="sd">        * `MESSAGE_WITH_LIMIT` A string containing the interpolation value &quot;%(limit)s&quot;, which</span>
+<span class="sd">          offers a more specific explanation of the limit exceeded.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">403</span>
+    <span class="n">BASE_DOC</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">SETTING_NAME</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">MESSAGE_WITH_LIMIT</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">library</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LimitReached</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span> <span class="n">debug_info</span><span class="o">=</span><span class="n">debug_info</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">library</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">library</span><span class="o">.</span><span class="n">setting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SETTING_NAME</span><span class="p">)</span><span class="o">.</span><span class="n">int_value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="LimitReached.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.LimitReached.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
+        <span class="n">doc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">BASE_DOC</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">doc</span>
+        <span class="n">detail</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MESSAGE_WITH_LIMIT</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">doc</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">detail</span><span class="o">=</span><span class="n">detail</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="PatronLoanLimitReached"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronLoanLimitReached">[docs]</a><span class="k">class</span> <span class="nc">PatronLoanLimitReached</span><span class="p">(</span><span class="n">CannotLoan</span><span class="p">,</span> <span class="n">LimitReached</span><span class="p">):</span>
+    <span class="n">BASE_DOC</span> <span class="o">=</span> <span class="n">LOAN_LIMIT_REACHED</span>
+    <span class="n">MESSAGE_WITH_LIMIT</span> <span class="o">=</span> <span class="n">SPECIFIC_LOAN_LIMIT_MESSAGE</span>
+    <span class="n">SETTING_NAME</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">LOAN_LIMIT</span></div>
 
 <div class="viewcode-block" id="CannotReturn"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotReturn">[docs]</a><span class="k">class</span> <span class="nc">CannotReturn</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
     <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
@@ -149,11 +183,10 @@
 <div class="viewcode-block" id="CannotHold"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotHold">[docs]</a><span class="k">class</span> <span class="nc">CannotHold</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
     <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>
 
-<div class="viewcode-block" id="PatronHoldLimitReached"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronHoldLimitReached">[docs]</a><span class="k">class</span> <span class="nc">PatronHoldLimitReached</span><span class="p">(</span><span class="n">CannotHold</span><span class="p">):</span>
-
-<div class="viewcode-block" id="PatronHoldLimitReached.as_problem_detail_document"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronHoldLimitReached.as_problem_detail_document">[docs]</a>    <span class="k">def</span> <span class="nf">as_problem_detail_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return a suitable problem detail document.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">HOLD_LIMIT_REACHED</span></div></div>
+<div class="viewcode-block" id="PatronHoldLimitReached"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.PatronHoldLimitReached">[docs]</a><span class="k">class</span> <span class="nc">PatronHoldLimitReached</span><span class="p">(</span><span class="n">CannotHold</span><span class="p">,</span> <span class="n">LimitReached</span><span class="p">):</span>
+    <span class="n">BASE_DOC</span> <span class="o">=</span> <span class="n">HOLD_LIMIT_REACHED</span>
+    <span class="n">MESSAGE_WITH_LIMIT</span> <span class="o">=</span> <span class="n">SPECIFIC_HOLD_LIMIT_MESSAGE</span>
+    <span class="n">SETTING_NAME</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">HOLD_LIMIT</span></div>
 
 <div class="viewcode-block" id="CannotReleaseHold"><a class="viewcode-back" href="../../api.html#api.circulation_exceptions.CannotReleaseHold">[docs]</a><span class="k">class</span> <span class="nc">CannotReleaseHold</span><span class="p">(</span><span class="n">CirculationException</span><span class="p">):</span>
     <span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span></div>

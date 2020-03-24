@@ -1007,9 +1007,9 @@
 </li>
         <li><a href="api.html#api.circulation_exceptions.InternalServerError.as_problem_detail_document">(api.circulation_exceptions.InternalServerError method)</a>
 </li>
-        <li><a href="api.html#api.circulation_exceptions.NoLicenses.as_problem_detail_document">(api.circulation_exceptions.NoLicenses method)</a>
+        <li><a href="api.html#api.circulation_exceptions.LimitReached.as_problem_detail_document">(api.circulation_exceptions.LimitReached method)</a>
 </li>
-        <li><a href="api.html#api.circulation_exceptions.PatronHoldLimitReached.as_problem_detail_document">(api.circulation_exceptions.PatronHoldLimitReached method)</a>
+        <li><a href="api.html#api.circulation_exceptions.NoLicenses.as_problem_detail_document">(api.circulation_exceptions.NoLicenses method)</a>
 </li>
         <li><a href="api.html#api.circulation_exceptions.RemoteInitiatedServerError.as_problem_detail_document">(api.circulation_exceptions.RemoteInitiatedServerError method)</a>
 </li>
@@ -1466,6 +1466,14 @@
 </li>
       <li><a href="api.html#api.authenticator.BasicAuthenticationProvider.BARCODE_FORMAT_NONE">BARCODE_FORMAT_NONE (api.authenticator.BasicAuthenticationProvider attribute)</a>
 </li>
+      <li><a href="api.html#api.circulation_exceptions.LimitReached.BASE_DOC">BASE_DOC (api.circulation_exceptions.LimitReached attribute)</a>
+
+      <ul>
+        <li><a href="api.html#api.circulation_exceptions.PatronHoldLimitReached.BASE_DOC">(api.circulation_exceptions.PatronHoldLimitReached attribute)</a>
+</li>
+        <li><a href="api.html#api.circulation_exceptions.PatronLoanLimitReached.BASE_DOC">(api.circulation_exceptions.PatronLoanLimitReached attribute)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#core.external_search.ExternalSearchIndex.base_index_name">base_index_name() (core.external_search.ExternalSearchIndex method)</a>
 </li>
       <li><a href="api.html#api.feedbooks.FeedbooksOPDSImporter.BASE_OPDS_URL">BASE_OPDS_URL (api.feedbooks.FeedbooksOPDSImporter attribute)</a>
@@ -1588,12 +1596,12 @@
       </ul></li>
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.BIBLIOTHECA_ID">BIBLIOTHECA_ID (core.model.constants.IdentifierConstants attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaAPI">BibliothecaAPI (class in api.bibliotheca)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaBibliographicCoverageProvider">BibliothecaBibliographicCoverageProvider (class in api.bibliotheca)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.bibliotheca.BibliothecaCirculationSweep">BibliothecaCirculationSweep (class in api.bibliotheca)</a>
 </li>
       <li><a href="api.html#api.bibliotheca.BibliothecaEventMonitor">BibliothecaEventMonitor (class in api.bibliotheca)</a>
@@ -4348,6 +4356,8 @@
 </li>
       <li><a href="api.html#api.authenticator.AuthenticationProvider.enforce_library_identifier_restriction">enforce_library_identifier_restriction() (api.authenticator.AuthenticationProvider method)</a>
 </li>
+      <li><a href="api.html#api.circulation.CirculationAPI.enforce_limits">enforce_limits() (api.circulation.CirculationAPI method)</a>
+</li>
       <li><a href="core.html#core.testing.DatabaseTest.engine">engine (core.testing.DatabaseTest attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.SessionManager.engine">engine() (core.model.SessionManager class method)</a>
@@ -4484,10 +4494,10 @@
 </li>
       <li><a href="api.html#api.config.Configuration.estimate_language_collections_for_library">estimate_language_collections_for_library() (api.config.Configuration class method)</a>
 </li>
-      <li><a href="core.model.html#core.model.library.Library.estimated_holdings_by_language">estimated_holdings_by_language() (core.model.library.Library method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.model.html#core.model.library.Library.estimated_holdings_by_language">estimated_holdings_by_language() (core.model.library.Library method)</a>
+</li>
       <li><a href="core.model.html#core.model.resource.Resource.estimated_quality">estimated_quality (core.model.resource.Resource attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.ESTIMATED_QUALITY_WEIGHT">ESTIMATED_QUALITY_WEIGHT (core.model.resource.Resource attribute)</a>
@@ -7246,6 +7256,8 @@
 </li>
       <li><a href="core.model.html#core.model.licensing.LicensePool.licenses_reserved">licenses_reserved (core.model.licensing.LicensePool attribute)</a>
 </li>
+      <li><a href="api.html#api.circulation_exceptions.LimitReached">LimitReached</a>
+</li>
       <li><a href="core.html#core.opds.AcquisitionFeed.link">link() (core.opds.AcquisitionFeed class method)</a>
 
       <ul>
@@ -7996,6 +8008,14 @@
         <li><a href="core.model.html#core.model.work.Work.merge_into">(core.model.work.Work method)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.circulation_exceptions.LimitReached.MESSAGE_WITH_LIMIT">MESSAGE_WITH_LIMIT (api.circulation_exceptions.LimitReached attribute)</a>
+
+      <ul>
+        <li><a href="api.html#api.circulation_exceptions.PatronHoldLimitReached.MESSAGE_WITH_LIMIT">(api.circulation_exceptions.PatronHoldLimitReached attribute)</a>
+</li>
+        <li><a href="api.html#api.circulation_exceptions.PatronLoanLimitReached.MESSAGE_WITH_LIMIT">(api.circulation_exceptions.PatronLoanLimitReached attribute)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#core.metadata_layer.Metadata">Metadata (class in core.metadata_layer)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.LinkRelations.METADATA_ALLOWED">METADATA_ALLOWED (core.model.constants.LinkRelations attribute)</a>
@@ -8054,12 +8074,12 @@
 </li>
       <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionReaper">MetadataWranglerCollectionReaper (class in api.metadata_wrangler)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.metadata_wrangler.MetadataWranglerCollectionRegistrar">MetadataWranglerCollectionRegistrar (class in api.metadata_wrangler)</a>
 </li>
       <li><a href="core.html#core.opds_import.MetadataWranglerOPDSLookup">MetadataWranglerOPDSLookup (class in core.opds_import)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.metadata_layer.MetaToModelUtility">MetaToModelUtility (class in core.metadata_layer)</a>
 </li>
       <li><a href="core.html#core.scripts.DatabaseMigrationScript.migratable_files">migratable_files() (core.scripts.DatabaseMigrationScript class method)</a>
@@ -9494,6 +9514,10 @@
         <li><a href="api.html#api.testing.MockCirculationAPI.patron_activity">(api.testing.MockCirculationAPI method)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.circulation.CirculationAPI.patron_at_hold_limit">patron_at_hold_limit() (api.circulation.CirculationAPI method)</a>
+</li>
+      <li><a href="api.html#api.circulation.CirculationAPI.patron_at_loan_limit">patron_at_loan_limit() (api.circulation.CirculationAPI method)</a>
+</li>
       <li><a href="core.model.html#core.model.configuration.ExternalIntegration.PATRON_AUTH_GOAL">PATRON_AUTH_GOAL (core.model.configuration.ExternalIntegration attribute)</a>
 </li>
       <li><a href="api.admin.html#api.admin.routes.patron_auth_self_tests">patron_auth_self_tests() (in module api.admin.routes)</a>
@@ -9868,10 +9892,10 @@
 </li>
       <li><a href="core.html#core.selftest.HasSelfTests.prior_test_results">prior_test_results() (core.selftest.HasSelfTests class method)</a>
 </li>
-      <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#core.lane.Lane.priority">priority (core.lane.Lane attribute)</a>
+</li>
       <li><a href="api.html#api.config.Configuration.PRIVACY_POLICY">PRIVACY_POLICY (api.config.Configuration attribute)</a>
 
       <ul>
@@ -11972,6 +11996,14 @@
         <li><a href="core.model.html#core.model.work.Work.SETTING_APPEAL">(core.model.work.Work attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api.html#api.circulation_exceptions.LimitReached.SETTING_NAME">SETTING_NAME (api.circulation_exceptions.LimitReached attribute)</a>
+
+      <ul>
+        <li><a href="api.html#api.circulation_exceptions.PatronHoldLimitReached.SETTING_NAME">(api.circulation_exceptions.PatronHoldLimitReached attribute)</a>
+</li>
+        <li><a href="api.html#api.circulation_exceptions.PatronLoanLimitReached.SETTING_NAME">(api.circulation_exceptions.PatronLoanLimitReached attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api.admin.html#api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider.SETTINGS">SETTINGS (api.admin.google_oauth_admin_authentication_provider.GoogleOAuthAdminAuthenticationProvider attribute)</a>
 
       <ul>
@@ -12116,12 +12148,12 @@
 </li>
       <li><a href="api.html#api.routes.shared_collection_info">shared_collection_info() (in module api.routes)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_loan_info">shared_collection_loan_info() (in module api.routes)</a>
 </li>
       <li><a href="api.html#api.routes.shared_collection_register">shared_collection_register() (in module api.routes)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_revoke_hold">shared_collection_revoke_hold() (in module api.routes)</a>
 </li>
       <li><a href="api.html#api.routes.shared_collection_revoke_loan">shared_collection_revoke_loan() (in module api.routes)</a>
@@ -12559,6 +12591,8 @@
 </li>
         <li><a href="api.html#api.circulation_exceptions.LibraryInvalidInputException.status_code">(api.circulation_exceptions.LibraryInvalidInputException attribute)</a>
 </li>
+        <li><a href="api.html#api.circulation_exceptions.LimitReached.status_code">(api.circulation_exceptions.LimitReached attribute)</a>
+</li>
         <li><a href="api.html#api.circulation_exceptions.NoAcceptableFormat.status_code">(api.circulation_exceptions.NoAcceptableFormat attribute)</a>
 </li>
         <li><a href="api.html#api.circulation_exceptions.NoActiveLoan.status_code">(api.circulation_exceptions.NoActiveLoan attribute)</a>
@@ -12576,8 +12610,6 @@
         <li><a href="api.html#api.circulation_exceptions.OutstandingFines.status_code">(api.circulation_exceptions.OutstandingFines attribute)</a>
 </li>
         <li><a href="api.html#api.circulation_exceptions.PatronAuthorizationFailedException.status_code">(api.circulation_exceptions.PatronAuthorizationFailedException attribute)</a>
-</li>
-        <li><a href="api.html#api.circulation_exceptions.PatronLoanLimitReached.status_code">(api.circulation_exceptions.PatronLoanLimitReached attribute)</a>
 </li>
         <li><a href="api.html#api.circulation_exceptions.PatronNotFoundOnRemote.status_code">(api.circulation_exceptions.PatronNotFoundOnRemote attribute)</a>
 </li>

@@ -45,7 +45,7 @@
 <span class="n">JSON_MEDIA_TYPE</span> <span class="o">=</span> <span class="s2">&quot;application/api-problem+json&quot;</span>
 
 
-<div class="viewcode-block" id="json"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.json">[docs]</a><span class="k">def</span> <span class="nf">json</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="json"><a class="viewcode-back" href="../../../core.util.html#api.circulation_exceptions.json">[docs]</a><span class="k">def</span> <span class="nf">json</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">d</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">title</span><span class="p">),</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">detail</span><span class="p">:</span>
         <span class="n">d</span><span class="p">[</span><span class="s1">&#39;detail&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">detail</span><span class="p">)</span>
@@ -55,7 +55,7 @@
         <span class="n">d</span><span class="p">[</span><span class="s1">&#39;debug_message&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">debug_message</span>
     <span class="k">return</span> <span class="n">j</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">d</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ProblemDetail"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.ProblemDetail">[docs]</a><span class="k">class</span> <span class="nc">ProblemDetail</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="ProblemDetail"><a class="viewcode-back" href="../../../core.util.html#api.circulation_exceptions.ProblemDetail">[docs]</a><span class="k">class</span> <span class="nc">ProblemDetail</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;A common type of problem.&quot;&quot;&quot;</span>
 
@@ -82,7 +82,7 @@
             <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="n">JSON_MEDIA_TYPE</span><span class="p">}</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="ProblemDetail.detailed"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.ProblemDetail.detailed">[docs]</a>    <span class="k">def</span> <span class="nf">detailed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<div class="viewcode-block" id="ProblemDetail.detailed"><a class="viewcode-back" href="../../../core.util.html#api.circulation_exceptions.ProblemDetail.detailed">[docs]</a>    <span class="k">def</span> <span class="nf">detailed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">debug_message</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a ProblemDetail for a more specific occurance of an existing</span>
 <span class="sd">        ProblemDetail.</span>
@@ -102,7 +102,7 @@
             <span class="n">detail</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">debug_message</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="ProblemDetail.with_debug"><a class="viewcode-back" href="../../../core.util.html#core.util.problem_detail.ProblemDetail.with_debug">[docs]</a>    <span class="k">def</span> <span class="nf">with_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug_message</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<div class="viewcode-block" id="ProblemDetail.with_debug"><a class="viewcode-back" href="../../../core.util.html#api.circulation_exceptions.ProblemDetail.with_debug">[docs]</a>    <span class="k">def</span> <span class="nf">with_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">debug_message</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                    <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Insert debugging information into a ProblemDetail.</span>
 
