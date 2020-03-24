@@ -37,6 +37,7 @@
 <span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
 <span class="kn">from</span> <span class="nn">psycopg2</span> <span class="kn">import</span> <span class="n">DatabaseError</span>
 <span class="kn">import</span> <span class="nn">flask</span>
+<span class="kn">import</span> <span class="nn">gzip</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
@@ -45,6 +46,7 @@
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">url_for</span><span class="p">,</span> <span class="n">make_response</span>
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 <span class="kn">from</span> <span class="nn">util.flask_util</span> <span class="kn">import</span> <span class="n">problem</span>
 <span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
@@ -184,6 +186,61 @@
             <span class="k">return</span> <span class="n">v</span><span class="o">.</span><span class="n">response</span>
         <span class="k">return</span> <span class="n">v</span>
     <span class="k">return</span> <span class="n">decorated</span></div>
+
+
+<div class="viewcode-block" id="compressible"><a class="viewcode-back" href="../../core.html#core.app_server.compressible">[docs]</a><span class="k">def</span> <span class="nf">compressible</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decorate a function to make it transparently handle whatever</span>
+<span class="sd">    compression the client has announced it supports.</span>
+
+<span class="sd">    Currently the only form of compression supported is</span>
+<span class="sd">    representation-level gzip compression requested through the</span>
+<span class="sd">    Accept-Encoding header.</span>
+
+<span class="sd">    This code was modified from</span>
+<span class="sd">    http://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/,</span>
+<span class="sd">    though I don&#39;t know if that&#39;s the original source; it shows up in</span>
+<span class="sd">    a lot of places.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">compressor</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nd">@flask</span><span class="o">.</span><span class="n">after_this_request</span>
+        <span class="k">def</span> <span class="nf">compress</span><span class="p">(</span><span class="n">response</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&lt;</span> <span class="mi">200</span> <span class="ow">or</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&gt;=</span> <span class="mi">300</span> <span class="ow">or</span>
+                <span class="s1">&#39;Content-Encoding&#39;</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">):</span>
+                <span class="c1"># Don&#39;t encode anything other than a 2xx response</span>
+                <span class="c1"># code. Don&#39;t encode a response that&#39;s</span>
+                <span class="c1"># already been encoded.</span>
+                <span class="k">return</span> <span class="n">response</span>
+
+            <span class="n">accept_encoding</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Accept-Encoding&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;gzip&#39;</span> <span class="ow">in</span> <span class="n">accept_encoding</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">response</span>
+
+            <span class="c1"># At this point we know we&#39;re going to be changing the</span>
+            <span class="c1"># outgoing response.</span>
+
+            <span class="c1"># TODO: I understand what direct_passthrough does, but am</span>
+            <span class="c1"># not sure what it has to do with this, and commenting it</span>
+            <span class="c1"># out doesn&#39;t change the results or cause tests to</span>
+            <span class="c1"># fail. This is pure copy-and-paste magic.</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">direct_passthrough</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="n">buffer</span> <span class="o">=</span> <span class="n">BytesIO</span><span class="p">()</span>
+            <span class="n">gzipped</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">GzipFile</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;wb&#39;</span><span class="p">,</span> <span class="n">fileobj</span><span class="o">=</span><span class="n">buffer</span><span class="p">)</span>
+            <span class="n">gzipped</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">gzipped</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">buffer</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+
+            <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Encoding&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gzip&#39;</span>
+            <span class="c1"># TODO: This is bad if Vary is already set.</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Vary&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Accept-Encoding&#39;</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Length&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">response</span>
+
+        <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">compressor</span></div>
 
 
 <div class="viewcode-block" id="ErrorHandler"><a class="viewcode-back" href="../../core.html#core.app_server.ErrorHandler">[docs]</a><span class="k">class</span> <span class="nc">ErrorHandler</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>

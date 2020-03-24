@@ -53,6 +53,7 @@
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ErrorHandler</span><span class="p">,</span>
+    <span class="n">compressible</span><span class="p">,</span>
     <span class="n">returns_problem_detail</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.model</span> <span class="kn">import</span> <span class="n">ConfigurationSetting</span>
@@ -243,17 +244,20 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">index</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">index_controller</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="authentication_document"><a class="viewcode-back" href="../../api.html#api.routes.authentication_document">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/authentication_document&#39;</span><span class="p">)</span>
 <span class="nd">@has_library</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">authentication_document</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">index_controller</span><span class="o">.</span><span class="n">authentication_document</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="public_key_document"><a class="viewcode-back" href="../../api.html#api.routes.public_key_document">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/public_key_document&#39;</span><span class="p">)</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">public_key_document</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">index_controller</span><span class="o">.</span><span class="n">public_key_document</span><span class="p">()</span></div>
 
@@ -262,6 +266,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">acquisition_groups</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span></div>
 
@@ -270,6 +275,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">feed</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span></div>
 
@@ -278,6 +284,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">navigation_feed</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">navigation</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span></div>
 
@@ -285,6 +292,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">crawlable_library_feed</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">crawlable_library_feed</span><span class="p">()</span></div>
 
@@ -292,12 +300,14 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">crawlable_list_feed</span><span class="p">(</span><span class="n">list_name</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">crawlable_list_feed</span><span class="p">(</span><span class="n">list_name</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="crawlable_collection_feed"><a class="viewcode-back" href="../../api.html#api.routes.crawlable_collection_feed">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/collections/&lt;collection_name&gt;/crawlable&#39;</span><span class="p">)</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">crawlable_collection_feed</span><span class="p">(</span><span class="n">collection_name</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">crawlable_collection_feed</span><span class="p">(</span><span class="n">collection_name</span><span class="p">)</span></div>
 
@@ -348,6 +358,7 @@
 <div class="viewcode-block" id="marc_page"><a class="viewcode-back" href="../../api.html#api.routes.marc_page">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/marc&#39;</span><span class="p">)</span>
 <span class="nd">@has_library</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">marc_page</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">marc_records</span><span class="o">.</span><span class="n">download_page</span><span class="p">()</span></div>
 
@@ -356,6 +367,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">lane_search</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">opds_feeds</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">lane_identifier</span><span class="p">)</span></div>
 
@@ -372,6 +384,7 @@
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@requires_auth</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">active_loans</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">loans</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span></div>
 
@@ -380,6 +393,7 @@
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@requires_auth</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">annotations</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotations</span><span class="o">.</span><span class="n">container</span><span class="p">()</span></div>
 
@@ -388,6 +402,7 @@
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@requires_auth</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">annotation_detail</span><span class="p">(</span><span class="n">annotation_id</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotations</span><span class="o">.</span><span class="n">detail</span><span class="p">(</span><span class="n">annotation_id</span><span class="p">)</span></div>
 
@@ -396,6 +411,7 @@
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@requires_auth</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">annotations_for_work</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotations</span><span class="o">.</span><span class="n">container_for_work</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span></div>
 
@@ -438,6 +454,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">work</span><span class="p">():</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">urn_lookup</span><span class="o">.</span><span class="n">work_lookup</span><span class="p">(</span><span class="s1">&#39;work&#39;</span><span class="p">)</span></div>
 
@@ -447,6 +464,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">contributor</span><span class="p">(</span><span class="n">contributor_name</span><span class="p">,</span> <span class="n">languages</span><span class="p">,</span> <span class="n">audiences</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">work_controller</span><span class="o">.</span><span class="n">contributor</span><span class="p">(</span><span class="n">contributor_name</span><span class="p">,</span> <span class="n">languages</span><span class="p">,</span> <span class="n">audiences</span><span class="p">)</span></div>
 
@@ -456,6 +474,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">series</span><span class="p">(</span><span class="n">series_name</span><span class="p">,</span> <span class="n">languages</span><span class="p">,</span> <span class="n">audiences</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">work_controller</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">series_name</span><span class="p">,</span> <span class="n">languages</span><span class="p">,</span> <span class="n">audiences</span><span class="p">)</span></div>
 
@@ -463,6 +482,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">permalink</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">work_controller</span><span class="o">.</span><span class="n">permalink</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span></div>
 
@@ -470,6 +490,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">recommendations</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">work_controller</span><span class="o">.</span><span class="n">recommendations</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span></div>
 
@@ -477,6 +498,7 @@
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@returns_problem_detail</span>
+<span class="nd">@compressible</span>
 <span class="k">def</span> <span class="nf">related_books</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">work_controller</span><span class="o">.</span><span class="n">related</span><span class="p">(</span><span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span></div>
 

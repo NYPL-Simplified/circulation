@@ -316,6 +316,20 @@ or Response.</td>
 <dd></dd></dl>
 
 <dl class="function">
+<dt id="core.app_server.compressible">
+<code class="descclassname">core.app_server.</code><code class="descname">compressible</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#compressible"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.compressible" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decorate a function to make it transparently handle whatever
+compression the client has announced it supports.</p>
+<p>Currently the only form of compression supported is
+representation-level gzip compression requested through the
+Accept-Encoding header.</p>
+<p>This code was modified from
+<a class="reference external" href="http://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/">http://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/</a>,
+though I don’t know if that’s the original source; it shows up in
+a lot of places.</p>
+</dd></dl>
+
+<dl class="function">
 <dt id="core.app_server.entry_response">
 <code class="descclassname">core.app_server.</code><code class="descname">entry_response</code><span class="sig-paren">(</span><em>entry</em>, <em>cache_for=600</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#entry_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.entry_response" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -5054,7 +5068,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-fb9c032a-332a-45ce-b58d-b849719b2abc'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-1ca4d332-de37-4d1a-a5f5-8af069c7557b'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
