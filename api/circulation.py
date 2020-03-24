@@ -769,7 +769,7 @@ class CirculationAPI(object):
             # This patron can neither take out a loan or place a hold.
             # Raise PatronLoanLimitReached for the most understandable
             # error message.
-            raise PatronLoanLimitReached()
+            raise PatronLoanLimitReached(library=patron.library)
 
         # At this point it's important that we get up-to-date
         # availability information about this LicensePool, to reduce
@@ -780,9 +780,9 @@ class CirculationAPI(object):
 
         currently_available = pool.licenses_available > 0
         if currently_available and at_loan_limit:
-             raise PatronLoanLimitReached()
+             raise PatronLoanLimitReached(library=patron.library)
         if not currently_available and at_hold_limit:
-            raise PatronHoldLimitReached()
+            raise PatronHoldLimitReached(library=patron.library)
 
     def patron_at_loan_limit(self, patron):
         """Is the given patron at their loan limit?
