@@ -65,22 +65,22 @@ ALREADY_CHECKED_OUT = pd(
       _("You have already checked out this book."),
 )
 
-# TODO: This is only used in situations where the _ebook vendor_ has imposed a loan
-# limit. It should also be used in situations where the _library_ has imposed a loan
-# limit. That's tricky because it means keeping track of whether the patron's likely
-# intent was to borrow or place a hold.
+GENERIC_LOAN_LIMIT_MESSAGE = _("You have reached your loan limit. You cannot borrow anything further until you return something.")
+SPECIFIC_LOAN_LIMIT_MESSAGE = _("You have reached your loan limit of %(limit)d items. You cannot borrow anything further until you return something.")
 LOAN_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/loan-limit-reached",
       403,
       _("Loan limit reached."),
-      _("You have reached your loan limit. You cannot borrow anything further until you return something."),
+      GENERIC_LOAN_LIMIT_MESSAGE
 )
 
+GENERIC_HOLD_LIMIT_MESSAGE = _("You have reached your hold limit. You cannot place another item on hold until you borrow something or remove a hold.")
+SPECIFIC_HOLD_LIMIT_MESSAGE = _("You have reached your hold limit of %(limit)d items. You cannot place another item on hold until you borrow something or remove a hold.")
 HOLD_LIMIT_REACHED = pd(
       "http://librarysimplified.org/terms/problem/hold-limit-reached",
       403,
       _("Limit reached."),
-      _("You have reached your hold limit. You cannot place another item on hold until you borrow something or remove a hold."),
+      GENERIC_HOLD_LIMIT_MESSAGE
 )
 
 OUTSTANDING_FINES = pd(

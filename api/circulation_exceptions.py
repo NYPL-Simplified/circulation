@@ -104,9 +104,27 @@ class AuthorizationBlocked(CannotLoan):
         """Return a suitable problem detail document."""
         return BLOCKED_CREDENTIALS
 
-
-class PatronLoanLimitReached(CannotLoan):
+class LimitReached(object):
     status_code = 403
+    BASE_DOC = None
+    SETTING_NAME = None
+    MESSAGE_WITH_LIMIT = None
+
+    def as_problem_detail_document(self, debug=False, library=None):
+        """Return a suitable problem detail document."""
+        doc = BASE_DOC
+        if not library:
+            return doc
+        limit = library.setting(self.SETTING_NAME).value
+        if limit:
+            instance = self.MESSAGE_WITH_LIMIT % dict(limit=limit)
+            return doc.detailed(instance=instance
+)
+
+class PatronLoanLimitReached(CannotLoan, LimitReached):
+    BASE_DOC = LOAN_LIMIT_REACHED
+    SPECIFIC_MESSAGE = SPECIFIC_LOAN_LIMIT_MESSAGE
+    SETTING_NAME = Configuration.LOAN_LIMIT
 
 class CannotReturn(CirculationException):
     status_code = 500
@@ -114,11 +132,10 @@ class CannotReturn(CirculationException):
 class CannotHold(CirculationException):
     status_code = 500
 
-class PatronHoldLimitReached(CannotHold):
-
-    def as_problem_detail_document(self, debug=False):
-        """Return a suitable problem detail document."""
-        return HOLD_LIMIT_REACHED
+class PatronHoldLimitReached(CannotHold, LimitReached):
+    BASE_DOC = HOLD_LIMIT_REACHED
+    SPECIFIC_MESSAGE = SPECIFIC_HOLD_LIMIT_MESSAGE
+    SETTING_NAME = Configuration.HOLD_LIMIT
 
 class CannotReleaseHold(CirculationException):
     status_code = 500
