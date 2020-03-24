@@ -122,16 +122,20 @@ class LimitReached(CirculationException):
     SETTING_NAME = None
     MESSAGE_WITH_LIMIT = None
 
-    def as_problem_detail_document(self, debug=False, library=None):
+    def __init__(self, message=None, debug_info=None, library=None):
+        super(LimitReached, self).__init__(message=message, debug_info=debug_info)
+        if library:
+            self.limit = library.setting(self.SETTING_NAME).int_value
+        else:
+            self.limit = None
+
+    def as_problem_detail_document(self, debug=False):
         """Return a suitable problem detail document."""
         doc = self.BASE_DOC
-        if not library:
+        if not self.limit:
             return doc
-        limit = library.setting(self.SETTING_NAME).int_value
-        if limit:
-            detail = self.MESSAGE_WITH_LIMIT % dict(limit=limit)
-            return doc.detailed(detail=detail)
-        return doc
+        detail = self.MESSAGE_WITH_LIMIT % dict(limit=self.limit)
+        return doc.detailed(detail=detail)
 
 class PatronLoanLimitReached(CannotLoan, LimitReached):
     BASE_DOC = LOAN_LIMIT_REACHED

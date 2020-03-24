@@ -54,18 +54,22 @@ class TestLimitReached(DatabaseTest):
             MESSAGE_WITH_LIMIT = _("The limit was %(limit)d.")
 
         # No limit -> generic message.
-        ex = Mock()
-        library = self._default_library
-        pd = ex.as_problem_detail_document(library=library)
+        ex = Mock(library=self._default_library)
+        pd = ex.as_problem_detail_document()
+        eq_(None, ex.limit)
         eq_(generic_message, pd.detail)
 
         # Limit but no library -> generic message.
         self._default_library.setting(setting).value = 14
+        ex = Mock()
+        eq_(None, ex.limit)
         pd = ex.as_problem_detail_document()
         eq_(generic_message, pd.detail)
 
         # Limit and library -> specific message.
-        pd = ex.as_problem_detail_document(library=library)
+        ex = Mock(library=self._default_library)
+        eq_(14, ex.limit)
+        pd = ex.as_problem_detail_document()
         eq_("The limit was 14.", pd.detail)
 
     def test_subclasses(self):
@@ -74,11 +78,11 @@ class TestLimitReached(DatabaseTest):
         library = self._default_library
 
         library.setting(Configuration.LOAN_LIMIT).value = 2
-        pd = PatronLoanLimitReached().as_problem_detail_document(library=library)
+        pd = PatronLoanLimitReached(library=library).as_problem_detail_document()
         eq_("You have reached your loan limit of 2. You cannot borrow anything further until you return something.",
             pd.detail)
 
         library.setting(Configuration.HOLD_LIMIT).value = 3
-        pd = PatronHoldLimitReached().as_problem_detail_document(library=library)
+        pd = PatronHoldLimitReached(library=library).as_problem_detail_document()
         eq_("You have reached your hold limit of 3. You cannot place another item on hold until you borrow something or remove a hold.",
             pd.detail)

@@ -576,6 +576,15 @@ class TestCirculationAPI(DatabaseTest):
             def update_availability(self, pool):
                 self.availability_updated.append(pool)
 
+        # Set values for loan and hold limit, so we can verify those
+        # values are propagated to the circulation exceptions raised
+        # when a patron would exceed one of the limits.
+        #
+        # Both limits are set to the same value for the sake of
+        # convenience in testing.
+        self._default_library.setting(Configuration.LOAN_LIMIT).value = 12
+        self._default_library.setting(Configuration.HOLD_LIMIT).value = 12
+
         api = MockVendorAPI()
 
         class Mock(MockCirculationAPI):
@@ -630,7 +639,24 @@ class TestCirculationAPI(DatabaseTest):
         #
         circulation.at_loan_limit = True
         circulation.at_hold_limit = True
-        assert_raises(PatronLoanLimitReached, circulation.enforce_limits, patron, pool)
+
+        # We can't use assert_raises here because we need to examine the
+        # exception object to make sure it was properly instantiated.
+        def assert_enforce_limits_raises(expected_exception):
+            try:
+                circulation.enforce_limits(patron, pool)
+                raise Exception("Expected a %r" % expected_exception)
+            except Exception, e:
+                assert isinstance(e, expected_exception)
+                # If .limit is set it means we were able to find a
+                # specific limit in the database, which means the
+                # exception was instantiated correctly.
+                #
+                # The presence of .limit will let us give a more specific
+                # error message when the exception is converted to a
+                # problem detail document.
+                eq_(12, e.limit)
+        assert_enforce_limits_raises(PatronLoanLimitReached)
 
         # We were able to deduce that the patron can't do anything
         # with this book, without having to ask the API about
@@ -649,9 +675,7 @@ class TestCirculationAPI(DatabaseTest):
 
         # If the book is available, we get PatronLoanLimitReached
         pool.licenses_available = 1
-        assert_raises(
-            PatronLoanLimitReached, circulation.enforce_limits, patron, pool
-        )
+        assert_enforce_limits_raises(PatronLoanLimitReached)
 
         # Reaching this conclusion required checking both patron
         # limits and asking the remote API for updated availability
@@ -675,9 +699,7 @@ class TestCirculationAPI(DatabaseTest):
 
         # If the book is not available, we get PatronHoldLimitReached
         pool.licenses_available = 0
-        assert_raises(
-            PatronHoldLimitReached, circulation.enforce_limits, patron, pool
-        )
+        assert_enforce_limits_raises(PatronHoldLimitReached)
 
         # Reaching this conclusion required checking both patron
         # limits and asking the remote API for updated availability
@@ -707,7 +729,13 @@ class TestCirculationAPI(DatabaseTest):
 
         # The patron wants to take out a loan on an unavailable title.
         self.pool.licenses_available = 0
-        assert_raises(PatronHoldLimitReached, self.borrow)
+        try:
+            self.borrow()
+        except Exception, e:
+            # The result is a PatronHoldLimitReached configured with the
+            # library's hold limit.
+            assert isinstance(e, PatronHoldLimitReached)
+            eq_(1, e.limit)
 
         # If we increase the limit, borrow succeeds.
         self.patron.library.setting(Configuration.HOLD_LIMIT).value = 2
