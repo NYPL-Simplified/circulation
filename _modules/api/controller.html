@@ -1171,10 +1171,8 @@
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">PatronAuthorizationFailedException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">INVALID_CREDENTIALS</span>
-        <span class="k">except</span> <span class="n">PatronLoanLimitReached</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">LOAN_LIMIT_REACHED</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">PatronHoldLimitReached</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">PatronLoanLimitReached</span><span class="p">,</span> <span class="n">PatronHoldLimitReached</span><span class="p">),</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">problem_doc</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">()</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">except</span> <span class="n">DeliveryMechanismError</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">BAD_DELIVERY_MECHANISM</span><span class="o">.</span><span class="n">with_debug</span><span class="p">(</span>
                 <span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span>
