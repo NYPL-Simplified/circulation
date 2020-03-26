@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
+from ..util.flask_util import Responselike
 
 class CachedFeed(Base):
 
@@ -82,12 +83,14 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, worklist, facets, pagination, refresher_method,
-              max_age=None
+              max_age=None, format=CachedFeed
     ):
         """Retrieve a cached feed from the database if possible.
 
         Generate it from scratch and store it in the database if
         necessary.
+
+        Return it in the most useful form to the caller.
 
         :param _db: A database connection.
         :param worklist: The WorkList associated with this feed.
@@ -105,8 +108,11 @@ class CachedFeed(Base):
             specified, a default value will be calculated based on
             WorkList and Facets configuration. Setting this value to
             zero will force a refresh.
+        :param format: If this is Responselike, a Responselike ready to be
+            converted into a Flask Response object will be returned. Otherwise
+            the CachedFeed object itself will be returned.
 
-        :return: A CachedFeed containing up-to-date content.
+        :return: A CachedFeed or Responselike containing up-to-date content.
         """
 
         # Gather the information necessary to uniquely identify this
@@ -169,6 +175,14 @@ class CachedFeed(Base):
             # the other thread(s). Our feed takes priority.
             feed_obj.content = feed_data
             feed_obj.timestamp = generation_time
+
+        if format is Responselike:
+            headers = {
+                "Content-Type": OPDSFeed.ACQUISITION_FEED_TYPE
+            }
+            return Responselike(
+                content=feed_obj.content, headers=headers, max_age=max_age
+            )
         return feed_obj
 
     @classmethod

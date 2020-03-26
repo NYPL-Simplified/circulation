@@ -57,6 +57,7 @@ from lane import (
     SearchFacets,
     WorkList,
 )
+from util.flask_utils import Responselike
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -599,7 +600,7 @@ class AcquisitionFeed(OPDSFeed):
 
         :param facets: A GroupsFacet object.
 
-        :return: A Unicode string containing a (potentially cached) OPDS feed.
+        :return: A Responselike containing the feed.
         """
         annotator = cls._make_annotator(annotator)
         facets = facets or FeaturedFacets.default(worklist.get_library(_db))
@@ -614,7 +615,7 @@ class AcquisitionFeed(OPDSFeed):
             _db, worklist=worklist, facets=facets, pagination=None,
             refresher_method=refresh, max_age=max_age
         )
-        return cached.content
+        return Responselike(body=cached.content, max_age=max_age)
 
     @classmethod
     def _generate_groups(
@@ -699,7 +700,7 @@ class AcquisitionFeed(OPDSFeed):
     ):
         """Create a feed representing one page of works from a given lane.
 
-        :return: A Unicode string containing a (potentially cached) OPDS feed.
+        :return: A Responselike containing the feed.
         """
         library = worklist.get_library(_db)
         facets = facets or Facets.default(library)
@@ -716,7 +717,8 @@ class AcquisitionFeed(OPDSFeed):
             _db, worklist=worklist, facets=facets, pagination=pagination,
             refresher_method=refresh, max_age=max_age
         )
-        return cached.content
+        max_age = getattr(cached, 'max_age', max_age)
+        return Responselike(body=cached.content, max_age=cached.max_age)
 
     @classmethod
     def _generate_page(
