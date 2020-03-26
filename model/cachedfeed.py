@@ -177,11 +177,12 @@ class CachedFeed(Base):
             feed_obj.timestamp = generation_time
 
         if format is Responselike:
-            headers = {
-                "Content-Type": OPDSFeed.ACQUISITION_FEED_TYPE
-            }
+            # We have the information necessary to create a useful
+            # response-type object.
             return Responselike(
-                content=feed_obj.content, headers=headers, max_age=max_age
+                response=feed_obj.content,
+                mimetype=OPDSFeed.ACQUISITION_FEED_TYPE,
+                max_age=max_age
             )
         return feed_obj
 

@@ -26,26 +26,42 @@ class Responselike(object):
     such as Cache-Control based on standard rules for this system.
     """
 
-    def __init__(self, status_code=200, body="", headers=None, max_age=None):
+    def __init__(self, response=None, status=None, headers=None, mimetype=None,
+                 content_type=None, direct_passthrough=False, max_age=None):
         """Constructor.
 
-        :param max_age: The number of seconds for which clients
-            should cache this response.
+        All parameters are the same as for the Flask/Werkzeug Response class,
+        with these additions:
+
+        :param max_age: The number of seconds for which clients should
+            cache this response. Used to set a value for the
+            Cache-Control header.
         """
-        self.status_code = status_code
-        self.body = body
-        self._headers = headers or {}
+        self._response = response
+        self.status = status
+        self._headers = dict(headers) or {}
+        self.mimetype = mimetype
+        self.content_type = content_type
+        self.direct_passthrough = direct_passthrough
+
         self.max_age = max_age
 
     def __unicode__(self):
-        """This object can be treated as a string, e.g. in tests."""
-        return self.body
+        """This object can be treated as a string, e.g. in tests.
+
+        :return: The entity-body portion of the response.
+        """
+        return self._response
 
     @property
     def response(self):
         """Convert to a real Flask response."""
         return Response(
-            status_code=self.status_code,
+            response=self.response,
+            status=self.status,
+            headers=self.headers,
+            mimetype=self.mimetype,
+            content_type=self.content_type,
             body=self.body,
             headers=self.headers
         )
