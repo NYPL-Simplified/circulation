@@ -57,7 +57,7 @@ from lane import (
     SearchFacets,
     WorkList,
 )
-from util.flask_util import Responselike
+
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -607,7 +607,7 @@ class AcquisitionFeed(OPDSFeed):
 
         return CachedFeed.fetch(
             _db, worklist=worklist, facets=facets, pagination=None,
-            refresher_method=refresh, max_age=max_age, format=Responselike
+            refresher_method=refresh, max_age=max_age
         )
 
     @classmethod
@@ -708,7 +708,7 @@ class AcquisitionFeed(OPDSFeed):
 
         return CachedFeed.fetch(
             _db, worklist=worklist, facets=facets, pagination=pagination,
-            refresher_method=refresh, max_age=max_age, format=Responselike
+            refresher_method=refresh, max_age=max_age
         )
 
     @classmethod
@@ -1675,7 +1675,7 @@ class NavigationFeed(OPDSFeed):
             facets=facets,
             pagination=None,
             refresher_method=refresh,
-            max_age=max_age, format=Responselike
+            max_age=max_age
         )
         # Change the default mimetype.
         response.mimetype=OPDSFeed.NAVIGATION_FEED_TYPE

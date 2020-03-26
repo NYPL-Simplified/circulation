@@ -92,7 +92,10 @@ class TestCachedFeed(DatabaseTest):
         facets = object()
         pagination = object()
         max_age = object()
-        result1 = m(self._db, worklist, facets, pagination, refresher, max_age)
+        result1 = m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
         now = datetime.datetime.utcnow()
         assert isinstance(result1, CachedFeed)
 
@@ -149,7 +152,10 @@ class TestCachedFeed(DatabaseTest):
         # _should_refresh() is hard-coded to always return True, so
         # refresher() will be called again.
         clear_helpers()
-        result2 = m(self._db, worklist, facets, pagination, refresher, max_age)
+        result2 = m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
 
         # The CachedFeed from before was reused.
         eq_(result2, result1)
@@ -170,7 +176,10 @@ class TestCachedFeed(DatabaseTest):
         # Now try the scenario where the feed does not need to be refreshed.
         clear_helpers()
         Mock.SHOULD_REFRESH = False
-        result3 = m(self._db, worklist, facets, pagination, refresher, max_age)
+        result3 = m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
 
         # Not only do we have the same CachedFeed as before, but its
         # timestamp and content are unchanged.
@@ -182,7 +191,10 @@ class TestCachedFeed(DatabaseTest):
         # cached feed before forging ahead.
         Mock.MAX_CACHE_AGE = 0
         clear_helpers()
-        m(self._db, worklist, facets, pagination, refresher, max_age)
+        m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
 
         # A matching CachedFeed exists in the database, but we didn't
         # even look for it, because we knew we'd be looking it up
@@ -222,14 +234,20 @@ class TestCachedFeed(DatabaseTest):
             # refresher is running.
             def other_thread_refresher():
                 return "Another thread made a feed."
-            m(self._db, wl, facets, pagination, other_thread_refresher, 0)
+            m(
+                self._db, wl, facets, pagination, other_thread_refresher, 0,
+                raw=True
+            )
 
             return "Then this thread made a feed."
 
         # This will call simultaneous_refresher(), which will call
         # CachedFeed.fetch() _again_, which will call
         # other_thread_refresher().
-        result = m(self._db, wl, facets, pagination, simultaneous_refresher, 0)
+        result = m(
+            self._db, wl, facets, pagination, simultaneous_refresher, 0,
+            raw=True
+        )
 
         # We ended up with a single CachedFeed containing the
         # latest information.
@@ -249,7 +267,7 @@ class TestCachedFeed(DatabaseTest):
             result.timestamp = tomorrow
             return "Today's content can't compete."
         tomorrow_result = m(
-            self._db, wl, facets, pagination, tomorrow_vs_now, 0
+            self._db, wl, facets, pagination, tomorrow_vs_now, 0, raw=True
         )
         eq_(tomorrow_result, result)
         eq_("Someone in the background set tomorrow's content.",
@@ -263,7 +281,7 @@ class TestCachedFeed(DatabaseTest):
             result.timestamp = yesterday
             return "Today's content is fresher."
         now_result = m(
-            self._db, wl, facets, pagination, yesterday_vs_now, 0
+            self._db, wl, facets, pagination, yesterday_vs_now, 0, raw=True
         )
 
         # We got the same CachedFeed we've been getting this whole
@@ -289,7 +307,7 @@ class TestCachedFeed(DatabaseTest):
             return "Non-weird content."
         result2 = m(
             self._db, wl, facets, pagination, timestamp_cleared_in_background,
-            0
+            0, raw=True
         )
         now = datetime.datetime.utcnow()
 
@@ -310,7 +328,8 @@ class TestCachedFeed(DatabaseTest):
 
             return "Non-weird content."
         result3 = m(
-            self._db, wl, facets, pagination, content_cleared_in_background, 0
+            self._db, wl, facets, pagination, content_cleared_in_background, 0,
+            raw=True
         )
         now = datetime.datetime.utcnow()
 
@@ -327,8 +346,9 @@ class TestCachedFeed(DatabaseTest):
 
     def test_responselike_format(self):
         """Verify that fetch() can be told to return an appropriate
-        Responselike object. This preserves some information that's
-        useful when turning the feed into an HTTP response.
+        Responselike object. This is the default behavior, and
+        preserves some information that's useful when turning the feed
+        into an HTTP response.
         """
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
@@ -340,7 +360,6 @@ class TestCachedFeed(DatabaseTest):
 
         rl = CachedFeed.fetch(
             self._db, wl, facets, pagination, refresh, max_age=102,
-            format=Responselike
         )
         assert isinstance(rl, Responselike)
         eq_(200, rl.status)

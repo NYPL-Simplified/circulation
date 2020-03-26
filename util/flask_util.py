@@ -1,4 +1,5 @@
 """Utilities for Flask applications."""
+import datetime
 import flask
 from flask import Response
 from wsgiref.handlers import format_date_time
@@ -62,12 +63,11 @@ class Responselike(object):
     def response(self):
         """Convert to a real Flask response."""
         return Response(
-            response=self.response,
+            response=self._response,
             status=self.status,
             headers=self.headers,
             mimetype=self.mimetype,
             content_type=self.content_type,
-            body=self.body,
         )
 
     @property
@@ -80,15 +80,15 @@ class Responselike(object):
         if isinstance(self.max_age, int):
             # A CDN should hold on to the cached representation only half
             # as long as the end-user.
-            client_cache = max_age
-            cdn_cache = max_age / 2
+            client_cache = self.max_age
+            cdn_cache = self.max_age / 2
             cache_control = "public, no-transform, max-age=%d, s-maxage=%d" % (
                 client_cache, cdn_cache
             )
 
             # Explicitly set Expires based on max-age; some clients need this.
             expires_at = datetime.datetime.utcnow() + datetime.timedelta(
-                seconds=max_age
+                seconds=self.max_age
             )
             headers['Expires'] = format_date_time(
                 time.mktime(expires_at.timetuple())

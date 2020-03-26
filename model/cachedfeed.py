@@ -84,7 +84,7 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, worklist, facets, pagination, refresher_method,
-              max_age=None, format=None
+              max_age=None, raw=False
     ):
         """Retrieve a cached feed from the database if possible.
 
@@ -109,11 +109,12 @@ class CachedFeed(Base):
             specified, a default value will be calculated based on
             WorkList and Facets configuration. Setting this value to
             zero will force a refresh.
-        :param format: If this is Responselike, a Responselike ready to be
-            converted into a Flask Response object will be returned. Otherwise
-            the CachedFeed object itself will be returned.
+        :param raw: If this is False (the default), a Responselike ready to be
+            converted into a Flask Response object will be returned. If this
+            is True, the CachedFeed object itself will be returned. In most
+            non-test situations the default is better.
 
-        :return: A CachedFeed or Responselike containing up-to-date content.
+        :return: A Responselike or CachedFeed containing up-to-date content.
         """
 
         # Gather the information necessary to uniquely identify this
@@ -177,20 +178,21 @@ class CachedFeed(Base):
             feed_obj.content = feed_data
             feed_obj.timestamp = generation_time
 
-        if format is Responselike:
-            # We have the information necessary to create a useful
-            # response-type object.
-            #
-            # In almost all cases these values are correct, and in cases
-            # where they're not correct the caller can modify the Responselike
-            # before turning it into a Response.
-            return Responselike(
-                response=feed_obj.content,
-                status=200,
-                mimetype=OPDSFeed.ACQUISITION_FEED_TYPE,
-                max_age=max_age
-            )
-        return feed_obj
+        if raw:
+            return feed_obj
+
+        # We have the information necessary to create a useful
+        # response-type object.
+        #
+        # In almost all cases these values are correct, and in cases
+        # where they're not correct the caller can modify the Responselike
+        # before turning it into a Response.
+        return Responselike(
+            response=feed_obj.content,
+            status=200,
+            mimetype=OPDSFeed.ACQUISITION_FEED_TYPE,
+            max_age=max_age
+        )
 
     @classmethod
     def feed_type(cls, worklist, facets):
