@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
+from ..util.opds_writer import OPDSFeed
 from ..util.flask_util import Responselike
 
 class CachedFeed(Base):
@@ -83,7 +84,7 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, worklist, facets, pagination, refresher_method,
-              max_age=None, format=CachedFeed
+              max_age=None, format=None
     ):
         """Retrieve a cached feed from the database if possible.
 
@@ -179,8 +180,13 @@ class CachedFeed(Base):
         if format is Responselike:
             # We have the information necessary to create a useful
             # response-type object.
+            #
+            # In almost all cases these values are correct, and in cases
+            # where they're not correct the caller can modify the Responselike
+            # before turning it into a Response.
             return Responselike(
                 response=feed_obj.content,
+                status=200,
                 mimetype=OPDSFeed.ACQUISITION_FEED_TYPE,
                 max_age=max_age
             )

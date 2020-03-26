@@ -57,7 +57,7 @@ from lane import (
     SearchFacets,
     WorkList,
 )
-from util.flask_utils import Responselike
+from util.flask_util import Responselike
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed,

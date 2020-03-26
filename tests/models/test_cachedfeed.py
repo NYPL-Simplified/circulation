@@ -16,7 +16,8 @@ from ...lane import (
 from ...model.cachedfeed import CachedFeed
 from ...model.configuration import ConfigurationSetting
 from ...opds import AcquisitionFeed
-
+from ...util.flask_util import Responselike
+from ...util.opds_writer import OPDSFeed
 
 class MockFeedGenerator(object):
 
@@ -323,6 +324,33 @@ class TestCachedFeed(DatabaseTest):
         # whatever weird thing it wants to do.
         eq_(None, result2.content)
         eq_(tomorrow, result2.timestamp)
+
+    def test_responselike_format(self):
+        """Verify that fetch() can be told to return an appropriate
+        Responselike object. This preserves some information that's
+        useful when turning the feed into an HTTP response.
+        """
+        facets = Facets.default(self._default_library)
+        pagination = Pagination.default()
+        wl = WorkList()
+        wl.initialize(self._default_library)
+
+        def refresh():
+            return "Here's a feed."
+
+        rl = CachedFeed.fetch(
+            self._db, wl, facets, pagination, refresh, max_age=102,
+            format=Responselike
+        )
+        assert isinstance(rl, Responselike)
+        eq_(200, rl.status)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, rl.mimetype)
+        eq_(102, rl.max_age)
+        eq_("Here's a feed.", rl._response)
+
+        # The CachedFeed was created; just not returned.
+        cf = self._db.query(CachedFeed).one()
+        eq_("Here's a feed.", cf.content)
 
     # Tests of helper methods.
 

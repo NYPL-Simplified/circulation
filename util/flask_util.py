@@ -1,6 +1,6 @@
 """Utilities for Flask applications."""
 import flask
-from flask import Respons
+from flask import Response
 from wsgiref.handlers import format_date_time
 import time
 
@@ -68,7 +68,6 @@ class Responselike(object):
             mimetype=self.mimetype,
             content_type=self.content_type,
             body=self.body,
-            headers=self.headers
         )
 
     @property
