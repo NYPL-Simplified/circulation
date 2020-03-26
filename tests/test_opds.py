@@ -933,8 +933,8 @@ class TestOPDS(DatabaseTest):
                 self._db, "test", self._url, lane, TestAnnotator,
                 pagination=pagination, search_engine=search_engine
             )
-        cached_works = make_page(pagination)
-        parsed = feedparser.parse(unicode(cached_works))
+        cached_works = unicode(make_page(pagination))
+        parsed = feedparser.parse(cached_works)
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -953,7 +953,7 @@ class TestOPDS(DatabaseTest):
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
-        cached_works = make_page(pagination.next_page)
+        cached_works = unicode(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
@@ -1011,7 +1011,7 @@ class TestOPDS(DatabaseTest):
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
-        cached_works = make_page(pagination.next_page)
+        cached_works = unicode(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
@@ -1107,6 +1107,7 @@ class TestOPDS(DatabaseTest):
             max_age=0, search_engine=search_engine,
             search_debug=True
         )
+        cached_groups = unicode(cached_groups)
         parsed = feedparser.parse(cached_groups)
 
         # There are three entries in three lanes.
@@ -1269,8 +1270,8 @@ class TestOPDS(DatabaseTest):
                 pagination=Pagination.default(), search_engine=search_engine
             )
 
-        feed1 = make_page()
-        assert work1.title in feed1
+        response1 = make_page()
+        assert work1.title in unicode(response1)
         cached = get_one(self._db, CachedFeed, lane=fantasy_lane)
         old_timestamp = cached.timestamp
 
@@ -1282,16 +1283,16 @@ class TestOPDS(DatabaseTest):
 
         # The new work does not show up in the feed because
         # we get the old cached version.
-        feed2 = make_page()
-        assert work2.title not in feed2
+        response2 = make_page()
+        assert work2.title not in unicode(response2)
         assert cached.timestamp == old_timestamp
 
         # Change the WorkList's MAX_CACHE_AGE to disable caching, and
         # we get a brand new page with the new work.
         fantasy_lane.MAX_CACHE_AGE = 0
-        feed3 = make_page()
+        response3 = make_page()
         assert cached.timestamp > old_timestamp
-        assert work2.title in feed3
+        assert work2.title in unicode(response3)
 
 
 class TestAcquisitionFeed(DatabaseTest):
