@@ -126,6 +126,7 @@ from core.user_profile import (
     ProfileController,
     ProfileStorage,
 )
+from core.util.flask_util import Responselike
 from core.util.problem_detail import ProblemDetail
 from core.util.http import RemoteIntegrationException
 
@@ -2350,7 +2351,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.called_with = kwargs
-                return "An OPDS feed"
+                return Responselike("An OPDS feed")
 
         # Test a basic request with custom faceting, pagination, and a
         # language and audience restriction. This will exercise nearly
@@ -2365,10 +2366,9 @@ class TestWorkController(CirculationControllerTest):
         ):
             response = m(contributor, languages, audiences, feed_class=Mock)
 
-        # We got a 200 response, where the data returned by the mock
-        # method is served as an OPDS feed.
+        # The Responselike served by Mock.page is converted into a real
+        # Flask response
         eq_(200, response.status_code)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
         eq_("An OPDS feed", response.data)
 
         # Now check all the keyword arguments that were passed into
@@ -2521,6 +2521,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 cls.called_with = kwargs
+                return Responselike("A bunch of titles")
 
         kwargs['feed_class'] = Mock
         with self.request_context_with_library(
@@ -2529,6 +2530,11 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
             )
+
+        # The return value of Mock.page was converted into a Flask
+        # response.
+        eq_(200, response.status_code)
+        eq_("A bunch of titles", response.data)
 
         kwargs = Mock.called_with
         eq_(self._db, kwargs.pop('_db'))
@@ -2700,7 +2706,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def groups(cls, **kwargs):
                 cls.called_with = kwargs
-                return "An OPDS feed"
+                return Responselike("An OPDS feed")
 
         mock_api.setup(metadata)
         with self.request_context_with_library('/?entrypoint=Audio'):
@@ -2709,8 +2715,9 @@ class TestWorkController(CirculationControllerTest):
                 novelist_api=mock_api, feed_class=Mock
             )
 
+        # The return value of Mock.groups() has been converted into a
+        # Flask response.
         eq_(200, response.status_code)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
         eq_("An OPDS feed", response.data)
 
         # Verify that groups() was called with the arguments we expect.
@@ -2878,7 +2885,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.called_with = kwargs
-                return "An OPDS feed"
+                return Responselike("An OPDS feed")
 
         # Test a basic request with custom faceting, pagination, and a
         # language and audience restriction. This will exercise nearly
@@ -2892,10 +2899,8 @@ class TestWorkController(CirculationControllerTest):
                 feed_class=Mock
             )
 
-        # We got a 200 response, where the data returned by the mock
-        # method is served as an OPDS feed.
+        # We got the return value of Mock.page(), converted to a Response.
         eq_(200, response.status_code)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
         eq_("An OPDS feed", response.data)
 
         kwargs = self.called_with
@@ -3033,6 +3038,12 @@ class TestOPDSFeedController(CirculationControllerTest):
             # So we'll need to do a more detailed test to make sure
             # the right arguments are being passed _into_ the search
             # index.
+
+            eq_(200, response.status_code)
+            assert (
+                'max-age=%d' % Lane.MAX_CACHE_AGE
+                in response.headers['Cache-Control']
+            )
             feed = feedparser.parse(response.data)
             eq_(set([x.title for x in self.works]),
                 set([x['title'] for x in feed['entries']]))
@@ -3112,11 +3123,8 @@ class TestOPDSFeedController(CirculationControllerTest):
                 library_short_name=self._default_library.short_name,
             )
 
-        # We got a 200 response, where the data returned by the mock
-        # method is served as an OPDS feed.
-        eq_(200, response.status_code)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
-        eq_("An OPDS feed", response.data)
+        # We got the return value of Mock.groups()
+        eq_("An OPDS feed", response)
 
         # Now check all the keyword arguments that were passed into
         # page().
@@ -3186,7 +3194,7 @@ class TestOPDSFeedController(CirculationControllerTest):
                 # the grouped feed controller is activated.
                 self.groups_called_with = kwargs
                 self.page_called_with = None
-                return "An OPDS feed"
+                return Responselike("A grouped feed")
 
             @classmethod
             def page(cls, **kwargs):
@@ -3194,7 +3202,7 @@ class TestOPDSFeedController(CirculationControllerTest):
                 # ends up being called instead.
                 self.groups_called_with = None
                 self.page_called_with = kwargs
-
+                return Responselike("A paginated feed")
 
         with self.request_context_with_library("/?entrypoint=Audio"):
             # In default_config, there are no LARGE_COLLECTION_LANGUAGES,
@@ -3209,11 +3217,10 @@ class TestOPDSFeedController(CirculationControllerTest):
             # Ask for that feed.
             response = self.manager.opds_feeds.groups(None, feed_class=Mock)
 
-            # The response is served as an OPDS feed.
+            # The Responselike returned by Mock.groups() has been converted
+            # into a Flask response.
             eq_(200, response.status_code)
-            eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
-                response.headers['content-type'])
-            eq_("An OPDS feed", response.data)
+            eq_("A grouped feed", response.data)
 
             # While we're in request context, generate the URL we
             # expect to be used for this feed.
@@ -3661,7 +3668,7 @@ class TestCrawlableFeed(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.page_called_with = kwargs
-                return "An OPDS feed"
+                return Responselike("An OPDS feed")
 
         work = self._work(with_open_access_download=True)
         class MockLane(DynamicLane):
@@ -3711,7 +3718,6 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         # The result of page() was served as an OPDS feed.
         eq_(200, response.status_code)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
         eq_("An OPDS feed", response.data)
 
         # Verify the arguments passed in to page().

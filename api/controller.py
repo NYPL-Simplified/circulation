@@ -742,11 +742,10 @@ class OPDSFeedController(CirculationManagerController):
         )
 
         annotator = self.manager.annotator(lane, facets)
-        feed = feed_class.groups(
+        return feed_class.groups(
             _db=self._db, title=lane.display_name, url=url, worklist=lane,
             annotator=annotator, facets=facets, search_engine=search_engine
-        )
-        return feed_response(feed)
+        ).response
 
     def feed(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a paginated acquisition feed.
@@ -776,13 +775,12 @@ class OPDSFeedController(CirculationManagerController):
         )
 
         annotator = self.manager.annotator(lane, facets=facets)
-        feed = feed_class.page(
+        return feed_class.page(
             _db=self._db, title=lane.display_name,
             url=url, worklist=lane, annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine
-        )
-        return feed_response(feed)
+        ).response
 
     def navigation(self, lane_identifier):
         """Build or retrieve a navigation feed, for clients that do not support groups."""
@@ -896,13 +894,12 @@ class OPDSFeedController(CirculationManagerController):
         # so library settings are irrelevant.
         facets = CrawlableFacets.default(None)
 
-        feed = feed_class.page(
+        return feed_class.page(
             _db=self._db, title=title, url=url, worklist=worklist,
             annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine
-        )
-        return feed_response(feed)
+        ).response
 
     def _load_search_facets(self, lane):
         entrypoints = list(flask.request.library.entrypoints)
@@ -976,7 +973,7 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'],
             url=make_url(), lane=lane, search_engine=search_engine,
             query=query, annotator=annotator, pagination=pagination,
-            facets=facets,
+            facets=facets
         )
         return feed_response(opds_feed)
 
@@ -1663,12 +1660,11 @@ class WorkController(CirculationManagerController):
             pagination=pagination,
         )
 
-        feed = feed_class.page(
+        return feed_class.page(
             _db=self._db, title=lane.display_name, url=url, worklist=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, search_engine=search_engine
-        )
-        return feed_response(unicode(feed))
+        ).response
 
     def permalink(self, identifier_type, identifier):
         """Serve an entry for a single book.
@@ -1730,12 +1726,11 @@ class WorkController(CirculationManagerController):
             facets=facets,
         )
 
-        feed = feed_class.groups(
+        return feed_class.groups(
             _db=self._db, title=lane.DISPLAY_NAME,
             url=url, worklist=lane, annotator=annotator,
-            facets=facets, search_engine=search_engine,
-        )
-        return feed_response(unicode(feed))
+            facets=facets, search_engine=search_engine
+        ).response
 
     def recommendations(self, identifier_type, identifier, novelist_api=None,
                         feed_class=AcquisitionFeed):
@@ -1778,12 +1773,11 @@ class WorkController(CirculationManagerController):
             pagination=pagination,
         )
 
-        feed = feed_class.page(
+        return feed_class.page(
             _db=self._db, title=lane.DISPLAY_NAME, url=url, worklist=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, search_engine=search_engine
-        )
-        return feed_response(unicode(feed))
+        ).response
 
     def report(self, identifier_type, identifier):
         """Report a problem with a book."""
@@ -1838,12 +1832,12 @@ class WorkController(CirculationManagerController):
         annotator = self.manager.annotator(lane)
 
         url = annotator.feed_url(lane, facets=facets, pagination=pagination)
-        feed = feed_class.page(
+        obj = feed_class.page(
             _db=self._db, title=lane.display_name, url=url, worklist=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, search_engine=search_engine
         )
-        return feed_response(unicode(feed))
+        return obj.response
 
 
 class ProfileController(CirculationManagerController):
