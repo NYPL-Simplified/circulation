@@ -1,6 +1,8 @@
 """Utilities for Flask applications."""
 import flask
-from flask import Response
+from flask import Respons
+from wsgiref.handlers import format_date_time
+import time
 
 from . import (
     problem_detail,
@@ -20,10 +22,13 @@ def problem(type, status, title, detail=None, instance=None, headers={}):
 
 
 class Responselike(object):
-    """An object similar to a Flask Response object, but with some improvements.
+    """An object like a Flask Response object, but with some conveniences.
 
-    The improvements focus around making it easy to calculating header values
-    such as Cache-Control based on standard rules for this system.
+    The conveniences:
+
+       * It's easy to calculate header values such as Cache-Control.
+       * A Responselike can be easily converted into a string for use in
+         tests.
     """
 
     def __init__(self, response=None, status=None, headers=None, mimetype=None,
@@ -39,7 +44,7 @@ class Responselike(object):
         """
         self._response = response
         self.status = status
-        self._headers = dict(headers) or {}
+        self._headers = headers or {}
         self.mimetype = mimetype
         self.content_type = content_type
         self.direct_passthrough = direct_passthrough
@@ -68,8 +73,30 @@ class Responselike(object):
 
     @property
     def headers(self):
+        """Build an appropriate set of HTTP response headers."""
+        # Don't modify the underlying dictionary; it came from somewhere else.
         headers = dict(self._headers)
-        # Set Cache-Control based on max-age.
 
-        # Explicitly set Expires based on max-age; some clients need this.
+        # Set Cache-Control based on max-age.
+        if isinstance(self.max_age, int):
+            # A CDN should hold on to the cached representation only half
+            # as long as the end-user.
+            client_cache = max_age
+            cdn_cache = max_age / 2
+            cache_control = "public, no-transform, max-age=%d, s-maxage=%d" % (
+                client_cache, cdn_cache
+            )
+
+            # Explicitly set Expires based on max-age; some clients need this.
+            expires_at = datetime.datetime.utcnow() + datetime.timedelta(
+                seconds=max_age
+            )
+            headers['Expires'] = format_date_time(
+                time.mktime(expires_at.timetuple())
+            )
+        else:
+            # No max-age means don't cache at all.
+            cache_control = "private, no-cache"
+        headers['Cache-Control'] = cache_control
+
         return headers

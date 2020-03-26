@@ -67,6 +67,11 @@ def load_lending_policy(policy):
     return policy
 
 def feed_response(feed, acquisition=True, cache_for=AcquisitionFeed.FEED_CACHE_TIME):
+    """Create a response for an OPDS feed.
+
+    NOTE: You probably want to use flask_utils.Responselike instead,
+    and it's possible that this can be deprecated.
+    """
     if acquisition:
         content_type = OPDSFeed.ACQUISITION_FEED_TYPE
     else:

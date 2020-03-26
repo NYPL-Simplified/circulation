@@ -580,12 +580,6 @@ class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
 
-    # TODO: This is used in feed_response to set the Cache-Control
-    # headers. It should be replaced with a system where the
-    # Cache-Control max-age value is derived from the lifetime of the
-    # corresponding CachedFeed object, if any.
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
-
     @classmethod
     def groups(cls, _db, title, url, worklist, annotator,
                facets=None, max_age=None,
@@ -611,11 +605,10 @@ class AcquisitionFeed(OPDSFeed):
                 search_engine, search_debug
             )
 
-        cached = CachedFeed.fetch(
+        return CachedFeed.fetch(
             _db, worklist=worklist, facets=facets, pagination=None,
-            refresher_method=refresh, max_age=max_age
+            refresher_method=refresh, max_age=max_age, format=Responselike
         )
-        return Responselike(body=cached.content, max_age=max_age)
 
     @classmethod
     def _generate_groups(
@@ -713,12 +706,10 @@ class AcquisitionFeed(OPDSFeed):
                 search_engine, search_debug
             )
 
-        cached = CachedFeed.fetch(
+        return CachedFeed.fetch(
             _db, worklist=worklist, facets=facets, pagination=pagination,
-            refresher_method=refresh, max_age=max_age
+            refresher_method=refresh, max_age=max_age, format=Responselike
         )
-        max_age = getattr(cached, 'max_age', max_age)
-        return Responselike(body=cached.content, max_age=cached.max_age)
 
     @classmethod
     def _generate_page(
@@ -1665,12 +1656,6 @@ class NavigationFacets(FeaturedFacets):
 
 class NavigationFeed(OPDSFeed):
 
-    # TODO: This is used in feed_response to set the Cache-Control
-    # headers. It should be replaced with a system where the
-    # Cache-Control max-age value is derived from the lifetime of the
-    # corresponding CachedFeed object, if any.
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
-
     @classmethod
     def navigation(cls, _db, title, url, worklist, annotator,
                    facets=None, max_age=None):
@@ -1684,15 +1669,17 @@ class NavigationFeed(OPDSFeed):
                 _db, title, url, worklist, annotator
             )
 
-        cached = CachedFeed.fetch(
+        response = CachedFeed.fetch(
             _db,
             worklist=worklist,
             facets=facets,
             pagination=None,
             refresher_method=refresh,
-            max_age=max_age,
+            max_age=max_age, format=Responselike
         )
-        return cached.content
+        # Change the default mimetype.
+        response.mimetype=OPDSFeed.NAVIGATION_FEED_TYPE
+        return response
 
     @classmethod
     def _generate_navigation(cls, _db, title, url, worklist,
