@@ -397,6 +397,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">OPDSForDistributorsReaperMonitor</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">run_once</span><span class="p">(</span><span class="n">progress</span><span class="p">)</span>
 
+        <span class="c1"># self.seen_identifiers is full of URNs. We need the values</span>
+        <span class="c1"># that go in Identifier.identifier.</span>
+        <span class="n">identifiers</span><span class="p">,</span> <span class="n">failures</span> <span class="o">=</span> <span class="n">Identifier</span><span class="o">.</span><span class="n">parse_urns</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">seen_identifiers</span>
+        <span class="p">)</span>
+        <span class="n">identifier_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">identifiers</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+
         <span class="c1"># At this point we&#39;ve gone through the feed and collected all the identifiers.</span>
         <span class="c1"># If there&#39;s anything we didn&#39;t see, we know it&#39;s no longer available.</span>
         <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
@@ -406,11 +413,10 @@
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">collection_id</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">id</span>
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-            <span class="o">~</span><span class="n">Identifier</span><span class="o">.</span><span class="n">identifier</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seen_identifiers</span><span class="p">)</span>
+            <span class="o">~</span><span class="n">Identifier</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">identifier_ids</span><span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
             <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span>
         <span class="p">)</span>
-
         <span class="n">pools_reaped</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;Reaping </span><span class="si">%s</span><span class="s2"> license pools for collection </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">pools_reaped</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
