@@ -3104,7 +3104,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.called_with = kwargs
-                return "An OPDS feed"
+                return Responselike("An OPDS feed")
 
         sort_key = ["sort", "pagination", "key"]
         with self.request_context_with_library(
@@ -3123,8 +3123,10 @@ class TestOPDSFeedController(CirculationControllerTest):
                 library_short_name=self._default_library.short_name,
             )
 
-        # We got the return value of Mock.groups()
-        eq_("An OPDS feed", response)
+        # The Responselike returned from Mock.groups() was converted
+        # to a real Response object.
+        assert isinstance(response, Response)
+        eq_("An OPDS feed", response.data)
 
         # Now check all the keyword arguments that were passed into
         # page().

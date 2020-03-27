@@ -460,9 +460,10 @@ class CacheRepresentationPerLane(TimestampScript, LaneSweeperScript):
                 if feed:
                     cached_feeds.append(feed)
                     self.log.info(
-                        "Took %.2f sec to make %d bytes.", (b-a), len(feed)
+                        "Took %.2f sec to make %d bytes.", (b-a),
+                        len(feed._response)
                     )
-        total_size = sum(len(x) for x in cached_feeds)
+        total_size = sum(len(x._response) for x in cached_feeds)
         return cached_feeds
 
     def facets(self, lane):

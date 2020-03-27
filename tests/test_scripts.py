@@ -394,9 +394,11 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             )
 
             # Try again without mocking AcquisitionFeed to verify that
-            # we get something that looks like an OPDS feed.
-            result = script.do_generate(lane, facets, pagination)
-            assert result.startswith('<feed')
+            # we get something that looks like a Flask Response
+            # containing an OPDS feed.
+            response = script.do_generate(lane, facets, pagination)
+            eq_(AcquisitionFeed.ACQUISITION_FEED_TYPE, response.mimetype)
+            assert response._response.startswith('<feed')
 
 
 class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
