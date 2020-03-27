@@ -555,7 +555,7 @@ class TestCachedFeed(DatabaseTest):
         # Fetch a cached feed from the database. It comes out updated.
         refresher = MockFeedGenerator()
         args = (self._db, lane, facets, pagination, refresher)
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #1", feed.content)
 
         eq_(pagination.query_string, feed.pagination)
@@ -563,11 +563,11 @@ class TestCachedFeed(DatabaseTest):
         eq_(lane.id, feed.lane_id)
 
         # Fetch it again, with a high max_age, and it's cached!
-        feed = CachedFeed.fetch(*args, max_age=1000)
+        feed = CachedFeed.fetch(*args, max_age=1000, raw=True)
         eq_("This is feed #1", feed.content)
 
         # Fetch it with a low max_age, and it gets updated again.
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #2", feed.content)
 
         # The special constant CACHE_FOREVER means it's always cached.
@@ -583,7 +583,7 @@ class TestCachedFeed(DatabaseTest):
         # Fetch a cached feed from the database. It comes out updated.
         refresher = MockFeedGenerator()
         args = (self._db, lane, facets, pagination, refresher)
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #1", feed.content)
 
         eq_(pagination.query_string, feed.pagination)
@@ -592,13 +592,15 @@ class TestCachedFeed(DatabaseTest):
         eq_(lane.unique_key, feed.unique_key)
 
         # Fetch it again, with a high max_age, and it's cached!
-        feed = CachedFeed.fetch(*args, max_age=1000)
+        feed = CachedFeed.fetch(*args, max_age=1000, raw=True)
         eq_("This is feed #1", feed.content)
 
         # Fetch it with a low max_age, and it gets updated again.
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #2", feed.content)
 
         # The special constant CACHE_FOREVER means it's always cached.
-        feed = CachedFeed.fetch(*args, max_age=CachedFeed.CACHE_FOREVER)
+        feed = CachedFeed.fetch(
+            *args, max_age=CachedFeed.CACHE_FOREVER, raw=True
+        )
         eq_("This is feed #2", feed.content)
