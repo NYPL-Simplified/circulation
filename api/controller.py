@@ -803,10 +803,9 @@ class OPDSFeedController(CirculationManagerController):
             base_class_constructor_kwargs=facet_class_kwargs
         )
         annotator = self.manager.annotator(lane, facets)
-        feed = NavigationFeed.navigation(
+        return NavigationFeed.navigation(
             self._db, title, url, lane, annotator, facets=facets
-        )
-        return feed_response(feed)
+        ).response
 
     def crawlable_library_feed(self):
         """Build or retrieve a crawlable acquisition feed for the
