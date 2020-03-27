@@ -170,6 +170,11 @@ class Configuration(CoreConfiguration):
     #
     KEY_PAIR = "key-pair"
 
+    # Availability information can change pretty quickly, but it's
+    # generally okay for a client to cache any kind of OPDS document
+    # for ten minutes.
+    DEFAULT_OPDS_CACHE_TIME = 60 * 10
+
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
             "key": BEARER_TOKEN_SIGNING_SECRET,

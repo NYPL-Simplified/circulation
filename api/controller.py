@@ -1490,6 +1490,8 @@ class LoanController(CirculationManagerController):
 
         work = pool.work
         annotator = self.manager.annotator(None)
+        # Since this OPDS document is in a response to an unsafe operation,
+        # we don't want the client to cache it.
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
@@ -1683,7 +1685,8 @@ class WorkController(CirculationManagerController):
 
         annotator = self.manager.annotator(None)
         return entry_response(
-            AcquisitionFeed.single_entry(self._db, work, annotator)
+            AcquisitionFeed.single_entry(self._db, work, annotator),
+            cache_for=Configuration.DEFAULT_OPDS_CACHE_TIME
         )
 
     def related(self, identifier_type, identifier, novelist_api=None,
