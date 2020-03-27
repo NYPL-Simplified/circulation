@@ -1,6 +1,7 @@
 """Utilities for Flask applications."""
 import datetime
 import flask
+from lxml import etree
 from flask import Response
 from wsgiref.handlers import format_date_time
 import time
@@ -43,6 +44,7 @@ class Responselike(object):
             cache this response. Used to set a value for the
             Cache-Control header.
         """
+
         self._response = response
         self.status = status
         self._headers = headers or {}
@@ -57,13 +59,22 @@ class Responselike(object):
 
         :return: The entity-body portion of the response.
         """
-        return self._response
+        return self.entity_body
+
+    @property
+    def entity_body(self):
+        body = self._response
+        if isinstance(body, etree._Element):
+            body = etree.tostring(body)
+        elif not isinstance(body, (bytes, unicode)):
+            body = unicode(body)
+        return body
 
     @property
     def response(self):
         """Convert to a real Flask response."""
         return Response(
-            response=self._response,
+            response=self.entity_body
             status=self.status,
             headers=self.headers,
             mimetype=self.mimetype,

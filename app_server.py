@@ -66,41 +66,6 @@ def load_lending_policy(policy):
                         audience)
     return policy
 
-def feed_response(feed, acquisition=True, cache_for=None):
-    """Create a response for an OPDS feed.
-
-    For a feed created through WorkList, you shouldn't need this, because
-    WorkList methods generally return a flask_utils.Responselike.
-    """
-    if acquisition:
-        content_type = OPDSFeed.ACQUISITION_FEED_TYPE
-    else:
-        content_type = OPDSFeed.NAVIGATION_FEED_TYPE
-    return _make_response(feed, content_type, cache_for)
-
-def entry_response(entry, cache_for=None):
-    content_type = OPDSFeed.ENTRY_TYPE
-    return _make_response(entry, content_type, cache_for)
-
-def _make_response(content, content_type, cache_for):
-    if isinstance(content, etree._Element):
-        content = etree.tostring(content)
-    elif not isinstance(content, (bytes, unicode)):
-        content = unicode(content)
-
-    if isinstance(cache_for, int):
-        # A CDN should hold on to the cached representation only half
-        # as long as the end-user.
-        client_cache = cache_for
-        cdn_cache = cache_for / 2
-        cache_control = "public, no-transform, max-age=%d, s-maxage=%d" % (
-            client_cache, cdn_cache)
-    else:
-        cache_control = "private, no-cache"
-
-    return make_response(content, 200, {"Content-Type": content_type,
-                                        "Cache-Control": cache_control})
-
 def load_facets_from_request(
         facet_config=None, worklist=None, base_class=Facets,
         base_class_constructor_kwargs=None, default_entrypoint=None
