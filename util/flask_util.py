@@ -68,6 +68,7 @@ class Responselike(object):
             headers=self.headers,
             mimetype=self.mimetype,
             content_type=self.content_type,
+            direct_passthrough=self.direct_passthrough
         )
 
     @property
@@ -77,7 +78,7 @@ class Responselike(object):
         headers = dict(self._headers)
 
         # Set Cache-Control based on max-age.
-        if isinstance(self.max_age, int):
+        if self.max_age and isinstance(self.max_age, int):
             # A CDN should hold on to the cached representation only half
             # as long as the end-user.
             client_cache = self.max_age
@@ -94,7 +95,7 @@ class Responselike(object):
                 time.mktime(expires_at.timetuple())
             )
         else:
-            # No max-age means don't cache at all.
+            # Missing, invalid or zero max-age means don't cache at all.
             cache_control = "private, no-cache"
         headers['Cache-Control'] = cache_control
 

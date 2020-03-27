@@ -69,8 +69,8 @@ def load_lending_policy(policy):
 def feed_response(feed, acquisition=True, cache_for=None):
     """Create a response for an OPDS feed.
 
-    NOTE: You probably want to use flask_utils.Responselike instead,
-    and it's possible that this can be deprecated.
+    For a feed created through WorkList, you shouldn't need this, because
+    WorkList methods generally return a flask_utils.Responselike.
     """
     if acquisition:
         content_type = OPDSFeed.ACQUISITION_FEED_TYPE
