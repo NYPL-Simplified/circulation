@@ -520,19 +520,34 @@ class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributors
         )
 
         # There's a license pool in the database that isn't in the feed anymore.
-        edition, pool = self._edition(
+        edition, now_gone = self._edition(
             identifier_type=Identifier.URI,
             data_source_name=data_source.name,
             with_license_pool=True,
             collection=collection,
         )
-        pool.licenses_owned = 1
-        pool.licenses_available = 1
+        now_gone.licenses_owned = 1
+        now_gone.licenses_available = 1
+
+        edition, still_there = self._edition(
+            identifier_type=Identifier.URI,
+            identifier_id="urn:uuid:04377e87-ab69-41c8-a2a4-812d55dc0952",
+            data_source_name=data_source.name,
+            with_license_pool=True,
+            collection=collection,
+        )
+        still_there.licenses_owned = 1
+        still_there.licenses_available = 1
 
         progress = monitor.run_once(monitor.timestamp().to_data())
 
-        eq_(0, pool.licenses_owned)
-        eq_(0, pool.licenses_available)
+        # One LicensePool has been cleared out.
+        eq_(0, now_gone.licenses_owned)
+        eq_(0, now_gone.licenses_available)
+
+        # The other is still around.
+        eq_(1, still_there.licenses_owned)
+        eq_(1, still_there.licenses_available)
 
         # The TimestampData returned by run_once() describes its
         # achievements.
