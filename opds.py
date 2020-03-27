@@ -58,6 +58,7 @@ from lane import (
     WorkList,
 )
 
+from util.flask_util import Responselike
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -926,10 +927,28 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def search(cls, _db, title, url, lane, search_engine, query,
-               pagination=None, facets=None, annotator=None
+               pagination=None, facets=None, annotator=None,
+               max_age=None
     ):
+        """Run a search against the given search engine and return
+        the results in OPDS format.
+
+        :param _db: A database connection
+        :param title: The title of the resulting OPDS feed.
+        :param url: The URL from which the feed will be served.
+        :param search_engine: An ExternalSearchIndex.
+        :param query: The search query
+        :param pagination: A Pagination
+        :param facets: A Facets
+        :param annotator: An Annotator
+        :param max_age: An integer number of seconds to use in the outgoing
+            Cache-Control header.
+
+        :return: A Responselike
+        """
         facets = facets or SearchFacets()
         pagination = pagination or Pagination.default()
+        max_age = max_age or OPDSFeed.DEFAULT_MAX_AGE
         results = lane.search(
             _db, query, search_engine, pagination=pagination, facets=facets
         )
@@ -974,11 +993,35 @@ class AcquisitionFeed(OPDSFeed):
         opds_feed.add_breadcrumbs(lane, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
-        return unicode(opds_feed)
+        return Responselike(
+            unicode(opds_feed), mimetype=OPDSFeed.ACQUISITION_FEED_TYPE,
+            max_age=max_age
+        )
 
     @classmethod
-    def single_entry(cls, _db, work, annotator, force_create=False):
-        """Create a single-entry OPDS document for one specific work."""
+    def single_entry(
+            cls, _db, work, annotator, force_create=False, max_age=None,
+            raw=False
+    ):
+        """Create a single-entry OPDS document for one specific work.
+
+        :param _db: A database connection.
+        :param work: A Work
+        :param work: An Annotator
+        :param force_create: Create the OPDS entry from scratch even
+            if there's already a cached one.
+        :param max_age: An integer number of seconds to use in the outgoing
+            Cache-Control header.
+        :param raw: If this is True, the e
+        :return: A Responselike, if `raw` is false; otherwise an OPDSMessage
+            or an etree._Element -- whatever was returned by
+            OPDSFeed.create_entry.
+        """
+
+        # NOTE: we don't use OPDSFeed.DEFAULT_MAX_AGE as a default
+        # here because it's likely a single-entry OPDS document is the
+        # result of an unsafe operation.
+
         feed = cls(_db, '', '', [], annotator=annotator)
         if not isinstance(work, Edition) and not work.presentation_edition:
             return None
@@ -998,7 +1041,18 @@ class AcquisitionFeed(OPDSFeed):
             new_root = etree.Element(entry.tag, nsmap=nsmap)
             new_root[:] = entry[:]
             entry = new_root
-        return entry
+        if raw or entry is None:
+            return entry
+        if isinstance(entry, OPDSMessage):
+            entry = unicode(entry)
+            # This is probably an error message; don't cache it.
+            max_age = None
+        elif isinstance(entry, etree._Element):
+            entry = etree.tostring(entry)
+        return Responselike(
+            response=entry,
+            mimetype=OPDSFeed.ENTRY_TYPE, max_age=max_age
+        )
 
     @classmethod
     def error_message(cls, identifier, error_status, error_message):

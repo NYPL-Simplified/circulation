@@ -69,6 +69,7 @@ from ..opds import (
     TestUnfulfillableAnnotator
 )
 
+from ..util.flask_util import Responselike
 from ..util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -1202,7 +1203,10 @@ class TestOPDS(DatabaseTest):
                 facets=facets,
                 annotator=TestAnnotator,
             )
-        feed = make_page(pagination)
+        response = make_page(pagination)
+        eq_(OPDSFeed.DEFAULT_MAX_AGE, response.max_age)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.mimetype)
+        feed = unicode(response)
         parsed = feedparser.parse(feed)
         eq_(work1.title, parsed['entries'][0]['title'])
 
@@ -1232,7 +1236,7 @@ class TestOPDS(DatabaseTest):
         eq_(fantasy_lane.display_name, up_link['title'])
 
         # Now get the second page and make sure it has a 'previous' link.
-        feed = make_page(pagination.next_page)
+        feed = unicode(make_page(pagination.next_page))
         parsed = feedparser.parse(feed)
         [previous] = self.links(parsed, 'previous')
         expect = TestAnnotator.search_url(
@@ -1497,7 +1501,8 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(
             self._db, work, TestAnnotator
         )
-        entry = etree.tounicode(entry)
+        assert isinstance(entry, Responselike)
+        entry = unicode(entry)
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
@@ -1512,7 +1517,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
 
         expected = str(work.presentation_edition.issued.date())
-        assert expected in etree.tounicode(entry)
+        assert expected in entry._response
 
     def test_entry_cache_adds_missing_drm_namespace(self):
 
@@ -1539,13 +1544,12 @@ class TestAcquisitionFeed(DatabaseTest):
             self._db, work, AddDRMTagAnnotator
         )
         eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
-            etree.tounicode(entry)
+            unicode(entry)
         )
 
     def test_error_when_work_has_no_identifier(self):
-        """We cannot create an OPDS entry for a Work that cannot be associated
-        with an Identifier.
-        """
+        # We cannot create an OPDS entry for a Work that cannot be associated
+        # with an Identifier.
         work = self._work(title=u"Hello, World!", with_license_pool=True)
         work.license_pools[0].identifier = None
         work.presentation_edition.primary_identifier = None
@@ -1647,14 +1651,18 @@ class TestAcquisitionFeed(DatabaseTest):
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
-        entry = AcquisitionFeed.single_entry(
-            self._db, work, TestUnfulfillableAnnotator
+        response = AcquisitionFeed.single_entry(
+            self._db, work, TestUnfulfillableAnnotator,
         )
+        assert isinstance(response, Responselike)
         expect = AcquisitionFeed.error_message(
             pool.identifier, 403,
             "I know about this work but can offer no way of fulfilling it."
         )
-        eq_(expect, entry)
+        # The status code equivalent inside the OPDS message has not affected
+        # the status code of the Responselike itself.
+        eq_(None, response.status)
+        eq_(unicode(expect), unicode(response))
 
     def test_format_types(self):
         m = AcquisitionFeed.format_types

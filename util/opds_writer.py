@@ -189,6 +189,10 @@ class OPDSFeed(AtomFeed):
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
     NO_TITLE = "http://librarysimplified.org/terms/problem/no-title"
 
+    # Most types of OPDS feeds can be cached client-side for at least ten
+    # minutes.
+    DEFAULT_MAX_AGE = 60 * 10
+
     def __init__(self, title, url):
         super(OPDSFeed, self).__init__(title, url)
 
