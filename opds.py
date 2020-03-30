@@ -951,7 +951,6 @@ class AcquisitionFeed(OPDSFeed):
         """
         facets = facets or SearchFacets()
         pagination = pagination or Pagination.default()
-        max_age = max_age or OPDSFeed.DEFAULT_MAX_AGE
         results = lane.search(
             _db, query, search_engine, pagination=pagination, facets=facets
         )

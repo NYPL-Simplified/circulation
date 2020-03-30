@@ -13,7 +13,6 @@ from flask import url_for, make_response
 from flask_babel import lazy_gettext as _
 from io import BytesIO
 from util.flask_util import problem
-from util.opds_writer import OPDSFeed
 from util.problem_detail import ProblemDetail
 import traceback
 import logging
