@@ -74,7 +74,7 @@ class Responselike(object):
     def response(self):
         """Convert to a real Flask response."""
         return Response(
-            response=self.entity_body
+            response=self.entity_body,
             status=self.status,
             headers=self.headers,
             mimetype=self.mimetype,
