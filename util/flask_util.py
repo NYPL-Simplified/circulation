@@ -99,8 +99,8 @@ class Response(FlaskResponse):
 
         return headers
 
-    def modify(self, status=None, mimetype=None, content_type=None,
-               max_age=None):
+    def modified(self, status=None, mimetype=None, content_type=None,
+                 max_age=None):
         """Create a new Response with a different status code,
         content type or max_age.
 
