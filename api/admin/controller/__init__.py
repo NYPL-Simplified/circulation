@@ -668,7 +668,7 @@ class FeedController(AdminCirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return OPDSFeedResponse(opds_feed, cache_for=0)
+        return OPDSFeedResponse(opds_feed, max_age=0)
 
     def suppressed(self):
         self.require_librarian(flask.request.library)

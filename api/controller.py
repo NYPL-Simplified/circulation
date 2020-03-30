@@ -1837,12 +1837,11 @@ class WorkController(CirculationManagerController):
         annotator = self.manager.annotator(lane)
 
         url = annotator.feed_url(lane, facets=facets, pagination=pagination)
-        obj = feed_class.page(
+        return feed_class.page(
             _db=self._db, title=lane.display_name, url=url, worklist=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, search_engine=search_engine
         )
-        return obj.response
 
 
 class ProfileController(CirculationManagerController):

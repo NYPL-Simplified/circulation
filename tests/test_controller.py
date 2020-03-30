@@ -2437,7 +2437,7 @@ class TestWorkController(CirculationControllerTest):
             annotator = LibraryAnnotator(None, None, self._default_library)
             expect = AcquisitionFeed.single_entry(
                 self._db, self.english_1, annotator
-            )._response
+            ).data
 
         eq_(200, response.status_code)
         eq_(expect, response.data)
