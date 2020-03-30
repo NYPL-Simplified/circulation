@@ -91,6 +91,7 @@ from core.opensearch import OpenSearchDocument
 from core.user_profile import ProfileController as CoreProfileController
 from core.util.flask_util import (
     problem,
+    OPDSFeedResponse
 )
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from core.util.problem_detail import ProblemDetail
@@ -1172,16 +1173,23 @@ class LoanController(CirculationManagerController):
             # This should never happen -- we should have sent a more specific
             # error earlier.
             return HOLD_FAILED
-        if isinstance(feed, OPDSFeed):
-            content = unicode(feed)
-        else:
-            content = etree.tostring(feed)
         if is_new:
             status_code = 201
         else:
             status_code = 200
-        headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
-        return Response(content, status_code, headers)
+        if isinstance(feed, Response):
+            # We may need to change the status code, and we want to
+            # make sure this response is not cached.
+            response = feed.modify(status=status_code, max_age=0)
+        elif isinstance(feed, OPDSFeed):
+            # Convert an OPDS feed into a Response.
+            # TODO: this may no longer be necessary.
+            content = unicode(feed)
+            response = OPDSFeedResponse(
+                response=unicode(feed), status=status_code,
+                max_age=0
+            )
+        return response
 
     def best_lendable_pool(self, library, patron, identifier_type, identifier,
                            mechanism_id):
