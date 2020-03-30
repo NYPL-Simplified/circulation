@@ -1216,9 +1216,10 @@ class TestLibraryAnnotator(VendorIDTest):
             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             None, None)
 
-        feed_obj = LibraryLoanAndHoldAnnotator.single_fulfillment_feed(
-            None, loan, fulfillment, test_mode=True)
-        raw = etree.tostring(feed_obj)
+        response = LibraryLoanAndHoldAnnotator.single_fulfillment_feed(
+            None, loan, fulfillment, test_mode=True
+        )
+        raw = response.data
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))

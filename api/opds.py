@@ -21,6 +21,7 @@ from core.opds import (
     AcquisitionFeed,
     UnfulfillableWork,
 )
+from core.util.flask_util import OPDSFeedResponse
 from core.util.opds_writer import (
     OPDSFeed,
 )
