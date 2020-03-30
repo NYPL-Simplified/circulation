@@ -1089,10 +1089,9 @@ class LoanController(CirculationManagerController):
                 )
 
         # Then make the feed.
-        feed = LibraryLoanAndHoldAnnotator.active_loans_for(
+        return LibraryLoanAndHoldAnnotator.active_loans_for(
             self.circulation, patron
         )
-        return feed.response
 
     def borrow(self, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
@@ -1180,7 +1179,7 @@ class LoanController(CirculationManagerController):
         if isinstance(feed, Response):
             # We may need to change the status code, and we want to
             # make sure this response is not cached.
-            response = feed.modify(status=status_code, max_age=0)
+            response = feed.modified(status=status_code, max_age=0)
         elif isinstance(feed, OPDSFeed):
             # Convert an OPDS feed into a Response.
             # TODO: this may no longer be necessary.
@@ -1389,7 +1388,10 @@ class LoanController(CirculationManagerController):
             # If this is a streaming delivery mechanism, create an OPDS entry
             # with a fulfillment link to the streaming reader url.
             feed = LibraryLoanAndHoldAnnotator.single_fulfillment_feed(
-                self.circulation, loan, fulfillment)
+                self.circulation, loan, fulfillment
+            )
+            if isinstance(feed, Response):
+                return feed
             if isinstance(feed, OPDSFeed):
                 content = unicode(feed)
             else:
@@ -1420,7 +1422,7 @@ class LoanController(CirculationManagerController):
             if fulfillment.content_type:
                 headers['Content-Type'] = fulfillment.content_type
 
-        return Response(content, status_code, headers)
+        return Response(response=content, status=status_code, headers=headers)
 
     def can_fulfill_without_loan(self, library, patron, pool, lpdm):
         """Is it acceptable to fulfill the given LicensePoolDeliveryMechanism
@@ -2035,15 +2037,15 @@ class SharedCollectionController(CirculationManagerController):
         except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
         if loan and isinstance(loan, Loan):
-            feed = SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
-                collection, loan)
-            headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
-            return Response(etree.tostring(feed), 201, headers)
+            response = SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
+                collection, loan
+            )
+            return response.modified(status=201, max_age=0)
         elif loan and isinstance(loan, Hold):
-            feed = SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
-                collection, loan)
-            headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
-            return Response(etree.tostring(feed), 201, headers)
+            response = SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
+                collection, loan
+            )
+            return response.modified(status=201, max_age=0)
 
     def revoke_loan(self, collection_name, loan_id):
         collection = self.load_collection(collection_name)

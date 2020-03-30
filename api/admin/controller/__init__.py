@@ -683,7 +683,7 @@ class FeedController(AdminCirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return OPDSFeedResponse(opds_feed, cache_for=0)
+        return OPDSFeedResponse(opds_feed, max_age=0)
 
     def genres(self):
         data = dict({
@@ -855,7 +855,7 @@ class CustomListsController(AdminCirculationManagerController):
             )
             annotator.annotate_feed(feed, worklist)
 
-            return feed_response(unicode(feed), cache_for=0)
+            return OPDSFeedResponse(unicode(feed), max_age=0)
 
         elif flask.request.method == "POST":
             name = flask.request.form.get("name")
