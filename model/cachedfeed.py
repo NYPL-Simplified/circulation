@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
-from ..util.flask_util import OPDSFeedResponselike
+from ..util.flask_util import OPDSFeedResponse
 
 class CachedFeed(Base):
 
@@ -108,12 +108,12 @@ class CachedFeed(Base):
             specified, a default value will be calculated based on
             WorkList and Facets configuration. Setting this value to
             zero will force a refresh.
-        :param raw: If this is False (the default), a Responselike ready to be
+        :param raw: If this is False (the default), a Response ready to be
             converted into a Flask Response object will be returned. If this
             is True, the CachedFeed object itself will be returned. In most
             non-test situations the default is better.
 
-        :return: A Responselike or CachedFeed containing up-to-date content.
+        :return: A Response or CachedFeed containing up-to-date content.
         """
 
         # Gather the information necessary to uniquely identify this
@@ -184,9 +184,9 @@ class CachedFeed(Base):
         # response-type object.
         #
         # In almost all cases these values are correct, and in cases
-        # where they're not correct the caller can modify the Responselike
+        # where they're not correct the caller can modify the Response
         # before turning it into a Response.
-        return OPDSFeedResponselike(
+        return OPDSFeedResponse(
             response=feed_obj.content,
             status=200,
             max_age=max_age

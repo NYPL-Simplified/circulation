@@ -69,7 +69,7 @@ from ..opds import (
     TestUnfulfillableAnnotator
 )
 
-from ..util.flask_util import Responselike
+from ..util.flask_util import Response
 from ..util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -1501,7 +1501,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(
             self._db, work, TestAnnotator
         )
-        assert isinstance(entry, Responselike)
+        assert isinstance(entry, Response)
         entry = unicode(entry)
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
@@ -1654,13 +1654,13 @@ class TestAcquisitionFeed(DatabaseTest):
         response = AcquisitionFeed.single_entry(
             self._db, work, TestUnfulfillableAnnotator,
         )
-        assert isinstance(response, Responselike)
+        assert isinstance(response, Response)
         expect = AcquisitionFeed.error_message(
             pool.identifier, 403,
             "I know about this work but can offer no way of fulfilling it."
         )
         # The status code equivalent inside the OPDS message has not affected
-        # the status code of the Responselike itself.
+        # the status code of the Response itself.
         eq_(200, response.status_code)
         eq_(unicode(expect), unicode(response))
 

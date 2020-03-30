@@ -21,7 +21,7 @@ from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
 )
-from util.flask_util import OPDSFeedResponselike
+from util.flask_util import OPDSFeedResponse
 from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
@@ -320,7 +320,7 @@ class URNLookupController(object):
             self._db, "Lookup results", this_url, handler.works, annotator,
             precomposed_entries=handler.precomposed_entries,
         )
-        return OPDSFeedResponselike(opds_feed).response
+        return OPDSFeedResponse(opds_feed)
 
     def process_urns(self, urns, **process_urn_kwargs):
         """Process a number of URNs by instantiating a URNLookupHandler
@@ -354,7 +354,7 @@ class URNLookupController(object):
             self._db, urn, this_url, works, annotator,
             precomposed_entries=handler.precomposed_entries
         )
-        return OPDSFeedResponselike(opds_feed).response
+        return OPDSFeedResponse(opds_feed)
 
 
 class URNLookupHandler(object):
