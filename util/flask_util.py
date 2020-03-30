@@ -99,6 +99,23 @@ class Response(FlaskResponse):
 
         return headers
 
+    def modify(self, status=None, mimetype=None, content_type=None,
+               max_age=None):
+        """Create a new Response with a different status code,
+        content type or max_age.
+
+        It's not safe to just set these fields because the Response
+        constructor derives other values from these fields.
+        """
+        return self.__class__(
+            response=self.response,
+            status=status or self.status,
+            headers=self.headers,
+            mimetype=mimetype or self.mimetype,
+            content_type=content_type or self.content_type,
+            direct_passthrough=self.direct_passthrough,
+            max_age=max_age or self.max_age
+        )
 
 class OPDSFeedResponse(Response):
     """A convenience specialization of Response for typical OPDS feeds."""
