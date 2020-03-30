@@ -345,11 +345,10 @@ class TestCachedFeed(DatabaseTest):
         eq_(tomorrow, result2.timestamp)
 
     def test_responselike_format(self):
-        """Verify that fetch() can be told to return an appropriate
-        Responselike object. This is the default behavior, and
-        preserves some information that's useful when turning the feed
-        into an HTTP response.
-        """
+        # Verify that fetch() can be told to return an appropriate
+        # Responselike object. This is the default behavior, since
+        # it preserves some useful information that would otherwise be
+        # lost.
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
         wl = WorkList()
@@ -362,10 +361,10 @@ class TestCachedFeed(DatabaseTest):
             self._db, wl, facets, pagination, refresh, max_age=102,
         )
         assert isinstance(rl, Responselike)
-        eq_(200, rl.status)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, rl.mimetype)
+        eq_(200, rl.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, rl.content_type)
         eq_(102, rl.max_age)
-        eq_("Here's a feed.", rl._response)
+        eq_("Here's a feed.", rl.data)
 
         # The CachedFeed was created; just not returned.
         cf = self._db.query(CachedFeed).one()

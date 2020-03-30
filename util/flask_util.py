@@ -2,7 +2,8 @@
 import datetime
 import flask
 from lxml import etree
-from flask import Response
+from nose.tools import set_trace
+from flask import Response as FlaskResponse
 from wsgiref.handlers import format_date_time
 import time
 
@@ -21,16 +22,16 @@ def problem(type, status, title, detail=None, instance=None, headers={}):
     """Create a Response that includes a Problem Detail Document."""
     status, headers, data = problem_raw(
         type, status, title, detail, instance, headers)
-    return Response(data, status, headers)
+    return FlaskResponse(data, status, headers)
 
 
-class Responselike(object):
-    """An object like a Flask Response object, but with some conveniences.
+class Response(FlaskResponse):
+    """A Flask Response object with some conveniences added.
 
     The conveniences:
 
        * It's easy to calculate header values such as Cache-Control.
-       * A Responselike can be easily converted into a string for use in
+       * A response can be easily converted into a string for use in
          tests.
     """
 
@@ -45,49 +46,34 @@ class Responselike(object):
             cache this response. Used to set a value for the
             Cache-Control header.
         """
-
-        self._response = response
-        self.status = status
-        self._headers = headers or {}
-        self.mimetype = mimetype
-        self.content_type = content_type
-        self.direct_passthrough = direct_passthrough
-
         self.max_age = max_age
+
+        body = response
+        if isinstance(body, etree._Element):
+            body = etree.tostring(body)
+        elif not isinstance(body, (bytes, unicode)):
+            body = unicode(body)
+
+        super(Response, self).__init__(
+            response=body,
+            status=status,
+            headers=self._headers(headers or {}),
+            mimetype=mimetype,
+            content_type=content_type,
+            direct_passthrough=direct_passthrough
+        )
 
     def __unicode__(self):
         """This object can be treated as a string, e.g. in tests.
 
         :return: The entity-body portion of the response.
         """
-        return self.entity_body
+        return self.data
 
-    @property
-    def entity_body(self):
-        body = self._response
-        if isinstance(body, etree._Element):
-            body = etree.tostring(body)
-        elif not isinstance(body, (bytes, unicode)):
-            body = unicode(body)
-        return body
-
-    @property
-    def response(self):
-        """Convert to a real Flask response."""
-        return Response(
-            response=self.entity_body,
-            status=self.status,
-            headers=self.headers,
-            mimetype=self.mimetype,
-            content_type=self.content_type,
-            direct_passthrough=self.direct_passthrough
-        )
-
-    @property
-    def headers(self):
+    def _headers(self, headers={}):
         """Build an appropriate set of HTTP response headers."""
         # Don't modify the underlying dictionary; it came from somewhere else.
-        headers = dict(self._headers)
+        headers = dict(headers)
 
         # Set Cache-Control based on max-age.
         if self.max_age and isinstance(self.max_age, int):
@@ -114,15 +100,15 @@ class Responselike(object):
         return headers
 
 
-class OPDSFeedResponselike(Responselike):
-    """A convenience specialization of Responselike for typical OPDS feeds."""
+class OPDSFeedResponse(Response):
+    """A convenience specialization of Response for typical OPDS feeds."""
     def __init__(self, response=None, status=None, headers=None, mimetype=None,
                  content_type=None, direct_passthrough=False, max_age=None):
 
         mimetype = mimetype or OPDSFeed.ACQUISITION_FEED_TYPE
         if max_age is None:
             max_age = OPDSFeed.DEFAULT_MAX_AGE
-        super(OPDSFeedResponselike, self).__init__(
+        super(OPDSFeedResponse, self).__init__(
             response=response, status=status, headers=headers,
             mimetype=mimetype, content_type=content_type,
             direct_passthrough=direct_passthrough, max_age=max_age

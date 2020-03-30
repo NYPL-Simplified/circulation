@@ -59,8 +59,8 @@ from lane import (
 )
 
 from util.flask_util import (
-    OPDSFeedResponselike,
-    Responselike,
+    OPDSFeedResponse,
+    Response,
 )
 from util.opds_writer import (
     AtomFeed,
@@ -598,7 +598,7 @@ class AcquisitionFeed(OPDSFeed):
 
         :param facets: A GroupsFacet object.
 
-        :return: A Responselike containing the feed.
+        :return: A Response containing the feed.
         """
         annotator = cls._make_annotator(annotator)
         facets = facets or FeaturedFacets.default(worklist.get_library(_db))
@@ -697,7 +697,7 @@ class AcquisitionFeed(OPDSFeed):
     ):
         """Create a feed representing one page of works from a given lane.
 
-        :return: A Responselike containing the feed.
+        :return: A Response containing the feed.
         """
         library = worklist.get_library(_db)
         facets = facets or Facets.default(library)
@@ -782,6 +782,9 @@ class AcquisitionFeed(OPDSFeed):
         TODO: This is used by the circulation manager admin interface.
         Investigating replacing the code that uses this so that it uses
         the search index.
+
+        TODO: This cannot currently return Response because the
+        admin interface modifies the feed after it's generated.
         """
         page_of_works = pagination.modify_database_query(_db, query)
         pagination.total_size = int(query.count())
@@ -947,7 +950,7 @@ class AcquisitionFeed(OPDSFeed):
         :param max_age: An integer number of seconds to use in the outgoing
             Cache-Control header.
 
-        :return: A Responselike
+        :return: A Response
         """
         facets = facets or SearchFacets()
         pagination = pagination or Pagination.default()
@@ -995,7 +998,7 @@ class AcquisitionFeed(OPDSFeed):
         opds_feed.add_breadcrumbs(lane, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
-        return OPDSFeedResponselike(
+        return OPDSFeedResponse(
             unicode(opds_feed), max_age=max_age
         )
 
@@ -1014,7 +1017,7 @@ class AcquisitionFeed(OPDSFeed):
         :param max_age: An integer number of seconds to use in the outgoing
             Cache-Control header.
         :param raw: If this is True, the e
-        :return: A Responselike, if `raw` is false; otherwise an OPDSMessage
+        :return: A Response, if `raw` is false; otherwise an OPDSMessage
             or an etree._Element -- whatever was returned by
             OPDSFeed.create_entry.
         """
@@ -1050,7 +1053,7 @@ class AcquisitionFeed(OPDSFeed):
             max_age = None
         elif isinstance(entry, etree._Element):
             entry = etree.tostring(entry)
-        return Responselike(
+        return Response(
             response=entry, mimetype=OPDSFeed.ENTRY_TYPE, max_age=max_age
         )
 

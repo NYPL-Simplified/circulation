@@ -1205,7 +1205,7 @@ class TestOPDS(DatabaseTest):
             )
         response = make_page(pagination)
         eq_(OPDSFeed.DEFAULT_MAX_AGE, response.max_age)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.mimetype)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.content_type)
         feed = unicode(response)
         parsed = feedparser.parse(feed)
         eq_(work1.title, parsed['entries'][0]['title'])
@@ -1517,7 +1517,7 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
 
         expected = str(work.presentation_edition.issued.date())
-        assert expected in entry._response
+        assert expected in entry.data
 
     def test_entry_cache_adds_missing_drm_namespace(self):
 
@@ -1661,7 +1661,7 @@ class TestAcquisitionFeed(DatabaseTest):
         )
         # The status code equivalent inside the OPDS message has not affected
         # the status code of the Responselike itself.
-        eq_(None, response.status)
+        eq_(200, response.status_code)
         eq_(unicode(expect), unicode(response))
 
     def test_format_types(self):
