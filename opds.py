@@ -58,7 +58,10 @@ from lane import (
     WorkList,
 )
 
-from util.flask_util import Responselike
+from util.flask_util import (
+    OPDSFeedResponselike,
+    Responselike,
+)
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -993,9 +996,8 @@ class AcquisitionFeed(OPDSFeed):
         opds_feed.add_breadcrumbs(lane, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
-        return Responselike(
-            unicode(opds_feed), mimetype=OPDSFeed.ACQUISITION_FEED_TYPE,
-            max_age=max_age
+        return OPDSFeedResponselike(
+            unicode(opds_feed), max_age=max_age
         )
 
     @classmethod
@@ -1050,8 +1052,7 @@ class AcquisitionFeed(OPDSFeed):
         elif isinstance(entry, etree._Element):
             entry = etree.tostring(entry)
         return Responselike(
-            response=entry,
-            mimetype=OPDSFeed.ENTRY_TYPE, max_age=max_age
+            response=entry, mimetype=OPDSFeed.ENTRY_TYPE, max_age=max_age
         )
 
     @classmethod

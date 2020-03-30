@@ -9,7 +9,11 @@ import datetime
 import time
 from flask import Response
 from wsgiref.handlers import format_date_time
-from ...util.flask_util import Responselike
+from ...util.flask_util import (
+    OPDSFeedResponselike,
+    Responselike,
+)
+from ...util.opds_writer import OPDSFeed
 
 class TestResponselike(object):
 
@@ -68,3 +72,28 @@ class TestResponselike(object):
         # for use in a test.
         obj = Responselike(u"some data")
         eq_(u"some data", unicode(obj))
+
+
+class TestOPDSFeedResponselike(object):
+    """Test the OPDS feed-specific specialization of Responselike."""
+    def test_defaults(self):
+        # OPDSFeedResponselike provides reasonable defaults for
+        # `mimetype` and `max_age`.
+        c = OPDSFeedResponselike
+
+        use_defaults = c("a feed")
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, use_defaults.mimetype)
+        eq_(OPDSFeed.DEFAULT_MAX_AGE, use_defaults.max_age)
+
+        # These defaults can be overridden.
+        override_defaults = c(
+            "a feed", 200, dict(Header="value"), "mime/type",
+            "content/type", True, 1002
+        )
+        eq_(1002, override_defaults.max_age)
+        eq_("mime/type", override_defaults.mimetype)
+
+        # A max_age of zero is retained, not replaced by the default.
+        do_not_cache = c(max_age=0)
+        eq_(0, do_not_cache.max_age)
+

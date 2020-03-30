@@ -13,6 +13,7 @@ from flask import url_for, make_response
 from flask_babel import lazy_gettext as _
 from io import BytesIO
 from util.flask_util import problem
+from util.opds_writer import OPDSFeed
 from util.problem_detail import ProblemDetail
 import traceback
 import logging
@@ -21,6 +22,7 @@ from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
 )
+from util.flask_util import OPDSFeedResponselike
 from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
@@ -319,7 +321,7 @@ class URNLookupController(object):
             self._db, "Lookup results", this_url, handler.works, annotator,
             precomposed_entries=handler.precomposed_entries,
         )
-        return feed_response(opds_feed)
+        return OPDSFeedResponselike(opds_feed).response
 
     def process_urns(self, urns, **process_urn_kwargs):
         """Process a number of URNs by instantiating a URNLookupHandler
@@ -353,8 +355,7 @@ class URNLookupController(object):
             self._db, urn, this_url, works, annotator,
             precomposed_entries=handler.precomposed_entries
         )
-
-        return feed_response(opds_feed)
+        return OPDSFeedResponselike(opds_feed).response
 
 
 class URNLookupHandler(object):

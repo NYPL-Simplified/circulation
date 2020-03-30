@@ -24,7 +24,7 @@ from sqlalchemy.sql.expression import (
     and_,
 )
 from ..util.opds_writer import OPDSFeed
-from ..util.flask_util import Responselike
+from ..util.flask_util import OPDSFeedResponselike
 
 class CachedFeed(Base):
 
@@ -187,10 +187,9 @@ class CachedFeed(Base):
         # In almost all cases these values are correct, and in cases
         # where they're not correct the caller can modify the Responselike
         # before turning it into a Response.
-        return Responselike(
+        return OPDSFeedResponselike(
             response=feed_obj.content,
             status=200,
-            mimetype=OPDSFeed.ACQUISITION_FEED_TYPE,
             max_age=max_age
         )
 

@@ -9,6 +9,7 @@ import time
 from . import (
     problem_detail,
 )
+from opds_writer import OPDSFeed
 
 def problem_raw(type, status, title, detail=None, instance=None, headers={}):
     data = problem_detail.json(type, status, title, detail, instance)
@@ -111,3 +112,18 @@ class Responselike(object):
         headers['Cache-Control'] = cache_control
 
         return headers
+
+
+class OPDSFeedResponselike(Responselike):
+    """A convenience specialization of Responselike for typical OPDS feeds."""
+    def __init__(self, response=None, status=None, headers=None, mimetype=None,
+                 content_type=None, direct_passthrough=False, max_age=None):
+
+        mimetype = mimetype or OPDSFeed.ACQUISITION_FEED_TYPE
+        if max_age is None:
+            max_age = OPDSFeed.DEFAULT_MAX_AGE
+        super(OPDSFeedResponselike, self).__init__(
+            response=response, status=status, headers=headers,
+            mimetype=mimetype, content_type=content_type,
+            direct_passthrough=direct_passthrough, max_age=max_age
+        )
