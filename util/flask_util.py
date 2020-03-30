@@ -36,7 +36,8 @@ class Response(FlaskResponse):
     """
 
     def __init__(self, response=None, status=None, headers=None, mimetype=None,
-                 content_type=None, direct_passthrough=False, max_age=None):
+                 content_type=None, direct_passthrough=False, max_age=None,
+                 private=False):
         """Constructor.
 
         All parameters are the same as for the Flask/Werkzeug Response class,
@@ -45,6 +46,9 @@ class Response(FlaskResponse):
         :param max_age: The number of seconds for which clients should
             cache this response. Used to set a value for the
             Cache-Control header.
+        :param private: If this is True, then the response contains
+            information from an authenticated client and should not be stored
+            in intermediate caches.
         """
         self.max_age = max_age
 
@@ -76,13 +80,17 @@ class Response(FlaskResponse):
         headers = dict(headers)
 
         # Set Cache-Control based on max-age.
+        if self.private:
+            public = "private"
+        else:
+            public = "public"
         if self.max_age and isinstance(self.max_age, int):
             # A CDN should hold on to the cached representation only half
             # as long as the end-user.
             client_cache = self.max_age
             cdn_cache = self.max_age / 2
-            cache_control = "public, no-transform, max-age=%d, s-maxage=%d" % (
-                client_cache, cdn_cache
+            cache_control = "%s, no-transform, max-age=%d, s-maxage=%d" % (
+                public, client_cache, cdn_cache
             )
 
             # Explicitly set Expires based on max-age; some clients need this.
@@ -94,19 +102,21 @@ class Response(FlaskResponse):
             )
         else:
             # Missing, invalid or zero max-age means don't cache at all.
-            cache_control = "private, no-cache"
+            cache_control = "%s, no-cache" % public
         headers['Cache-Control'] = cache_control
 
         return headers
 
     def modified(self, status=None, mimetype=None, content_type=None,
-                 max_age=None):
+                 max_age=None, private=None):
         """Create a new Response with a different status code,
         content type or max_age.
 
         It's not safe to just set these fields because the Response
         constructor derives other values from these fields.
         """
+        if private is None:
+            private = self.private
         return self.__class__(
             response=self.response,
             status=status or self.status,
