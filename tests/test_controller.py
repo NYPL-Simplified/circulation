@@ -15,7 +15,7 @@ from decimal import Decimal
 import flask
 from flask import (
     url_for,
-    FlaskResponse,
+    Response as FlaskResponse,
 )
 from flask_sqlalchemy_session import (
     current_session,

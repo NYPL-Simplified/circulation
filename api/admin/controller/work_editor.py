@@ -14,8 +14,6 @@ from api.config import (
 from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
 from api.admin.validator import Validator
 from core.app_server import (
-    entry_response,
-    feed_response,
     load_pagination_from_request,
 )
 from core.classifier import (
@@ -81,8 +79,8 @@ class WorkController(AdminCirculationManagerController):
         annotator = AdminAnnotator(self.circulation, flask.request.library)
         # Don't cache these OPDS entries - they should update immediately
         # in the admin interface when an admin makes a change.
-        return entry_response(
-            AcquisitionFeed.single_entry(self._db, work, annotator), cache_for=0,
+        return AcquisitionFeed.single_entry(
+            self._db, work, annotator, max_age=0
         )
 
     def complaints(self, identifier_type, identifier):
