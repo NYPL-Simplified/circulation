@@ -15,7 +15,7 @@ from decimal import Decimal
 import flask
 from flask import (
     url_for,
-    Response,
+    FlaskResponse,
 )
 from flask_sqlalchemy_session import (
     current_session,
@@ -126,7 +126,7 @@ from core.user_profile import (
     ProfileController,
     ProfileStorage,
 )
-from core.util.flask_util import Responselike
+from core.util.flask_util import Response
 from core.util.problem_detail import ProblemDetail
 from core.util.http import RemoteIntegrationException
 
@@ -1759,7 +1759,7 @@ class TestLoanController(CirculationControllerTest):
             response = controller.fulfill(
                 self.pool.id, self.mech2.delivery_mechanism.id
             )
-            assert isinstance(response, Response)
+            assert isinstance(response, FlaskResponse)
             eq_(401, response.status_code)
 
         # ...or it might be because of an error communicating
@@ -2351,7 +2351,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.called_with = kwargs
-                return Responselike("An OPDS feed")
+                return Response("An OPDS feed")
 
         # Test a basic request with custom faceting, pagination, and a
         # language and audience restriction. This will exercise nearly
@@ -2366,7 +2366,7 @@ class TestWorkController(CirculationControllerTest):
         ):
             response = m(contributor, languages, audiences, feed_class=Mock)
 
-        # The Responselike served by Mock.page is converted into a real
+        # The Response served by Mock.page is converted into a real
         # Flask response
         eq_(200, response.status_code)
         eq_("An OPDS feed", response.data)
@@ -2435,11 +2435,10 @@ class TestWorkController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.work_controller.permalink(self.identifier.type, self.identifier.identifier)
             annotator = LibraryAnnotator(None, None, self._default_library)
-            expect = etree.tostring(
-                AcquisitionFeed.single_entry(
-                    self._db, self.english_1, annotator
-                )
-            )
+            expect = AcquisitionFeed.single_entry(
+                self._db, self.english_1, annotator
+            )._response
+
         eq_(200, response.status_code)
         eq_(expect, response.data)
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
@@ -2521,7 +2520,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 cls.called_with = kwargs
-                return Responselike("A bunch of titles")
+                return Response("A bunch of titles")
 
         kwargs['feed_class'] = Mock
         with self.request_context_with_library(
@@ -2706,7 +2705,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def groups(cls, **kwargs):
                 cls.called_with = kwargs
-                return Responselike("An OPDS feed")
+                return Response("An OPDS feed")
 
         mock_api.setup(metadata)
         with self.request_context_with_library('/?entrypoint=Audio'):
@@ -2885,7 +2884,7 @@ class TestWorkController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.called_with = kwargs
-                return Responselike("An OPDS feed")
+                return Response("An OPDS feed")
 
         # Test a basic request with custom faceting, pagination, and a
         # language and audience restriction. This will exercise nearly
@@ -3104,7 +3103,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.called_with = kwargs
-                return Responselike("An OPDS feed")
+                return Response("An OPDS feed")
 
         sort_key = ["sort", "pagination", "key"]
         with self.request_context_with_library(
@@ -3123,8 +3122,6 @@ class TestOPDSFeedController(CirculationControllerTest):
                 library_short_name=self._default_library.short_name,
             )
 
-        # The Responselike returned from Mock.groups() was converted
-        # to a real Response object.
         assert isinstance(response, Response)
         eq_("An OPDS feed", response.data)
 
@@ -3196,7 +3193,7 @@ class TestOPDSFeedController(CirculationControllerTest):
                 # the grouped feed controller is activated.
                 self.groups_called_with = kwargs
                 self.page_called_with = None
-                return Responselike("A grouped feed")
+                return Response("A grouped feed")
 
             @classmethod
             def page(cls, **kwargs):
@@ -3204,7 +3201,7 @@ class TestOPDSFeedController(CirculationControllerTest):
                 # ends up being called instead.
                 self.groups_called_with = None
                 self.page_called_with = kwargs
-                return Responselike("A paginated feed")
+                return Response("A paginated feed")
 
         with self.request_context_with_library("/?entrypoint=Audio"):
             # In default_config, there are no LARGE_COLLECTION_LANGUAGES,
@@ -3219,7 +3216,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             # Ask for that feed.
             response = self.manager.opds_feeds.groups(None, feed_class=Mock)
 
-            # The Responselike returned by Mock.groups() has been converted
+            # The Response returned by Mock.groups() has been converted
             # into a Flask response.
             eq_(200, response.status_code)
             eq_("A grouped feed", response.data)
@@ -3670,7 +3667,7 @@ class TestCrawlableFeed(CirculationControllerTest):
             @classmethod
             def page(cls, **kwargs):
                 self.page_called_with = kwargs
-                return Responselike("An OPDS feed")
+                return Response("An OPDS feed")
 
         work = self._work(with_open_access_download=True)
         class MockLane(DynamicLane):

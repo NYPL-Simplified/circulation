@@ -75,6 +75,7 @@ from core.util.http import HTTP
 from api.problem_details import *
 from api.admin.exceptions import *
 from core.util import LanguageCodes
+from core.util.flask_util import OPDSFeedResponse
 
 from api.config import (
     Configuration,
@@ -87,8 +88,6 @@ from api.admin.password_admin_authentication_provider import PasswordAdminAuthen
 from api.controller import CirculationManagerController
 from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
 from core.app_server import (
-    entry_response,
-    feed_response,
     load_pagination_from_request,
 )
 from core.opds import AcquisitionFeed
@@ -669,7 +668,7 @@ class FeedController(AdminCirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return feed_response(opds_feed, cache_for=0)
+        return OPDSFeedResponse(opds_feed, cache_for=0)
 
     def suppressed(self):
         self.require_librarian(flask.request.library)
@@ -684,7 +683,7 @@ class FeedController(AdminCirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return feed_response(opds_feed, cache_for=0)
+        return OPDSFeedResponse(opds_feed, cache_for=0)
 
     def genres(self):
         data = dict({

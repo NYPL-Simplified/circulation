@@ -23,7 +23,6 @@ from flask import (
 )
 from flask_babel import lazy_gettext as _
 
-from core.flask_util import Responselike
 from core.app_server import (
     cdn_url_for,
     url_for,
@@ -744,7 +743,7 @@ class OPDSFeedController(CirculationManagerController):
         return feed_class.groups(
             _db=self._db, title=lane.display_name, url=url, worklist=lane,
             annotator=annotator, facets=facets, search_engine=search_engine
-        ).response
+        )
 
     def feed(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a paginated acquisition feed.
@@ -779,7 +778,7 @@ class OPDSFeedController(CirculationManagerController):
             url=url, worklist=lane, annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine
-        ).response
+        )
 
     def navigation(self, lane_identifier):
         """Build or retrieve a navigation feed, for clients that do not support groups."""
@@ -804,7 +803,7 @@ class OPDSFeedController(CirculationManagerController):
         annotator = self.manager.annotator(lane, facets)
         return NavigationFeed.navigation(
             self._db, title, url, lane, annotator, facets=facets
-        ).response
+        )
 
     def crawlable_library_feed(self):
         """Build or retrieve a crawlable acquisition feed for the
@@ -897,7 +896,7 @@ class OPDSFeedController(CirculationManagerController):
             annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine
-        ).response
+        )
 
     def _load_search_facets(self, lane):
         entrypoints = list(flask.request.library.entrypoints)
@@ -1090,8 +1089,9 @@ class LoanController(CirculationManagerController):
 
         # Then make the feed.
         feed = LibraryLoanAndHoldAnnotator.active_loans_for(
-            self.circulation, patron)
-        return Responselike(feed, max_age=60*30).response
+            self.circulation, patron
+        )
+        return feed.response
 
     def borrow(self, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
@@ -1519,8 +1519,7 @@ class LoanController(CirculationManagerController):
             else:
                 feed = LibraryLoanAndHoldAnnotator.single_hold_feed(
                     self.circulation, hold)
-            feed = unicode(feed)
-            return Responselike(feed).response
+            return feed
 
 class AnnotationController(CirculationManagerController):
 
@@ -1659,7 +1658,7 @@ class WorkController(CirculationManagerController):
             _db=self._db, title=lane.display_name, url=url, worklist=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, search_engine=search_engine
-        ).response
+        )
 
     def permalink(self, identifier_type, identifier):
         """Serve an entry for a single book.
@@ -1679,7 +1678,7 @@ class WorkController(CirculationManagerController):
 
         annotator = self.manager.annotator(None)
         return AcquisitionFeed.single_entry(
-            self._db, work, annotator
+            self._db, work, annotator,
             max_age=OPDSFeed.DEFAULT_MAX_AGE
         )
 
@@ -1726,7 +1725,7 @@ class WorkController(CirculationManagerController):
             _db=self._db, title=lane.DISPLAY_NAME,
             url=url, worklist=lane, annotator=annotator,
             facets=facets, search_engine=search_engine
-        ).response
+        )
 
     def recommendations(self, identifier_type, identifier, novelist_api=None,
                         feed_class=AcquisitionFeed):
@@ -1773,7 +1772,7 @@ class WorkController(CirculationManagerController):
             _db=self._db, title=lane.DISPLAY_NAME, url=url, worklist=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, search_engine=search_engine
-        ).response
+        )
 
     def report(self, identifier_type, identifier):
         """Report a problem with a book."""
@@ -1985,10 +1984,9 @@ class SharedCollectionController(CirculationManagerController):
         if not loan or loan.license_pool.collection != collection:
             return LOAN_NOT_FOUND
 
-        feed = SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
-            collection, loan)
-        headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
-        return Response(etree.tostring(feed), 200, headers)
+        return SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
+            collection, loan
+        )
 
     def borrow(self, collection_name, identifier_type, identifier, hold_id):
         collection = self.load_collection(collection_name)
@@ -2127,10 +2125,9 @@ class SharedCollectionController(CirculationManagerController):
         if not hold or not hold.license_pool.collection == collection:
             return HOLD_NOT_FOUND
 
-        feed = SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
-            collection, hold)
-        headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
-        return Response(etree.tostring(feed), 200, headers)
+        return SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
+            collection, hold
+        )
 
     def revoke_hold(self, collection_name, hold_id):
         collection = self.load_collection(collection_name)
