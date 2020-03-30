@@ -23,9 +23,8 @@ from flask import (
 )
 from flask_babel import lazy_gettext as _
 
+from core.flask_util import Responselike
 from core.app_server import (
-    entry_response,
-    feed_response,
     cdn_url_for,
     url_for,
     load_lending_policy,
@@ -968,13 +967,12 @@ class OPDSFeedController(CirculationManagerController):
         # Run a search.
         annotator = self.manager.annotator(lane, facets)
         info = OpenSearchDocument.search_info(lane)
-        opds_feed = feed_class.search(
+        return feed_class.search(
             _db=self._db, title=info['name'],
             url=make_url(), lane=lane, search_engine=search_engine,
             query=query, annotator=annotator, pagination=pagination,
             facets=facets
         )
-        return feed_response(opds_feed)
 
 class MARCRecordController(CirculationManagerController):
     DOWNLOAD_TEMPLATE = """
@@ -1093,7 +1091,7 @@ class LoanController(CirculationManagerController):
         # Then make the feed.
         feed = LibraryLoanAndHoldAnnotator.active_loans_for(
             self.circulation, patron)
-        return feed_response(feed, cache_for=None)
+        return Responselike(feed, max_age=60*30).response
 
     def borrow(self, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
@@ -1490,11 +1488,7 @@ class LoanController(CirculationManagerController):
 
         work = pool.work
         annotator = self.manager.annotator(None)
-        # Since this OPDS document is in a response to an unsafe operation,
-        # we don't want the client to cache it.
-        return entry_response(
-            AcquisitionFeed.single_entry(self._db, work, annotator)
-        )
+        return AcquisitionFeed.single_entry(self._db, work, annotator)
 
     def detail(self, identifier_type, identifier):
         if flask.request.method=='DELETE':
@@ -1526,7 +1520,7 @@ class LoanController(CirculationManagerController):
                 feed = LibraryLoanAndHoldAnnotator.single_hold_feed(
                     self.circulation, hold)
             feed = unicode(feed)
-            return feed_response(feed, None)
+            return Responselike(feed).response
 
 class AnnotationController(CirculationManagerController):
 
@@ -1684,9 +1678,9 @@ class WorkController(CirculationManagerController):
             return work
 
         annotator = self.manager.annotator(None)
-        return entry_response(
-            AcquisitionFeed.single_entry(self._db, work, annotator),
-            cache_for=Configuration.DEFAULT_OPDS_CACHE_TIME
+        return AcquisitionFeed.single_entry(
+            self._db, work, annotator
+            max_age=OPDSFeed.DEFAULT_MAX_AGE
         )
 
     def related(self, identifier_type, identifier, novelist_api=None,
