@@ -23,7 +23,6 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
-from ..util.opds_writer import OPDSFeed
 from ..util.flask_util import OPDSFeedResponselike
 
 class CachedFeed(Base):
