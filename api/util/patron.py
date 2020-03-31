@@ -1,7 +1,9 @@
 import datetime
+from money import Money
 from api.config import Configuration
 from api.circulation_exceptions import *
 from core.model.patron import Patron
+from core.util import MoneyUtility
 
 class PatronUtility(object):
     """Apply circulation-specific logic to Patron model objects."""
@@ -62,10 +64,8 @@ class PatronUtility(object):
             # The patron's card has expired.
             raise AuthorizationExpired()
 
-        if patron.fines:
-            max_fines = Configuration.max_outstanding_fines(patron.library)
-            if max_fines is not None and patron.fines > max_fines.amount:
-                raise OutstandingFines()
+        if cls.has_excess_fines(patron):
+            raise OutstandingFines()
 
         from api.authenticator import PatronData
         if patron.block_reason is not None:
@@ -75,6 +75,21 @@ class PatronUtility(object):
                 # manager is not configured to make that deduction.
                 raise OutstandingFines()
             raise AuthorizationBlocked()
+
+    @classmethod
+    def has_excess_fines(cls, patron):
+        if not patron.fines:
+            return False
+
+        if isinstance(patron.fines, Money):
+            patron_fines = patron.fines
+        else:
+            patron_fines = MoneyUtility.parse(patron.fines)
+        actual_fines = patron_fines.amount
+        max_fines = Configuration.max_outstanding_fines(patron.library)
+        if max_fines is not None and actual_fines > max_fines.amount:
+            return True
+        return False
 
     @classmethod
     def authorization_is_active(cls, patron):
