@@ -1004,8 +1004,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def single_entry(
-            cls, _db, work, annotator, force_create=False, max_age=None,
-            raw=False
+            cls, _db, work, annotator, force_create=False, raw=False, **kwargs
     ):
         """Create a single-entry OPDS document for one specific work.
 
@@ -1016,8 +1015,12 @@ class AcquisitionFeed(OPDSFeed):
             if there's already a cached one.
         :param max_age: An integer number of seconds to use in the outgoing
             Cache-Control header.
-        :param raw: If this is True, the e
-        :return: A Response, if `raw` is false; otherwise an OPDSMessage
+        :param raw: If this is False (the default), a Flask Response will be returned,
+            ready to be sent over the network. Otherwise an object representing
+            the underlying OPDS entry will be returned.
+        :param kwargs: These keyword arguments will be passed into the Response
+            constructor, if it's invoked.
+        :return: A Response, if `raw` is false. Otherwise, an OPDSMessage
             or an etree._Element -- whatever was returned by
             OPDSFeed.create_entry.
         """
@@ -1054,7 +1057,8 @@ class AcquisitionFeed(OPDSFeed):
         elif isinstance(entry, etree._Element):
             entry = etree.tostring(entry)
         return Response(
-            response=entry, mimetype=OPDSFeed.ENTRY_TYPE, max_age=max_age
+            response=entry, mimetype=OPDSFeed.ENTRY_TYPE,
+            max_age=max_age, **kwargs
         )
 
     @classmethod
