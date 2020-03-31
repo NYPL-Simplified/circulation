@@ -78,6 +78,11 @@ class PatronUtility(object):
 
     @classmethod
     def has_excess_fines(cls, patron):
+        """Does this patron have fines in excess of the maximum fine amount set for their library?
+
+        :param a Patron:
+        :return: A boolean
+        """
         if not patron.fines:
             return False
 
