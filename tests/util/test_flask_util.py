@@ -44,6 +44,10 @@ class TestResponse(object):
         assert_not_cached(max_age=0)
         assert_not_cached(max_age="Not a number")
 
+        # Test the case where the response is public but should not be cached.
+        headers = Response(max_age=0, public=True).headers
+        eq_("public, no-cache" % public, headers['Cache-Control'])
+
         # Test the case where the response _should_ be cached.
         max_age = 60*60*24*12
         obj = Response(max_age=max_age)

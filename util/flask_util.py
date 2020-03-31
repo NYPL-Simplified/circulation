@@ -36,8 +36,8 @@ class Response(FlaskResponse):
     """
 
     def __init__(self, response=None, status=None, headers=None, mimetype=None,
-                 content_type=None, direct_passthrough=False, max_age=None,
-                 private=False):
+                 content_type=None, direct_passthrough=False, max_age=0,
+                 private=None):
         """Constructor.
 
         All parameters are the same as for the Flask/Werkzeug Response class,
@@ -50,7 +50,15 @@ class Response(FlaskResponse):
             information from an authenticated client and should not be stored
             in intermediate caches.
         """
-        self.max_age = max_age
+        self.max_age = max_age or 0
+        if private is None:
+            if max_age == 0:
+                # The most common reason for max_age to be set to 0 is that a resource
+                # is _also_ private.
+                private = True
+            else:
+                private = False
+        self.private = private
 
         body = response
         if isinstance(body, etree._Element):
@@ -114,6 +122,8 @@ class Response(FlaskResponse):
 
         It's not safe to just set these fields because the Response
         constructor derives other values from these fields.
+
+        TODO get rid of this.
         """
         if private is None:
             private = self.private
