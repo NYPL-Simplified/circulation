@@ -34,9 +34,11 @@
             
   <h1>Source code for api.util.patron</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">money</span> <span class="kn">import</span> <span class="n">Money</span>
 <span class="kn">from</span> <span class="nn">api.config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">api.circulation_exceptions</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">core.model.patron</span> <span class="kn">import</span> <span class="n">Patron</span>
+<span class="kn">from</span> <span class="nn">core.util</span> <span class="kn">import</span> <span class="n">MoneyUtility</span>
 
 <div class="viewcode-block" id="PatronUtility"><a class="viewcode-back" href="../../../api.util.html#api.util.patron.PatronUtility">[docs]</a><span class="k">class</span> <span class="nc">PatronUtility</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Apply circulation-specific logic to Patron model objects.&quot;&quot;&quot;</span>
@@ -97,10 +99,8 @@
             <span class="c1"># The patron&#39;s card has expired.</span>
             <span class="k">raise</span> <span class="n">AuthorizationExpired</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">:</span>
-            <span class="n">max_fines</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">max_outstanding_fines</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">max_fines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">patron</span><span class="o">.</span><span class="n">fines</span> <span class="o">&gt;</span> <span class="n">max_fines</span><span class="o">.</span><span class="n">amount</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">OutstandingFines</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">has_excess_fines</span><span class="p">(</span><span class="n">patron</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">OutstandingFines</span><span class="p">()</span>
 
         <span class="kn">from</span> <span class="nn">api.authenticator</span> <span class="kn">import</span> <span class="n">PatronData</span>
         <span class="k">if</span> <span class="n">patron</span><span class="o">.</span><span class="n">block_reason</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -110,6 +110,26 @@
                 <span class="c1"># manager is not configured to make that deduction.</span>
                 <span class="k">raise</span> <span class="n">OutstandingFines</span><span class="p">()</span>
             <span class="k">raise</span> <span class="n">AuthorizationBlocked</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PatronUtility.has_excess_fines"><a class="viewcode-back" href="../../../api.util.html#api.util.patron.PatronUtility.has_excess_fines">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">has_excess_fines</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Does this patron have fines in excess of the maximum fine amount set for their library?</span>
+
+<span class="sd">        :param a Patron:</span>
+<span class="sd">        :return: A boolean</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">,</span> <span class="n">Money</span><span class="p">):</span>
+            <span class="n">patron_fines</span> <span class="o">=</span> <span class="n">patron</span><span class="o">.</span><span class="n">fines</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">patron_fines</span> <span class="o">=</span> <span class="n">MoneyUtility</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">fines</span><span class="p">)</span>
+        <span class="n">actual_fines</span> <span class="o">=</span> <span class="n">patron_fines</span><span class="o">.</span><span class="n">amount</span>
+        <span class="n">max_fines</span> <span class="o">=</span> <span class="n">Configuration</span><span class="o">.</span><span class="n">max_outstanding_fines</span><span class="p">(</span><span class="n">patron</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_fines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">actual_fines</span> <span class="o">&gt;</span> <span class="n">max_fines</span><span class="o">.</span><span class="n">amount</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
 
 <div class="viewcode-block" id="PatronUtility.authorization_is_active"><a class="viewcode-back" href="../../../api.util.html#api.util.patron.PatronUtility.authorization_is_active">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">authorization_is_active</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">patron</span><span class="p">):</span>
