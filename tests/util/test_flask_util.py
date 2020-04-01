@@ -35,7 +35,7 @@ class TestResponse(object):
         assert 'Expires' in headers
 
     def test_headers(self):
-        # First test cases where the response should not be cached at all
+        # First test cases where the response should not private and not cached.
         def assert_not_cached(max_age):
             headers = Response(max_age=max_age).headers
             eq_("private, no-cache", headers['Cache-Control'])
@@ -45,8 +45,8 @@ class TestResponse(object):
         assert_not_cached(max_age="Not a number")
 
         # Test the case where the response is public but should not be cached.
-        headers = Response(max_age=0, public=True).headers
-        eq_("public, no-cache" % public, headers['Cache-Control'])
+        headers = Response(max_age=0, private=False).headers
+        eq_("public, no-cache", headers['Cache-Control'])
 
         # Test the case where the response _should_ be cached.
         max_age = 60*60*24*12

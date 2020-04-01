@@ -50,9 +50,14 @@ class Response(FlaskResponse):
             information from an authenticated client and should not be stored
             in intermediate caches.
         """
-        self.max_age = max_age or 0
+        max_age = max_age or 0
+        try:
+            max_age = int(max_age)
+        except ValueError:
+            max_age = 0
+        self.max_age = max_age
         if private is None:
-            if max_age == 0:
+            if self.max_age == 0:
                 # The most common reason for max_age to be set to 0 is that a resource
                 # is _also_ private.
                 private = True
@@ -89,16 +94,16 @@ class Response(FlaskResponse):
 
         # Set Cache-Control based on max-age.
         if self.private:
-            public = "private"
+            private = "private"
         else:
-            public = "public"
+            private = "public"
         if self.max_age and isinstance(self.max_age, int):
             # A CDN should hold on to the cached representation only half
             # as long as the end-user.
             client_cache = self.max_age
             cdn_cache = self.max_age / 2
             cache_control = "%s, no-transform, max-age=%d, s-maxage=%d" % (
-                public, client_cache, cdn_cache
+                private, client_cache, cdn_cache
             )
 
             # Explicitly set Expires based on max-age; some clients need this.
@@ -110,7 +115,7 @@ class Response(FlaskResponse):
             )
         else:
             # Missing, invalid or zero max-age means don't cache at all.
-            cache_control = "%s, no-cache" % public
+            cache_control = "%s, no-cache" % private
         headers['Cache-Control'] = cache_control
 
         return headers
