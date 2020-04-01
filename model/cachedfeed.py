@@ -83,7 +83,7 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, worklist, facets, pagination, refresher_method,
-              max_age=None, raw=False
+              max_age=None, raw=False, **response_kwargs
     ):
         """Retrieve a cached feed from the database if possible.
 
@@ -183,13 +183,11 @@ class CachedFeed(Base):
         # We have the information necessary to create a useful
         # response-type object.
         #
-        # In almost all cases these values are correct, and in cases
-        # where they're not correct the caller can modify the Response
-        # before turning it into a Response.
+        # Set some defaults in case the caller didn't pass them in.
+        response_kwargs.setdefault('max_age', max_age)
         return OPDSFeedResponse(
             response=feed_obj.content,
-            status=200,
-            max_age=max_age
+            **response_kwargs
         )
 
     @classmethod

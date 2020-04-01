@@ -115,27 +115,6 @@ class Response(FlaskResponse):
 
         return headers
 
-    def modified(self, status=None, mimetype=None, content_type=None,
-                 max_age=None, private=None):
-        """Create a new Response with a different status code,
-        content type or max_age.
-
-        It's not safe to just set these fields because the Response
-        constructor derives other values from these fields.
-
-        TODO get rid of this.
-        """
-        if private is None:
-            private = self.private
-        return self.__class__(
-            response=self.response,
-            status=status or self.status,
-            headers=self.headers,
-            mimetype=mimetype or self.mimetype,
-            content_type=content_type or self.content_type,
-            direct_passthrough=self.direct_passthrough,
-            max_age=max_age or self.max_age
-        )
 
 class OPDSFeedResponse(Response):
     """A convenience specialization of Response for typical OPDS feeds."""
@@ -143,6 +122,7 @@ class OPDSFeedResponse(Response):
                  content_type=None, direct_passthrough=False, max_age=None):
 
         mimetype = mimetype or OPDSFeed.ACQUISITION_FEED_TYPE
+        status = status or 200
         if max_age is None:
             max_age = OPDSFeed.DEFAULT_MAX_AGE
         super(OPDSFeedResponse, self).__init__(
