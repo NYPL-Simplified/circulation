@@ -1429,13 +1429,13 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         active_holds_by_work = {}
         active_fulfillments_by_work = {}
         if fulfillment:
-            d = active_fulfillments_by_work
+            active_fulfillments_by_work[work] = fulfillment
         else:
             if isinstance(item, Loan):
                 d = active_loans_by_work
             elif isinstance(item, Hold):
                 d = active_holds_by_work
-        d[work] = item
+            d[work] = item
 
         annotator = cls(
             circulation, None, library,
@@ -1515,7 +1515,7 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
         active_holds_by_work = {}
         active_fulfillments_by_work = {}
         if fulfillment:
-            d = active_fulfillments_by_work
+            active_fulfillments_by_work[work] = fulfillment
             route = 'shared_collection_loan_info'
             route_kwargs = dict(loan_id=item.id)
         else:
@@ -1527,7 +1527,7 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
                 d = active_holds_by_work
                 route = 'shared_collection_hold_info'
                 route_kwargs = dict(hold_id=item.id)
-        d[work] = item
+            d[work] = item
         annotator = cls(
             collection, None,
             active_loans_by_work=active_loans_by_work,
