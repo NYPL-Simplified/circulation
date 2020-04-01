@@ -974,6 +974,7 @@ class OPDSFeedController(CirculationManagerController):
             facets=facets
         )
 
+
 class MARCRecordController(CirculationManagerController):
     DOWNLOAD_TEMPLATE = """
 <html lang="en">
@@ -1069,6 +1070,11 @@ class LoanController(CirculationManagerController):
         return None, None
 
     def sync(self):
+        """Sync the authenticated patron's loans and holds with all third-party
+        providers.
+
+        :return: A Response containing an OPDS feed with up-to-date information.
+        """
         if flask.request.method=='HEAD':
             return Response()
 
@@ -1096,9 +1102,9 @@ class LoanController(CirculationManagerController):
     def borrow(self, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
 
-        Return an OPDS Acquisition feed that includes a link of rel
-        "http://opds-spec.org/acquisition", which can be used to fetch the
-        book or the license file.
+        :return: A Response containing an OPDS entry that includes a link of rel
+           "http://opds-spec.org/acquisition", which can be used to fetch the
+           book or the license file.
         """
         patron = flask.request.patron
         library = flask.request.library
@@ -1162,33 +1168,26 @@ class LoanController(CirculationManagerController):
         # At this point we have either a loan or a hold. If a loan, serve
         # a feed that tells the patron how to fulfill the loan. If a hold,
         # serve a feed that talks about the hold.
-        if loan:
-            feed = LibraryLoanAndHoldAnnotator.single_loan_feed(
-                self.circulation, loan)
-        elif hold:
-            feed = LibraryLoanAndHoldAnnotator.single_hold_feed(
-                self.circulation, hold)
-        else:
-            # This should never happen -- we should have sent a more specific
-            # error earlier.
-            return HOLD_FAILED
         if is_new:
             status_code = 201
         else:
             status_code = 200
-        if isinstance(feed, Response):
-            # We may need to change the status code, and we want to
-            # make sure this response is not cached.
-            response = feed.modified(status=status_code, max_age=0)
-        elif isinstance(feed, OPDSFeed):
-            # Convert an OPDS feed into a Response.
-            # TODO: this may no longer be necessary.
-            content = unicode(feed)
-            response = OPDSFeedResponse(
-                response=unicode(feed), status=status_code,
-                max_age=0
+        response_kwargs = dict(
+            cache_for=30*60
+            private=True
+        )
+        if loan:
+            return LibraryLoanAndHoldAnnotator.single_loan_feed(
+                self.circulation, loan, **response_kwargs
             )
-        return response
+        elif hold:
+            return LibraryLoanAndHoldAnnotator.single_hold_feed(
+                self.circulation, hold, **response_kwargs
+            )
+        else:
+            # This should never happen -- we should have sent a more specific
+            # error earlier.
+            return HOLD_FAILED
 
     def best_lendable_pool(self, library, patron, identifier_type, identifier,
                            mechanism_id):
