@@ -198,6 +198,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             valid, a PatronData that serves only to indicate which
             authorization identifier the patron prefers.
         """
+        return PatronData(authorization_identifier="23333094313069", complete=False)
         if not self.collects_password:
             # We don't even look at the password. If the patron exists, they
             # are authenticated.

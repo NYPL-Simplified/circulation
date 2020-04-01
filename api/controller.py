@@ -742,11 +742,10 @@ class OPDSFeedController(CirculationManagerController):
         )
 
         annotator = self.manager.annotator(lane, facets)
-        feed = feed_class.groups(
+        return feed_class.groups(
             _db=self._db, title=lane.display_name, url=url, worklist=lane,
             annotator=annotator, facets=facets, search_engine=search_engine
         )
-        return feed_response(feed)
 
     def feed(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a paginated acquisition feed.
@@ -776,13 +775,12 @@ class OPDSFeedController(CirculationManagerController):
         )
 
         annotator = self.manager.annotator(lane, facets=facets)
-        feed = feed_class.page(
+        return feed_class.page(
             _db=self._db, title=lane.display_name,
             url=url, worklist=lane, annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine
         )
-        return feed_response(feed)
 
     def navigation(self, lane_identifier):
         """Build or retrieve a navigation feed, for clients that do not support groups."""
@@ -805,10 +803,9 @@ class OPDSFeedController(CirculationManagerController):
             base_class_constructor_kwargs=facet_class_kwargs
         )
         annotator = self.manager.annotator(lane, facets)
-        feed = NavigationFeed.navigation(
+        return NavigationFeed.navigation(
             self._db, title, url, lane, annotator, facets=facets
         )
-        return feed_response(feed)
 
     def crawlable_library_feed(self):
         """Build or retrieve a crawlable acquisition feed for the
@@ -896,13 +893,12 @@ class OPDSFeedController(CirculationManagerController):
         # so library settings are irrelevant.
         facets = CrawlableFacets.default(None)
 
-        feed = feed_class.page(
+        return feed_class.page(
             _db=self._db, title=title, url=url, worklist=worklist,
             annotator=annotator,
             facets=facets, pagination=pagination,
             search_engine=search_engine
         )
-        return feed_response(feed)
 
     def _load_search_facets(self, lane):
         entrypoints = list(flask.request.library.entrypoints)
@@ -972,13 +968,13 @@ class OPDSFeedController(CirculationManagerController):
         # Run a search.
         annotator = self.manager.annotator(lane, facets)
         info = OpenSearchDocument.search_info(lane)
-        opds_feed = feed_class.search(
+        return feed_class.search(
             _db=self._db, title=info['name'],
             url=make_url(), lane=lane, search_engine=search_engine,
             query=query, annotator=annotator, pagination=pagination,
             facets=facets,
         )
-        return feed_response(opds_feed)
+
 
 class MARCRecordController(CirculationManagerController):
     DOWNLOAD_TEMPLATE = """
@@ -1075,6 +1071,11 @@ class LoanController(CirculationManagerController):
         return None, None
 
     def sync(self):
+        """Sync the authenticated patron's loans and holds with all third-party
+        providers.
+
+        :return: A Response containing an OPDS feed with up-to-date information.
+        """
         if flask.request.method=='HEAD':
             return Response()
 
@@ -1095,16 +1096,16 @@ class LoanController(CirculationManagerController):
                 )
 
         # Then make the feed.
-        feed = LibraryLoanAndHoldAnnotator.active_loans_for(
-            self.circulation, patron)
-        return feed_response(feed, cache_for=None)
+        return LibraryLoanAndHoldAnnotator.active_loans_for(
+            self.circulation, patron
+        )
 
     def borrow(self, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
 
-        Return an OPDS Acquisition feed that includes a link of rel
-        "http://opds-spec.org/acquisition", which can be used to fetch the
-        book or the license file.
+        :return: A Response containing an OPDS entry that includes a link of rel
+           "http://opds-spec.org/acquisition", which can be used to fetch the
+           book or the license file.
         """
         patron = flask.request.patron
         library = flask.request.library
@@ -1168,12 +1169,22 @@ class LoanController(CirculationManagerController):
         # At this point we have either a loan or a hold. If a loan, serve
         # a feed that tells the patron how to fulfill the loan. If a hold,
         # serve a feed that talks about the hold.
+        if is_new:
+            status_code = 201
+        else:
+            status_code = 200
+        response_kwargs = dict(
+            cache_for=30*60
+            private=True
+        )
         if loan:
             feed = LibraryLoanAndHoldAnnotator.single_loan_feed(
-                self.circulation, loan)
+                self.circulation, loan
+            )
         elif hold:
             feed = LibraryLoanAndHoldAnnotator.single_hold_feed(
-                self.circulation, hold)
+                self.circulation, hold
+            )
         else:
             # This should never happen -- we should have sent a more specific
             # error earlier.
@@ -1182,10 +1193,6 @@ class LoanController(CirculationManagerController):
             content = unicode(feed)
         else:
             content = etree.tostring(feed)
-        if is_new:
-            status_code = 201
-        else:
-            status_code = 200
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
         return Response(content, status_code, headers)
 

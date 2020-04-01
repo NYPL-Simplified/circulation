@@ -1359,7 +1359,9 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
 class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 
     @classmethod
-    def active_loans_for(cls, circulation, patron, test_mode=False):
+    def active_loans_for(
+            cls, circulation, patron, test_mode=False, **response_kwargs
+    ):
         db = Session.object_session(patron)
         active_loans_by_work = {}
         for loan in patron.loans:
@@ -1381,10 +1383,12 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 
         feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
         annotator.annotate_feed(feed_obj, None)
-        return feed_obj
+        response_kwargs.setdefault('max_age', 30*60)
+        response_kwargs.setdefault('private', True)
+        return feed_obj.response(**response_kwargs)
 
     @classmethod
-    def single_loan_feed(cls, circulation, loan, test_mode=False):
+    def single_loan_feed(cls, circulation, loan, test_mode=False, **response_kwargs):
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
         annotator = cls(circulation, None, loan.library,
@@ -1401,21 +1405,22 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         )
         if not work:
             return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator)
-        return AcquisitionFeed.single_entry(db, work, annotator)
+                db, "Active loan for unknown work", url, [], annotator
+            ).error_response
+        return cls._single_authenticated_entry(db, work, annotator, **response_kwargs)
 
     @classmethod
-    def single_hold_feed(cls, circulation, hold, test_mode=False):
+    def single_hold_feed(cls, circulation, hold, test_mode=False, **response_kwargs):
         db = Session.object_session(hold)
         work = hold.license_pool.work or hold.license_pool.presentation_edition.work
         annotator = cls(circulation, None, hold.library,
                         active_loans_by_work={},
                         active_holds_by_work={work:hold},
                         test_mode=test_mode)
-        return AcquisitionFeed.single_entry(db, work, annotator)
+        return cls._single_authenticated_entry(db, work, annotator, **response_kwargs)
 
     @classmethod
-    def single_fulfillment_feed(cls, circulation, loan, fulfillment, test_mode=False):
+    def single_fulfillment_feed(cls, circulation, loan, fulfillment, test_mode=False, **response_kwargs):
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
         annotator = cls(circulation, None, loan.library,
@@ -1433,8 +1438,19 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         )
         if not work:
             return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator)
-        return AcquisitionFeed.single_entry(db, work, annotator)
+                db, "Active loan for unknown work", url, [], annotator
+            ).error_response
+        return cls._single_authenticated_entry(db, work, annotator, **response_kwargs)
+
+    @classmethod
+    def _single_authenticated_entry(cls, db, work, annotator, **response_kwargs):
+        # Set default values: the client should cache this document for a while,
+        # but no one else should cache it.
+        response_kwargs.setdefault('max_age', 30*60)
+        response_kwargs.setdefault('private', True)
+        return AcquisitionFeed.single_entry(
+            db, work, annotator, **response_kwargs
+        )
 
     def drm_device_registration_feed_tags(self, patron):
         """Return tags that provide information on DRM device deregistration
@@ -1495,21 +1511,25 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
         )
         if not work:
             return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator)
-        return AcquisitionFeed.single_entry(db, work, annotator)
+                db, "Active loan for unknown work", url, [], annotator
+            ).error_response
+        return AcquisitionFeed.single_entry(db, work, annotator, **response_kwargs)
 
     @classmethod
-    def single_hold_feed(cls, collection, hold, test_mode=False):
+    def single_hold_feed(cls, collection, hold, test_mode=False, **response_kwargs):
         db = Session.object_session(hold)
         work = hold.license_pool.work or hold.license_pool.presentation_edition.work
         annotator = cls(collection, None,
                         active_loans_by_work={},
                         active_holds_by_work={work:hold},
                         test_mode=test_mode)
-        return AcquisitionFeed.single_entry(db, work, annotator)
+        return AcquisitionFeed.single_entry(db, work, annotator, **response_kwargs)
 
     @classmethod
-    def single_fulfillment_feed(cls, collection, loan, fulfillment, test_mode=False):
+    def single_fulfillment_feed(
+            cls, collection, loan, fulfillment, test_mode=False,
+            **response_kwargs
+    ):
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
         annotator = cls(collection, None, loan.library,
@@ -1525,5 +1545,6 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
         )
         if not work:
             return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator)
-        return AcquisitionFeed.single_entry(db, work, annotator)
+                db, "Active loan for unknown work", url, [], annotator
+            ).error_response
+        return AcquisitionFeed.single_entry(db, work, annotator, **response_kwargs)
