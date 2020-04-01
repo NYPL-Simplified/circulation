@@ -130,3 +130,10 @@ class OPDSFeedResponse(Response):
             mimetype=mimetype, content_type=content_type,
             direct_passthrough=direct_passthrough, max_age=max_age
         )
+
+
+class OPDSEntryResponse(Response):
+    """A convenience specialization of Response for typical OPDS entries."""
+    def __init__(self, **kwargs):
+        kwargs.setdefault('mimetype', OPDSFeed.ENTRY_TYPE)
+        super(OPDSEntryResponse, self).__init__(**kwargs)

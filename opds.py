@@ -59,6 +59,7 @@ from lane import (
 )
 
 from util.flask_util import (
+    OPDSEntryResponse,
     OPDSFeedResponse,
     Response,
 )
@@ -811,8 +812,13 @@ class AcquisitionFeed(OPDSFeed):
 
         return feed
 
-    def response(self, **kwargs):
+    def as_response(self, **kwargs):
         return OPDSFeedResponse(self, **kwargs)
+
+    def as_error_response(self, **kwargs):
+        kwargs['max_age'] = 0
+        kwargs['private'] = True
+        return self.as_response(**kwargs)
 
     @classmethod
     def _make_annotator(cls, annotator):
@@ -1070,9 +1076,7 @@ class AcquisitionFeed(OPDSFeed):
         response_kwargs.setdefault('max_age', 0)
         response_kwargs.setdefault('private', True)
 
-        return Response(
-            response=entry, mimetype=OPDSFeed.ENTRY_TYPE, **response_kwargs
-        )
+        return OPDSEntryResponse(response=entry, **response_kwargs)
 
     @classmethod
     def error_message(cls, identifier, error_status, error_message):
