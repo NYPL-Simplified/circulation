@@ -119,7 +119,8 @@ class Response(FlaskResponse):
 class OPDSFeedResponse(Response):
     """A convenience specialization of Response for typical OPDS feeds."""
     def __init__(self, response=None, status=None, headers=None, mimetype=None,
-                 content_type=None, direct_passthrough=False, max_age=None):
+                 content_type=None, direct_passthrough=False, max_age=None,
+                 private=None):
 
         mimetype = mimetype or OPDSFeed.ACQUISITION_FEED_TYPE
         status = status or 200
@@ -128,7 +129,8 @@ class OPDSFeedResponse(Response):
         super(OPDSFeedResponse, self).__init__(
             response=response, status=status, headers=headers,
             mimetype=mimetype, content_type=content_type,
-            direct_passthrough=direct_passthrough, max_age=max_age
+            direct_passthrough=direct_passthrough, max_age=max_age,
+            private=private
         )
 
 
