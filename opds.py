@@ -811,6 +811,9 @@ class AcquisitionFeed(OPDSFeed):
 
         return feed
 
+    def response(self, **kwargs):
+        return OPDSFeedResponse(self, **kwargs)
+
     @classmethod
     def _make_annotator(cls, annotator):
         """Helper method to make sure there's some kind of Annotator."""
