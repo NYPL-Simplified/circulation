@@ -32,9 +32,11 @@ from core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
+    Hold,
     Identifier,
     LicensePool,
     LicensePoolDeliveryMechanism,
+    Loan,
     Patron,
     Session,
     Work,
@@ -1417,51 +1419,43 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         return feed_obj.as_response(max_age=60*30, private=True)
 
     @classmethod
-    def single_loan_feed(cls, circulation, loan, test_mode=False, **response_kwargs):
-        db = Session.object_session(loan)
-        work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, loan.library,
-                        active_loans_by_work={work:loan},
-                        active_holds_by_work={},
-                        test_mode=test_mode)
-        identifier = loan.license_pool.identifier
+    def single_item_feed(cls, circulation, item, test_mode=False, **response_kwargs):
+        _db = Session.object_session(item)
+        license_pool = item.license_pool
+        work = license_pool.work or license_pool.presentation_edition.work
+        library = item.library
+
+        active_loans_by_work = {}
+        active_holds_by_work = {}
+        active_fulfillments_by_work = {}
+        if isinstance(item, Loan):
+            d = active_loans_by_work
+        elif isinstance(item, Hold):
+            d = active_holds_by_work
+        elif isinstance(item, LicensepoolDeliveryMechanism):
+            d = active_fulfillments_by_work
+        d[work] = item
+
+        annotator = cls(
+            circulation, None, library,
+            active_loans_by_work=active_loans_by_work,
+            active_holds_by_work=active_holds_by_work,
+            active_fulfillments_by_work=active_fulfillments_by_work,
+            test_mode=test_mode
+        )
+        identifier = license_pool.identifier
         url = annotator.url_for(
             'loan_or_hold_detail',
             identifier_type=identifier.type,
             identifier=identifier.identifier,
-            library_short_name=loan.library.short_name,
+            library_short_name=library.short_name,
             _external=True
         )
-        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
+        return cls._single_entry_response(_db, work, annotator, url, **response_kwargs)
 
-    @classmethod
-    def single_hold_feed(cls, circulation, hold, test_mode=False, **response_kwargs):
-        db = Session.object_session(hold)
-        work = hold.license_pool.work or hold.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, hold.library,
-                        active_loans_by_work={},
-                        active_holds_by_work={work:hold},
-                        test_mode=test_mode)
-        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
-
-    @classmethod
-    def single_fulfillment_feed(cls, circulation, loan, fulfillment, test_mode=False, **response_kwargs):
-        db = Session.object_session(loan)
-        work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, loan.library,
-                        active_loans_by_work={},
-                        active_holds_by_work={},
-                        active_fulfillments_by_work={work:fulfillment},
-                        test_mode=test_mode)
-        identifier = loan.license_pool.identifier
-        url = annotator.url_for(
-            'loan_or_hold_detail',
-            identifier_type=identifier.type,
-            identifier=identifier.identifier,
-            library_short_name=loan.library.short_name,
-            _external=True
-        )
-        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
+    single_loan_feed = single_item_feed
+    single_hold_feed = single_item_feed
+    single_fulfillment_feed = single_item_feed
 
     def drm_device_registration_feed_tags(self, patron):
         """Return tags that provide information on DRM device deregistration
@@ -1506,7 +1500,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
 
     @classmethod
-    def single_loan_feed(cls, collection, loan, test_mode=False):
+    def single_loan_feed(cls, collection, loan, test_mode=False, **response_kwargs):
         """Create an OPDS entry representing a single loan.
 
         :return: An OPDSEntryResponse

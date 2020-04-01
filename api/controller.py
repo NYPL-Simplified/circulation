@@ -1168,17 +1168,18 @@ class LoanController(CirculationManagerController):
         # At this point we have either a loan or a hold. If a loan, serve
         # a feed that tells the patron how to fulfill the loan. If a hold,
         # serve a feed that talks about the hold.
+        response_kwargs = {}
         if is_new:
-            status_code = 201
+            response_kwargs['status'] = 201
         else:
-            status_code = 200
+            response_kwargs['status'] = 200
         if loan:
             return LibraryLoanAndHoldAnnotator.single_loan_feed(
-                self.circulation, loan, status_code=status_code
+                self.circulation, loan, **response_kwargs
             )
         elif hold:
             return LibraryLoanAndHoldAnnotator.single_hold_feed(
-                self.circulation, hold, status_code=status_code
+                self.circulation, hold, **response_kwargs
             )
         else:
             # This should never happen -- we should have sent a more specific
@@ -2031,15 +2032,13 @@ class SharedCollectionController(CirculationManagerController):
         except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
         if loan and isinstance(loan, Loan):
-            response = SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
+            return SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
                 collection, loan
             )
-            return response.modified(status=201, max_age=0)
         elif loan and isinstance(loan, Hold):
-            response = SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
+            return SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
                 collection, loan
             )
-            return response.modified(status=201, max_age=0)
 
     def revoke_loan(self, collection_name, loan_id):
         collection = self.load_collection(collection_name)
