@@ -1419,7 +1419,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         return feed_obj.as_response(max_age=60*30, private=True)
 
     @classmethod
-    def single_item_feed(cls, circulation, item, test_mode=False, **response_kwargs):
+    def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False, **response_kwargs):
         _db = Session.object_session(item)
         license_pool = item.license_pool
         work = license_pool.work or license_pool.presentation_edition.work
@@ -1428,12 +1428,13 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         active_loans_by_work = {}
         active_holds_by_work = {}
         active_fulfillments_by_work = {}
-        if isinstance(item, Loan):
-            d = active_loans_by_work
-        elif isinstance(item, Hold):
-            d = active_holds_by_work
-        elif isinstance(item, LicensepoolDeliveryMechanism):
+        if fulfillment:
             d = active_fulfillments_by_work
+        else:
+            if isinstance(item, Loan):
+                d = active_loans_by_work
+            elif isinstance(item, Hold):
+                d = active_holds_by_work
         d[work] = item
 
         annotator = cls(
@@ -1500,66 +1501,47 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
 
     @classmethod
-    def single_loan_feed(cls, collection, loan, test_mode=False, **response_kwargs):
-        """Create an OPDS entry representing a single loan.
+    def single_item_feed(cls, collection, item, fulfillment=None, test_mode=False, **response_kwargs):
+        """Create an OPDS entry representing a single loan or hold.
 
         :return: An OPDSEntryResponse
         """
-        db = Session.object_session(loan)
-        work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(collection, None,
-                        active_loans_by_work={work:loan},
-                        active_holds_by_work={},
-                        test_mode=test_mode)
-        identifier = loan.license_pool.identifier
-        url = annotator.url_for(
-            'shared_collection_loan_info',
-            collection_name=collection.name,
-            loan_id=loan.id,
-            _external=True
+        _db = Session.object_session(item)
+        license_pool = item.license_pool
+        work = license_pool.work or license_pool.presentation_edition.work
+        identifier = license_pool.identifier
+
+        active_loans_by_work = {}
+        active_holds_by_work = {}
+        active_fulfillments_by_work = {}
+        if fulfillment:
+            d = active_fulfillments_by_work
+            route = 'shared_collection_loan_info'
+            route_kwargs = dict(loan_id=item.id)
+        else:
+            if isinstance(item, Loan):
+                d = active_loans_by_work
+                route = 'shared_collection_loan_info'
+                route_kwargs = dict(loan_id=item.id)
+            elif isinstance(item, Hold):
+                d = active_holds_by_work
+                route = 'shared_collection_hold_info'
+                route_kwargs = dict(hold_id=item.id)
+        d[work] = item
+        annotator = cls(
+            collection, None,
+            active_loans_by_work=active_loans_by_work,
+            active_holds_by_work=active_holds_by_work,
+            test_mode=test_mode
         )
-        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
-
-    @classmethod
-    def single_hold_feed(cls, collection, hold, test_mode=False, **response_kwargs):
-        """Create an OPDS entry representing a single hold.
-
-        :return: An OPDSEntryResponse
-        """
-        db = Session.object_session(hold)
-        work = hold.license_pool.work or hold.license_pool.presentation_edition.work
-        annotator = cls(collection, None,
-                        active_loans_by_work={},
-                        active_holds_by_work={work:hold},
-                        test_mode=test_mode)
         url = annotator.url_for(
-            'shared_collection_hold_info',
+            route,
             collection_name=collection.name,
-            hold_id=hold.id,
-            _external=True
+            _external=True,
+            **route_kwargs
         )
-        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
+        return cls._single_entry_response(_db, work, annotator, url, **response_kwargs)
 
-    @classmethod
-    def single_fulfillment_feed(
-            cls, collection, loan, fulfillment, test_mode=False,
-            **response_kwargs
-    ):
-        """Create an OPDS entry representing a single fulfillment attempt.
-
-        :return: An OPDSEntryResponse
-        """
-        db = Session.object_session(loan)
-        work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(collection, None, loan.library,
-                        active_loans_by_work={},
-                        active_holds_by_work={},
-                        active_fulfillments_by_work={work:fulfillment},
-                        test_mode=test_mode)
-        url = annotator.url_for(
-            'shared_collection_loan_info',
-            collection_name=collection.name,
-            loan_id=loan.id,
-            _external=True
-        )
-        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
+    single_loan_feed = single_item_feed
+    single_hold_feed = single_item_feed
+    single_fulfillment_feed = single_item_feed

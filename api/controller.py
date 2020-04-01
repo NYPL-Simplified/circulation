@@ -2033,11 +2033,11 @@ class SharedCollectionController(CirculationManagerController):
             return e.as_problem_detail_document(debug=False)
         if loan and isinstance(loan, Loan):
             return SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
-                collection, loan
+                collection, loan, status=201
             )
         elif loan and isinstance(loan, Hold):
             return SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
-                collection, loan
+                collection, loan, status=201
             )
 
     def revoke_loan(self, collection_name, loan_id):
