@@ -424,6 +424,36 @@ class CirculationManagerAnnotator(Annotator):
         rights_attr = "{%s}rights" % OPDSFeed.DCTERMS_NS
         return {rights_attr : lpdm.rights_status.uri }
 
+    @classmethod
+    def _single_entry_response(cls, _db, work, annotator, url, **response_kwargs):
+        """Helper method to create an OPDSEntryResponse for a single OPDS entry.
+
+        :param _db: A database connection.
+        :param work: A Work
+        :param annotator: An Annotator
+        :param url: The URL of the feed to be served. Used only if there's
+            a problem with the Work.
+        :param response_kwargs: A set of extra keyword arguments to
+            be passed into the OPDSEntryResponse constructor.
+
+        :return: An OPDSEntryResponse if everything goes well; otherwise an OPDSFeedResponse
+            containing an error message.
+        """
+        if not work:
+            return AcquisitionFeed(db, "Unknown work", url, [], annotator).as_error_response()
+
+        # This method is generally used for reporting the results of
+        # authenticated transactions such as borrowing and hold
+        # placement.
+        #
+        # This means the document contains up-to-date information
+        # specific to the authenticated client. The client should
+        # cache this document for a while, but no one else should
+        # cache it.
+        response_kwargs.setdefault('max_age', 30*60)
+        response_kwargs.setdefault('private', True)
+        return AcquisitionFeed.single_entry(_db, work, annotator, **response_kwargs)
+
 
 class LibraryAnnotator(CirculationManagerAnnotator):
 
@@ -1384,7 +1414,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 
         feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
         annotator.annotate_feed(feed_obj, None)
-        return OPDSFeedResponse(feed_obj, max_age=60*30, private=True)
+        return feed_obj.as_response(max_age=60*30, private=True)
 
     @classmethod
     def single_loan_feed(cls, circulation, loan, test_mode=False, **response_kwargs):
@@ -1402,11 +1432,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
             library_short_name=loan.library.short_name,
             _external=True
         )
-        if not work:
-            return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator
-            ).error_response
-        return cls._single_authenticated_entry(db, work, annotator, **response_kwargs)
+        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
 
     @classmethod
     def single_hold_feed(cls, circulation, hold, test_mode=False, **response_kwargs):
@@ -1416,7 +1442,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
                         active_loans_by_work={},
                         active_holds_by_work={work:hold},
                         test_mode=test_mode)
-        return cls._single_authenticated_entry(db, work, annotator, **response_kwargs)
+        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
 
     @classmethod
     def single_fulfillment_feed(cls, circulation, loan, fulfillment, test_mode=False, **response_kwargs):
@@ -1435,21 +1461,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
             library_short_name=loan.library.short_name,
             _external=True
         )
-        if not work:
-            return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator
-            ).error_response
-        return cls._single_authenticated_entry(db, work, annotator, **response_kwargs)
-
-    @classmethod
-    def _single_authenticated_entry(cls, db, work, annotator, **response_kwargs):
-        # Set default values: the client should cache this document for a while,
-        # but no one else should cache it.
-        response_kwargs.setdefault('max_age', 30*60)
-        response_kwargs.setdefault('private', True)
-        return AcquisitionFeed.single_entry(
-            db, work, annotator, **response_kwargs
-        )
+        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
 
     def drm_device_registration_feed_tags(self, patron):
         """Return tags that provide information on DRM device deregistration
@@ -1495,6 +1507,10 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
 
     @classmethod
     def single_loan_feed(cls, collection, loan, test_mode=False):
+        """Create an OPDS entry representing a single loan.
+
+        :return: An OPDSEntryResponse
+        """
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
         annotator = cls(collection, None,
@@ -1508,27 +1524,37 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
             loan_id=loan.id,
             _external=True
         )
-        if not work:
-            return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator
-            ).error_response
-        return AcquisitionFeed.single_entry(db, work, annotator, **response_kwargs)
+        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
 
     @classmethod
     def single_hold_feed(cls, collection, hold, test_mode=False, **response_kwargs):
+        """Create an OPDS entry representing a single hold.
+
+        :return: An OPDSEntryResponse
+        """
         db = Session.object_session(hold)
         work = hold.license_pool.work or hold.license_pool.presentation_edition.work
         annotator = cls(collection, None,
                         active_loans_by_work={},
                         active_holds_by_work={work:hold},
                         test_mode=test_mode)
-        return AcquisitionFeed.single_entry(db, work, annotator, **response_kwargs)
+        url = annotator.url_for(
+            'shared_collection_hold_info',
+            collection_name=collection.name,
+            hold_id=hold.id,
+            _external=True
+        )
+        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)
 
     @classmethod
     def single_fulfillment_feed(
             cls, collection, loan, fulfillment, test_mode=False,
             **response_kwargs
     ):
+        """Create an OPDS entry representing a single fulfillment attempt.
+
+        :return: An OPDSEntryResponse
+        """
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
         annotator = cls(collection, None, loan.library,
@@ -1542,8 +1568,4 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
             loan_id=loan.id,
             _external=True
         )
-        if not work:
-            return AcquisitionFeed(
-                db, "Active loan for unknown work", url, [], annotator
-            ).error_response
-        return AcquisitionFeed.single_entry(db, work, annotator, **response_kwargs)
+        return cls._single_entry_response(db, work, annotator, url, **response_kwargs)

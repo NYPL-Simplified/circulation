@@ -1172,17 +1172,13 @@ class LoanController(CirculationManagerController):
             status_code = 201
         else:
             status_code = 200
-        response_kwargs = dict(
-            cache_for=30*60
-            private=True
-        )
         if loan:
             return LibraryLoanAndHoldAnnotator.single_loan_feed(
-                self.circulation, loan, **response_kwargs
+                self.circulation, loan, status_code=status_code
             )
         elif hold:
             return LibraryLoanAndHoldAnnotator.single_hold_feed(
-                self.circulation, hold, **response_kwargs
+                self.circulation, hold, status_code=status_code
             )
         else:
             # This should never happen -- we should have sent a more specific
