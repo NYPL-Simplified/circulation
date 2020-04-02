@@ -1152,7 +1152,7 @@ class TestOPDS(DatabaseTest):
 
         # The feed has breadcrumb links
         ancestors = list(self.fantasy.parentage)
-        root = ET.fromstring(cached_groups)
+        root = ET.fromstring(cached_groups.data)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 1, len(links))
@@ -1614,13 +1614,13 @@ class TestAcquisitionFeed(DatabaseTest):
         )
 
         # We got an OPDS entry containing the message.
-        assert isinstance(OPDSEntryResponse)
+        assert isinstance(response, OPDSEntryResponse)
         eq_(200, response.status_code)
         assert '500' in response.data
         assert 'oops' in response.data
 
         # Our caching preferences were overridden.
-        eq_(False, response.private)
+        eq_(True, response.private)
         eq_(0, response.max_age)
 
     def test_entry_cache_adds_missing_drm_namespace(self):
