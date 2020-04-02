@@ -1570,6 +1570,11 @@ class TestAcquisitionFeed(DatabaseTest):
             self._db, work, TestAnnotator, private=private
         )
         assert isinstance(entry, OPDSEntryResponse)
+
+        # We provided a value for private, which was used.  We didn't
+        # provide value for max_age, and zero was used instead of the
+        # ten-minute default typical for OPDS feeds.
+        eq_(0, entry.max_age)
         eq_(entry.private, private)
 
         assert original_pool.presentation_edition.title in entry.data
@@ -1587,6 +1592,36 @@ class TestAcquisitionFeed(DatabaseTest):
 
         expected = str(work.presentation_edition.issued.date())
         assert expected in entry.data
+
+    def test_single_entry_is_opds_message(self):
+        # When single_entry has to deal with an 'OPDS entry' that
+        # turns out to be an error message, caching rules are
+        # overridden to treat the 'entry' as a private error message.
+        work = self._work()
+
+        # We plan on caching the OPDS entry as a public, long-lived
+        # document.
+        is_public = dict(max_age=200, private=False)
+
+        # But something goes wrong in create_entry() and we get an
+        # error instead.
+        class MockAcquisitionFeed(AcquisitionFeed):
+            def create_entry(*args, **kwargs):
+                return OPDSMessage("urn", 500, "oops")
+
+        response = MockAcquisitionFeed.single_entry(
+            self._db, work, object(), **is_public
+        )
+
+        # We got an OPDS entry containing the message.
+        assert isinstance(OPDSEntryResponse)
+        eq_(200, response.status_code)
+        assert '500' in response.data
+        assert 'oops' in response.data
+
+        # Our caching preferences were overridden.
+        eq_(False, response.private)
+        eq_(0, response.max_age)
 
     def test_entry_cache_adds_missing_drm_namespace(self):
 
@@ -2381,10 +2416,21 @@ class TestNavigationFeed(DatabaseTest):
         eq_("subsection", link["rel"])
 
     def test_navigation_with_sublanes(self):
-        feed = NavigationFeed.navigation(
+        private = object()
+        response = NavigationFeed.navigation(
             self._db, "Navigation", "http://navigation",
-            self.fiction, TestAnnotator)
-        parsed = feedparser.parse(unicode(feed))
+            self.fiction, TestAnnotator, max_age=42, private=private
+        )
+
+        # We got an OPDSFeedResponse back. The values we passed in for
+        # max_age and private were propagated to the response
+        # constructor.
+        assert isinstance(response, OPDSFeedResponse)
+        eq_(42, response.max_age)
+        eq_(private, response.private)
+
+        parsed = feedparser.parse(response.data)
+
         eq_("Navigation", parsed["feed"]["title"])
         [self_link] = parsed["feed"]["links"]
         eq_("http://navigation", self_link["href"])
@@ -2407,7 +2453,8 @@ class TestNavigationFeed(DatabaseTest):
         eq_(NavigationFeed.NAVIGATION_FEED_TYPE, romance_link["type"])
 
         # The feed was cached.
-        eq_(1, self._db.query(CachedFeed).count())
+        cached = get_one(self._db, CachedFeed)
+        assert "http://%s/" % self.fantasy.id in cached.content
 
     def test_navigation_without_sublanes(self):
         feed = NavigationFeed.navigation(
