@@ -813,9 +813,14 @@ class AcquisitionFeed(OPDSFeed):
         return feed
 
     def as_response(self, **kwargs):
+        """Convert this feed into an OPDSFEedResponse."""
         return OPDSFeedResponse(self, **kwargs)
 
     def as_error_response(self, **kwargs):
+        """Convert this feed into an OPDSFEedResponse that should be treated
+        by intermediaries as an error -- that is, treated as private
+        and not cached.
+        """
         kwargs['max_age'] = 0
         kwargs['private'] = True
         return self.as_response(**kwargs)

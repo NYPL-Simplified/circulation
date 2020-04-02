@@ -344,7 +344,7 @@ class TestCachedFeed(DatabaseTest):
         eq_(None, result2.content)
         eq_(tomorrow, result2.timestamp)
 
-    def test_responselike_format(self):
+    def test_response_format(self):
         # Verify that fetch() can be told to return an appropriate
         # Response object. This is the default behavior, since
         # it preserves some useful information that would otherwise be
@@ -357,14 +357,20 @@ class TestCachedFeed(DatabaseTest):
         def refresh():
             return "Here's a feed."
 
-        rl = CachedFeed.fetch(
+        private=object()
+        r = CachedFeed.fetch(
             self._db, wl, facets, pagination, refresh, max_age=102,
+            private=private
         )
-        assert isinstance(rl, Response)
-        eq_(200, rl.status_code)
-        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, rl.content_type)
-        eq_(102, rl.max_age)
-        eq_("Here's a feed.", rl.data)
+        assert isinstance(r, Response)
+        eq_(200, r.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, r.content_type)
+        eq_(102, r.max_age)
+        eq_("Here's a feed.", r.data)
+
+        # The extra argument `private`, not used by CachedFeed.fetch, was
+        # passed on to the Response constructor.
+        eq_(private, r.private)
 
         # The CachedFeed was created; just not returned.
         cf = self._db.query(CachedFeed).one()

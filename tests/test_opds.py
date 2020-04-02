@@ -69,7 +69,11 @@ from ..opds import (
     TestUnfulfillableAnnotator
 )
 
-from ..util.flask_util import Response
+from ..util.flask_util import (
+    OPDSEntryResponse,
+    OPDSFeedResponse,
+    Response,
+)
 from ..util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -1103,13 +1107,20 @@ class TestOPDS(DatabaseTest):
         )
 
         annotator = TestAnnotatorWithGroup()
+        private = object()
         cached_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
             max_age=0, search_engine=search_engine,
-            search_debug=True
+            search_debug=True, private=private
         )
-        cached_groups = unicode(cached_groups)
-        parsed = feedparser.parse(cached_groups)
+
+        # The result is an OPDSFeedResponse object. The 'private'
+        # argument, unused by groups(), was passed along into the
+        # constructor.
+        assert isinstance(cached_groups, OPDSFeedResponse)
+        eq_(private, cached_groups.private)
+
+        parsed = feedparser.parse(cached_groups.data)
 
         # There are three entries in three lanes.
         e1, e2, e3 = parsed['entries']
@@ -1195,6 +1206,8 @@ class TestOPDS(DatabaseTest):
         search_client.bulk_update([work1, work2])
         facets = SearchFacets(order="author", min_score=10)
 
+        private = object()
+
         def make_page(pagination):
             return AcquisitionFeed.search(
                 self._db, "test", self._url, fantasy_lane, search_client,
@@ -1202,12 +1215,15 @@ class TestOPDS(DatabaseTest):
                 pagination=pagination,
                 facets=facets,
                 annotator=TestAnnotator,
+                private=private
             )
         response = make_page(pagination)
+        assert isinstance(response, OPDSFeedResponse)
         eq_(OPDSFeed.DEFAULT_MAX_AGE, response.max_age)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.content_type)
-        feed = unicode(response)
-        parsed = feedparser.parse(feed)
+        eq_(private, response.private)
+
+        parsed = feedparser.parse(response.data)
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -1300,6 +1316,57 @@ class TestOPDS(DatabaseTest):
 
 
 class TestAcquisitionFeed(DatabaseTest):
+
+    def test_page(self):
+        # Verify that AcquisitionFeed.page() returns an appropriate OPDSFeedResponse
+
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        private = object()
+        response = AcquisitionFeed.page(
+            self._db, "feed title", "url", wl, TestAnnotator,
+            max_age=10, private=private
+        )
+
+        # The result is an OPDSFeedResponse. The 'private' argument,
+        # unused by page(), was passed along into the constructor.
+        assert isinstance(response, OPDSFeedResponse)
+        eq_(10, response.max_age)
+        eq_(private, response.private)
+
+        assert '<title>feed title</title>' in response.data
+
+    def as_response(self):
+        # Verify the ability to convert an AcquisitionFeed object to an
+        # OPDSFeedResponse containing the feed.
+        feed = AcquisitionFeed(self._db, "feed title", [], TestAnnotator)
+        response = feed.as_response(max_age=101)
+        eq_(200, response.status)
+        assert isinstance(response, OPDSFeedResponse)
+        assert '<title>feed title</title>' in response.data
+        eq_(101, response.max_age)
+
+    def as_response(self):
+        # Verify the ability to convert an AcquisitionFeed object to an
+        # OPDSFeedResponse that is to be treated as an error message.
+        feed = AcquisitionFeed(self._db, "feed title", [], TestAnnotator)
+
+        # Some other piece of code set expectations for how this feed should
+        # be cached.
+        kwargs = dict(max_age=101, private=False)
+
+        # But we know that something has gone wrong and the feed is
+        # being served as an error message.
+        response = feed.as_error_response(**kwargs)
+        assert isinstance(response, OPDSFeedResponse)
+
+        # The content of the feed is unchanged.
+        eq_(200, response.status)
+        assert '<title>feed title</title>' in response.data
+
+        # But the max_age and private settings have been overridden.
+        eq_(0, response.max_age)
+        eq_(False, response.private)
 
     def test_add_entrypoint_links(self):
         """Verify that add_entrypoint_links calls _entrypoint_link
@@ -1498,13 +1565,15 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # This is the edition used when we create an <entry> tag for
         # this Work.
+        private = object()
         entry = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator
+            self._db, work, TestAnnotator, private=private
         )
-        assert isinstance(entry, Response)
-        entry = unicode(entry)
-        assert original_pool.presentation_edition.title in entry
-        assert new_pool.presentation_edition.title not in entry
+        assert isinstance(entry, OPDSEntryResponse)
+        eq_(entry.private, private)
+
+        assert original_pool.presentation_edition.title in entry.data
+        assert new_pool.presentation_edition.title not in entry.data
 
         # If the edition was issued before 1980, no datetime formatting error
         # is raised.
@@ -2178,16 +2247,19 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         # When AcquisitionFeed.page() generates the first page of a paginated
         # list, it will link to different entry points into the list,
         # assuming the WorkList has different entry points.
+
         def run(wl=None, facets=None, pagination=None):
             """Call page() and see what add_entrypoint_links
             was called with.
             """
             self.mock.called_with = None
+            private = object()
             AcquisitionFeed.page(
                 self._db, "title", "url", wl, self.annotator,
                 max_age=0, facets=facets,
-                pagination=pagination
+                pagination=pagination, private=private
             )
+
             return self.mock.called_with
 
         # The WorkList has no entry points, so the mock method is not
@@ -2336,7 +2408,7 @@ class TestNavigationFeed(DatabaseTest):
 
         # The feed was cached.
         eq_(1, self._db.query(CachedFeed).count())
-       
+
     def test_navigation_without_sublanes(self):
         feed = NavigationFeed.navigation(
             self._db, "Navigation", "http://navigation",
