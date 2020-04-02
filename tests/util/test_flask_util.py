@@ -10,6 +10,7 @@ import time
 from flask import Response as FlaskResponse
 from wsgiref.handlers import format_date_time
 from ...util.flask_util import (
+    OPDSEntryResponse,
     OPDSFeedResponse,
     Response,
 )
@@ -108,3 +109,21 @@ class TestOPDSFeedResponse(object):
         do_not_cache = c(max_age=0)
         eq_(0, do_not_cache.max_age)
 
+class TestOPDSEntryResponse(object):
+    """Test the OPDS entry-specific specialization of Response."""
+    def test_defaults(self):
+        # OPDSEntryResponse provides a reasonable defaults for
+        # `mimetype`.
+        c = OPDSEntryResponse
+
+        use_defaults = c("an entry")
+        eq_(OPDSFeed.ENTRY_TYPE, use_defaults.content_type)
+
+        # Flask Response.mimetype is the same as content_type but
+        # with parameters removed.
+        eq_(OPDSFeed.ATOM_TYPE, use_defaults.mimetype)
+
+        # These defaults can be overridden.
+        override_defaults = c("an entry", content_type= "content/type")
+        eq_("content/type", override_defaults.content_type)
+        eq_("content/type", override_defaults.mimetype)

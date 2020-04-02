@@ -2429,6 +2429,10 @@ class TestNavigationFeed(DatabaseTest):
         eq_(42, response.max_age)
         eq_(private, response.private)
 
+        # The media type of this response is different than from the
+        # typical OPDSFeedResponse.
+        eq_(OPDSFeed.NAVIGATION_FEED_TYPE, response.content_type)
+
         parsed = feedparser.parse(response.data)
 
         eq_("Navigation", parsed["feed"]["title"])

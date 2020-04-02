@@ -141,6 +141,6 @@ class OPDSFeedResponse(Response):
 
 class OPDSEntryResponse(Response):
     """A convenience specialization of Response for typical OPDS entries."""
-    def __init__(self, **kwargs):
+    def __init__(self, response=None, **kwargs):
         kwargs.setdefault('mimetype', OPDSFeed.ENTRY_TYPE)
-        super(OPDSEntryResponse, self).__init__(**kwargs)
+        super(OPDSEntryResponse, self).__init__(response, **kwargs)
