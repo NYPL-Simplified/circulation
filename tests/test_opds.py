@@ -60,11 +60,16 @@ from core.util.opds_writer import (
 
 from core.opds import (
     AcquisitionFeed,
+    TestAnnotator,
     UnfulfillableWork,
 )
 
 from core.opds_import import (
     OPDSXMLParser
+)
+from core.util.flask_util import (
+    OPDSEntryResponse,
+    OPDSFeedResponse,
 )
 
 from api.circulation import (
@@ -255,6 +260,43 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         result._hit = hit
         entry = entry_for(result)
         assert '2017-01-01' in entry.get("updated")
+
+    def test__single_entry_response(self):
+        """Test the helper method that makes OPDSEntryResponse objects."""
+
+        m = CirculationManagerAnnotator._single_entry_response
+
+        # Test the case where we accept the defaults.
+        work = self._work()
+        url = self._url
+        annotator = TestAnnotator()
+        response = m(self._db, work, annotator, url)
+        assert isinstance(response, OPDSEntryResponse)
+        assert '<title>%s</title>' % work.title in response.data
+        
+        # By default, the representation is private but can be cached
+        # by the recipient.
+        eq_(True, response.private)
+        eq_(30*60, response.max_age)
+
+        # Test the case where we override the defaults.
+        response = m(self._db, work, annotator, url, max_age=12, private=False)
+        eq_(False, response.private)
+        eq_(12, response.max_age)
+        
+        # Test the case where the Work we thought we were providing is missing.
+        work = None
+        response = m(self._db, work, annotator, url)
+
+        # Instead of an entry based on the Work, we get an empty feed.
+        assert isinstance(response, OPDSFeedResponse)
+        assert '<title>Unknown work</title>' in response.data
+        assert '<entry>' not in response.data
+
+        # Since it's an error message, the representation is private
+        # and not to be cached.
+        eq_(0, response.max_age)
+        eq_(True, response.private)
 
 
 class TestLibraryAnnotator(VendorIDTest):

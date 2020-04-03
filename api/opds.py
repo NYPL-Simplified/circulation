@@ -442,7 +442,10 @@ class CirculationManagerAnnotator(Annotator):
             containing an error message.
         """
         if not work:
-            return AcquisitionFeed(db, "Unknown work", url, [], annotator).as_error_response()
+            return AcquisitionFeed(
+                _db, title="Unknown work", url=url, works=[], 
+                annotator=annotator
+            ).as_error_response()
 
         # This method is generally used for reporting the results of
         # authenticated transactions such as borrowing and hold
