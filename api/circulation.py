@@ -341,7 +341,7 @@ class HoldInfo(CirculationInfo):
     :param end_date: When reserved book is expected to become available.
         Expected to be passed in date, not unicode format.
     :param hold_position:  Patron's place in the hold line. When not available,
-        default to be passed is None, which is equivalent to "first in line". 
+        default to be passed is None, which is equivalent to "first in line".
     """
 
     def __init__(self, collection, data_source_name, identifier_type,
@@ -535,7 +535,8 @@ class CirculationAPI(object):
             or `Hold` must be None, but not both.
         """
         # Short-circuit the request if the patron lacks borrowing
-        # privileges.
+        # privileges. This can happen for a few different reasons --
+        # fines, blocks, expired card, etc.
         PatronUtility.assert_borrowing_privileges(patron)
 
         now = datetime.datetime.utcnow()
@@ -567,11 +568,6 @@ class CirculationAPI(object):
         content_link = content_expires = None
 
         internal_format = api.internal_format(delivery_mechanism)
-
-        if patron.fines:
-            max_fines = Configuration.max_outstanding_fines(patron.library)
-            if max_fines is not None and patron.fines > max_fines.amount:
-                raise OutstandingFines()
 
         # Do we (think we) already have this book out on loan?
         existing_loan = get_one(
@@ -792,7 +788,7 @@ class CirculationAPI(object):
 
         :param patron: A Patron.
         """
-        loan_limit = patron.library.setting(Configuration.LOAN_LIMIT).int_value            
+        loan_limit = patron.library.setting(Configuration.LOAN_LIMIT).int_value
         if loan_limit is None:
             return False
 
@@ -812,7 +808,7 @@ class CirculationAPI(object):
 
         :param patron: A Patron.
         """
-        hold_limit = patron.library.setting(Configuration.HOLD_LIMIT).int_value            
+        hold_limit = patron.library.setting(Configuration.HOLD_LIMIT).int_value
         if hold_limit is None:
             return False
         return hold_limit and len(patron.holds) >= hold_limit
