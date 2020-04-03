@@ -1592,6 +1592,12 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(mech2.delivery_mechanism.content_type, indirect.attrib['type'])
 
 
+class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
+
+    def test_single_item_feed(self):
+        pass
+
+
 class TestSharedCollectionAnnotator(DatabaseTest):
     def setup(self):
         super(TestSharedCollectionAnnotator, self).setup()
@@ -1610,6 +1616,9 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         assert "feed" in feed_url_fantasy
         assert str(self.lane.id) in feed_url_fantasy
         assert self.collection.name in feed_url_fantasy
+
+    def test_single_item_feed(self):
+        pass
 
     def get_parsed_feed(self, works, lane=None):
         if not lane:

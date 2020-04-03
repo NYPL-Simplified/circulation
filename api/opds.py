@@ -427,7 +427,9 @@ class CirculationManagerAnnotator(Annotator):
         return {rights_attr : lpdm.rights_status.uri }
 
     @classmethod
-    def _single_entry_response(cls, _db, work, annotator, url, **response_kwargs):
+    def _single_entry_response(
+        cls, _db, work, annotator, url, feed_class=AcquisitionFeed, **response_kwargs
+    ):
         """Helper method to create an OPDSEntryResponse for a single OPDS entry.
 
         :param _db: A database connection.
@@ -435,6 +437,7 @@ class CirculationManagerAnnotator(Annotator):
         :param annotator: An Annotator
         :param url: The URL of the feed to be served. Used only if there's
             a problem with the Work.
+        :param feed_class: A replacement for AcquisitionFeed, for use in tests.
         :param response_kwargs: A set of extra keyword arguments to
             be passed into the OPDSEntryResponse constructor.
 
@@ -442,7 +445,7 @@ class CirculationManagerAnnotator(Annotator):
             containing an error message.
         """
         if not work:
-            return AcquisitionFeed(
+            return feed_class(
                 _db, title="Unknown work", url=url, works=[], 
                 annotator=annotator
             ).as_error_response()
@@ -457,7 +460,7 @@ class CirculationManagerAnnotator(Annotator):
         # cache it.
         response_kwargs.setdefault('max_age', 30*60)
         response_kwargs.setdefault('private', True)
-        return AcquisitionFeed.single_entry(_db, work, annotator, **response_kwargs)
+        return feed_class.single_entry(_db, work, annotator, **response_kwargs)
 
 
 class LibraryAnnotator(CirculationManagerAnnotator):
@@ -1422,7 +1425,22 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         return feed_obj.as_response(max_age=60*30, private=True)
 
     @classmethod
-    def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False, **response_kwargs):
+    def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False, 
+                         feed_class=AcquisitionFeed, **response_kwargs):
+        """Construct a response containing a single OPDS entry representing an active loan
+        or hold.
+
+        :param circulation: A CirculationAPI
+        :param item: A Loan or Hold -- perhaps one that was just created or looked up.
+        :param fulfillment: A FulfillmentInfo representing the format in which an active loan
+            should be fulfilled.
+        :param test_mode: Passed along to the constructor for this annotator class.
+        :param feed_class: A drop-in replacement for AcquisitionFeed, for use in tests.
+        :param response_kwargs: Extra keyword arguments to be passed into the OPDSEntryResponse
+            constructor.
+
+        :return: An OPDSEntryResponse
+        """
         _db = Session.object_session(item)
         license_pool = item.license_pool
         work = license_pool.work or license_pool.presentation_edition.work
@@ -1455,7 +1473,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
             library_short_name=library.short_name,
             _external=True
         )
-        return cls._single_entry_response(_db, work, annotator, url, **response_kwargs)
+        return cls._single_entry_response(_db, work, annotator, url, feed_class **response_kwargs)
 
     def drm_device_registration_feed_tags(self, patron):
         """Return tags that provide information on DRM device deregistration
