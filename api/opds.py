@@ -1454,10 +1454,6 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         )
         return cls._single_entry_response(_db, work, annotator, url, **response_kwargs)
 
-    single_loan_feed = single_item_feed
-    single_hold_feed = single_item_feed
-    single_fulfillment_feed = single_item_feed
-
     def drm_device_registration_feed_tags(self, patron):
         """Return tags that provide information on DRM device deregistration
         independent of any particular loan. These tags will go under
@@ -1541,7 +1537,3 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
             **route_kwargs
         )
         return cls._single_entry_response(_db, work, annotator, url, **response_kwargs)
-
-    single_loan_feed = single_item_feed
-    single_hold_feed = single_item_feed
-    single_fulfillment_feed = single_item_feed

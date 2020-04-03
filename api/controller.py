@@ -1173,13 +1173,10 @@ class LoanController(CirculationManagerController):
             response_kwargs['status'] = 201
         else:
             response_kwargs['status'] = 200
-        if loan:
-            return LibraryLoanAndHoldAnnotator.single_loan_feed(
-                self.circulation, loan, **response_kwargs
-            )
-        elif hold:
-            return LibraryLoanAndHoldAnnotator.single_hold_feed(
-                self.circulation, hold, **response_kwargs
+        item = loan or hold
+        if item:
+            return LibraryLoanAndHoldAnnotator.single_item_feed(
+                self.circulation, item, **response_kwargs
             )
         else:
             # This should never happen -- we should have sent a more specific
@@ -1383,7 +1380,7 @@ class LoanController(CirculationManagerController):
         if mechanism.delivery_mechanism.is_streaming:
             # If this is a streaming delivery mechanism, create an OPDS entry
             # with a fulfillment link to the streaming reader url.
-            feed = LibraryLoanAndHoldAnnotator.single_fulfillment_feed(
+            feed = LibraryLoanAndHoldAnnotator.single_item_feed(
                 self.circulation, loan, fulfillment
             )
             if isinstance(feed, Response):
@@ -1520,12 +1517,12 @@ class LoanController(CirculationManagerController):
 
         if flask.request.method=='GET':
             if loan:
-                feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-                    self.circulation, loan)
+                item = loan
             else:
-                feed = LibraryLoanAndHoldAnnotator.single_hold_feed(
-                    self.circulation, hold)
-            return feed
+                item = hold
+            return CirculationManagerLoanAndHoldAnnotator.single_item_feed(
+                self.circulation, item
+            )
 
 class AnnotationController(CirculationManagerController):
 
@@ -1989,7 +1986,7 @@ class SharedCollectionController(CirculationManagerController):
         if not loan or loan.license_pool.collection != collection:
             return LOAN_NOT_FOUND
 
-        return SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
+        return SharedCollectionLoanAndHoldAnnotator.single_item_feed(
             collection, loan
         )
 
@@ -2031,12 +2028,8 @@ class SharedCollectionController(CirculationManagerController):
             return CHECKOUT_FAILED.detailed(unicode(e))
         except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
-        if loan and isinstance(loan, Loan):
-            return SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
-                collection, loan, status=201
-            )
-        elif loan and isinstance(loan, Hold):
-            return SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
+        if loan:
+            return SharedCollectionLoanAndHoldAnnotator.single_item_feed(
                 collection, loan, status=201
             )
 
@@ -2128,7 +2121,7 @@ class SharedCollectionController(CirculationManagerController):
         if not hold or not hold.license_pool.collection == collection:
             return HOLD_NOT_FOUND
 
-        return SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
+        return SharedCollectionLoanAndHoldAnnotator.single_item_feed(
             collection, hold
         )
 

@@ -1216,7 +1216,7 @@ class TestLibraryAnnotator(VendorIDTest):
             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             None, None)
 
-        response = LibraryLoanAndHoldAnnotator.single_fulfillment_feed(
+        response = LibraryLoanAndHoldAnnotator.single_item_feed(
             None, loan, fulfillment, test_mode=True
         )
         raw = response.data
