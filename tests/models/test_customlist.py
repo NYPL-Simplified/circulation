@@ -163,6 +163,61 @@ class TestCustomList(DatabaseTest):
         eq_(False, is_new)
         eq_(5, custom_list.size)
 
+    def test_add_entry_work_same_presentation_edition(self):
+        # Verify that two Works can be added to a CustomList even if they have the
+        # same presentation edition.
+        w1 = self._work()
+        w2 = self._work(presentation_edition=w1.presentation_edition)
+        eq_(w1.presentation_edition, w2.presentation_edition)
+
+        custom_list, ignore = self._customlist(num_entries=0)
+        entry1, is_new1 = custom_list.add_entry(w1)
+        eq_(True, is_new1)
+        eq_(w1, entry1.work)
+        eq_(w1.presentation_edition, entry1.edition)
+
+        entry2, is_new2 = custom_list.add_entry(w2)
+        eq_(True, is_new2)
+        eq_(w2, entry2.work)
+        eq_(w2.presentation_edition, entry2.edition)
+
+        assert entry1 != entry2
+        eq_(set([entry1, entry2]), set(custom_list.entries))
+
+        # Adding the exact same work again won't result in a third entry.
+        entry3, is_new3 = custom_list.add_entry(w1)
+        eq_(entry3, entry1)
+        eq_(False, is_new3)
+
+    def test_add_entry_work_equivalent_identifier(self):
+        # Verify that two Works can be added to a CustomList even if their identifiers
+        # are exact equivalents.
+        w1 = self._work()
+        w2 = self._work()
+        w1.presentation_edition.primary_identifier.equivalent_to(
+            w1.presentation_edition.data_source,
+            w2.presentation_edition.primary_identifier, 1
+        )
+
+        custom_list, ignore = self._customlist(num_entries=0)
+        entry1, is_new1 = custom_list.add_entry(w1)
+        eq_(True, is_new1)
+        eq_(w1, entry1.work)
+        eq_(w1.presentation_edition, entry1.edition)
+
+        entry2, is_new2 = custom_list.add_entry(w2)
+        eq_(True, is_new2)
+        eq_(w2, entry2.work)
+        eq_(w2.presentation_edition, entry2.edition)
+
+        assert entry1 != entry2
+        eq_(set([entry1, entry2]), set(custom_list.entries))
+
+        # Adding the exact same work again won't result in a third entry.
+        entry3, is_new3 = custom_list.add_entry(w1)
+        eq_(entry3, entry1)
+        eq_(False, is_new3)
+
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=3)
         [first, second, third] = editions

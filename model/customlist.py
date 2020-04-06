@@ -140,33 +140,66 @@ class CustomList(Base):
 
     def add_entry(self, work_or_edition, annotation=None, first_appearance=None,
                   featured=None, update_external_index=True):
-        """Add a work to a CustomList.
+        """Add a Work or Edition to a CustomList.
+
+        :param work_or_edition: A Work or an Edition. If this is a
+          Work, that specific Work will be added to the CustomList. If
+          this is an Edition, that Edition will be added to the
+          CustomList, assuming there's no equivalent Edition already
+          in the list.
+
         :param update_external_index: When a Work is added to a list,
-        its external index needs to be updated. The only reason not to
-        do this is when the current database session already contains
-        a new WorkCoverageRecord for this purpose (e.g. because the
-        Work was just created) and creating another one would violate
-        the workcoveragerecords table's unique constraint.
+          its external index needs to be updated. The only reason not to
+          do this is when the current database session already contains
+          a new WorkCoverageRecord for this purpose (e.g. because the
+          Work was just created) and creating another one would violate
+          the workcoveragerecords table's unique constraint. TODO: This
+          is probably no longer be necessary since we no longer update the
+          external index in real time.
         """
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
-        edition = work_or_edition
         if isinstance(work_or_edition, Work):
-            edition = work_or_edition.presentation_edition
+            work = work_or_edition
+            edition = work.presentation_edition
 
-        existing = list(self.entries_for_work(work_or_edition))
-        if existing:
-            was_new = False
-            entry = existing[0]
-            if len(existing) > 1:
-                entry.update(_db, equivalent_entries=existing[1:])
-            entry.edition = edition
+            # Don't look for duplicate entries. get_one_or_create will
+            # find an existing entry for this Work, and any other Work
+            # -- even for the same title -- is not considered a
+            # 'duplicate'.
+            existing_entries = []
         else:
+            edition = work_or_edition
+            work = edition.work
+
+            # Look for other entries in this CustomList for this Edition,
+            # or an equivalent Edition. This can avoid situations where
+            # the same book shows up on a CustomList multiple times.
+            existing_entries = list(self.entries_for_work(work_or_edition))
+
+            # There's no guarantee this Edition _has_ a work, so don't
+            # filter by Work when looking for a duplicate.
+            kwargs = dict()
+
+        if existing_entries:
+            # There is a book equivalent to this one on the list.
+            # Update one of the equivalent CustomListEntries,
+            # potentially giving it a new .edition and .work
+            was_new = False
+            entry = existing_entries[0]
+            if len(existing_entries) > 1:
+                entry.update(_db, equivalent_entries=existing_entries[1:])
+            entry.edition = edition
+            entry.work = work
+        else:
+            # There is no equivalent book on the CustomList, but the
+            # exact same book may already be on the list. Either find
+            # an exact duplicate, or create a new entry.
             entry, was_new = get_one_or_create(
                 _db, CustomListEntry,
-                customlist=self, edition=edition,
-                create_method_kwargs=dict(first_appearance=first_appearance)
+                customlist=self, edition=edition, work=work,
+                create_method_kwargs=dict(first_appearance=first_appearance),
             )
 
         if (not entry.most_recent_appearance
@@ -174,7 +207,7 @@ class CustomList(Base):
             entry.most_recent_appearance = first_appearance
         if annotation:
             entry.annotation = unicode(annotation)
-        if edition.work and not entry.work:
+        if work and not entry.work:
             entry.work = edition.work
         if featured is not None:
             entry.featured = featured
@@ -182,11 +215,10 @@ class CustomList(Base):
         if was_new:
             self.updated = datetime.datetime.utcnow()
             self.size += 1
-
         # Make sure the Work's search document is updated to reflect its new
         # list membership.
-        if entry.work and update_external_index:
-            entry.work.external_index_needs_updating()
+        if work and update_external_index:
+            work.external_index_needs_updating()
 
         return entry, was_new
 
