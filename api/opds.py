@@ -446,7 +446,7 @@ class CirculationManagerAnnotator(Annotator):
         """
         if not work:
             return feed_class(
-                _db, title="Unknown work", url=url, works=[], 
+                _db, title="Unknown work", url=url, works=[],
                 annotator=annotator
             ).as_error_response()
 
@@ -1425,7 +1425,7 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         return feed_obj.as_response(max_age=60*30, private=True)
 
     @classmethod
-    def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False, 
+    def single_item_feed(cls, circulation, item, fulfillment=None, test_mode=False,
                          feed_class=AcquisitionFeed, **response_kwargs):
         """Construct a response containing a single OPDS entry representing an active loan
         or hold.
@@ -1449,14 +1449,14 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
         active_loans_by_work = {}
         active_holds_by_work = {}
         active_fulfillments_by_work = {}
+        if isinstance(item, Loan):
+            d = active_loans_by_work
+        elif isinstance(item, Hold):
+            d = active_holds_by_work
+        d[work] = item
+
         if fulfillment:
             active_fulfillments_by_work[work] = fulfillment
-        else:
-            if isinstance(item, Loan):
-                d = active_loans_by_work
-            elif isinstance(item, Hold):
-                d = active_holds_by_work
-            d[work] = item
 
         annotator = cls(
             circulation, None, library,
@@ -1473,7 +1473,9 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
             library_short_name=library.short_name,
             _external=True
         )
-        return cls._single_entry_response(_db, work, annotator, url, feed_class **response_kwargs)
+        return annotator._single_entry_response(
+            _db, work, annotator, url, feed_class, **response_kwargs
+        )
 
     def drm_device_registration_feed_tags(self, patron):
         """Return tags that provide information on DRM device deregistration
@@ -1518,10 +1520,16 @@ class LibraryLoanAndHoldAnnotator(LibraryAnnotator):
 class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
 
     @classmethod
-    def single_item_feed(cls, collection, item, fulfillment=None, test_mode=False, **response_kwargs):
+    def single_item_feed(cls, collection, item, fulfillment=None, test_mode=False,
+                         feed_class=AcquisitionFeed, **response_kwargs):
         """Create an OPDS entry representing a single loan or hold.
 
+        TODO: This and LibraryLoanAndHoldAnnotator.single_item_feed
+        can potentially be refactored. The main obstacle is different
+        routes and arguments for 'loan info' and 'hold info'.
+
         :return: An OPDSEntryResponse
+
         """
         _db = Session.object_session(item)
         license_pool = item.license_pool
@@ -1533,22 +1541,20 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
         active_fulfillments_by_work = {}
         if fulfillment:
             active_fulfillments_by_work[work] = fulfillment
+        if isinstance(item, Loan):
+            d = active_loans_by_work
             route = 'shared_collection_loan_info'
             route_kwargs = dict(loan_id=item.id)
-        else:
-            if isinstance(item, Loan):
-                d = active_loans_by_work
-                route = 'shared_collection_loan_info'
-                route_kwargs = dict(loan_id=item.id)
-            elif isinstance(item, Hold):
-                d = active_holds_by_work
-                route = 'shared_collection_hold_info'
-                route_kwargs = dict(hold_id=item.id)
-            d[work] = item
+        elif isinstance(item, Hold):
+            d = active_holds_by_work
+            route = 'shared_collection_hold_info'
+            route_kwargs = dict(hold_id=item.id)
+        d[work] = item
         annotator = cls(
             collection, None,
             active_loans_by_work=active_loans_by_work,
             active_holds_by_work=active_holds_by_work,
+            active_fulfillments_by_work=active_fulfillments_by_work,
             test_mode=test_mode
         )
         url = annotator.url_for(
@@ -1557,4 +1563,6 @@ class SharedCollectionLoanAndHoldAnnotator(SharedCollectionAnnotator):
             _external=True,
             **route_kwargs
         )
-        return cls._single_entry_response(_db, work, annotator, url, **response_kwargs)
+        return annotator._single_entry_response(
+            _db, work, annotator, url, feed_class, **response_kwargs
+        )
