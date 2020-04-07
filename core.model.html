@@ -3956,13 +3956,30 @@ DelegatedPatronIdentifier.delegated_identifier.</li>
 <dl class="method">
 <dt id="core.model.customlist.CustomList.add_entry">
 <code class="descname">add_entry</code><span class="sig-paren">(</span><em>work_or_edition</em>, <em>annotation=None</em>, <em>first_appearance=None</em>, <em>featured=None</em>, <em>update_external_index=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/customlist.html#CustomList.add_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.customlist.CustomList.add_entry" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a work to a CustomList.
-:param update_external_index: When a Work is added to a list,
+<dd><p>Add a Work or Edition to a CustomList.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>work_or_edition</strong> – A Work or an Edition. If this is a
+Work, that specific Work will be added to the CustomList. If
+this is an Edition, that Edition will be added to the
+CustomList, assuming there’s no equivalent Edition already
+in the list.</li>
+<li><strong>update_external_index</strong> – When a Work is added to a list,
 its external index needs to be updated. The only reason not to
 do this is when the current database session already contains
 a new WorkCoverageRecord for this purpose (e.g. because the
 Work was just created) and creating another one would violate
-the workcoveragerecords table’s unique constraint.</p>
+the workcoveragerecords table’s unique constraint. TODO: This
+is probably no longer be necessary since we no longer update the
+external index in real time.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="classmethod">

@@ -175,33 +175,66 @@
 
 <div class="viewcode-block" id="CustomList.add_entry"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CustomList.add_entry">[docs]</a>    <span class="k">def</span> <span class="nf">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">work_or_edition</span><span class="p">,</span> <span class="n">annotation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">first_appearance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                   <span class="n">featured</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">update_external_index</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Add a work to a CustomList.</span>
+        <span class="sd">&quot;&quot;&quot;Add a Work or Edition to a CustomList.</span>
+
+<span class="sd">        :param work_or_edition: A Work or an Edition. If this is a</span>
+<span class="sd">          Work, that specific Work will be added to the CustomList. If</span>
+<span class="sd">          this is an Edition, that Edition will be added to the</span>
+<span class="sd">          CustomList, assuming there&#39;s no equivalent Edition already</span>
+<span class="sd">          in the list.</span>
+
 <span class="sd">        :param update_external_index: When a Work is added to a list,</span>
-<span class="sd">        its external index needs to be updated. The only reason not to</span>
-<span class="sd">        do this is when the current database session already contains</span>
-<span class="sd">        a new WorkCoverageRecord for this purpose (e.g. because the</span>
-<span class="sd">        Work was just created) and creating another one would violate</span>
-<span class="sd">        the workcoveragerecords table&#39;s unique constraint.</span>
+<span class="sd">          its external index needs to be updated. The only reason not to</span>
+<span class="sd">          do this is when the current database session already contains</span>
+<span class="sd">          a new WorkCoverageRecord for this purpose (e.g. because the</span>
+<span class="sd">          Work was just created) and creating another one would violate</span>
+<span class="sd">          the workcoveragerecords table&#39;s unique constraint. TODO: This</span>
+<span class="sd">          is probably no longer be necessary since we no longer update the</span>
+<span class="sd">          external index in real time.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">first_appearance</span> <span class="o">=</span> <span class="n">first_appearance</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
         <span class="n">_db</span> <span class="o">=</span> <span class="n">Session</span><span class="o">.</span><span class="n">object_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
-        <span class="n">edition</span> <span class="o">=</span> <span class="n">work_or_edition</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">,</span> <span class="n">Work</span><span class="p">):</span>
-            <span class="n">edition</span> <span class="o">=</span> <span class="n">work_or_edition</span><span class="o">.</span><span class="n">presentation_edition</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">work_or_edition</span>
+            <span class="n">edition</span> <span class="o">=</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span>
 
-        <span class="n">existing</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries_for_work</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">existing</span><span class="p">:</span>
-            <span class="n">was_new</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="n">entry</span> <span class="o">=</span> <span class="n">existing</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">entry</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">equivalent_entries</span><span class="o">=</span><span class="n">existing</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-            <span class="n">entry</span><span class="o">.</span><span class="n">edition</span> <span class="o">=</span> <span class="n">edition</span>
+            <span class="c1"># Don&#39;t look for duplicate entries. get_one_or_create will</span>
+            <span class="c1"># find an existing entry for this Work, and any other Work</span>
+            <span class="c1"># -- even for the same title -- is not considered a</span>
+            <span class="c1"># &#39;duplicate&#39;.</span>
+            <span class="n">existing_entries</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="n">edition</span> <span class="o">=</span> <span class="n">work_or_edition</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">work</span>
+
+            <span class="c1"># Look for other entries in this CustomList for this Edition,</span>
+            <span class="c1"># or an equivalent Edition. This can avoid situations where</span>
+            <span class="c1"># the same book shows up on a CustomList multiple times.</span>
+            <span class="n">existing_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries_for_work</span><span class="p">(</span><span class="n">work_or_edition</span><span class="p">))</span>
+
+            <span class="c1"># There&#39;s no guarantee this Edition _has_ a work, so don&#39;t</span>
+            <span class="c1"># filter by Work when looking for a duplicate.</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">existing_entries</span><span class="p">:</span>
+            <span class="c1"># There is a book equivalent to this one on the list.</span>
+            <span class="c1"># Update one of the equivalent CustomListEntries,</span>
+            <span class="c1"># potentially giving it a new .edition and .work</span>
+            <span class="n">was_new</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="n">existing_entries</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing_entries</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">entry</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">equivalent_entries</span><span class="o">=</span><span class="n">existing_entries</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">edition</span> <span class="o">=</span> <span class="n">edition</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="n">work</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># There is no equivalent book on the CustomList, but the</span>
+            <span class="c1"># exact same book may already be on the list. Either find</span>
+            <span class="c1"># an exact duplicate, or create a new entry.</span>
             <span class="n">entry</span><span class="p">,</span> <span class="n">was_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span>
                 <span class="n">_db</span><span class="p">,</span> <span class="n">CustomListEntry</span><span class="p">,</span>
-                <span class="n">customlist</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">edition</span><span class="o">=</span><span class="n">edition</span><span class="p">,</span>
-                <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">first_appearance</span><span class="o">=</span><span class="n">first_appearance</span><span class="p">)</span>
+                <span class="n">customlist</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">edition</span><span class="o">=</span><span class="n">edition</span><span class="p">,</span> <span class="n">work</span><span class="o">=</span><span class="n">work</span><span class="p">,</span>
+                <span class="n">create_method_kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">first_appearance</span><span class="o">=</span><span class="n">first_appearance</span><span class="p">),</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">most_recent_appearance</span>
@@ -209,7 +242,7 @@
             <span class="n">entry</span><span class="o">.</span><span class="n">most_recent_appearance</span> <span class="o">=</span> <span class="n">first_appearance</span>
         <span class="k">if</span> <span class="n">annotation</span><span class="p">:</span>
             <span class="n">entry</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">edition</span><span class="o">.</span><span class="n">work</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">work</span><span class="p">:</span>
             <span class="n">entry</span><span class="o">.</span><span class="n">work</span> <span class="o">=</span> <span class="n">edition</span><span class="o">.</span><span class="n">work</span>
         <span class="k">if</span> <span class="n">featured</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">entry</span><span class="o">.</span><span class="n">featured</span> <span class="o">=</span> <span class="n">featured</span>
@@ -217,11 +250,10 @@
         <span class="k">if</span> <span class="n">was_new</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">updated</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">+=</span> <span class="mi">1</span>
-
         <span class="c1"># Make sure the Work&#39;s search document is updated to reflect its new</span>
         <span class="c1"># list membership.</span>
-        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">work</span> <span class="ow">and</span> <span class="n">update_external_index</span><span class="p">:</span>
-            <span class="n">entry</span><span class="o">.</span><span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">work</span> <span class="ow">and</span> <span class="n">update_external_index</span><span class="p">:</span>
+            <span class="n">work</span><span class="o">.</span><span class="n">external_index_needs_updating</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">entry</span><span class="p">,</span> <span class="n">was_new</span></div>
 
