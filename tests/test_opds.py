@@ -999,9 +999,16 @@ class TestLibraryAnnotator(VendorIDTest):
         self.initialize_adobe(self._default_library)
         patron = self._patron()
         cls = LibraryLoanAndHoldAnnotator
-        raw = cls.active_loans_for(None, patron, test_mode=True)
+
+        response = cls.active_loans_for(None, patron, test_mode=True)
+
+        # The feed is cacheable but private.
+        assert isinstance(OPDSFeedResponse, raw)
+        eq_(60*30, response.max_age)
+        eq_(True, response.private)
+
         # No entries in the feed...
-        raw = unicode(raw)
+        raw = unicode(response)
         feed = feedparser.parse(raw)
         eq_(0, len(feed['entries']))
 
@@ -1019,7 +1026,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(expect_url, upmp_link['href'])
 
         # ... and we have DRM licensing information.
-        tree = etree.fromstring(raw)
+        tree = etree.fromstring(response)
         parser = OPDSXMLParser()
         licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
 

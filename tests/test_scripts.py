@@ -78,7 +78,10 @@ from core.mirror import MirrorUploader
 
 from core.marc import MARCExporter
 
-from core.util.flask_util import Response
+from core.util.flask_util import (
+    Response,
+    OPDSFeedResponse
+)
 
 from api.marc import LibraryAnnotator as  MARCLibraryAnnotator
 
@@ -398,10 +401,10 @@ class TestCacheFacetListsPerLane(TestLaneScript):
                 annotator.feed_url(lane, facets=facets, pagination=pagination)
             )
 
-            # Try again without mocking AcquisitionFeed to verify that
-            # we get something a Flask Response containing an OPDS
-            # feed.
+            # Try again without mocking AcquisitionFeed, to verify that
+            # we get a Flask Response containing an OPDS feed.
             response = script.do_generate(lane, facets, pagination)
+            assert isinstance(response, OPDSFeedResponse)
             eq_(AcquisitionFeed.ACQUISITION_FEED_TYPE, response.content_type)
             assert response.data.startswith('<feed')
 

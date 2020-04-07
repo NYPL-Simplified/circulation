@@ -2366,8 +2366,8 @@ class TestWorkController(CirculationControllerTest):
         ):
             response = m(contributor, languages, audiences, feed_class=Mock)
 
-        # The Response served by Mock.page is converted into a real
-        # Flask response
+        # The Response served by Mock.page becomes the response to the
+        # incoming request.
         eq_(200, response.status_code)
         eq_("An OPDS feed", response.data)
 
@@ -2530,8 +2530,8 @@ class TestWorkController(CirculationControllerTest):
                 *args, **kwargs
             )
 
-        # The return value of Mock.page was converted into a Flask
-        # response.
+        # The return value of Mock.page was used as the response
+        # to the incoming request.
         eq_(200, response.status_code)
         eq_("A bunch of titles", response.data)
 
@@ -2714,8 +2714,8 @@ class TestWorkController(CirculationControllerTest):
                 novelist_api=mock_api, feed_class=Mock
             )
 
-        # The return value of Mock.groups() has been converted into a
-        # Flask response.
+        # The return value of Mock.groups was used as the response
+        # to the incoming request.
         eq_(200, response.status_code)
         eq_("An OPDS feed", response.data)
 
@@ -2898,7 +2898,8 @@ class TestWorkController(CirculationControllerTest):
                 feed_class=Mock
             )
 
-        # We got the return value of Mock.page(), converted to a Response.
+        # The return value of Mock.page() is the response to the
+        # incoming request.
         eq_(200, response.status_code)
         eq_("An OPDS feed", response.data)
 
