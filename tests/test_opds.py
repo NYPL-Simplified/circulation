@@ -1003,7 +1003,7 @@ class TestLibraryAnnotator(VendorIDTest):
         response = cls.active_loans_for(None, patron, test_mode=True)
 
         # The feed is cacheable but private.
-        assert isinstance(OPDSFeedResponse, raw)
+        assert isinstance(response, OPDSFeedResponse)
         eq_(60*30, response.max_age)
         eq_(True, response.private)
 
@@ -1026,7 +1026,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(expect_url, upmp_link['href'])
 
         # ... and we have DRM licensing information.
-        tree = etree.fromstring(response)
+        tree = etree.fromstring(response.data)
         parser = OPDSXMLParser()
         licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
 
