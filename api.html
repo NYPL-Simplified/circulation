@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x39eee50&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x381ac10&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3b4abb0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x387f3a0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3b4d230&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3855510&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -5360,9 +5360,16 @@ one that’s the best candidate for loaning out right now.</p>
 <dt id="api.controller.LoanController.borrow">
 <code class="descname">borrow</code><span class="sig-paren">(</span><em>identifier_type</em>, <em>identifier</em>, <em>mechanism_id=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#LoanController.borrow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.LoanController.borrow" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a new loan or hold for a book.</p>
-<p>Return an OPDS Acquisition feed that includes a link of rel
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A Response containing an OPDS entry that includes a link of rel
 “<a class="reference external" href="http://opds-spec.org/acquisition">http://opds-spec.org/acquisition</a>”, which can be used to fetch the
-book or the license file.</p>
+book or the license file.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -5442,7 +5449,17 @@ single chapter of an audiobook).</li>
 <dl class="method">
 <dt id="api.controller.LoanController.sync">
 <code class="descname">sync</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/controller.html#LoanController.sync"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.controller.LoanController.sync" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Sync the authenticated patron’s loans and holds with all third-party
+providers.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A Response containing an OPDS feed with up-to-date information.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 </dd></dl>
 
@@ -8469,7 +8486,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 4, 17, 15, 35, 59, 281483)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 4, 18, 18, 12, 21, 207333)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -10539,7 +10556,7 @@ OPDS entry.</td>
 <dd><p>Bases: <a class="reference internal" href="#api.opds.LibraryAnnotator" title="api.opds.LibraryAnnotator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.opds.LibraryAnnotator</span></code></a></p>
 <dl class="classmethod">
 <dt id="api.opds.LibraryLoanAndHoldAnnotator.active_loans_for">
-<em class="property">classmethod </em><code class="descname">active_loans_for</code><span class="sig-paren">(</span><em>circulation</em>, <em>patron</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#LibraryLoanAndHoldAnnotator.active_loans_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.LibraryLoanAndHoldAnnotator.active_loans_for" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">active_loans_for</code><span class="sig-paren">(</span><em>circulation</em>, <em>patron</em>, <em>test_mode=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#LibraryLoanAndHoldAnnotator.active_loans_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.LibraryLoanAndHoldAnnotator.active_loans_for" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -10560,19 +10577,32 @@ logout, even if there is no active loan that requires one.</p>
 </dd></dl>
 
 <dl class="classmethod">
-<dt id="api.opds.LibraryLoanAndHoldAnnotator.single_fulfillment_feed">
-<em class="property">classmethod </em><code class="descname">single_fulfillment_feed</code><span class="sig-paren">(</span><em>circulation</em>, <em>loan</em>, <em>fulfillment</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#LibraryLoanAndHoldAnnotator.single_fulfillment_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.LibraryLoanAndHoldAnnotator.single_fulfillment_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="api.opds.LibraryLoanAndHoldAnnotator.single_hold_feed">
-<em class="property">classmethod </em><code class="descname">single_hold_feed</code><span class="sig-paren">(</span><em>circulation</em>, <em>hold</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#LibraryLoanAndHoldAnnotator.single_hold_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.LibraryLoanAndHoldAnnotator.single_hold_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="api.opds.LibraryLoanAndHoldAnnotator.single_loan_feed">
-<em class="property">classmethod </em><code class="descname">single_loan_feed</code><span class="sig-paren">(</span><em>circulation</em>, <em>loan</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#LibraryLoanAndHoldAnnotator.single_loan_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.LibraryLoanAndHoldAnnotator.single_loan_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt id="api.opds.LibraryLoanAndHoldAnnotator.single_item_feed">
+<em class="property">classmethod </em><code class="descname">single_item_feed</code><span class="sig-paren">(</span><em>circulation</em>, <em>item</em>, <em>fulfillment=None</em>, <em>test_mode=False</em>, <em>feed_class=&lt;class 'core.opds.AcquisitionFeed'&gt;</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#LibraryLoanAndHoldAnnotator.single_item_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.LibraryLoanAndHoldAnnotator.single_item_feed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct a response containing a single OPDS entry representing an active loan
+or hold.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>circulation</strong> – A CirculationAPI</li>
+<li><strong>item</strong> – A Loan or Hold – perhaps one that was just created or looked up.</li>
+<li><strong>fulfillment</strong> – A FulfillmentInfo representing the format in which an active loan
+should be fulfilled.</li>
+<li><strong>test_mode</strong> – Passed along to the constructor for this annotator class.</li>
+<li><strong>feed_class</strong> – A drop-in replacement for AcquisitionFeed, for use in tests.</li>
+<li><strong>response_kwargs</strong> – Extra keyword arguments to be passed into the OPDSEntryResponse
+constructor.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An OPDSEntryResponse</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="api.opds.LibraryLoanAndHoldAnnotator.user_profile_management_protocol_link">
@@ -10637,19 +10667,21 @@ for the current patron.</p>
 <em class="property">class </em><code class="descclassname">api.opds.</code><code class="descname">SharedCollectionLoanAndHoldAnnotator</code><span class="sig-paren">(</span><em>collection</em>, <em>lane</em>, <em>active_loans_by_work={}</em>, <em>active_holds_by_work={}</em>, <em>active_fulfillments_by_work={}</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#SharedCollectionLoanAndHoldAnnotator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.SharedCollectionLoanAndHoldAnnotator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#api.opds.SharedCollectionAnnotator" title="api.opds.SharedCollectionAnnotator"><code class="xref py py-class docutils literal notranslate"><span class="pre">api.opds.SharedCollectionAnnotator</span></code></a></p>
 <dl class="classmethod">
-<dt id="api.opds.SharedCollectionLoanAndHoldAnnotator.single_fulfillment_feed">
-<em class="property">classmethod </em><code class="descname">single_fulfillment_feed</code><span class="sig-paren">(</span><em>collection</em>, <em>loan</em>, <em>fulfillment</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#SharedCollectionLoanAndHoldAnnotator.single_fulfillment_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.SharedCollectionLoanAndHoldAnnotator.single_fulfillment_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="api.opds.SharedCollectionLoanAndHoldAnnotator.single_hold_feed">
-<em class="property">classmethod </em><code class="descname">single_hold_feed</code><span class="sig-paren">(</span><em>collection</em>, <em>hold</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#SharedCollectionLoanAndHoldAnnotator.single_hold_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.SharedCollectionLoanAndHoldAnnotator.single_hold_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="api.opds.SharedCollectionLoanAndHoldAnnotator.single_loan_feed">
-<em class="property">classmethod </em><code class="descname">single_loan_feed</code><span class="sig-paren">(</span><em>collection</em>, <em>loan</em>, <em>test_mode=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#SharedCollectionLoanAndHoldAnnotator.single_loan_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.SharedCollectionLoanAndHoldAnnotator.single_loan_feed" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt id="api.opds.SharedCollectionLoanAndHoldAnnotator.single_item_feed">
+<em class="property">classmethod </em><code class="descname">single_item_feed</code><span class="sig-paren">(</span><em>collection</em>, <em>item</em>, <em>fulfillment=None</em>, <em>test_mode=False</em>, <em>feed_class=&lt;class 'core.opds.AcquisitionFeed'&gt;</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/opds.html#SharedCollectionLoanAndHoldAnnotator.single_item_feed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.opds.SharedCollectionLoanAndHoldAnnotator.single_item_feed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an OPDS entry representing a single loan or hold.</p>
+<p>TODO: This and LibraryLoanAndHoldAnnotator.single_item_feed
+can potentially be refactored. The main obstacle is different
+routes and arguments for ‘loan info’ and ‘hold info’.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An OPDSEntryResponse</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 </dd></dl>
 

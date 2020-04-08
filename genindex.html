@@ -748,10 +748,10 @@
 </li>
       <li><a href="api.html#module-api.custom_patron_catalog">api.custom_patron_catalog (module)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.enki">api.enki (module)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#module-api.feedbooks">api.feedbooks (module)</a>
 </li>
       <li><a href="api.html#module-api.firstbook">api.firstbook (module)</a>
@@ -996,6 +996,8 @@
         <li><a href="core.util.html#core.util.web_publication_manifest.Manifest.as_dict">(core.util.web_publication_manifest.Manifest attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#core.opds.AcquisitionFeed.as_error_response">as_error_response() (core.opds.AcquisitionFeed method)</a>
+</li>
       <li><a href="core.model.html#core.model.resource.Representation.as_image">as_image() (core.model.resource.Representation method)</a>
 </li>
       <li><a href="api.admin.html#api.admin.exceptions.AdminNotAuthorized.as_problem_detail_document">as_problem_detail_document() (api.admin.exceptions.AdminNotAuthorized method)</a>
@@ -1022,6 +1024,8 @@
         <li><a href="api.html#api.overdrive.OverdriveManifestFulfillmentInfo.as_response">(api.overdrive.OverdriveManifestFulfillmentInfo attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#core.opds.AcquisitionFeed.as_response">as_response() (core.opds.AcquisitionFeed method)</a>
+</li>
       <li><a href="core.html#core.external_search.Filter.asc">asc (core.external_search.Filter attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.constants.IdentifierConstants.ASIN">ASIN (core.model.constants.IdentifierConstants attribute)</a>
@@ -3618,6 +3622,8 @@
 </li>
       <li><a href="core.html#core.log.Loggly.DEFAULT_LOGGLY_URL">DEFAULT_LOGGLY_URL (core.log.Loggly attribute)</a>
 </li>
+      <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.DEFAULT_MAX_AGE">DEFAULT_MAX_AGE (core.util.opds_writer.OPDSFeed attribute)</a>
+</li>
       <li><a href="core.html#core.log.Logger.DEFAULT_MESSAGE_TEMPLATE">DEFAULT_MESSAGE_TEMPLATE (core.log.Logger attribute)</a>
 </li>
       <li><a href="core.html#core.lane.SearchFacets.DEFAULT_MIN_SCORE">DEFAULT_MIN_SCORE (core.lane.SearchFacets attribute)</a>
@@ -4414,8 +4420,6 @@
 </li>
       <li><a href="core.html#core.entrypoint.EntryPoint.ENTRY_POINTS">ENTRY_POINTS (core.entrypoint.EntryPoint attribute)</a>
 </li>
-      <li><a href="core.html#core.app_server.entry_response">entry_response() (in module core.app_server)</a>
-</li>
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed.ENTRY_TYPE">ENTRY_TYPE (core.util.opds_writer.OPDSFeed attribute)</a>
 </li>
       <li><a href="core.html#core.entrypoint.EntryPoint">EntryPoint (class in core.entrypoint)</a>
@@ -4496,10 +4500,10 @@
 </li>
       <li><a href="api.html#api.config.Configuration.estimate_language_collections_for_library">estimate_language_collections_for_library() (api.config.Configuration class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.library.Library.estimated_holdings_by_language">estimated_holdings_by_language() (core.model.library.Library method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.model.html#core.model.resource.Resource.estimated_quality">estimated_quality (core.model.resource.Resource attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.resource.Resource.ESTIMATED_QUALITY_WEIGHT">ESTIMATED_QUALITY_WEIGHT (core.model.resource.Resource attribute)</a>
@@ -4906,20 +4910,12 @@
         <li><a href="api.html#api.routes.feed">(in module api.routes)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.opds.AcquisitionFeed.FEED_CACHE_TIME">FEED_CACHE_TIME (core.opds.AcquisitionFeed attribute)</a>
-
-      <ul>
-        <li><a href="core.html#core.opds.NavigationFeed.FEED_CACHE_TIME">(core.opds.NavigationFeed attribute)</a>
-</li>
-      </ul></li>
       <li><a href="api.html#api.opds_for_distributors.OPDSForDistributorsReaperMonitor.feed_contains_new_data">feed_contains_new_data() (api.opds_for_distributors.OPDSForDistributorsReaperMonitor method)</a>
 
       <ul>
         <li><a href="core.html#core.opds_import.OPDSImportMonitor.feed_contains_new_data">(core.opds_import.OPDSImportMonitor method)</a>
 </li>
       </ul></li>
-      <li><a href="core.html#core.app_server.feed_response">feed_response() (in module core.app_server)</a>
-</li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.CachedFeedKeys.feed_type">feed_type (core.model.cachedfeed.CachedFeed.CachedFeedKeys attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.cachedfeed.CachedFeed.feed_type">feed_type() (core.model.cachedfeed.CachedFeed class method)</a>
@@ -5096,10 +5092,10 @@
         <li><a href="core.model.html#core.model.patron.Patron.fines">(core.model.patron.Patron attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#core.user_profile.ProfileStorage.FINES">FINES (core.user_profile.ProfileStorage attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.millenium_patron.MilleniumPatronAPI.FINES_FIELD">FINES_FIELD (api.millenium_patron.MilleniumPatronAPI attribute)</a>
 </li>
       <li><a href="core.model.html#core.model.coverage.Timestamp.finish">finish (core.model.coverage.Timestamp attribute)</a>
@@ -9060,11 +9056,15 @@
 </li>
       <li><a href="core.html#core.monitor.OPDSEntryCacheMonitor">OPDSEntryCacheMonitor (class in core.monitor)</a>
 </li>
+      <li><a href="core.util.html#core.util.flask_util.OPDSEntryResponse">OPDSEntryResponse (class in core.util.flask_util)</a>
+</li>
       <li><a href="core.html#core.coverage.OPDSEntryWorkCoverageProvider">OPDSEntryWorkCoverageProvider (class in core.coverage)</a>
 </li>
       <li><a href="core.util.html#core.util.opds_writer.OPDSFeed">OPDSFeed (class in core.util.opds_writer)</a>
 </li>
       <li><a href="api.html#api.controller.OPDSFeedController">OPDSFeedController (class in api.controller)</a>
+</li>
+      <li><a href="core.util.html#core.util.flask_util.OPDSFeedResponse">OPDSFeedResponse (class in core.util.flask_util)</a>
 </li>
       <li><a href="api.html#api.opds_for_distributors.OPDSForDistributorsAPI">OPDSForDistributorsAPI (class in api.opds_for_distributors)</a>
 </li>
@@ -11194,6 +11194,8 @@
 </li>
       <li><a href="core.model.html#core.model.resource.ResourceTransformation">ResourceTransformation (class in core.model.resource)</a>
 </li>
+      <li><a href="core.util.html#core.util.flask_util.Response">Response (class in core.util.flask_util)</a>
+</li>
       <li><a href="core.util.html#core.util.problem_detail.ProblemDetail.response">response (core.util.problem_detail.ProblemDetail attribute)</a>
 </li>
       <li><a href="api.admin.controller.html#api.admin.controller.individual_admin_settings.IndividualAdminSettingsController.response">response() (api.admin.controller.individual_admin_settings.IndividualAdminSettingsController method)</a>
@@ -12148,12 +12150,12 @@
 </li>
       <li><a href="api.html#api.routes.shared_collection_fulfill">shared_collection_fulfill() (in module api.routes)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_hold_info">shared_collection_hold_info() (in module api.routes)</a>
 </li>
       <li><a href="api.html#api.routes.shared_collection_info">shared_collection_info() (in module api.routes)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api.html#api.routes.shared_collection_loan_info">shared_collection_loan_info() (in module api.routes)</a>
 </li>
       <li><a href="api.html#api.routes.shared_collection_register">shared_collection_register() (in module api.routes)</a>
@@ -12300,22 +12302,10 @@
 </li>
       <li><a href="core.html#core.opds.AcquisitionFeed.single_entry">single_entry() (core.opds.AcquisitionFeed class method)</a>
 </li>
-      <li><a href="api.html#api.opds.LibraryLoanAndHoldAnnotator.single_fulfillment_feed">single_fulfillment_feed() (api.opds.LibraryLoanAndHoldAnnotator class method)</a>
+      <li><a href="api.html#api.opds.LibraryLoanAndHoldAnnotator.single_item_feed">single_item_feed() (api.opds.LibraryLoanAndHoldAnnotator class method)</a>
 
       <ul>
-        <li><a href="api.html#api.opds.SharedCollectionLoanAndHoldAnnotator.single_fulfillment_feed">(api.opds.SharedCollectionLoanAndHoldAnnotator class method)</a>
-</li>
-      </ul></li>
-      <li><a href="api.html#api.opds.LibraryLoanAndHoldAnnotator.single_hold_feed">single_hold_feed() (api.opds.LibraryLoanAndHoldAnnotator class method)</a>
-
-      <ul>
-        <li><a href="api.html#api.opds.SharedCollectionLoanAndHoldAnnotator.single_hold_feed">(api.opds.SharedCollectionLoanAndHoldAnnotator class method)</a>
-</li>
-      </ul></li>
-      <li><a href="api.html#api.opds.LibraryLoanAndHoldAnnotator.single_loan_feed">single_loan_feed() (api.opds.LibraryLoanAndHoldAnnotator class method)</a>
-
-      <ul>
-        <li><a href="api.html#api.opds.SharedCollectionLoanAndHoldAnnotator.single_loan_feed">(api.opds.SharedCollectionLoanAndHoldAnnotator class method)</a>
+        <li><a href="api.html#api.opds.SharedCollectionLoanAndHoldAnnotator.single_item_feed">(api.opds.SharedCollectionLoanAndHoldAnnotator class method)</a>
 </li>
       </ul></li>
       <li><a href="api.sip.html#api.sip.SIP2AuthenticationProvider">SIP2AuthenticationProvider (class in api.sip)</a>

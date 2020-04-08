@@ -56,6 +56,7 @@
     <span class="n">AcquisitionFeed</span><span class="p">,</span>
     <span class="n">LookupAcquisitionFeed</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">util.flask_util</span> <span class="kn">import</span> <span class="n">OPDSFeedResponse</span>
 <span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OPDSFeed</span><span class="p">,</span>
     <span class="n">OPDSMessage</span><span class="p">,</span>
@@ -100,36 +101,6 @@
                         <span class="s2">&quot;Unrecognized audience in lending policy: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span>
                         <span class="n">audience</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">policy</span></div>
-
-<div class="viewcode-block" id="feed_response"><a class="viewcode-back" href="../../core.html#core.app_server.feed_response">[docs]</a><span class="k">def</span> <span class="nf">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">acquisition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cache_for</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">FEED_CACHE_TIME</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">acquisition</span><span class="p">:</span>
-        <span class="n">content_type</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">content_type</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">NAVIGATION_FEED_TYPE</span>
-    <span class="k">return</span> <span class="n">_make_response</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">cache_for</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="entry_response"><a class="viewcode-back" href="../../core.html#core.app_server.entry_response">[docs]</a><span class="k">def</span> <span class="nf">entry_response</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">cache_for</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">FEED_CACHE_TIME</span><span class="p">):</span>
-    <span class="n">content_type</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ENTRY_TYPE</span>
-    <span class="k">return</span> <span class="n">_make_response</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">cache_for</span><span class="p">)</span></div>
-
-<span class="k">def</span> <span class="nf">_make_response</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">content_type</span><span class="p">,</span> <span class="n">cache_for</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">etree</span><span class="o">.</span><span class="n">_Element</span><span class="p">):</span>
-        <span class="n">content</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">unicode</span><span class="p">)):</span>
-        <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cache_for</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="c1"># A CDN should hold on to the cached representation only half</span>
-        <span class="c1"># as long as the end-user.</span>
-        <span class="n">client_cache</span> <span class="o">=</span> <span class="n">cache_for</span>
-        <span class="n">cdn_cache</span> <span class="o">=</span> <span class="n">cache_for</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="n">cache_control</span> <span class="o">=</span> <span class="s2">&quot;public, no-transform, max-age=</span><span class="si">%d</span><span class="s2">, s-maxage=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="n">client_cache</span><span class="p">,</span> <span class="n">cdn_cache</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">cache_control</span> <span class="o">=</span> <span class="s2">&quot;private, no-cache&quot;</span>
-
-    <span class="k">return</span> <span class="n">make_response</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="n">content_type</span><span class="p">,</span>
-                                        <span class="s2">&quot;Cache-Control&quot;</span><span class="p">:</span> <span class="n">cache_control</span><span class="p">})</span>
 
 <div class="viewcode-block" id="load_facets_from_request"><a class="viewcode-back" href="../../core.html#core.app_server.load_facets_from_request">[docs]</a><span class="k">def</span> <span class="nf">load_facets_from_request</span><span class="p">(</span>
         <span class="n">facet_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">Facets</span><span class="p">,</span>
@@ -384,7 +355,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="s2">&quot;Lookup results&quot;</span><span class="p">,</span> <span class="n">this_url</span><span class="p">,</span> <span class="n">handler</span><span class="o">.</span><span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
             <span class="n">precomposed_entries</span><span class="o">=</span><span class="n">handler</span><span class="o">.</span><span class="n">precomposed_entries</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="URNLookupController.process_urns"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupController.process_urns">[docs]</a>    <span class="k">def</span> <span class="nf">process_urns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">urns</span><span class="p">,</span> <span class="o">**</span><span class="n">process_urn_kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Process a number of URNs by instantiating a URNLookupHandler</span>
@@ -418,8 +389,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">urn</span><span class="p">,</span> <span class="n">this_url</span><span class="p">,</span> <span class="n">works</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
             <span class="n">precomposed_entries</span><span class="o">=</span><span class="n">handler</span><span class="o">.</span><span class="n">precomposed_entries</span>
         <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="URNLookupHandler"><a class="viewcode-back" href="../../core.html#core.app_server.URNLookupHandler">[docs]</a><span class="k">class</span> <span class="nc">URNLookupHandler</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>

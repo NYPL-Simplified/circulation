@@ -330,16 +330,6 @@ a lot of places.</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="core.app_server.entry_response">
-<code class="descclassname">core.app_server.</code><code class="descname">entry_response</code><span class="sig-paren">(</span><em>entry</em>, <em>cache_for=600</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#entry_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.entry_response" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
-<dt id="core.app_server.feed_response">
-<code class="descclassname">core.app_server.</code><code class="descname">feed_response</code><span class="sig-paren">(</span><em>feed</em>, <em>acquisition=True</em>, <em>cache_for=600</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#feed_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.feed_response" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="function">
 <dt id="core.app_server.load_facets_from_request">
 <code class="descclassname">core.app_server.</code><code class="descname">load_facets_from_request</code><span class="sig-paren">(</span><em>facet_config=None</em>, <em>worklist=None</em>, <em>base_class=&lt;class 'core.lane.Facets'&gt;</em>, <em>base_class_constructor_kwargs=None</em>, <em>default_entrypoint=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/app_server.html#load_facets_from_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.app_server.load_facets_from_request" title="Permalink to this definition">¶</a></dt>
 <dd><p>Figure out which faceting object this request is asking for.</p>
@@ -5068,7 +5058,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-ab60984b-334f-4aa4-b62a-67f66baaed37'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-966701be-b414-4c5e-b738-143409a0590e'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -7265,11 +7255,6 @@ Collection.</p>
 <code class="descname">FACET_REL</code><em class="property"> = 'http://opds-spec.org/facet'</em><a class="headerlink" href="#core.opds.AcquisitionFeed.FACET_REL" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="core.opds.AcquisitionFeed.FEED_CACHE_TIME">
-<code class="descname">FEED_CACHE_TIME</code><em class="property"> = 600</em><a class="headerlink" href="#core.opds.AcquisitionFeed.FEED_CACHE_TIME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="classmethod">
 <dt id="core.opds.AcquisitionFeed.acquisition_link">
 <em class="property">classmethod </em><code class="descname">acquisition_link</code><span class="sig-paren">(</span><em>rel</em>, <em>href</em>, <em>types</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.acquisition_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.acquisition_link" title="Permalink to this definition">¶</a></dt>
@@ -7321,6 +7306,20 @@ URL when passed an EntryPoint.</li>
 </tr>
 </tbody>
 </table>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.opds.AcquisitionFeed.as_error_response">
+<code class="descname">as_error_response</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.as_error_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.as_error_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert this feed into an OPDSFEedResponse that should be treated
+by intermediaries as an error – that is, treated as private
+and not cached.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.opds.AcquisitionFeed.as_response">
+<code class="descname">as_response</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.as_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.as_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert this feed into an OPDSFEedResponse.</p>
 </dd></dl>
 
 <dl class="method">
@@ -7386,13 +7385,16 @@ acquisition_link().</p>
 <dd><p>Build  a feed representing one page of a given list. Currently used for
 creating an OPDS feed for a custom list and not cached.</p>
 <p>TODO: This is used by the circulation manager admin interface.
-Investigating replacing the code that uses this so that it uses
-the search index.</p>
+Investigate changing the code that uses this to use the search
+index – this is inefficient and creates an alternate code path
+that may harbor bugs.</p>
+<p>TODO: This cannot currently return OPDSFeedResponse because the
+admin interface modifies the feed after it’s generated.</p>
 </dd></dl>
 
 <dl class="classmethod">
 <dt id="core.opds.AcquisitionFeed.groups">
-<em class="property">classmethod </em><code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>facets=None</em>, <em>max_age=None</em>, <em>search_engine=None</em>, <em>search_debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.groups" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">groups</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>facets=None</em>, <em>max_age=None</em>, <em>search_engine=None</em>, <em>search_debug=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.groups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.groups" title="Permalink to this definition">¶</a></dt>
 <dd><p>The acquisition feed for ‘featured’ items from a given lane’s
 sublanes, organized into per-lane groups.</p>
 <p>NOTE: If the lane has no sublanes, a grouped feed will
@@ -7402,9 +7404,15 @@ appropriate Facets object.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>facets</strong> – A GroupsFacet object.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>facets</strong> – A GroupsFacet object.</li>
+<li><strong>response_kwargs</strong> – Extra keyword arguments to pass into
+the OPDSFeedResponse constructor.</li>
+</ul>
+</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A Unicode string containing a (potentially cached) OPDS feed.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An OPDSFeedResponse containing the feed.</p>
+</td>
 </tr>
 </tbody>
 </table>
@@ -7432,13 +7440,16 @@ appropriate Facets object.</p>
 
 <dl class="classmethod">
 <dt id="core.opds.AcquisitionFeed.page">
-<em class="property">classmethod </em><code class="descname">page</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>facets=None</em>, <em>pagination=None</em>, <em>max_age=None</em>, <em>search_engine=None</em>, <em>search_debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.page"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.page" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">page</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>facets=None</em>, <em>pagination=None</em>, <em>max_age=None</em>, <em>search_engine=None</em>, <em>search_debug=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.page"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.page" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a feed representing one page of works from a given lane.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A Unicode string containing a (potentially cached) OPDS feed.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>response_kwargs</strong> – Extra keyword arguments to pass into
+the OPDSFeedResponse constructor.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">An OPDSFeedResponse containing the feed.</td>
 </tr>
 </tbody>
 </table>
@@ -7446,8 +7457,33 @@ appropriate Facets object.</p>
 
 <dl class="classmethod">
 <dt id="core.opds.AcquisitionFeed.search">
-<em class="property">classmethod </em><code class="descname">search</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>lane</em>, <em>search_engine</em>, <em>query</em>, <em>pagination=None</em>, <em>facets=None</em>, <em>annotator=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.search"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.search" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<em class="property">classmethod </em><code class="descname">search</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>lane</em>, <em>search_engine</em>, <em>query</em>, <em>pagination=None</em>, <em>facets=None</em>, <em>annotator=None</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.search"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.search" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a search against the given search engine and return
+the results as a Flask Response.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>_db</strong> – A database connection</li>
+<li><strong>title</strong> – The title of the resulting OPDS feed.</li>
+<li><strong>url</strong> – The URL from which the feed will be served.</li>
+<li><strong>search_engine</strong> – An ExternalSearchIndex.</li>
+<li><strong>query</strong> – The search query</li>
+<li><strong>pagination</strong> – A Pagination</li>
+<li><strong>facets</strong> – A Facets</li>
+<li><strong>annotator</strong> – An Annotator</li>
+<li><strong>response_kwargs</strong> – Keyword arguments to pass into the OPDSFeedResponse
+constructor.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An ODPSFeedResponse</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="method">
 <dt id="core.opds.AcquisitionFeed.show_current_entrypoint">
@@ -7469,8 +7505,33 @@ and another.</p>
 
 <dl class="classmethod">
 <dt id="core.opds.AcquisitionFeed.single_entry">
-<em class="property">classmethod </em><code class="descname">single_entry</code><span class="sig-paren">(</span><em>_db</em>, <em>work</em>, <em>annotator</em>, <em>force_create=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.single_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.single_entry" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">single_entry</code><span class="sig-paren">(</span><em>_db</em>, <em>work</em>, <em>annotator</em>, <em>force_create=False</em>, <em>raw=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#AcquisitionFeed.single_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.AcquisitionFeed.single_entry" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a single-entry OPDS document for one specific work.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>_db</strong> – A database connection.</li>
+<li><strong>work</strong> – A Work</li>
+<li><strong>work</strong> – An Annotator</li>
+<li><strong>force_create</strong> – Create the OPDS entry from scratch even
+if there’s already a cached one.</li>
+<li><strong>raw</strong> – If this is False (the default), a Flask Response will be returned,
+ready to be sent over the network. Otherwise an object representing
+the underlying OPDS entry will be returned.</li>
+<li><strong>response_kwargs</strong> – These keyword arguments will be passed into the Response
+constructor, if it is invoked.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A Response, if <cite>raw</cite> is false. Otherwise, an OPDSMessage
+or an etree._Element – whatever was returned by
+OPDSFeed.create_entry.</p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>
@@ -7759,11 +7820,6 @@ feed.</p>
 <dt id="core.opds.NavigationFeed">
 <em class="property">class </em><code class="descclassname">core.opds.</code><code class="descname">NavigationFeed</code><span class="sig-paren">(</span><em>title</em>, <em>url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#NavigationFeed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.NavigationFeed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.util.html#core.util.opds_writer.OPDSFeed" title="core.util.opds_writer.OPDSFeed"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.opds_writer.OPDSFeed</span></code></a></p>
-<dl class="attribute">
-<dt id="core.opds.NavigationFeed.FEED_CACHE_TIME">
-<code class="descname">FEED_CACHE_TIME</code><em class="property"> = 600</em><a class="headerlink" href="#core.opds.NavigationFeed.FEED_CACHE_TIME" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="method">
 <dt id="core.opds.NavigationFeed.add_entry">
 <code class="descname">add_entry</code><span class="sig-paren">(</span><em>url</em>, <em>title</em>, <em>type='application/atom+xml;profile=opds-catalog;kind=navigation'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#NavigationFeed.add_entry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.NavigationFeed.add_entry" title="Permalink to this definition">¶</a></dt>
@@ -7772,8 +7828,19 @@ feed.</p>
 
 <dl class="classmethod">
 <dt id="core.opds.NavigationFeed.navigation">
-<em class="property">classmethod </em><code class="descname">navigation</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>facets=None</em>, <em>max_age=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#NavigationFeed.navigation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.NavigationFeed.navigation" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">navigation</code><span class="sig-paren">(</span><em>_db</em>, <em>title</em>, <em>url</em>, <em>worklist</em>, <em>annotator</em>, <em>facets=None</em>, <em>max_age=None</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/opds.html#NavigationFeed.navigation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.opds.NavigationFeed.navigation" title="Permalink to this definition">¶</a></dt>
 <dd><p>The navigation feed with links to a given lane’s sublanes.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>response_kwargs</strong> – Extra keyword arguments to pass into
+the OPDSFeedResponse constructor.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A Response</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>

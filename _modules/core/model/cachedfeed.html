@@ -58,6 +58,7 @@
 <span class="kn">from</span> <span class="nn">sqlalchemy.sql.expression</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">and_</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">..util.flask_util</span> <span class="kn">import</span> <span class="n">OPDSFeedResponse</span>
 
 <div class="viewcode-block" id="CachedFeed"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed">[docs]</a><span class="k">class</span> <span class="nc">CachedFeed</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
 
@@ -117,12 +118,14 @@
 
 <div class="viewcode-block" id="CachedFeed.fetch"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed.fetch">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">fetch</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="p">,</span> <span class="n">refresher_method</span><span class="p">,</span>
-              <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span>
+              <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">raw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Retrieve a cached feed from the database if possible.</span>
 
 <span class="sd">        Generate it from scratch and store it in the database if</span>
 <span class="sd">        necessary.</span>
+
+<span class="sd">        Return it in the most useful form to the caller.</span>
 
 <span class="sd">        :param _db: A database connection.</span>
 <span class="sd">        :param worklist: The WorkList associated with this feed.</span>
@@ -140,8 +143,12 @@
 <span class="sd">            specified, a default value will be calculated based on</span>
 <span class="sd">            WorkList and Facets configuration. Setting this value to</span>
 <span class="sd">            zero will force a refresh.</span>
+<span class="sd">        :param raw: If this is False (the default), a Response ready to be</span>
+<span class="sd">            converted into a Flask Response object will be returned. If this</span>
+<span class="sd">            is True, the CachedFeed object itself will be returned. In most</span>
+<span class="sd">            non-test situations the default is better.</span>
 
-<span class="sd">        :return: A CachedFeed containing up-to-date content.</span>
+<span class="sd">        :return: A Response or CachedFeed containing up-to-date content.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Gather the information necessary to uniquely identify this</span>
@@ -204,7 +211,19 @@
             <span class="c1"># the other thread(s). Our feed takes priority.</span>
             <span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">feed_data</span>
             <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">generation_time</span>
-        <span class="k">return</span> <span class="n">feed_obj</span></div>
+
+        <span class="k">if</span> <span class="n">raw</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">feed_obj</span>
+
+        <span class="c1"># We have the information necessary to create a useful</span>
+        <span class="c1"># response-type object.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Set some defaults in case the caller didn&#39;t pass them in.</span>
+        <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;max_age&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span>
+            <span class="n">response</span><span class="o">=</span><span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">response_kwargs</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="CachedFeed.feed_type"><a class="viewcode-back" href="../../../core.model.html#core.monitor.CachedFeed.feed_type">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">feed_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>

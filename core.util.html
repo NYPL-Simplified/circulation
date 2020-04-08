@@ -225,6 +225,35 @@ package</p>
 <div class="section" id="module-core.util.flask_util">
 <span id="core-util-flask-util-module"></span><h2>core.util.flask_util module<a class="headerlink" href="#module-core.util.flask_util" title="Permalink to this headline">¶</a></h2>
 <p>Utilities for Flask applications.</p>
+<dl class="class">
+<dt id="core.util.flask_util.OPDSEntryResponse">
+<em class="property">class </em><code class="descclassname">core.util.flask_util.</code><code class="descname">OPDSEntryResponse</code><span class="sig-paren">(</span><em>response=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/flask_util.html#OPDSEntryResponse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.flask_util.OPDSEntryResponse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.util.flask_util.Response" title="core.util.flask_util.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.flask_util.Response</span></code></a></p>
+<p>A convenience specialization of Response for typical OPDS entries.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.util.flask_util.OPDSFeedResponse">
+<em class="property">class </em><code class="descclassname">core.util.flask_util.</code><code class="descname">OPDSFeedResponse</code><span class="sig-paren">(</span><em>response=None</em>, <em>status=None</em>, <em>headers=None</em>, <em>mimetype=None</em>, <em>content_type=None</em>, <em>direct_passthrough=False</em>, <em>max_age=None</em>, <em>private=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/flask_util.html#OPDSFeedResponse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.flask_util.OPDSFeedResponse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#core.util.flask_util.Response" title="core.util.flask_util.Response"><code class="xref py py-class docutils literal notranslate"><span class="pre">core.util.flask_util.Response</span></code></a></p>
+<p>A convenience specialization of Response for typical OPDS feeds.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="core.util.flask_util.Response">
+<em class="property">class </em><code class="descclassname">core.util.flask_util.</code><code class="descname">Response</code><span class="sig-paren">(</span><em>response=None</em>, <em>status=None</em>, <em>headers=None</em>, <em>mimetype=None</em>, <em>content_type=None</em>, <em>direct_passthrough=False</em>, <em>max_age=0</em>, <em>private=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/flask_util.html#Response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.flask_util.Response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">flask.wrappers.Response</span></code></p>
+<p>A Flask Response object with some conveniences added.</p>
+<p>The conveniences:</p>
+<blockquote>
+<div><ul class="simple">
+<li>It’s easy to calculate header values such as Cache-Control.</li>
+<li>A response can be easily converted into a string for use in
+tests.</li>
+</ul>
+</div></blockquote>
+</dd></dl>
+
 <dl class="function">
 <dt id="core.util.flask_util.problem">
 <code class="descclassname">core.util.flask_util.</code><code class="descname">problem</code><span class="sig-paren">(</span><em>type</em>, <em>status</em>, <em>title</em>, <em>detail=None</em>, <em>instance=None</em>, <em>headers={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/flask_util.html#problem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.flask_util.problem" title="Permalink to this definition">¶</a></dt>
@@ -598,7 +627,7 @@ human-readable names to ISO-639-2 language codes.</p>
 
 <dl class="attribute">
 <dt id="core.util.languages.LanguageNames.name_re">
-<code class="descname">name_re</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x1af5760&gt;</em><a class="headerlink" href="#core.util.languages.LanguageNames.name_re" title="Permalink to this definition">¶</a></dt>
+<code class="descname">name_re</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x17d94b0&gt;</em><a class="headerlink" href="#core.util.languages.LanguageNames.name_re" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -639,7 +668,7 @@ rather than raising a ValueError.</p>
 <span id="core-util-opds-writer-module"></span><h2>core.util.opds_writer module<a class="headerlink" href="#module-core.util.opds_writer" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="core.util.opds_writer.AtomFeed">
-<em class="property">class </em><code class="descclassname">core.util.opds_writer.</code><code class="descname">AtomFeed</code><span class="sig-paren">(</span><em>title</em>, <em>url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/opds_writer.html#AtomFeed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.opds_writer.AtomFeed" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">core.util.opds_writer.</code><code class="descname">AtomFeed</code><span class="sig-paren">(</span><em>title</em>, <em>url</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/util/opds_writer.html#AtomFeed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.util.opds_writer.AtomFeed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="attribute">
 <dt id="core.util.opds_writer.AtomFeed.APP_NS">
@@ -843,6 +872,11 @@ rather than raising a ValueError.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="core.util.opds_writer.OPDSFeed.DEFAULT_MAX_AGE">
+<code class="descname">DEFAULT_MAX_AGE</code><em class="property"> = 600</em><a class="headerlink" href="#core.util.opds_writer.OPDSFeed.DEFAULT_MAX_AGE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="core.util.opds_writer.OPDSFeed.ENTRY_TYPE">
 <code class="descname">ENTRY_TYPE</code><em class="property"> = 'application/atom+xml;type=entry;profile=opds-catalog'</em><a class="headerlink" href="#core.util.opds_writer.OPDSFeed.ENTRY_TYPE" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -942,17 +976,17 @@ identifier.</p>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern">
-<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2128a30&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorPrefixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x205f950&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorPrefixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern">
-<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x23297c0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonAuthorSuffixPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x2088990&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonAuthorSuffixPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern">
-<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x23326a0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
+<code class="descname">commonSubtitlesPattern</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x205e8d0&gt;</em><a class="headerlink" href="#core.util.permanent_work_id.WorkIDCalculator.commonSubtitlesPattern" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">

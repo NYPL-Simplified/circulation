@@ -92,6 +92,12 @@
     <span class="n">SearchFacets</span><span class="p">,</span>
     <span class="n">WorkList</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">util.flask_util</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OPDSEntryResponse</span><span class="p">,</span>
+    <span class="n">OPDSFeedResponse</span><span class="p">,</span>
+    <span class="n">Response</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AtomFeed</span><span class="p">,</span>
     <span class="n">OPDSFeed</span><span class="p">,</span>
@@ -614,16 +620,11 @@
 
     <span class="n">FACET_REL</span> <span class="o">=</span> <span class="s2">&quot;http://opds-spec.org/facet&quot;</span>
 
-    <span class="c1"># TODO: This is used in feed_response to set the Cache-Control</span>
-    <span class="c1"># headers. It should be replaced with a system where the</span>
-    <span class="c1"># Cache-Control max-age value is derived from the lifetime of the</span>
-    <span class="c1"># corresponding CachedFeed object, if any.</span>
-    <span class="n">FEED_CACHE_TIME</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;default_feed_cache_time&#39;</span><span class="p">,</span> <span class="mi">600</span><span class="p">))</span>
-
 <div class="viewcode-block" id="AcquisitionFeed.groups"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.groups">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">groups</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
                <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+               <span class="o">**</span><span class="n">response_kwargs</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;The acquisition feed for &#39;featured&#39; items from a given lane&#39;s</span>
 <span class="sd">        sublanes, organized into per-lane groups.</span>
@@ -634,7 +635,10 @@
 
 <span class="sd">        :param facets: A GroupsFacet object.</span>
 
-<span class="sd">        :return: A Unicode string containing a (potentially cached) OPDS feed.</span>
+<span class="sd">        :param response_kwargs: Extra keyword arguments to pass into</span>
+<span class="sd">            the OPDSFeedResponse constructor.</span>
+<span class="sd">        </span>
+<span class="sd">        :return: An OPDSFeedResponse containing the feed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_annotator</span><span class="p">(</span><span class="n">annotator</span><span class="p">)</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">FeaturedFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">worklist</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">))</span>
@@ -645,11 +649,11 @@
                 <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
             <span class="p">)</span>
 
-        <span class="n">cached</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span></div>
+            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">response_kwargs</span>
+        <span class="p">)</span></div>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_generate_groups</span><span class="p">(</span>
@@ -729,12 +733,15 @@
 <div class="viewcode-block" id="AcquisitionFeed.page"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.page">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">page</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
              <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-             <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-             <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span>
+             <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">search_debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+             <span class="o">**</span><span class="n">response_kwargs</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a feed representing one page of works from a given lane.</span>
 
-<span class="sd">        :return: A Unicode string containing a (potentially cached) OPDS feed.</span>
+<span class="sd">        :param response_kwargs: Extra keyword arguments to pass into</span>
+<span class="sd">            the OPDSFeedResponse constructor.</span>
+
+<span class="sd">        :return: An OPDSFeedResponse containing the feed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">worklist</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">Facets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">library</span><span class="p">)</span>
@@ -747,11 +754,11 @@
                 <span class="n">search_engine</span><span class="p">,</span> <span class="n">search_debug</span>
             <span class="p">)</span>
 
-        <span class="n">cached</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
+        <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;max_age&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span></div>
+            <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span>
+        <span class="p">)</span></div>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_generate_page</span><span class="p">(</span>
@@ -818,8 +825,13 @@
 <span class="sd">        creating an OPDS feed for a custom list and not cached.</span>
 
 <span class="sd">        TODO: This is used by the circulation manager admin interface.</span>
-<span class="sd">        Investigating replacing the code that uses this so that it uses</span>
-<span class="sd">        the search index.</span>
+<span class="sd">        Investigate changing the code that uses this to use the search</span>
+<span class="sd">        index -- this is inefficient and creates an alternate code path</span>
+<span class="sd">        that may harbor bugs.</span>
+
+<span class="sd">        TODO: This cannot currently return OPDSFeedResponse because the</span>
+<span class="sd">        admin interface modifies the feed after it&#39;s generated.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">page_of_works</span> <span class="o">=</span> <span class="n">pagination</span><span class="o">.</span><span class="n">modify_database_query</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">query</span><span class="p">)</span>
         <span class="n">pagination</span><span class="o">.</span><span class="n">total_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">query</span><span class="o">.</span><span class="n">count</span><span class="p">())</span>
@@ -834,6 +846,19 @@
             <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">add_link_to_feed</span><span class="p">(</span><span class="n">feed</span><span class="o">=</span><span class="n">feed</span><span class="o">.</span><span class="n">feed</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">&quot;previous&quot;</span><span class="p">,</span> <span class="n">href</span><span class="o">=</span><span class="n">url_fn</span><span class="p">(</span><span class="n">pagination</span><span class="o">.</span><span class="n">previous_page</span><span class="o">.</span><span class="n">offset</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">feed</span></div>
+
+<div class="viewcode-block" id="AcquisitionFeed.as_response"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.as_response">[docs]</a>    <span class="k">def</span> <span class="nf">as_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert this feed into an OPDSFEedResponse.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AcquisitionFeed.as_error_response"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.as_error_response">[docs]</a>    <span class="k">def</span> <span class="nf">as_error_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert this feed into an OPDSFEedResponse that should be treated</span>
+<span class="sd">        by intermediaries as an error -- that is, treated as private</span>
+<span class="sd">        and not cached.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;max_age&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;private&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_response</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_make_annotator</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">annotator</span><span class="p">):</span>
@@ -968,8 +993,24 @@
 
 <div class="viewcode-block" id="AcquisitionFeed.search"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.search">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">search</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">search_engine</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span>
-               <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span>
+               <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+               <span class="o">**</span><span class="n">response_kwargs</span>
     <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run a search against the given search engine and return</span>
+<span class="sd">        the results as a Flask Response.</span>
+
+<span class="sd">        :param _db: A database connection</span>
+<span class="sd">        :param title: The title of the resulting OPDS feed.</span>
+<span class="sd">        :param url: The URL from which the feed will be served.</span>
+<span class="sd">        :param search_engine: An ExternalSearchIndex.</span>
+<span class="sd">        :param query: The search query</span>
+<span class="sd">        :param pagination: A Pagination</span>
+<span class="sd">        :param facets: A Facets</span>
+<span class="sd">        :param annotator: An Annotator</span>
+<span class="sd">        :param response_kwargs: Keyword arguments to pass into the OPDSFeedResponse</span>
+<span class="sd">            constructor.</span>
+<span class="sd">        :return: An ODPSFeedResponse</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">SearchFacets</span><span class="p">()</span>
         <span class="n">pagination</span> <span class="o">=</span> <span class="n">pagination</span> <span class="ow">or</span> <span class="n">Pagination</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
         <span class="n">results</span> <span class="o">=</span> <span class="n">lane</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
@@ -1016,11 +1057,29 @@
         <span class="n">opds_feed</span><span class="o">.</span><span class="n">add_breadcrumbs</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">include_lane</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="n">annotator</span><span class="o">.</span><span class="n">annotate_feed</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">,</span> <span class="n">lane</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">unicode</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">unicode</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">),</span> <span class="o">**</span><span class="n">response_kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AcquisitionFeed.single_entry"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.single_entry">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">single_entry</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">force_create</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create a single-entry OPDS document for one specific work.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">single_entry</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">force_create</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">raw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a single-entry OPDS document for one specific work.</span>
+
+<span class="sd">        :param _db: A database connection.</span>
+<span class="sd">        :param work: A Work</span>
+<span class="sd">        :param work: An Annotator</span>
+<span class="sd">        :param force_create: Create the OPDS entry from scratch even</span>
+<span class="sd">            if there&#39;s already a cached one.</span>
+<span class="sd">        :param raw: If this is False (the default), a Flask Response will be returned,</span>
+<span class="sd">            ready to be sent over the network. Otherwise an object representing</span>
+<span class="sd">            the underlying OPDS entry will be returned.</span>
+<span class="sd">        :param response_kwargs: These keyword arguments will be passed into the Response</span>
+<span class="sd">            constructor, if it is invoked.</span>
+<span class="sd">        :return: A Response, if `raw` is false. Otherwise, an OPDSMessage</span>
+<span class="sd">            or an etree._Element -- whatever was returned by</span>
+<span class="sd">            OPDSFeed.create_entry.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="n">feed</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="p">[],</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">Edition</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">work</span><span class="o">.</span><span class="n">presentation_edition</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -1040,7 +1099,24 @@
             <span class="n">new_root</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">tag</span><span class="p">,</span> <span class="n">nsmap</span><span class="o">=</span><span class="n">nsmap</span><span class="p">)</span>
             <span class="n">new_root</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[:]</span>
             <span class="n">entry</span> <span class="o">=</span> <span class="n">new_root</span>
-        <span class="k">return</span> <span class="n">entry</span></div>
+        <span class="k">if</span> <span class="n">raw</span> <span class="ow">or</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">entry</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">OPDSMessage</span><span class="p">):</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+            <span class="c1"># This is probably an error message; don&#39;t cache it</span>
+            <span class="c1"># even if it would otherwise be cached.</span>
+            <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;max_age&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;private&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">etree</span><span class="o">.</span><span class="n">_Element</span><span class="p">):</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+        <span class="c1"># It&#39;s common for a single OPDS entry to be returned as the</span>
+        <span class="c1"># result of an unsafe operation, so we will default to setting</span>
+        <span class="c1"># the response as private and uncacheable.</span>
+        <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;max_age&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;private&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">OPDSEntryResponse</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">entry</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="AcquisitionFeed.error_message"><a class="viewcode-back" href="../../core.html#core.opds.AcquisitionFeed.error_message">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">error_message</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">error_status</span><span class="p">,</span> <span class="n">error_message</span><span class="p">):</span>
@@ -1698,16 +1774,16 @@
 
 <div class="viewcode-block" id="NavigationFeed"><a class="viewcode-back" href="../../core.html#core.opds.NavigationFeed">[docs]</a><span class="k">class</span> <span class="nc">NavigationFeed</span><span class="p">(</span><span class="n">OPDSFeed</span><span class="p">):</span>
 
-    <span class="c1"># TODO: This is used in feed_response to set the Cache-Control</span>
-    <span class="c1"># headers. It should be replaced with a system where the</span>
-    <span class="c1"># Cache-Control max-age value is derived from the lifetime of the</span>
-    <span class="c1"># corresponding CachedFeed object, if any.</span>
-    <span class="n">FEED_CACHE_TIME</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">Configuration</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;default_feed_cache_time&#39;</span><span class="p">,</span> <span class="mi">600</span><span class="p">))</span>
-
 <div class="viewcode-block" id="NavigationFeed.navigation"><a class="viewcode-back" href="../../core.html#core.opds.NavigationFeed.navigation">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">navigation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
-                   <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;The navigation feed with links to a given lane&#39;s sublanes.&quot;&quot;&quot;</span>
+                   <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The navigation feed with links to a given lane&#39;s sublanes.</span>
+
+<span class="sd">        :param response_kwargs: Extra keyword arguments to pass into</span>
+<span class="sd">            the OPDSFeedResponse constructor.</span>
+
+<span class="sd">        :return: A Response</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">_make_annotator</span><span class="p">(</span><span class="n">annotator</span><span class="p">)</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">facets</span> <span class="ow">or</span> <span class="n">NavigationFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">worklist</span><span class="p">)</span>
@@ -1717,15 +1793,16 @@
                 <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span> <span class="n">annotator</span>
             <span class="p">)</span>
 
-        <span class="n">cached</span> <span class="o">=</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
+        <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;mimetype&#39;</span><span class="p">,</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">NAVIGATION_FEED_TYPE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CachedFeed</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span>
             <span class="n">_db</span><span class="p">,</span>
             <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
             <span class="n">pagination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">refresher_method</span><span class="o">=</span><span class="n">refresh</span><span class="p">,</span>
             <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">cached</span><span class="o">.</span><span class="n">content</span></div>
+            <span class="o">**</span><span class="n">response_kwargs</span>
+        <span class="p">)</span></div>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_generate_navigation</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="p">,</span>

@@ -34,12 +34,18 @@
             
   <h1>Source code for core.util.flask_util</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Utilities for Flask applications.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">flask</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span>
+<span class="kn">from</span> <span class="nn">lxml</span> <span class="kn">import</span> <span class="n">etree</span>
+<span class="kn">from</span> <span class="nn">nose.tools</span> <span class="kn">import</span> <span class="n">set_trace</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Response</span> <span class="k">as</span> <span class="n">FlaskResponse</span>
+<span class="kn">from</span> <span class="nn">wsgiref.handlers</span> <span class="kn">import</span> <span class="n">format_date_time</span>
+<span class="kn">import</span> <span class="nn">time</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">problem_detail</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
 
 <div class="viewcode-block" id="problem_raw"><a class="viewcode-back" href="../../../core.util.html#core.util.flask_util.problem_raw">[docs]</a><span class="k">def</span> <span class="nf">problem_raw</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{}):</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">problem_detail</span><span class="o">.</span><span class="n">json</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">instance</span><span class="p">)</span>
@@ -51,7 +57,128 @@
     <span class="sd">&quot;&quot;&quot;Create a Response that includes a Problem Detail Document.&quot;&quot;&quot;</span>
     <span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">problem_raw</span><span class="p">(</span>
         <span class="nb">type</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">detail</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">FlaskResponse</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Response"><a class="viewcode-back" href="../../../core.util.html#core.util.flask_util.Response">[docs]</a><span class="k">class</span> <span class="nc">Response</span><span class="p">(</span><span class="n">FlaskResponse</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Flask Response object with some conveniences added.</span>
+
+<span class="sd">    The conveniences:</span>
+
+<span class="sd">       * It&#39;s easy to calculate header values such as Cache-Control.</span>
+<span class="sd">       * A response can be easily converted into a string for use in</span>
+<span class="sd">         tests.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">content_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">direct_passthrough</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                 <span class="n">private</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        All parameters are the same as for the Flask/Werkzeug Response class,</span>
+<span class="sd">        with these additions:</span>
+
+<span class="sd">        :param max_age: The number of seconds for which clients should</span>
+<span class="sd">            cache this response. Used to set a value for the</span>
+<span class="sd">            Cache-Control header.</span>
+<span class="sd">        :param private: If this is True, then the response contains</span>
+<span class="sd">            information from an authenticated client and should not be stored</span>
+<span class="sd">            in intermediate caches.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">max_age</span> <span class="o">=</span> <span class="n">max_age</span> <span class="ow">or</span> <span class="mi">0</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_age</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_age</span> <span class="o">=</span> <span class="n">max_age</span>
+        <span class="k">if</span> <span class="n">private</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_age</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># The most common reason for max_age to be set to 0 is that a resource</span>
+                <span class="c1"># is _also_ private.</span>
+                <span class="n">private</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">private</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">private</span> <span class="o">=</span> <span class="n">private</span>
+
+        <span class="n">body</span> <span class="o">=</span> <span class="n">response</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="n">etree</span><span class="o">.</span><span class="n">_Element</span><span class="p">):</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">unicode</span><span class="p">)):</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">Response</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">response</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_headers</span><span class="p">(</span><span class="n">headers</span> <span class="ow">or</span> <span class="p">{}),</span>
+            <span class="n">mimetype</span><span class="o">=</span><span class="n">mimetype</span><span class="p">,</span>
+            <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">direct_passthrough</span><span class="o">=</span><span class="n">direct_passthrough</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__unicode__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This object can be treated as a string, e.g. in tests.</span>
+
+<span class="sd">        :return: The entity-body portion of the response.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+
+    <span class="k">def</span> <span class="nf">_headers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;Build an appropriate set of HTTP response headers.&quot;&quot;&quot;</span>
+        <span class="c1"># Don&#39;t modify the underlying dictionary; it came from somewhere else.</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
+
+        <span class="c1"># Set Cache-Control based on max-age.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">private</span><span class="p">:</span>
+            <span class="n">private</span> <span class="o">=</span> <span class="s2">&quot;private&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">private</span> <span class="o">=</span> <span class="s2">&quot;public&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_age</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="c1"># A CDN should hold on to the cached representation only half</span>
+            <span class="c1"># as long as the end-user.</span>
+            <span class="n">client_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_age</span>
+            <span class="n">cdn_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_age</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">cache_control</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">, no-transform, max-age=</span><span class="si">%d</span><span class="s2">, s-maxage=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">private</span><span class="p">,</span> <span class="n">client_cache</span><span class="p">,</span> <span class="n">cdn_cache</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Explicitly set Expires based on max-age; some clients need this.</span>
+            <span class="n">expires_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span>
+                <span class="n">seconds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_age</span>
+            <span class="p">)</span>
+            <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Expires&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">format_date_time</span><span class="p">(</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">mktime</span><span class="p">(</span><span class="n">expires_at</span><span class="o">.</span><span class="n">timetuple</span><span class="p">())</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Missing, invalid or zero max-age means don&#39;t cache at all.</span>
+            <span class="n">cache_control</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">, no-cache&quot;</span> <span class="o">%</span> <span class="n">private</span>
+        <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Cache-Control&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cache_control</span>
+
+        <span class="k">return</span> <span class="n">headers</span></div>
+
+
+<div class="viewcode-block" id="OPDSFeedResponse"><a class="viewcode-back" href="../../../core.util.html#core.util.flask_util.OPDSFeedResponse">[docs]</a><span class="k">class</span> <span class="nc">OPDSFeedResponse</span><span class="p">(</span><span class="n">Response</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A convenience specialization of Response for typical OPDS feeds.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">content_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">direct_passthrough</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">private</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+        <span class="n">mimetype</span> <span class="o">=</span> <span class="n">mimetype</span> <span class="ow">or</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">status</span> <span class="ow">or</span> <span class="mi">200</span>
+        <span class="k">if</span> <span class="n">max_age</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">max_age</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">DEFAULT_MAX_AGE</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OPDSFeedResponse</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+            <span class="n">mimetype</span><span class="o">=</span><span class="n">mimetype</span><span class="p">,</span> <span class="n">content_type</span><span class="o">=</span><span class="n">content_type</span><span class="p">,</span>
+            <span class="n">direct_passthrough</span><span class="o">=</span><span class="n">direct_passthrough</span><span class="p">,</span> <span class="n">max_age</span><span class="o">=</span><span class="n">max_age</span><span class="p">,</span>
+            <span class="n">private</span><span class="o">=</span><span class="n">private</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OPDSEntryResponse"><a class="viewcode-back" href="../../../core.util.html#core.util.flask_util.OPDSEntryResponse">[docs]</a><span class="k">class</span> <span class="nc">OPDSEntryResponse</span><span class="p">(</span><span class="n">Response</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A convenience specialization of Response for typical OPDS entries.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;mimetype&#39;</span><span class="p">,</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ENTRY_TYPE</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OPDSEntryResponse</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

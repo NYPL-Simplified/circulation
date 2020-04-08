@@ -59,8 +59,6 @@
 <span class="kn">from</span> <span class="nn">flask_babel</span> <span class="kn">import</span> <span class="n">lazy_gettext</span> <span class="k">as</span> <span class="n">_</span>
 
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">entry_response</span><span class="p">,</span>
-    <span class="n">feed_response</span><span class="p">,</span>
     <span class="n">cdn_url_for</span><span class="p">,</span>
     <span class="n">url_for</span><span class="p">,</span>
     <span class="n">load_lending_policy</span><span class="p">,</span>
@@ -128,6 +126,7 @@
 <span class="kn">from</span> <span class="nn">core.user_profile</span> <span class="kn">import</span> <span class="n">ProfileController</span> <span class="k">as</span> <span class="n">CoreProfileController</span>
 <span class="kn">from</span> <span class="nn">core.util.flask_util</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">problem</span><span class="p">,</span>
+    <span class="n">OPDSFeedResponse</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.util.authentication_for_opds</span> <span class="kn">import</span> <span class="n">AuthenticationForOPDSDocument</span>
 <span class="kn">from</span> <span class="nn">core.util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
@@ -777,11 +776,10 @@
         <span class="p">)</span>
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span></div>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="OPDSFeedController.feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.feed">[docs]</a>    <span class="k">def</span> <span class="nf">feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">,</span> <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build or retrieve a paginated acquisition feed.</span>
@@ -811,13 +809,12 @@
         <span class="p">)</span>
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span>
             <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span></div>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="OPDSFeedController.navigation"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.navigation">[docs]</a>    <span class="k">def</span> <span class="nf">navigation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane_identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build or retrieve a navigation feed, for clients that do not support groups.&quot;&quot;&quot;</span>
@@ -840,10 +837,9 @@
             <span class="n">base_class_constructor_kwargs</span><span class="o">=</span><span class="n">facet_class_kwargs</span>
         <span class="p">)</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">NavigationFeed</span><span class="o">.</span><span class="n">navigation</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">NavigationFeed</span><span class="o">.</span><span class="n">navigation</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span></div>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="OPDSFeedController.crawlable_library_feed"><a class="viewcode-back" href="../../api.html#api.controller.OPDSFeedController.crawlable_library_feed">[docs]</a>    <span class="k">def</span> <span class="nf">crawlable_library_feed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build or retrieve a crawlable acquisition feed for the</span>
@@ -931,13 +927,12 @@
         <span class="c1"># so library settings are irrelevant.</span>
         <span class="n">facets</span> <span class="o">=</span> <span class="n">CrawlableFacets</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
 
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">worklist</span><span class="p">,</span>
             <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_load_search_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lane</span><span class="p">):</span>
         <span class="n">entrypoints</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">entrypoints</span><span class="p">)</span>
@@ -1007,13 +1002,13 @@
         <span class="c1"># Run a search.</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="p">)</span>
         <span class="n">info</span> <span class="o">=</span> <span class="n">OpenSearchDocument</span><span class="o">.</span><span class="n">search_info</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
-        <span class="n">opds_feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
             <span class="n">url</span><span class="o">=</span><span class="n">make_url</span><span class="p">(),</span> <span class="n">lane</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
             <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
-            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">opds_feed</span><span class="p">)</span></div></div>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span>
+        <span class="p">)</span></div></div>
+
 
 <div class="viewcode-block" id="MARCRecordController"><a class="viewcode-back" href="../../api.html#api.controller.MARCRecordController">[docs]</a><span class="k">class</span> <span class="nc">MARCRecordController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
     <span class="n">DOWNLOAD_TEMPLATE</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
@@ -1110,6 +1105,11 @@
         <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="LoanController.sync"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.sync">[docs]</a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sync the authenticated patron&#39;s loans and holds with all third-party</span>
+<span class="sd">        providers.</span>
+
+<span class="sd">        :return: A Response containing an OPDS feed with up-to-date information.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;HEAD&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Response</span><span class="p">()</span>
 
@@ -1130,16 +1130,16 @@
                 <span class="p">)</span>
 
         <span class="c1"># Then make the feed.</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">active_loans_for</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">patron</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">cache_for</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">active_loans_for</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">patron</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="LoanController.borrow"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.borrow">[docs]</a>    <span class="k">def</span> <span class="nf">borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">mechanism_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a new loan or hold for a book.</span>
 
-<span class="sd">        Return an OPDS Acquisition feed that includes a link of rel</span>
-<span class="sd">        &quot;http://opds-spec.org/acquisition&quot;, which can be used to fetch the</span>
-<span class="sd">        book or the license file.</span>
+<span class="sd">        :return: A Response containing an OPDS entry that includes a link of rel</span>
+<span class="sd">           &quot;http://opds-spec.org/acquisition&quot;, which can be used to fetch the</span>
+<span class="sd">           book or the license file.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">patron</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">patron</span>
         <span class="n">library</span> <span class="o">=</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span>
@@ -1203,26 +1203,20 @@
         <span class="c1"># At this point we have either a loan or a hold. If a loan, serve</span>
         <span class="c1"># a feed that tells the patron how to fulfill the loan. If a hold,</span>
         <span class="c1"># serve a feed that talks about the hold.</span>
-        <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_loan_feed</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">hold</span><span class="p">:</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_hold_feed</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
+        <span class="n">response_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
+            <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">201</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">response_kwargs</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">200</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="n">loan</span> <span class="ow">or</span> <span class="n">hold</span>
+        <span class="k">if</span> <span class="n">item</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="o">**</span><span class="n">response_kwargs</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># This should never happen -- we should have sent a more specific</span>
             <span class="c1"># error earlier.</span>
-            <span class="k">return</span> <span class="n">HOLD_FAILED</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">OPDSFeed</span><span class="p">):</span>
-            <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">content</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">is_new</span><span class="p">:</span>
-            <span class="n">status_code</span> <span class="o">=</span> <span class="mi">201</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
-        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span> <span class="p">}</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">HOLD_FAILED</span></div>
 
 <div class="viewcode-block" id="LoanController.best_lendable_pool"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.best_lendable_pool">[docs]</a>    <span class="k">def</span> <span class="nf">best_lendable_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span>
                            <span class="n">mechanism_id</span><span class="p">):</span>
@@ -1421,8 +1415,11 @@
         <span class="k">if</span> <span class="n">mechanism</span><span class="o">.</span><span class="n">delivery_mechanism</span><span class="o">.</span><span class="n">is_streaming</span><span class="p">:</span>
             <span class="c1"># If this is a streaming delivery mechanism, create an OPDS entry</span>
             <span class="c1"># with a fulfillment link to the streaming reader url.</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_fulfillment_feed</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">fulfillment</span><span class="p">)</span>
+            <span class="n">feed</span> <span class="o">=</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">fulfillment</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">Response</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">feed</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="n">OPDSFeed</span><span class="p">):</span>
                 <span class="n">content</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -1453,7 +1450,7 @@
             <span class="k">if</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content_type</span><span class="p">:</span>
                 <span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fulfillment</span><span class="o">.</span><span class="n">content_type</span>
 
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">response</span><span class="o">=</span><span class="n">content</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LoanController.can_fulfill_without_loan"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.can_fulfill_without_loan">[docs]</a>    <span class="k">def</span> <span class="nf">can_fulfill_without_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">library</span><span class="p">,</span> <span class="n">patron</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">lpdm</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Is it acceptable to fulfill the given LicensePoolDeliveryMechanism</span>
@@ -1529,9 +1526,7 @@
 
         <span class="n">work</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">work</span>
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">entry_response</span><span class="p">(</span>
-            <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span>
-        <span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LoanController.detail"><a class="viewcode-back" href="../../api.html#api.controller.LoanController.detail">[docs]</a>    <span class="k">def</span> <span class="nf">detail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;DELETE&#39;</span><span class="p">:</span>
@@ -1557,13 +1552,12 @@
 
         <span class="k">if</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">method</span><span class="o">==</span><span class="s1">&#39;GET&#39;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
-                <span class="n">feed</span> <span class="o">=</span> <span class="n">CirculationManagerLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_loan_feed</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span>
+                <span class="n">item</span> <span class="o">=</span> <span class="n">loan</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">feed</span> <span class="o">=</span> <span class="n">LibraryLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_hold_feed</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">feed</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div></div>
+                <span class="n">item</span> <span class="o">=</span> <span class="n">hold</span>
+            <span class="k">return</span> <span class="n">CirculationManagerLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">item</span>
+            <span class="p">)</span></div></div>
 
 <div class="viewcode-block" id="AnnotationController"><a class="viewcode-back" href="../../api.html#api.controller.AnnotationController">[docs]</a><span class="k">class</span> <span class="nc">AnnotationController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
 
@@ -1698,12 +1692,11 @@
             <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="WorkController.permalink"><a class="viewcode-back" href="../../api.html#api.controller.WorkController.permalink">[docs]</a>    <span class="k">def</span> <span class="nf">permalink</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Serve an entry for a single book.</span>
@@ -1722,8 +1715,9 @@
             <span class="k">return</span> <span class="n">work</span>
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">entry_response</span><span class="p">(</span>
-            <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span>
+            <span class="n">max_age</span><span class="o">=</span><span class="n">OPDSFeed</span><span class="o">.</span><span class="n">DEFAULT_MAX_AGE</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="WorkController.related"><a class="viewcode-back" href="../../api.html#api.controller.WorkController.related">[docs]</a>    <span class="k">def</span> <span class="nf">related</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">novelist_api</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -1765,12 +1759,11 @@
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">groups</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">DISPLAY_NAME</span><span class="p">,</span>
             <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
+            <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="WorkController.recommendations"><a class="viewcode-back" href="../../api.html#api.controller.WorkController.recommendations">[docs]</a>    <span class="k">def</span> <span class="nf">recommendations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">novelist_api</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                         <span class="n">feed_class</span><span class="o">=</span><span class="n">AcquisitionFeed</span><span class="p">):</span>
@@ -1813,12 +1806,11 @@
             <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">DISPLAY_NAME</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="WorkController.report"><a class="viewcode-back" href="../../api.html#api.controller.WorkController.report">[docs]</a>    <span class="k">def</span> <span class="nf">report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Report a problem with a book.&quot;&quot;&quot;</span>
@@ -1873,12 +1865,11 @@
         <span class="n">annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotator</span><span class="p">(</span><span class="n">lane</span><span class="p">)</span>
 
         <span class="n">url</span> <span class="o">=</span> <span class="n">annotator</span><span class="o">.</span><span class="n">feed_url</span><span class="p">(</span><span class="n">lane</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">)</span>
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">feed_class</span><span class="o">.</span><span class="n">page</span><span class="p">(</span>
             <span class="n">_db</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">lane</span><span class="o">.</span><span class="n">display_name</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">worklist</span><span class="o">=</span><span class="n">lane</span><span class="p">,</span>
             <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span> <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">feed_response</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">feed</span><span class="p">))</span></div></div>
+        <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="ProfileController"><a class="viewcode-back" href="../../api.html#api.controller.ProfileController">[docs]</a><span class="k">class</span> <span class="nc">ProfileController</span><span class="p">(</span><span class="n">CirculationManagerController</span><span class="p">):</span>
@@ -2030,10 +2021,9 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">loan</span> <span class="ow">or</span> <span class="n">loan</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection</span> <span class="o">!=</span> <span class="n">collection</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">LOAN_NOT_FOUND</span>
 
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_loan_feed</span><span class="p">(</span>
-            <span class="n">collection</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span>
-        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span> <span class="p">}</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">feed</span><span class="p">),</span> <span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="n">loan</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="SharedCollectionController.borrow"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController.borrow">[docs]</a>    <span class="k">def</span> <span class="nf">borrow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">hold_id</span><span class="p">):</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">)</span>
@@ -2073,16 +2063,10 @@
             <span class="k">return</span> <span class="n">CHECKOUT_FAILED</span><span class="o">.</span><span class="n">detailed</span><span class="p">(</span><span class="n">unicode</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
         <span class="k">except</span> <span class="n">RemoteIntegrationException</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">as_problem_detail_document</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">loan</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan</span><span class="p">,</span> <span class="n">Loan</span><span class="p">):</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_loan_feed</span><span class="p">(</span>
-                <span class="n">collection</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span>
-            <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span> <span class="p">}</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">feed</span><span class="p">),</span> <span class="mi">201</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">loan</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loan</span><span class="p">,</span> <span class="n">Hold</span><span class="p">):</span>
-            <span class="n">feed</span> <span class="o">=</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_hold_feed</span><span class="p">(</span>
-                <span class="n">collection</span><span class="p">,</span> <span class="n">loan</span><span class="p">)</span>
-            <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span> <span class="p">}</span>
-            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">feed</span><span class="p">),</span> <span class="mi">201</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">loan</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+                <span class="n">collection</span><span class="p">,</span> <span class="n">loan</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="mi">201</span>
+            <span class="p">)</span></div>
 
 <div class="viewcode-block" id="SharedCollectionController.revoke_loan"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController.revoke_loan">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_loan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">loan_id</span><span class="p">):</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">)</span>
@@ -2172,10 +2156,9 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">hold</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">hold</span><span class="o">.</span><span class="n">license_pool</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="n">collection</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">HOLD_NOT_FOUND</span>
 
-        <span class="n">feed</span> <span class="o">=</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_hold_feed</span><span class="p">(</span>
-            <span class="n">collection</span><span class="p">,</span> <span class="n">hold</span><span class="p">)</span>
-        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span> <span class="s2">&quot;Content-Type&quot;</span> <span class="p">:</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">ACQUISITION_FEED_TYPE</span> <span class="p">}</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">feed</span><span class="p">),</span> <span class="mi">200</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">SharedCollectionLoanAndHoldAnnotator</span><span class="o">.</span><span class="n">single_item_feed</span><span class="p">(</span>
+            <span class="n">collection</span><span class="p">,</span> <span class="n">hold</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="SharedCollectionController.revoke_hold"><a class="viewcode-back" href="../../api.html#api.controller.SharedCollectionController.revoke_hold">[docs]</a>    <span class="k">def</span> <span class="nf">revoke_hold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection_name</span><span class="p">,</span> <span class="n">hold_id</span><span class="p">):</span>
         <span class="n">collection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_collection</span><span class="p">(</span><span class="n">collection_name</span><span class="p">)</span>

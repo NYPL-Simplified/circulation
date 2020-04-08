@@ -344,10 +344,11 @@
 
 <dl class="classmethod">
 <dt id="core.model.cachedfeed.CachedFeed.fetch">
-<em class="property">classmethod </em><code class="descname">fetch</code><span class="sig-paren">(</span><em>_db</em>, <em>worklist</em>, <em>facets</em>, <em>pagination</em>, <em>refresher_method</em>, <em>max_age=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.fetch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.fetch" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">fetch</code><span class="sig-paren">(</span><em>_db</em>, <em>worklist</em>, <em>facets</em>, <em>pagination</em>, <em>refresher_method</em>, <em>max_age=None</em>, <em>raw=False</em>, <em>**response_kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/model/cachedfeed.html#CachedFeed.fetch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.model.cachedfeed.CachedFeed.fetch" title="Permalink to this definition">¶</a></dt>
 <dd><p>Retrieve a cached feed from the database if possible.</p>
 <p>Generate it from scratch and store it in the database if
 necessary.</p>
+<p>Return it in the most useful form to the caller.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -369,10 +370,14 @@ number of seconds or a timedelta. If no value is
 specified, a default value will be calculated based on
 WorkList and Facets configuration. Setting this value to
 zero will force a refresh.</li>
+<li><strong>raw</strong> – If this is False (the default), a Response ready to be
+converted into a Flask Response object will be returned. If this
+is True, the CachedFeed object itself will be returned. In most
+non-test situations the default is better.</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A CachedFeed containing up-to-date content.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A Response or CachedFeed containing up-to-date content.</p>
 </td>
 </tr>
 </tbody>

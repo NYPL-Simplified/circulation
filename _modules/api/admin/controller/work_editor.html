@@ -49,8 +49,6 @@
 <span class="kn">from</span> <span class="nn">api.metadata_wrangler</span> <span class="kn">import</span> <span class="n">MetadataWranglerCollectionRegistrar</span>
 <span class="kn">from</span> <span class="nn">api.admin.validator</span> <span class="kn">import</span> <span class="n">Validator</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">entry_response</span><span class="p">,</span>
-    <span class="n">feed_response</span><span class="p">,</span>
     <span class="n">load_pagination_from_request</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">core.classifier</span> <span class="kn">import</span> <span class="p">(</span>
@@ -106,6 +104,8 @@
         <span class="sd">&quot;&quot;&quot;Return an OPDS entry with detailed information for admins.</span>
 
 <span class="sd">        This includes relevant links for editing the book.</span>
+
+<span class="sd">        :return: An OPDSEntryResponse</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">require_librarian</span><span class="p">(</span><span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
 
@@ -114,11 +114,11 @@
             <span class="k">return</span> <span class="n">work</span>
 
         <span class="n">annotator</span> <span class="o">=</span> <span class="n">AdminAnnotator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">circulation</span><span class="p">,</span> <span class="n">flask</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">library</span><span class="p">)</span>
-        <span class="c1"># Don&#39;t cache these OPDS entries - they should update immediately</span>
-        <span class="c1"># in the admin interface when an admin makes a change.</span>
-        <span class="k">return</span> <span class="n">entry_response</span><span class="p">(</span>
-            <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">),</span> <span class="n">cache_for</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-        <span class="p">)</span></div>
+
+        <span class="c1"># single_entry returns an OPDSEntryResponse that will not be</span>
+        <span class="c1"># cached, which is perfect. We want the admin interface</span>
+        <span class="c1"># to update immediately when an admin makes a change.</span>
+        <span class="k">return</span> <span class="n">AcquisitionFeed</span><span class="o">.</span><span class="n">single_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">annotator</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="WorkController.complaints"><a class="viewcode-back" href="../../../../api.admin.controller.html#api.admin.controller.work_editor.WorkController.complaints">[docs]</a>    <span class="k">def</span> <span class="nf">complaints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier_type</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return detailed complaint information for admins.&quot;&quot;&quot;</span>
