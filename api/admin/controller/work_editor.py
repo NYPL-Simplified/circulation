@@ -14,8 +14,6 @@ from api.config import (
 from api.metadata_wrangler import MetadataWranglerCollectionRegistrar
 from api.admin.validator import Validator
 from core.app_server import (
-    entry_response,
-    feed_response,
     load_pagination_from_request,
 )
 from core.classifier import (
@@ -71,6 +69,8 @@ class WorkController(AdminCirculationManagerController):
         """Return an OPDS entry with detailed information for admins.
 
         This includes relevant links for editing the book.
+
+        :return: An OPDSEntryResponse
         """
         self.require_librarian(flask.request.library)
 
@@ -79,11 +79,11 @@ class WorkController(AdminCirculationManagerController):
             return work
 
         annotator = AdminAnnotator(self.circulation, flask.request.library)
-        # Don't cache these OPDS entries - they should update immediately
-        # in the admin interface when an admin makes a change.
-        return entry_response(
-            AcquisitionFeed.single_entry(self._db, work, annotator), cache_for=0,
-        )
+
+        # single_entry returns an OPDSEntryResponse that will not be
+        # cached, which is perfect. We want the admin interface
+        # to update immediately when an admin makes a change.
+        return AcquisitionFeed.single_entry(self._db, work, annotator)
 
     def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""

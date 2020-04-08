@@ -60,11 +60,16 @@ from core.util.opds_writer import (
 
 from core.opds import (
     AcquisitionFeed,
+    TestAnnotator,
     UnfulfillableWork,
 )
 
 from core.opds_import import (
     OPDSXMLParser
+)
+from core.util.flask_util import (
+    OPDSEntryResponse,
+    OPDSFeedResponse,
 )
 
 from api.circulation import (
@@ -256,6 +261,43 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         entry = entry_for(result)
         assert '2017-01-01' in entry.get("updated")
 
+    def test__single_entry_response(self):
+        """Test the helper method that makes OPDSEntryResponse objects."""
+
+        m = CirculationManagerAnnotator._single_entry_response
+
+        # Test the case where we accept the defaults.
+        work = self._work()
+        url = self._url
+        annotator = TestAnnotator()
+        response = m(self._db, work, annotator, url)
+        assert isinstance(response, OPDSEntryResponse)
+        assert '<title>%s</title>' % work.title in response.data
+
+        # By default, the representation is private but can be cached
+        # by the recipient.
+        eq_(True, response.private)
+        eq_(30*60, response.max_age)
+
+        # Test the case where we override the defaults.
+        response = m(self._db, work, annotator, url, max_age=12, private=False)
+        eq_(False, response.private)
+        eq_(12, response.max_age)
+
+        # Test the case where the Work we thought we were providing is missing.
+        work = None
+        response = m(self._db, work, annotator, url)
+
+        # Instead of an entry based on the Work, we get an empty feed.
+        assert isinstance(response, OPDSFeedResponse)
+        assert '<title>Unknown work</title>' in response.data
+        assert '<entry>' not in response.data
+
+        # Since it's an error message, the representation is private
+        # and not to be cached.
+        eq_(0, response.max_age)
+        eq_(True, response.private)
+
 
 class TestLibraryAnnotator(VendorIDTest):
     def setup(self):
@@ -352,7 +394,7 @@ class TestLibraryAnnotator(VendorIDTest):
             # Check that the configuration value made it into the link.
             eq_(href, link_config[rel])
             eq_("text/html", link.attrib['type'])
-                
+
         # There are three help links using different protocols.
         help_links = [x.attrib['href'] for x in mock_feed
                       if x.attrib['rel'] == 'help']
@@ -957,9 +999,16 @@ class TestLibraryAnnotator(VendorIDTest):
         self.initialize_adobe(self._default_library)
         patron = self._patron()
         cls = LibraryLoanAndHoldAnnotator
-        raw = cls.active_loans_for(None, patron, test_mode=True)
+
+        response = cls.active_loans_for(None, patron, test_mode=True)
+
+        # The feed is cacheable but private.
+        assert isinstance(response, OPDSFeedResponse)
+        eq_(60*30, response.max_age)
+        eq_(True, response.private)
+
         # No entries in the feed...
-        raw = unicode(raw)
+        raw = unicode(response)
         feed = feedparser.parse(raw)
         eq_(0, len(feed['entries']))
 
@@ -977,7 +1026,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(expect_url, upmp_link['href'])
 
         # ... and we have DRM licensing information.
-        tree = etree.fromstring(raw)
+        tree = etree.fromstring(response.data)
         parser = OPDSXMLParser()
         licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
 
@@ -1216,9 +1265,10 @@ class TestLibraryAnnotator(VendorIDTest):
             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             None, None)
 
-        feed_obj = LibraryLoanAndHoldAnnotator.single_fulfillment_feed(
-            None, loan, fulfillment, test_mode=True)
-        raw = etree.tostring(feed_obj)
+        response = LibraryLoanAndHoldAnnotator.single_item_feed(
+            None, loan, fulfillment, test_mode=True
+        )
+        raw = response.data
 
         entries = feedparser.parse(raw)['entries']
         eq_(1, len(entries))
@@ -1549,6 +1599,116 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(mech2.delivery_mechanism.content_type, indirect.attrib['type'])
 
 
+class TestLibraryLoanAndHoldAnnotator(DatabaseTest):
+
+    def test_single_item_feed(self):
+        # Test the generation of single-item OPDS feeds for loans (with and
+        # without fulfillment) and holds.
+        class MockAnnotator(LibraryLoanAndHoldAnnotator):
+
+            def url_for(self, controller, **kwargs):
+                self.url_for_called_with = (controller, kwargs)
+                return "a URL"
+
+            def _single_entry_response(self, *args, **kwargs):
+                self._single_entry_response_called_with = (args, kwargs)
+                # Return the annotator itself so we can look at it.
+                return self
+
+        def test_annotator(item, fulfillment=None):
+            # Call MockAnnotator.single_item_feed with certain arguments
+            # and make some general assertions about the return value.
+            circulation = object()
+            test_mode = object()
+            feed_class = object()
+            result = MockAnnotator.single_item_feed(
+                circulation, item, fulfillment, test_mode, feed_class,
+                extra_arg="value"
+            )
+
+            # The final result is a MockAnnotator object. This isn't
+            # normal; it's because
+            # MockAnnotator._single_entry_response returns the
+            # MockAnnotator it creates, for us to examine.
+            assert isinstance(result, MockAnnotator)
+
+            # Let's examine the MockAnnotator itself.
+            eq_(circulation, result.circulation)
+            eq_(self._default_library, result.library)
+            eq_(test_mode, result.test_mode)
+
+            # Now let's see what we did with it after calling its
+            # constructor.
+
+            # First, we generated a URL to the "loan_or_hold_detail"
+            # controller for the license pool's identifier.
+            url_call = result.url_for_called_with
+            controller_name, kwargs = url_call
+            eq_("loan_or_hold_detail", controller_name)
+            eq_(self._default_library.short_name,
+                kwargs.pop('library_short_name'))
+            eq_(pool.identifier.type, kwargs.pop('identifier_type'))
+            eq_(pool.identifier.identifier, kwargs.pop('identifier'))
+            eq_(True, kwargs.pop('_external'))
+            eq_({}, kwargs)
+
+            # The return value of that was the string "a URL". We then
+            # passed that into _single_entry_response, along with
+            # `item` and a number of arguments that we made up.
+            response_call = result._single_entry_response_called_with
+            (_db, _work, annotator, url, _feed_class), kwargs = (
+                response_call
+            )
+            eq_(self._db, _db)
+            eq_(work, _work)
+            eq_(result, annotator)
+            eq_("a URL", url)
+            eq_(feed_class, _feed_class)
+
+            # The only keyword argument is an extra argument propagated from
+            # the single_item_feed call.
+            eq_('value', kwargs.pop('extra_arg'))
+
+            # Return the MockAnnotator for further examination.
+            return result
+
+        # Now we're going to call test_annotator a couple times in
+        # different situations.
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        patron = self._patron()
+        loan, ignore = pool.loan_to(patron)
+
+        # First, let's ask for a single-item feed for a loan.
+        annotator = test_annotator(loan)
+
+        # Everything tested by test_annotator happened, but _also_,
+        # when the annotator was created, the Loan was stored in
+        # active_loans_by_work.
+        eq_({work : loan}, annotator.active_loans_by_work)
+
+        # Since we passed in a loan rather than a hold,
+        # active_holds_by_work is empty.
+        eq_({}, annotator.active_holds_by_work)
+
+        # Since we didn't pass in a fulfillment for the loan,
+        # active_fulfillments_by_work is empty.
+        eq_({}, annotator.active_fulfillments_by_work)
+
+        # Now try it again, but give the loan a fulfillment.
+        fulfillment = object()
+        annotator = test_annotator(loan, fulfillment)
+        eq_({work : loan}, annotator.active_loans_by_work)
+        eq_({work : fulfillment}, annotator.active_fulfillments_by_work)
+
+        # Finally, try it with a hold.
+        hold, ignore = pool.on_hold_to(patron)
+        annotator = test_annotator(hold)
+        eq_({work : hold}, annotator.active_holds_by_work)
+        eq_({}, annotator.active_loans_by_work)
+        eq_({}, annotator.active_fulfillments_by_work)
+
+
 class TestSharedCollectionAnnotator(DatabaseTest):
     def setup(self):
         super(TestSharedCollectionAnnotator, self).setup()
@@ -1567,6 +1727,9 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         assert "feed" in feed_url_fantasy
         assert str(self.lane.id) in feed_url_fantasy
         assert self.collection.name in feed_url_fantasy
+
+    def test_single_item_feed(self):
+        pass
 
     def get_parsed_feed(self, works, lane=None):
         if not lane:
@@ -1732,3 +1895,121 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         [borrow] = work4_links
         assert "shared_collection_borrow" in borrow.attrib.get("href")
         eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+
+    def test_single_item_feed(self):
+        # Test the generation of single-item OPDS feeds for loans (with and
+        # without fulfillment) and holds.
+        class MockAnnotator(SharedCollectionLoanAndHoldAnnotator):
+
+            def url_for(self, controller, **kwargs):
+                self.url_for_called_with = (controller, kwargs)
+                return "a URL"
+
+            def _single_entry_response(self, *args, **kwargs):
+                self._single_entry_response_called_with = (args, kwargs)
+                # Return the annotator itself so we can look at it.
+                return self
+
+        def test_annotator(item, fulfillment, expect_route,
+                           expect_route_kwargs):
+            # Call MockAnnotator.single_item_feed with certain arguments
+            # and make some general assertions about the return value.
+            test_mode = object()
+            feed_class = object()
+            result = MockAnnotator.single_item_feed(
+                self.collection, item, fulfillment, test_mode, feed_class,
+                extra_arg="value"
+            )
+
+            # The final result is a MockAnnotator object. This isn't
+            # normal; it's because
+            # MockAnnotator._single_entry_response returns the
+            # MockAnnotator it creates, for us to examine.
+            assert isinstance(result, MockAnnotator)
+
+            # Let's examine the MockAnnotator itself.
+            eq_(self.collection, result.collection)
+            eq_(test_mode, result.test_mode)
+
+            # Now let's see what we did with it after calling its
+            # constructor.
+
+            # First, we generated a URL to a controller for the
+            # license pool's identifier. _Which_ controller we used
+            # depends on what `item` is.
+            url_call = result.url_for_called_with
+            route, route_kwargs = url_call
+
+            # The route is the one we expect.
+            eq_(expect_route, route)
+
+            # Apart from a few keyword arguments that are always the same,
+            # the keyword arguments are the ones we expect.
+            eq_(self.collection.name, route_kwargs.pop('collection_name'))
+            eq_(True, route_kwargs.pop('_external'))
+            eq_(expect_route_kwargs, route_kwargs)
+
+            # The return value of that was the string "a URL". We then
+            # passed that into _single_entry_response, along with
+            # `item` and a number of arguments that we made up.
+            response_call = result._single_entry_response_called_with
+            (_db, _work, annotator, url, _feed_class), kwargs = (
+                response_call
+            )
+            eq_(self._db, _db)
+            eq_(work, _work)
+            eq_(result, annotator)
+            eq_("a URL", url)
+            eq_(feed_class, _feed_class)
+
+            # The only keyword argument is an extra argument propagated from
+            # the single_item_feed call.
+            eq_('value', kwargs.pop('extra_arg'))
+
+            # Return the MockAnnotator for further examination.
+            return result
+
+        # Now we're going to call test_annotator a couple times in
+        # different situations.
+        work = self.work
+        [pool] = work.license_pools
+        patron = self._patron()
+        loan, ignore = pool.loan_to(patron)
+
+        # First, let's ask for a single-item feed for a loan.
+        annotator = test_annotator(
+            loan, None, expect_route="shared_collection_loan_info",
+            expect_route_kwargs=dict(loan_id=loan.id)
+        )
+
+        # Everything tested by test_annotator happened, but _also_,
+        # when the annotator was created, the Loan was stored in
+        # active_loans_by_work.
+        eq_({work : loan}, annotator.active_loans_by_work)
+
+        # Since we passed in a loan rather than a hold,
+        # active_holds_by_work is empty.
+        eq_({}, annotator.active_holds_by_work)
+
+        # Since we didn't pass in a fulfillment for the loan,
+        # active_fulfillments_by_work is empty.
+        eq_({}, annotator.active_fulfillments_by_work)
+
+        # Now try it again, but give the loan a fulfillment.
+        fulfillment = object()
+        annotator = test_annotator(
+            loan, fulfillment, expect_route="shared_collection_loan_info",
+            expect_route_kwargs=dict(loan_id=loan.id)
+        )
+        eq_({work : loan}, annotator.active_loans_by_work)
+        eq_({work : fulfillment}, annotator.active_fulfillments_by_work)
+
+        # Finally, try it with a hold.
+        hold, ignore = pool.on_hold_to(patron)
+        annotator = test_annotator(
+            hold, None, expect_route="shared_collection_hold_info",
+            expect_route_kwargs=dict(hold_id=hold.id)
+        )
+        eq_({work : hold}, annotator.active_holds_by_work)
+        eq_({}, annotator.active_loans_by_work)
+        eq_({}, annotator.active_fulfillments_by_work)
