@@ -36,7 +36,9 @@ class TestResponse(object):
         assert 'Expires' in headers
 
     def test_headers(self):
-        # First test cases where the response should not private and not cached.
+        # First, test cases where the response should be private and
+        # not cached. These are the kinds of settings used for error
+        # messages.
         def assert_not_cached(max_age):
             headers = Response(max_age=max_age).headers
             eq_("private, no-cache", headers['Cache-Control'])
@@ -70,6 +72,14 @@ class TestResponse(object):
         # unfortunate timing.
         expires = headers['Expires']
         eq_(expires[:17], expect_expires_string[:17])
+
+        # It's possible to have a response that is private but should
+        # be cached. The feed of a patron's current loans is a good
+        # example.
+        response = Response(max_age=30, private=True)
+        cache_control = response.headers['Cache-Control']
+        assert 'private' in cache_control
+        assert 'max-age=30' in cache_control
 
     def test_unicode(self):
         # You can easily convert a Response object to Unicode
