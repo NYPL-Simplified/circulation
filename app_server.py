@@ -21,6 +21,7 @@ from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
 )
+from util.flask_util import OPDSFeedResponse
 from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
@@ -65,36 +66,6 @@ def load_lending_policy(policy):
                         "Unrecognized audience in lending policy: %s" %
                         audience)
     return policy
-
-def feed_response(feed, acquisition=True, cache_for=AcquisitionFeed.FEED_CACHE_TIME):
-    if acquisition:
-        content_type = OPDSFeed.ACQUISITION_FEED_TYPE
-    else:
-        content_type = OPDSFeed.NAVIGATION_FEED_TYPE
-    return _make_response(feed, content_type, cache_for)
-
-def entry_response(entry, cache_for=AcquisitionFeed.FEED_CACHE_TIME):
-    content_type = OPDSFeed.ENTRY_TYPE
-    return _make_response(entry, content_type, cache_for)
-
-def _make_response(content, content_type, cache_for):
-    if isinstance(content, etree._Element):
-        content = etree.tostring(content)
-    elif not isinstance(content, (bytes, unicode)):
-        content = unicode(content)
-
-    if isinstance(cache_for, int):
-        # A CDN should hold on to the cached representation only half
-        # as long as the end-user.
-        client_cache = cache_for
-        cdn_cache = cache_for / 2
-        cache_control = "public, no-transform, max-age=%d, s-maxage=%d" % (
-            client_cache, cdn_cache)
-    else:
-        cache_control = "private, no-cache"
-
-    return make_response(content, 200, {"Content-Type": content_type,
-                                        "Cache-Control": cache_control})
 
 def load_facets_from_request(
         facet_config=None, worklist=None, base_class=Facets,
@@ -349,7 +320,7 @@ class URNLookupController(object):
             self._db, "Lookup results", this_url, handler.works, annotator,
             precomposed_entries=handler.precomposed_entries,
         )
-        return feed_response(opds_feed)
+        return OPDSFeedResponse(opds_feed)
 
     def process_urns(self, urns, **process_urn_kwargs):
         """Process a number of URNs by instantiating a URNLookupHandler
@@ -383,8 +354,7 @@ class URNLookupController(object):
             self._db, urn, this_url, works, annotator,
             precomposed_entries=handler.precomposed_entries
         )
-
-        return feed_response(opds_feed)
+        return OPDSFeedResponse(opds_feed)
 
 
 class URNLookupHandler(object):

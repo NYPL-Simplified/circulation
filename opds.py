@@ -57,6 +57,12 @@ from lane import (
     SearchFacets,
     WorkList,
 )
+
+from util.flask_util import (
+    OPDSEntryResponse,
+    OPDSFeedResponse,
+    Response,
+)
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -579,16 +585,11 @@ class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
 
-    # TODO: This is used in feed_response to set the Cache-Control
-    # headers. It should be replaced with a system where the
-    # Cache-Control max-age value is derived from the lifetime of the
-    # corresponding CachedFeed object, if any.
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
-
     @classmethod
     def groups(cls, _db, title, url, worklist, annotator,
                facets=None, max_age=None,
                search_engine=None, search_debug=False,
+               **response_kwargs
     ):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
@@ -599,7 +600,10 @@ class AcquisitionFeed(OPDSFeed):
 
         :param facets: A GroupsFacet object.
 
-        :return: A Unicode string containing a (potentially cached) OPDS feed.
+        :param response_kwargs: Extra keyword arguments to pass into
+            the OPDSFeedResponse constructor.
+        
+        :return: An OPDSFeedResponse containing the feed.
         """
         annotator = cls._make_annotator(annotator)
         facets = facets or FeaturedFacets.default(worklist.get_library(_db))
@@ -610,11 +614,11 @@ class AcquisitionFeed(OPDSFeed):
                 search_engine, search_debug
             )
 
-        cached = CachedFeed.fetch(
+        return CachedFeed.fetch(
             _db, worklist=worklist, facets=facets, pagination=None,
-            refresher_method=refresh, max_age=max_age
+            refresher_method=refresh, max_age=max_age,
+            **response_kwargs
         )
-        return cached.content
 
     @classmethod
     def _generate_groups(
@@ -694,12 +698,15 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, worklist, annotator,
              facets=None, pagination=None,
-             max_age=None, search_engine=None,
-             search_debug=False
+             max_age=None, search_engine=None, search_debug=False,
+             **response_kwargs
     ):
         """Create a feed representing one page of works from a given lane.
 
-        :return: A Unicode string containing a (potentially cached) OPDS feed.
+        :param response_kwargs: Extra keyword arguments to pass into
+            the OPDSFeedResponse constructor.
+
+        :return: An OPDSFeedResponse containing the feed.
         """
         library = worklist.get_library(_db)
         facets = facets or Facets.default(library)
@@ -712,11 +719,11 @@ class AcquisitionFeed(OPDSFeed):
                 search_engine, search_debug
             )
 
-        cached = CachedFeed.fetch(
+        response_kwargs.setdefault('max_age', max_age)
+        return CachedFeed.fetch(
             _db, worklist=worklist, facets=facets, pagination=pagination,
-            refresher_method=refresh, max_age=max_age
+            refresher_method=refresh, **response_kwargs
         )
-        return cached.content
 
     @classmethod
     def _generate_page(
@@ -783,8 +790,13 @@ class AcquisitionFeed(OPDSFeed):
         creating an OPDS feed for a custom list and not cached.
 
         TODO: This is used by the circulation manager admin interface.
-        Investigating replacing the code that uses this so that it uses
-        the search index.
+        Investigate changing the code that uses this to use the search
+        index -- this is inefficient and creates an alternate code path
+        that may harbor bugs.
+
+        TODO: This cannot currently return OPDSFeedResponse because the
+        admin interface modifies the feed after it's generated.
+
         """
         page_of_works = pagination.modify_database_query(_db, query)
         pagination.total_size = int(query.count())
@@ -799,6 +811,19 @@ class AcquisitionFeed(OPDSFeed):
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=url_fn(pagination.previous_page.offset))
 
         return feed
+
+    def as_response(self, **kwargs):
+        """Convert this feed into an OPDSFEedResponse."""
+        return OPDSFeedResponse(self, **kwargs)
+
+    def as_error_response(self, **kwargs):
+        """Convert this feed into an OPDSFEedResponse that should be treated
+        by intermediaries as an error -- that is, treated as private
+        and not cached.
+        """
+        kwargs['max_age'] = 0
+        kwargs['private'] = True
+        return self.as_response(**kwargs)
 
     @classmethod
     def _make_annotator(cls, annotator):
@@ -933,8 +958,24 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def search(cls, _db, title, url, lane, search_engine, query,
-               pagination=None, facets=None, annotator=None
+               pagination=None, facets=None, annotator=None,
+               **response_kwargs
     ):
+        """Run a search against the given search engine and return
+        the results as a Flask Response.
+
+        :param _db: A database connection
+        :param title: The title of the resulting OPDS feed.
+        :param url: The URL from which the feed will be served.
+        :param search_engine: An ExternalSearchIndex.
+        :param query: The search query
+        :param pagination: A Pagination
+        :param facets: A Facets
+        :param annotator: An Annotator
+        :param response_kwargs: Keyword arguments to pass into the OPDSFeedResponse
+            constructor.
+        :return: An ODPSFeedResponse
+        """
         facets = facets or SearchFacets()
         pagination = pagination or Pagination.default()
         results = lane.search(
@@ -981,11 +1022,29 @@ class AcquisitionFeed(OPDSFeed):
         opds_feed.add_breadcrumbs(lane, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
-        return unicode(opds_feed)
+        return OPDSFeedResponse(response=unicode(opds_feed), **response_kwargs)
 
     @classmethod
-    def single_entry(cls, _db, work, annotator, force_create=False):
-        """Create a single-entry OPDS document for one specific work."""
+    def single_entry(
+            cls, _db, work, annotator, force_create=False, raw=False, **response_kwargs
+    ):
+        """Create a single-entry OPDS document for one specific work.
+
+        :param _db: A database connection.
+        :param work: A Work
+        :param work: An Annotator
+        :param force_create: Create the OPDS entry from scratch even
+            if there's already a cached one.
+        :param raw: If this is False (the default), a Flask Response will be returned,
+            ready to be sent over the network. Otherwise an object representing
+            the underlying OPDS entry will be returned.
+        :param response_kwargs: These keyword arguments will be passed into the Response
+            constructor, if it is invoked.
+        :return: A Response, if `raw` is false. Otherwise, an OPDSMessage
+            or an etree._Element -- whatever was returned by
+            OPDSFeed.create_entry.
+        """
+
         feed = cls(_db, '', '', [], annotator=annotator)
         if not isinstance(work, Edition) and not work.presentation_edition:
             return None
@@ -1005,7 +1064,24 @@ class AcquisitionFeed(OPDSFeed):
             new_root = etree.Element(entry.tag, nsmap=nsmap)
             new_root[:] = entry[:]
             entry = new_root
-        return entry
+        if raw or entry is None:
+            return entry
+        if isinstance(entry, OPDSMessage):
+            entry = unicode(entry)
+            # This is probably an error message; don't cache it
+            # even if it would otherwise be cached.
+            response_kwargs['max_age'] = 0
+            response_kwargs['private'] = True
+        elif isinstance(entry, etree._Element):
+            entry = etree.tostring(entry)
+
+        # It's common for a single OPDS entry to be returned as the
+        # result of an unsafe operation, so we will default to setting
+        # the response as private and uncacheable.
+        response_kwargs.setdefault('max_age', 0)
+        response_kwargs.setdefault('private', True)
+
+        return OPDSEntryResponse(response=entry, **response_kwargs)
 
     @classmethod
     def error_message(cls, identifier, error_status, error_message):
@@ -1663,16 +1739,16 @@ class NavigationFacets(FeaturedFacets):
 
 class NavigationFeed(OPDSFeed):
 
-    # TODO: This is used in feed_response to set the Cache-Control
-    # headers. It should be replaced with a system where the
-    # Cache-Control max-age value is derived from the lifetime of the
-    # corresponding CachedFeed object, if any.
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
-
     @classmethod
     def navigation(cls, _db, title, url, worklist, annotator,
-                   facets=None, max_age=None):
-        """The navigation feed with links to a given lane's sublanes."""
+                   facets=None, max_age=None, **response_kwargs):
+        """The navigation feed with links to a given lane's sublanes.
+
+        :param response_kwargs: Extra keyword arguments to pass into
+            the OPDSFeedResponse constructor.
+
+        :return: A Response
+        """
 
         annotator = AcquisitionFeed._make_annotator(annotator)
         facets = facets or NavigationFacets.default(worklist)
@@ -1682,15 +1758,16 @@ class NavigationFeed(OPDSFeed):
                 _db, title, url, worklist, annotator
             )
 
-        cached = CachedFeed.fetch(
+        response_kwargs.setdefault('mimetype', OPDSFeed.NAVIGATION_FEED_TYPE)
+        return CachedFeed.fetch(
             _db,
             worklist=worklist,
             facets=facets,
             pagination=None,
             refresher_method=refresh,
             max_age=max_age,
+            **response_kwargs
         )
-        return cached.content
 
     @classmethod
     def _generate_navigation(cls, _db, title, url, worklist,

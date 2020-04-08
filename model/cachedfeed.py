@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.sql.expression import (
     and_,
 )
+from ..util.flask_util import OPDSFeedResponse
 
 class CachedFeed(Base):
 
@@ -82,12 +83,14 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, worklist, facets, pagination, refresher_method,
-              max_age=None
+              max_age=None, raw=False, **response_kwargs
     ):
         """Retrieve a cached feed from the database if possible.
 
         Generate it from scratch and store it in the database if
         necessary.
+
+        Return it in the most useful form to the caller.
 
         :param _db: A database connection.
         :param worklist: The WorkList associated with this feed.
@@ -105,8 +108,12 @@ class CachedFeed(Base):
             specified, a default value will be calculated based on
             WorkList and Facets configuration. Setting this value to
             zero will force a refresh.
+        :param raw: If this is False (the default), a Response ready to be
+            converted into a Flask Response object will be returned. If this
+            is True, the CachedFeed object itself will be returned. In most
+            non-test situations the default is better.
 
-        :return: A CachedFeed containing up-to-date content.
+        :return: A Response or CachedFeed containing up-to-date content.
         """
 
         # Gather the information necessary to uniquely identify this
@@ -169,7 +176,19 @@ class CachedFeed(Base):
             # the other thread(s). Our feed takes priority.
             feed_obj.content = feed_data
             feed_obj.timestamp = generation_time
-        return feed_obj
+
+        if raw:
+            return feed_obj
+
+        # We have the information necessary to create a useful
+        # response-type object.
+        #
+        # Set some defaults in case the caller didn't pass them in.
+        response_kwargs.setdefault('max_age', max_age)
+        return OPDSFeedResponse(
+            response=feed_obj.content,
+            **response_kwargs
+        )
 
     @classmethod
     def feed_type(cls, worklist, facets):

@@ -16,7 +16,8 @@ from ...lane import (
 from ...model.cachedfeed import CachedFeed
 from ...model.configuration import ConfigurationSetting
 from ...opds import AcquisitionFeed
-
+from ...util.flask_util import Response
+from ...util.opds_writer import OPDSFeed
 
 class MockFeedGenerator(object):
 
@@ -91,7 +92,10 @@ class TestCachedFeed(DatabaseTest):
         facets = object()
         pagination = object()
         max_age = object()
-        result1 = m(self._db, worklist, facets, pagination, refresher, max_age)
+        result1 = m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
         now = datetime.datetime.utcnow()
         assert isinstance(result1, CachedFeed)
 
@@ -148,7 +152,10 @@ class TestCachedFeed(DatabaseTest):
         # _should_refresh() is hard-coded to always return True, so
         # refresher() will be called again.
         clear_helpers()
-        result2 = m(self._db, worklist, facets, pagination, refresher, max_age)
+        result2 = m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
 
         # The CachedFeed from before was reused.
         eq_(result2, result1)
@@ -169,7 +176,10 @@ class TestCachedFeed(DatabaseTest):
         # Now try the scenario where the feed does not need to be refreshed.
         clear_helpers()
         Mock.SHOULD_REFRESH = False
-        result3 = m(self._db, worklist, facets, pagination, refresher, max_age)
+        result3 = m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
 
         # Not only do we have the same CachedFeed as before, but its
         # timestamp and content are unchanged.
@@ -181,7 +191,10 @@ class TestCachedFeed(DatabaseTest):
         # cached feed before forging ahead.
         Mock.MAX_CACHE_AGE = 0
         clear_helpers()
-        m(self._db, worklist, facets, pagination, refresher, max_age)
+        m(
+            self._db, worklist, facets, pagination, refresher, max_age,
+            raw=True
+        )
 
         # A matching CachedFeed exists in the database, but we didn't
         # even look for it, because we knew we'd be looking it up
@@ -221,14 +234,20 @@ class TestCachedFeed(DatabaseTest):
             # refresher is running.
             def other_thread_refresher():
                 return "Another thread made a feed."
-            m(self._db, wl, facets, pagination, other_thread_refresher, 0)
+            m(
+                self._db, wl, facets, pagination, other_thread_refresher, 0,
+                raw=True
+            )
 
             return "Then this thread made a feed."
 
         # This will call simultaneous_refresher(), which will call
         # CachedFeed.fetch() _again_, which will call
         # other_thread_refresher().
-        result = m(self._db, wl, facets, pagination, simultaneous_refresher, 0)
+        result = m(
+            self._db, wl, facets, pagination, simultaneous_refresher, 0,
+            raw=True
+        )
 
         # We ended up with a single CachedFeed containing the
         # latest information.
@@ -248,7 +267,7 @@ class TestCachedFeed(DatabaseTest):
             result.timestamp = tomorrow
             return "Today's content can't compete."
         tomorrow_result = m(
-            self._db, wl, facets, pagination, tomorrow_vs_now, 0
+            self._db, wl, facets, pagination, tomorrow_vs_now, 0, raw=True
         )
         eq_(tomorrow_result, result)
         eq_("Someone in the background set tomorrow's content.",
@@ -262,7 +281,7 @@ class TestCachedFeed(DatabaseTest):
             result.timestamp = yesterday
             return "Today's content is fresher."
         now_result = m(
-            self._db, wl, facets, pagination, yesterday_vs_now, 0
+            self._db, wl, facets, pagination, yesterday_vs_now, 0, raw=True
         )
 
         # We got the same CachedFeed we've been getting this whole
@@ -288,7 +307,7 @@ class TestCachedFeed(DatabaseTest):
             return "Non-weird content."
         result2 = m(
             self._db, wl, facets, pagination, timestamp_cleared_in_background,
-            0
+            0, raw=True
         )
         now = datetime.datetime.utcnow()
 
@@ -309,7 +328,8 @@ class TestCachedFeed(DatabaseTest):
 
             return "Non-weird content."
         result3 = m(
-            self._db, wl, facets, pagination, content_cleared_in_background, 0
+            self._db, wl, facets, pagination, content_cleared_in_background, 0,
+            raw=True
         )
         now = datetime.datetime.utcnow()
 
@@ -323,6 +343,38 @@ class TestCachedFeed(DatabaseTest):
         # whatever weird thing it wants to do.
         eq_(None, result2.content)
         eq_(tomorrow, result2.timestamp)
+
+    def test_response_format(self):
+        # Verify that fetch() can be told to return an appropriate
+        # Response object. This is the default behavior, since
+        # it preserves some useful information that would otherwise be
+        # lost.
+        facets = Facets.default(self._default_library)
+        pagination = Pagination.default()
+        wl = WorkList()
+        wl.initialize(self._default_library)
+
+        def refresh():
+            return "Here's a feed."
+
+        private=object()
+        r = CachedFeed.fetch(
+            self._db, wl, facets, pagination, refresh, max_age=102,
+            private=private
+        )
+        assert isinstance(r, Response)
+        eq_(200, r.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, r.content_type)
+        eq_(102, r.max_age)
+        eq_("Here's a feed.", r.data)
+
+        # The extra argument `private`, not used by CachedFeed.fetch, was
+        # passed on to the Response constructor.
+        eq_(private, r.private)
+
+        # The CachedFeed was created; just not returned.
+        cf = self._db.query(CachedFeed).one()
+        eq_("Here's a feed.", cf.content)
 
     # Tests of helper methods.
 
@@ -508,7 +560,7 @@ class TestCachedFeed(DatabaseTest):
         # Fetch a cached feed from the database. It comes out updated.
         refresher = MockFeedGenerator()
         args = (self._db, lane, facets, pagination, refresher)
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #1", feed.content)
 
         eq_(pagination.query_string, feed.pagination)
@@ -516,11 +568,11 @@ class TestCachedFeed(DatabaseTest):
         eq_(lane.id, feed.lane_id)
 
         # Fetch it again, with a high max_age, and it's cached!
-        feed = CachedFeed.fetch(*args, max_age=1000)
+        feed = CachedFeed.fetch(*args, max_age=1000, raw=True)
         eq_("This is feed #1", feed.content)
 
         # Fetch it with a low max_age, and it gets updated again.
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #2", feed.content)
 
         # The special constant CACHE_FOREVER means it's always cached.
@@ -536,7 +588,7 @@ class TestCachedFeed(DatabaseTest):
         # Fetch a cached feed from the database. It comes out updated.
         refresher = MockFeedGenerator()
         args = (self._db, lane, facets, pagination, refresher)
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #1", feed.content)
 
         eq_(pagination.query_string, feed.pagination)
@@ -545,13 +597,15 @@ class TestCachedFeed(DatabaseTest):
         eq_(lane.unique_key, feed.unique_key)
 
         # Fetch it again, with a high max_age, and it's cached!
-        feed = CachedFeed.fetch(*args, max_age=1000)
+        feed = CachedFeed.fetch(*args, max_age=1000, raw=True)
         eq_("This is feed #1", feed.content)
 
         # Fetch it with a low max_age, and it gets updated again.
-        feed = CachedFeed.fetch(*args, max_age=0)
+        feed = CachedFeed.fetch(*args, max_age=0, raw=True)
         eq_("This is feed #2", feed.content)
 
         # The special constant CACHE_FOREVER means it's always cached.
-        feed = CachedFeed.fetch(*args, max_age=CachedFeed.CACHE_FOREVER)
+        feed = CachedFeed.fetch(
+            *args, max_age=CachedFeed.CACHE_FOREVER, raw=True
+        )
         eq_("This is feed #2", feed.content)

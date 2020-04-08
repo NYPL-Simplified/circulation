@@ -1,6 +1,7 @@
 
 import datetime
 import logging
+from flask import Response
 
 from lxml import builder, etree
 from nose.tools import set_trace
@@ -146,13 +147,19 @@ class AtomFeed(object):
         return cls.E.updated(*args, **kwargs)
 
 
-    def __init__(self, title, url):
+    def __init__(self, title, url, **kwargs):
+        """Constructor.
+
+        :param title: The title of this feed.
+        :param url: The URL at which clients can expect to find this feed.
+        """
         self.feed = self.E.feed(
             self.E.id(url),
             self.E.title(unicode(title)),
             self.E.updated(self._strftime(datetime.datetime.utcnow())),
             self.E.link(href=url, rel="self"),
         )
+        super(AtomFeed, self).__init__(**kwargs)
 
 
     # TODO PYTHON3 rename to __str__
@@ -161,7 +168,6 @@ class AtomFeed(object):
             return None
 
         return etree.tounicode(self.feed, pretty_print=True)
-
 
 
 class OPDSFeed(AtomFeed):
@@ -182,6 +188,10 @@ class OPDSFeed(AtomFeed):
 
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
     NO_TITLE = "http://librarysimplified.org/terms/problem/no-title"
+
+    # Most types of OPDS feeds can be cached client-side for at least ten
+    # minutes.
+    DEFAULT_MAX_AGE = 60 * 10
 
     def __init__(self, title, url):
         super(OPDSFeed, self).__init__(title, url)

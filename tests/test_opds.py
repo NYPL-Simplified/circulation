@@ -69,6 +69,11 @@ from ..opds import (
     TestUnfulfillableAnnotator
 )
 
+from ..util.flask_util import (
+    OPDSEntryResponse,
+    OPDSFeedResponse,
+    Response,
+)
 from ..util.opds_writer import (
     AtomFeed,
     OPDSFeed,
@@ -933,8 +938,8 @@ class TestOPDS(DatabaseTest):
                 self._db, "test", self._url, lane, TestAnnotator,
                 pagination=pagination, search_engine=search_engine
             )
-        cached_works = make_page(pagination)
-        parsed = feedparser.parse(unicode(cached_works))
+        cached_works = unicode(make_page(pagination))
+        parsed = feedparser.parse(cached_works)
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -953,7 +958,7 @@ class TestOPDS(DatabaseTest):
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
-        cached_works = make_page(pagination.next_page)
+        cached_works = unicode(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
@@ -1011,7 +1016,7 @@ class TestOPDS(DatabaseTest):
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
-        cached_works = make_page(pagination.next_page)
+        cached_works = unicode(make_page(pagination.next_page))
         parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
@@ -1102,12 +1107,20 @@ class TestOPDS(DatabaseTest):
         )
 
         annotator = TestAnnotatorWithGroup()
+        private = object()
         cached_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
             max_age=0, search_engine=search_engine,
-            search_debug=True
+            search_debug=True, private=private
         )
-        parsed = feedparser.parse(cached_groups)
+
+        # The result is an OPDSFeedResponse object. The 'private'
+        # argument, unused by groups(), was passed along into the
+        # constructor.
+        assert isinstance(cached_groups, OPDSFeedResponse)
+        eq_(private, cached_groups.private)
+
+        parsed = feedparser.parse(cached_groups.data)
 
         # There are three entries in three lanes.
         e1, e2, e3 = parsed['entries']
@@ -1139,7 +1152,7 @@ class TestOPDS(DatabaseTest):
 
         # The feed has breadcrumb links
         ancestors = list(self.fantasy.parentage)
-        root = ET.fromstring(cached_groups)
+        root = ET.fromstring(cached_groups.data)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 1, len(links))
@@ -1193,6 +1206,8 @@ class TestOPDS(DatabaseTest):
         search_client.bulk_update([work1, work2])
         facets = SearchFacets(order="author", min_score=10)
 
+        private = object()
+
         def make_page(pagination):
             return AcquisitionFeed.search(
                 self._db, "test", self._url, fantasy_lane, search_client,
@@ -1200,9 +1215,15 @@ class TestOPDS(DatabaseTest):
                 pagination=pagination,
                 facets=facets,
                 annotator=TestAnnotator,
+                private=private
             )
-        feed = make_page(pagination)
-        parsed = feedparser.parse(feed)
+        response = make_page(pagination)
+        assert isinstance(response, OPDSFeedResponse)
+        eq_(OPDSFeed.DEFAULT_MAX_AGE, response.max_age)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.content_type)
+        eq_(private, response.private)
+
+        parsed = feedparser.parse(response.data)
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -1231,7 +1252,7 @@ class TestOPDS(DatabaseTest):
         eq_(fantasy_lane.display_name, up_link['title'])
 
         # Now get the second page and make sure it has a 'previous' link.
-        feed = make_page(pagination.next_page)
+        feed = unicode(make_page(pagination.next_page))
         parsed = feedparser.parse(feed)
         [previous] = self.links(parsed, 'previous')
         expect = TestAnnotator.search_url(
@@ -1269,8 +1290,8 @@ class TestOPDS(DatabaseTest):
                 pagination=Pagination.default(), search_engine=search_engine
             )
 
-        feed1 = make_page()
-        assert work1.title in feed1
+        response1 = make_page()
+        assert work1.title in unicode(response1)
         cached = get_one(self._db, CachedFeed, lane=fantasy_lane)
         old_timestamp = cached.timestamp
 
@@ -1282,19 +1303,79 @@ class TestOPDS(DatabaseTest):
 
         # The new work does not show up in the feed because
         # we get the old cached version.
-        feed2 = make_page()
-        assert work2.title not in feed2
+        response2 = make_page()
+        assert work2.title not in unicode(response2)
         assert cached.timestamp == old_timestamp
 
         # Change the WorkList's MAX_CACHE_AGE to disable caching, and
         # we get a brand new page with the new work.
         fantasy_lane.MAX_CACHE_AGE = 0
-        feed3 = make_page()
+        response3 = make_page()
         assert cached.timestamp > old_timestamp
-        assert work2.title in feed3
+        assert work2.title in unicode(response3)
 
 
 class TestAcquisitionFeed(DatabaseTest):
+
+    def test_page(self):
+        # Verify that AcquisitionFeed.page() returns an appropriate OPDSFeedResponse
+
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        private = object()
+        response = AcquisitionFeed.page(
+            self._db, "feed title", "url", wl, TestAnnotator,
+            max_age=10, private=private
+        )
+
+        # The result is an OPDSFeedResponse. The 'private' argument,
+        # unused by page(), was passed along into the constructor.
+        assert isinstance(response, OPDSFeedResponse)
+        eq_(10, response.max_age)
+        eq_(private, response.private)
+
+        assert '<title>feed title</title>' in response.data
+
+    def test_as_response(self):
+        # Verify the ability to convert an AcquisitionFeed object to an
+        # OPDSFeedResponse containing the feed.
+        feed = AcquisitionFeed(self._db, "feed title", "http://url/", [], TestAnnotator)
+
+        # Some other piece of code set expectations for how this feed should
+        # be cached.
+        response = feed.as_response(max_age=101, private=False)
+        eq_(200, response.status_code)
+
+        # We get an OPDSFeedResponse containing the feed in its
+        # entity-body.
+        assert isinstance(response, OPDSFeedResponse)
+        assert '<title>feed title</title>' in response.data
+
+        # The caching expectations are respected.
+        eq_(101, response.max_age)
+        eq_(False, response.private)
+
+    def test_as_error_response(self):
+        # Verify the ability to convert an AcquisitionFeed object to an
+        # OPDSFeedResponse that is to be treated as an error message.
+        feed = AcquisitionFeed(self._db, "feed title", "http://url/", [], TestAnnotator)
+
+        # Some other piece of code set expectations for how this feed should
+        # be cached.
+        kwargs = dict(max_age=101, private=False)
+
+        # But we know that something has gone wrong and the feed is
+        # being served as an error message.
+        response = feed.as_error_response(**kwargs)
+        assert isinstance(response, OPDSFeedResponse)
+
+        # The content of the feed is unchanged.
+        eq_(200, response.status_code)
+        assert '<title>feed title</title>' in response.data
+
+        # But the max_age and private settings have been overridden.
+        eq_(0, response.max_age)
+        eq_(True, response.private)
 
     def test_add_entrypoint_links(self):
         """Verify that add_entrypoint_links calls _entrypoint_link
@@ -1493,12 +1574,20 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # This is the edition used when we create an <entry> tag for
         # this Work.
+        private = object()
         entry = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator
+            self._db, work, TestAnnotator, private=private
         )
-        entry = etree.tounicode(entry)
-        assert original_pool.presentation_edition.title in entry
-        assert new_pool.presentation_edition.title not in entry
+        assert isinstance(entry, OPDSEntryResponse)
+
+        # We provided a value for private, which was used.  We didn't
+        # provide value for max_age, and zero was used instead of the
+        # ten-minute default typical for OPDS feeds.
+        eq_(0, entry.max_age)
+        eq_(entry.private, private)
+
+        assert original_pool.presentation_edition.title in entry.data
+        assert new_pool.presentation_edition.title not in entry.data
 
         # If the edition was issued before 1980, no datetime formatting error
         # is raised.
@@ -1511,7 +1600,37 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
 
         expected = str(work.presentation_edition.issued.date())
-        assert expected in etree.tounicode(entry)
+        assert expected in entry.data
+
+    def test_single_entry_is_opds_message(self):
+        # When single_entry has to deal with an 'OPDS entry' that
+        # turns out to be an error message, caching rules are
+        # overridden to treat the 'entry' as a private error message.
+        work = self._work()
+
+        # We plan on caching the OPDS entry as a public, long-lived
+        # document.
+        is_public = dict(max_age=200, private=False)
+
+        # But something goes wrong in create_entry() and we get an
+        # error instead.
+        class MockAcquisitionFeed(AcquisitionFeed):
+            def create_entry(*args, **kwargs):
+                return OPDSMessage("urn", 500, "oops")
+
+        response = MockAcquisitionFeed.single_entry(
+            self._db, work, object(), **is_public
+        )
+
+        # We got an OPDS entry containing the message.
+        assert isinstance(response, OPDSEntryResponse)
+        eq_(200, response.status_code)
+        assert '500' in response.data
+        assert 'oops' in response.data
+
+        # Our caching preferences were overridden.
+        eq_(True, response.private)
+        eq_(0, response.max_age)
 
     def test_entry_cache_adds_missing_drm_namespace(self):
 
@@ -1538,13 +1657,12 @@ class TestAcquisitionFeed(DatabaseTest):
             self._db, work, AddDRMTagAnnotator
         )
         eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
-            etree.tounicode(entry)
+            unicode(entry)
         )
 
     def test_error_when_work_has_no_identifier(self):
-        """We cannot create an OPDS entry for a Work that cannot be associated
-        with an Identifier.
-        """
+        # We cannot create an OPDS entry for a Work that cannot be associated
+        # with an Identifier.
         work = self._work(title=u"Hello, World!", with_license_pool=True)
         work.license_pools[0].identifier = None
         work.presentation_edition.primary_identifier = None
@@ -1646,14 +1764,18 @@ class TestAcquisitionFeed(DatabaseTest):
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
-        entry = AcquisitionFeed.single_entry(
-            self._db, work, TestUnfulfillableAnnotator
+        response = AcquisitionFeed.single_entry(
+            self._db, work, TestUnfulfillableAnnotator,
         )
+        assert isinstance(response, Response)
         expect = AcquisitionFeed.error_message(
             pool.identifier, 403,
             "I know about this work but can offer no way of fulfilling it."
         )
-        eq_(expect, entry)
+        # The status code equivalent inside the OPDS message has not affected
+        # the status code of the Response itself.
+        eq_(200, response.status_code)
+        eq_(unicode(expect), unicode(response))
 
     def test_format_types(self):
         m = AcquisitionFeed.format_types
@@ -2169,16 +2291,19 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         # When AcquisitionFeed.page() generates the first page of a paginated
         # list, it will link to different entry points into the list,
         # assuming the WorkList has different entry points.
+
         def run(wl=None, facets=None, pagination=None):
             """Call page() and see what add_entrypoint_links
             was called with.
             """
             self.mock.called_with = None
+            private = object()
             AcquisitionFeed.page(
                 self._db, "title", "url", wl, self.annotator,
                 max_age=0, facets=facets,
-                pagination=pagination
+                pagination=pagination, private=private
             )
+
             return self.mock.called_with
 
         # The WorkList has no entry points, so the mock method is not
@@ -2300,10 +2425,25 @@ class TestNavigationFeed(DatabaseTest):
         eq_("subsection", link["rel"])
 
     def test_navigation_with_sublanes(self):
-        feed = NavigationFeed.navigation(
+        private = object()
+        response = NavigationFeed.navigation(
             self._db, "Navigation", "http://navigation",
-            self.fiction, TestAnnotator)
-        parsed = feedparser.parse(unicode(feed))
+            self.fiction, TestAnnotator, max_age=42, private=private
+        )
+
+        # We got an OPDSFeedResponse back. The values we passed in for
+        # max_age and private were propagated to the response
+        # constructor.
+        assert isinstance(response, OPDSFeedResponse)
+        eq_(42, response.max_age)
+        eq_(private, response.private)
+
+        # The media type of this response is different than from the
+        # typical OPDSFeedResponse.
+        eq_(OPDSFeed.NAVIGATION_FEED_TYPE, response.content_type)
+
+        parsed = feedparser.parse(response.data)
+
         eq_("Navigation", parsed["feed"]["title"])
         [self_link] = parsed["feed"]["links"]
         eq_("http://navigation", self_link["href"])
@@ -2326,8 +2466,9 @@ class TestNavigationFeed(DatabaseTest):
         eq_(NavigationFeed.NAVIGATION_FEED_TYPE, romance_link["type"])
 
         # The feed was cached.
-        eq_(1, self._db.query(CachedFeed).count())
-       
+        cached = get_one(self._db, CachedFeed)
+        assert "http://%s/" % self.fantasy.id in cached.content
+
     def test_navigation_without_sublanes(self):
         feed = NavigationFeed.navigation(
             self._db, "Navigation", "http://navigation",
