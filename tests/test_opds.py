@@ -1336,20 +1336,29 @@ class TestAcquisitionFeed(DatabaseTest):
 
         assert '<title>feed title</title>' in response.data
 
-    def as_response(self):
+    def test_as_response(self):
         # Verify the ability to convert an AcquisitionFeed object to an
         # OPDSFeedResponse containing the feed.
-        feed = AcquisitionFeed(self._db, "feed title", [], TestAnnotator)
-        response = feed.as_response(max_age=101)
-        eq_(200, response.status)
+        feed = AcquisitionFeed(self._db, "feed title", "http://url/", [], TestAnnotator)
+
+        # Some other piece of code set expectations for how this feed should
+        # be cached.
+        response = feed.as_response(max_age=101, private=False)
+        eq_(200, response.status_code)
+
+        # We get an OPDSFeedResponse containing the feed in its
+        # entity-body.
         assert isinstance(response, OPDSFeedResponse)
         assert '<title>feed title</title>' in response.data
-        eq_(101, response.max_age)
 
-    def as_response(self):
+        # The caching expectations are respected.
+        eq_(101, response.max_age)
+        eq_(False, response.private)
+
+    def test_as_error_response(self):
         # Verify the ability to convert an AcquisitionFeed object to an
         # OPDSFeedResponse that is to be treated as an error message.
-        feed = AcquisitionFeed(self._db, "feed title", [], TestAnnotator)
+        feed = AcquisitionFeed(self._db, "feed title", "http://url/", [], TestAnnotator)
 
         # Some other piece of code set expectations for how this feed should
         # be cached.
@@ -1361,12 +1370,12 @@ class TestAcquisitionFeed(DatabaseTest):
         assert isinstance(response, OPDSFeedResponse)
 
         # The content of the feed is unchanged.
-        eq_(200, response.status)
+        eq_(200, response.status_code)
         assert '<title>feed title</title>' in response.data
 
         # But the max_age and private settings have been overridden.
         eq_(0, response.max_age)
-        eq_(False, response.private)
+        eq_(True, response.private)
 
     def test_add_entrypoint_links(self):
         """Verify that add_entrypoint_links calls _entrypoint_link
