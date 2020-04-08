@@ -152,30 +152,27 @@ class CachedFeed(Base):
             feed_obj = get_one(_db, cls, **kwargs)
 
         should_refresh = cls._should_refresh(feed_obj, max_age)
-        if not should_refresh:
-            # This is a cache hit. We found a matching CachedFeed that
-            # had fresh content.
-            return feed_obj
+        if should_refresh:
+            # This is a cache miss. Either feed_obj is None or
+            # it's no good. We need to generate a new feed.
+            feed_data = unicode(refresher_method())
+            generation_time = datetime.datetime.utcnow()
 
-        # This is a cache miss. We need to generate a new feed.
-        feed_data = unicode(refresher_method())
-        generation_time = datetime.datetime.utcnow()
-
-        # Since it can take a while to generate a feed, and we know
-        # that the feed in the database is stale, it's possible that
-        # another thread _also_ noticed that feed was stale, and
-        # generated a similar feed while we were working.
-        #
-        # To avoid a database error, fetch the feed _again_ from the
-        # database rather than assuming we have the up-to-date
-        # object.
-        feed_obj, is_new = get_one_or_create(_db, cls, **kwargs)
-        if feed_obj.timestamp is None or feed_obj.timestamp < generation_time:
-            # Either there was no contention for this object, or there
-            # was contention but our feed is more up-to-date than
-            # the other thread(s). Our feed takes priority.
-            feed_obj.content = feed_data
-            feed_obj.timestamp = generation_time
+            # Since it can take a while to generate a feed, and we know
+            # that the feed in the database is stale, it's possible that
+            # another thread _also_ noticed that feed was stale, and
+            # generated a similar feed while we were working.
+            #
+            # To avoid a database error, fetch the feed _again_ from the
+            # database rather than assuming we have the up-to-date
+            # object.
+            feed_obj, is_new = get_one_or_create(_db, cls, **kwargs)
+            if feed_obj.timestamp is None or feed_obj.timestamp < generation_time:
+                # Either there was no contention for this object, or there
+                # was contention but our feed is more up-to-date than
+                # the other thread(s). Our feed takes priority.
+                feed_obj.content = feed_data
+                feed_obj.timestamp = generation_time
 
         if raw:
             return feed_obj
@@ -184,7 +181,8 @@ class CachedFeed(Base):
         # response-type object.
         #
         # Set some defaults in case the caller didn't pass them in.
-        response_kwargs.setdefault('max_age', max_age)
+        if isinstance(max_age, int):
+            response_kwargs.setdefault('max_age', max_age)
         return OPDSFeedResponse(
             response=feed_obj.content,
             **response_kwargs
