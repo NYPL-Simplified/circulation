@@ -71,6 +71,7 @@ from ..model import (
 )
 from ..problem_details import INVALID_INPUT
 from ..testing import EndToEndSearchTest
+from ..util.opds_writer import OPDSFeed
 
 class TestFacetsWithEntryPoint(DatabaseTest):
 
@@ -1742,6 +1743,14 @@ class TestWorkList(DatabaseTest):
         wl._customlist_ids = None
         wl.list_datasource_id = object()
         eq_(True, wl.uses_customlists)
+
+    def test_max_cache_age(self):
+        # By default, the maximum cache age of an OPDS feed based on a
+        # WorkList is the default cache age for any type of OPDS feed,
+        # no matter what type of feed is being generated.
+        wl = WorkList()
+        eq_(OPDSFeed.DEFAULT_MAX_AGE, wl.max_cache_age(object()))
+
 
     def test_filter(self):
         # Verify that filter() calls modify_search_filter_hook()

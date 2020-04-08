@@ -16,7 +16,7 @@ from ...lane import (
 from ...model.cachedfeed import CachedFeed
 from ...model.configuration import ConfigurationSetting
 from ...opds import AcquisitionFeed
-from ...util.flask_util import Response
+from ...util.flask_util import OPDSFeedResponse
 from ...util.opds_writer import OPDSFeed
 
 class MockFeedGenerator(object):
@@ -346,7 +346,7 @@ class TestCachedFeed(DatabaseTest):
 
     def test_response_format(self):
         # Verify that fetch() can be told to return an appropriate
-        # Response object. This is the default behavior, since
+        # OPDSFeedResponse object. This is the default behavior, since
         # it preserves some useful information that would otherwise be
         # lost.
         facets = Facets.default(self._default_library)
@@ -362,19 +362,41 @@ class TestCachedFeed(DatabaseTest):
             self._db, wl, facets, pagination, refresh, max_age=102,
             private=private
         )
-        assert isinstance(r, Response)
+        assert isinstance(r, OPDSFeedResponse)
         eq_(200, r.status_code)
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, r.content_type)
         eq_(102, r.max_age)
         eq_("Here's a feed.", r.data)
 
         # The extra argument `private`, not used by CachedFeed.fetch, was
-        # passed on to the Response constructor.
+        # passed on to the OPDSFeedResponse constructor.
         eq_(private, r.private)
 
         # The CachedFeed was created; just not returned.
         cf = self._db.query(CachedFeed).one()
         eq_("Here's a feed.", cf.content)
+
+        # Try it again as a cache hit.
+        r = CachedFeed.fetch(
+            self._db, wl, facets, pagination, refresh, max_age=102,
+            private=private
+        )
+        assert isinstance(r, OPDSFeedResponse)
+        eq_(200, r.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, r.content_type)
+        eq_(102, r.max_age)
+        eq_("Here's a feed.", r.data)
+
+        # If we tell CachedFeed to cache its feed 'forever', that only
+        # applies to the _database_ cache. The client is told to cache
+        # the feed for the default period.
+        r = CachedFeed.fetch(
+            self._db, wl, facets, pagination, refresh,
+            max_age=CachedFeed.CACHE_FOREVER, private=private
+        )
+        assert isinstance(r, OPDSFeedResponse)
+        eq_(OPDSFeed.DEFAULT_MAX_AGE, r.max_age)
+
 
     # Tests of helper methods.
 
@@ -576,7 +598,7 @@ class TestCachedFeed(DatabaseTest):
         eq_("This is feed #2", feed.content)
 
         # The special constant CACHE_FOREVER means it's always cached.
-        feed = CachedFeed.fetch(*args, max_age=CachedFeed.CACHE_FOREVER)
+        feed = CachedFeed.fetch(*args, max_age=CachedFeed.CACHE_FOREVER, raw=True)
         eq_("This is feed #2", feed.content)
 
     def test_lifecycle_with_worklist(self):

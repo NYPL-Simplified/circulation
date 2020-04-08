@@ -83,6 +83,7 @@ from util import (
 )
 from util.problem_detail import ProblemDetail
 from util.accept_language import parse_accept_language
+from util.opds_writer import OPDSFeed
 
 import elasticsearch
 
@@ -1140,9 +1141,9 @@ class WorkList(object):
     By default, these Work objects come from a search index.
     """
 
-    # The set of Works in a WorkList is cacheable for two weeks by
-    # default. Most WorkList subclasses will override this.
-    MAX_CACHE_AGE = 14*24*60*60
+    # The default maximum cache time of a feed derived from a WorkList
+    # is the default cache time for any OPDS feed.
+    MAX_CACHE_AGE = OPDSFeed.DEFAULT_MAX_AGE
 
     # If a certain type of Worklist should always have its OPDS feeds
     # cached under a specific type, define that type as
