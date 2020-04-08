@@ -1934,9 +1934,9 @@ class TestSharedCollectionAnnotator(DatabaseTest):
             # Now let's see what we did with it after calling its
             # constructor.
 
-            # First, we generated a URL to a controller controller for
-            # the license pool's identifier. _Which_ controller we
-            # used depends on what `item` is.
+            # First, we generated a URL to a controller for the
+            # license pool's identifier. _Which_ controller we used
+            # depends on what `item` is.
             url_call = result.url_for_called_with
             route, route_kwargs = url_call
 
