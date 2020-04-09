@@ -187,30 +187,27 @@
             <span class="n">feed_obj</span> <span class="o">=</span> <span class="n">get_one</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="n">should_refresh</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_should_refresh</span><span class="p">(</span><span class="n">feed_obj</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">should_refresh</span><span class="p">:</span>
-            <span class="c1"># This is a cache hit. We found a matching CachedFeed that</span>
-            <span class="c1"># had fresh content.</span>
-            <span class="k">return</span> <span class="n">feed_obj</span>
+        <span class="k">if</span> <span class="n">should_refresh</span><span class="p">:</span>
+            <span class="c1"># This is a cache miss. Either feed_obj is None or</span>
+            <span class="c1"># it&#39;s no good. We need to generate a new feed.</span>
+            <span class="n">feed_data</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">refresher_method</span><span class="p">())</span>
+            <span class="n">generation_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
 
-        <span class="c1"># This is a cache miss. We need to generate a new feed.</span>
-        <span class="n">feed_data</span> <span class="o">=</span> <span class="n">unicode</span><span class="p">(</span><span class="n">refresher_method</span><span class="p">())</span>
-        <span class="n">generation_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
-
-        <span class="c1"># Since it can take a while to generate a feed, and we know</span>
-        <span class="c1"># that the feed in the database is stale, it&#39;s possible that</span>
-        <span class="c1"># another thread _also_ noticed that feed was stale, and</span>
-        <span class="c1"># generated a similar feed while we were working.</span>
-        <span class="c1">#</span>
-        <span class="c1"># To avoid a database error, fetch the feed _again_ from the</span>
-        <span class="c1"># database rather than assuming we have the up-to-date</span>
-        <span class="c1"># object.</span>
-        <span class="n">feed_obj</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&lt;</span> <span class="n">generation_time</span><span class="p">:</span>
-            <span class="c1"># Either there was no contention for this object, or there</span>
-            <span class="c1"># was contention but our feed is more up-to-date than</span>
-            <span class="c1"># the other thread(s). Our feed takes priority.</span>
-            <span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">feed_data</span>
-            <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">generation_time</span>
+            <span class="c1"># Since it can take a while to generate a feed, and we know</span>
+            <span class="c1"># that the feed in the database is stale, it&#39;s possible that</span>
+            <span class="c1"># another thread _also_ noticed that feed was stale, and</span>
+            <span class="c1"># generated a similar feed while we were working.</span>
+            <span class="c1">#</span>
+            <span class="c1"># To avoid a database error, fetch the feed _again_ from the</span>
+            <span class="c1"># database rather than assuming we have the up-to-date</span>
+            <span class="c1"># object.</span>
+            <span class="n">feed_obj</span><span class="p">,</span> <span class="n">is_new</span> <span class="o">=</span> <span class="n">get_one_or_create</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&lt;</span> <span class="n">generation_time</span><span class="p">:</span>
+                <span class="c1"># Either there was no contention for this object, or there</span>
+                <span class="c1"># was contention but our feed is more up-to-date than</span>
+                <span class="c1"># the other thread(s). Our feed takes priority.</span>
+                <span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">feed_data</span>
+                <span class="n">feed_obj</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="n">generation_time</span>
 
         <span class="k">if</span> <span class="n">raw</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">feed_obj</span>
@@ -219,7 +216,8 @@
         <span class="c1"># response-type object.</span>
         <span class="c1">#</span>
         <span class="c1"># Set some defaults in case the caller didn&#39;t pass them in.</span>
-        <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;max_age&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_age</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">response_kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;max_age&#39;</span><span class="p">,</span> <span class="n">max_age</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OPDSFeedResponse</span><span class="p">(</span>
             <span class="n">response</span><span class="o">=</span><span class="n">feed_obj</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
             <span class="o">**</span><span class="n">response_kwargs</span>

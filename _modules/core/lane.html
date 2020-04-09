@@ -118,6 +118,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">util.problem_detail</span> <span class="kn">import</span> <span class="n">ProblemDetail</span>
 <span class="kn">from</span> <span class="nn">util.accept_language</span> <span class="kn">import</span> <span class="n">parse_accept_language</span>
+<span class="kn">from</span> <span class="nn">util.opds_writer</span> <span class="kn">import</span> <span class="n">OPDSFeed</span>
 
 <span class="kn">import</span> <span class="nn">elasticsearch</span>
 
@@ -1175,9 +1176,9 @@
 <span class="sd">    By default, these Work objects come from a search index.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># The set of Works in a WorkList is cacheable for two weeks by</span>
-    <span class="c1"># default. Most WorkList subclasses will override this.</span>
-    <span class="n">MAX_CACHE_AGE</span> <span class="o">=</span> <span class="mi">14</span><span class="o">*</span><span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span>
+    <span class="c1"># The default maximum cache time of a feed derived from a WorkList</span>
+    <span class="c1"># is the default cache time for any OPDS feed.</span>
+    <span class="n">MAX_CACHE_AGE</span> <span class="o">=</span> <span class="n">OPDSFeed</span><span class="o">.</span><span class="n">DEFAULT_MAX_AGE</span>
 
     <span class="c1"># If a certain type of Worklist should always have its OPDS feeds</span>
     <span class="c1"># cached under a specific type, define that type as</span>
