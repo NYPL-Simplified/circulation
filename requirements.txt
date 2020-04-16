@@ -9,7 +9,6 @@ nose
 lxml
 flask
 isbnlib
-textblob
 rdflib
 pyspellchecker
 
@@ -24,6 +23,10 @@ py-bcrypt
 Flask-Babel
 money
 pymarc
+
+# nltk is a textblob dependency, and this is the last release that supports Python 2
+nltk==3.4.5
+textblob
 
 # for author name manipulations
 nameparser>=0.5.1
