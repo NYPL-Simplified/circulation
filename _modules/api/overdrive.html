@@ -1109,7 +1109,8 @@
 <span class="sd">           &#39;x-manifest&#39; and uses &#39;x&#39; for delivery of both streaming content</span>
 <span class="sd">           and manifests.</span>
 <span class="sd">        :param error_url: Value to interpolate for the {errorpageurl}</span>
-<span class="sd">           URI template value.</span>
+<span class="sd">           URI template value. This is ignored if you&#39;re fetching a manifest;</span>
+<span class="sd">           instead, the &#39;errorpageurl&#39; variable is removed entirely.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">link</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="nb">format</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1146,6 +1147,18 @@
 
 <div class="viewcode-block" id="OverdriveAPI.extract_download_link"><a class="viewcode-back" href="../../api.html#api.overdrive.OverdriveAPI.extract_download_link">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">extract_download_link</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">format</span><span class="p">,</span> <span class="n">error_url</span><span class="p">,</span> <span class="n">fetch_manifest</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract a download link from the given format descriptor.</span>
+
+<span class="sd">        :param format: A JSON document describing a specific format</span>
+<span class="sd">           in which Overdrive makes a book available.</span>
+<span class="sd">        :param error_url: Value to interpolate for the {errorpageurl}</span>
+<span class="sd">           URI template value. This is ignored if you&#39;re fetching a manifest;</span>
+<span class="sd">           instead, the &#39;errorpageurl&#39; variable is removed entirely.</span>
+<span class="sd">        :param fetch_manifest: If this is true, the download link will be</span>
+<span class="sd">           modified to a URL that an authorized mobile client can use to fetch</span>
+<span class="sd">           a manifest file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="n">format_type</span> <span class="o">=</span> <span class="nb">format</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;formatType&#39;</span><span class="p">,</span> <span class="s1">&#39;(unknown)&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="s1">&#39;linkTemplates&#39;</span> <span class="ow">in</span> <span class="nb">format</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No linkTemplates for format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
@@ -1157,9 +1170,10 @@
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;No downloadLink href for format </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">format_type</span><span class="p">)</span>
         <span class="n">download_link</span> <span class="o">=</span> <span class="n">download_link_data</span><span class="p">[</span><span class="s1">&#39;href&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">download_link</span><span class="p">:</span>
-            <span class="n">download_link</span> <span class="o">=</span> <span class="n">download_link</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{errorpageurl}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">fetch_manifest</span><span class="p">:</span>
                 <span class="n">download_link</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">make_direct_download_link</span><span class="p">(</span><span class="n">download_link</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">download_link</span> <span class="o">=</span> <span class="n">download_link</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{errorpageurl}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">error_url</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">download_link</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span></div>
@@ -1169,12 +1183,17 @@
         <span class="sd">&quot;&quot;&quot;Convert an Overdrive Read or Overdrive Listen link template to a</span>
 <span class="sd">        direct-download link for the manifest.</span>
 
+<span class="sd">        This means removing any templated arguments for Overdrive Read</span>
+<span class="sd">        authentication URL and error URL; and adding a value for the</span>
+<span class="sd">        &#39;contentfile&#39; argument.</span>
+
 <span class="sd">        :param link: An Overdrive Read or Overdrive Listen template</span>
 <span class="sd">            link.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Remove any Overdrive Read authentication URL.</span>
-        <span class="n">argument_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;odreadauthurl=</span><span class="si">{odreadauthurl}</span><span class="s2">&amp;?&quot;</span><span class="p">)</span>
-        <span class="n">link</span> <span class="o">=</span> <span class="n">argument_re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">link</span><span class="p">)</span>
+        <span class="c1"># Remove any Overdrive Read authentication URL and error URL.</span>
+        <span class="k">for</span> <span class="n">argument_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;odreadauthurl&#39;</span><span class="p">,</span> <span class="s1">&#39;errorpageurl&#39;</span><span class="p">):</span>
+            <span class="n">argument_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">={</span><span class="si">%s</span><span class="s2">}&amp;?&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">argument_name</span><span class="p">,</span> <span class="n">argument_name</span><span class="p">))</span>
+            <span class="n">link</span> <span class="o">=</span> <span class="n">argument_re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">link</span><span class="p">)</span>
 
         <span class="c1"># Add the contentfile=true argument.</span>
         <span class="k">if</span> <span class="s1">&#39;?&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">link</span><span class="p">:</span>

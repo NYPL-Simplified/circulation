@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x38c8b60&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3aff2c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x388e6b0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3b58450&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x388b5f0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x3b57840&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8486,7 +8486,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 4, 19, 12, 59, 36, 114734)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 4, 26, 15, 40, 43, 526213)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11148,7 +11148,26 @@ ExternalIntegration, and self-test status will not be stored.</p>
 <dl class="classmethod">
 <dt id="api.overdrive.OverdriveAPI.extract_download_link">
 <em class="property">classmethod </em><code class="descname">extract_download_link</code><span class="sig-paren">(</span><em>format</em>, <em>error_url</em>, <em>fetch_manifest=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.extract_download_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.extract_download_link" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Extract a download link from the given format descriptor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>format</strong> – A JSON document describing a specific format
+in which Overdrive makes a book available.</li>
+<li><strong>error_url</strong> – Value to interpolate for the {errorpageurl}
+URI template value. This is ignored if you’re fetching a manifest;
+instead, the ‘errorpageurl’ variable is removed entirely.</li>
+<li><strong>fetch_manifest</strong> – If this is true, the download link will be
+modified to a URL that an authorized mobile client can use to fetch
+a manifest file.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="classmethod">
 <dt id="api.overdrive.OverdriveAPI.extract_expiration_date">
@@ -11194,7 +11213,8 @@ as a variant of the ‘x’ format type – Overdrive doesn’t recognise
 ‘x-manifest’ and uses ‘x’ for delivery of both streaming content
 and manifests.</li>
 <li><strong>error_url</strong> – Value to interpolate for the {errorpageurl}
-URI template value.</li>
+URI template value. This is ignored if you’re fetching a manifest;
+instead, the ‘errorpageurl’ variable is removed entirely.</li>
 </ul>
 </td>
 </tr>
@@ -11266,6 +11286,9 @@ loans.</p>
 <em class="property">classmethod </em><code class="descname">make_direct_download_link</code><span class="sig-paren">(</span><em>link</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/overdrive.html#OverdriveAPI.make_direct_download_link"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.overdrive.OverdriveAPI.make_direct_download_link" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert an Overdrive Read or Overdrive Listen link template to a
 direct-download link for the manifest.</p>
+<p>This means removing any templated arguments for Overdrive Read
+authentication URL and error URL; and adding a value for the
+‘contentfile’ argument.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
