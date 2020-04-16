@@ -1074,7 +1074,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
            'x-manifest' and uses 'x' for delivery of both streaming content
            and manifests.
         :param error_url: Value to interpolate for the {errorpageurl}
-           URI template value.
+           URI template value. This is ignored if you're fetching a manifest;
+           instead, the 'errorpageurl' variable is removed entirely.
         """
         link = None
         format = None
@@ -1111,6 +1112,18 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     @classmethod
     def extract_download_link(cls, format, error_url, fetch_manifest=False):
+        """Extract a download link from the given format descriptor.
+
+        :param format: A JSON document describing a specific format
+           in which Overdrive makes a book available.
+        :param error_url: Value to interpolate for the {errorpageurl}
+           URI template value. This is ignored if you're fetching a manifest;
+           instead, the 'errorpageurl' variable is removed entirely.
+        :param fetch_manifest: If this is true, the download link will be
+           modified to a URL that an authorized mobile client can use to fetch
+           a manifest file.
+        """
+
         format_type = format.get('formatType', '(unknown)')
         if not 'linkTemplates' in format:
             raise IOError("No linkTemplates for format %s" % format_type)
@@ -1122,9 +1135,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             raise IOError("No downloadLink href for format %s" % format_type)
         download_link = download_link_data['href']
         if download_link:
-            download_link = download_link.replace("{errorpageurl}", error_url)
             if fetch_manifest:
                 download_link = cls.make_direct_download_link(download_link)
+            else:
+                download_link = download_link.replace("{errorpageurl}", error_url)
             return download_link
         else:
             return None
@@ -1134,12 +1148,17 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         """Convert an Overdrive Read or Overdrive Listen link template to a
         direct-download link for the manifest.
 
+        This means removing any templated arguments for Overdrive Read
+        authentication URL and error URL; and adding a value for the
+        'contentfile' argument.
+
         :param link: An Overdrive Read or Overdrive Listen template
             link.
         """
-        # Remove any Overdrive Read authentication URL.
-        argument_re = re.compile("odreadauthurl={odreadauthurl}&?")
-        link = argument_re.sub("", link)
+        # Remove any Overdrive Read authentication URL and error URL.
+        for argument_name in ('odreadauthurl', 'errorpageurl'):
+            argument_re = re.compile("%s={%s}&?" % (argument_name, argument_name))
+            link = argument_re.sub("", link)
 
         # Add the contentfile=true argument.
         if '?' not in link:
