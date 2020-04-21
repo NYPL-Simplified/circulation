@@ -50,6 +50,10 @@
 
 <span class="kn">from</span> <span class="nn">app</span> <span class="kn">import</span> <span class="n">app</span><span class="p">,</span> <span class="n">babel</span>
 
+<span class="c1"># We use URIs as identifiers throughout the application, meaning that</span>
+<span class="c1"># we never want werkzeug&#39;s merge_slashes feature.</span>
+<span class="n">app</span><span class="o">.</span><span class="n">url_map</span><span class="o">.</span><span class="n">merge_slashes</span> <span class="o">=</span> <span class="kc">False</span>
+
 <span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">Configuration</span>
 <span class="kn">from</span> <span class="nn">core.app_server</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ErrorHandler</span><span class="p">,</span>
@@ -406,7 +410,7 @@
 <span class="k">def</span> <span class="nf">annotation_detail</span><span class="p">(</span><span class="n">annotation_id</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">app</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">annotations</span><span class="o">.</span><span class="n">detail</span><span class="p">(</span><span class="n">annotation_id</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="annotations_for_work"><a class="viewcode-back" href="../../api.html#api.routes.annotations_for_work">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/annotations/&lt;identifier_type&gt;/&lt;path:identifier&gt;/&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="annotations_for_work"><a class="viewcode-back" href="../../api.html#api.routes.annotations_for_work">[docs]</a><span class="nd">@library_route</span><span class="p">(</span><span class="s1">&#39;/annotations/&lt;identifier_type&gt;/&lt;path:identifier&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
 <span class="nd">@has_library</span>
 <span class="nd">@allows_patron_web</span>
 <span class="nd">@requires_auth</span>
