@@ -582,6 +582,43 @@ class Facets(FacetsWithEntryPoint):
             else:
                 logging.error("Unrecognized sort order: %s", self.order)
 
+    def modify_database_query(self, _db, qu):
+        """Restrict a query against Work+LicensePool+Edition so that it
+        matches only works that fit the criteria of this Faceting object.
+
+        Sort order facet cannot be handled in this method, but can be
+        handled in subclasses that override this method.
+        """
+
+        # Apply any superclass criteria
+        qu = super(Facets, self).modify_database_query(_db, qu)
+
+        if self.availability == self.AVAILABLE_NOW:
+            availability_clause = or_(
+                LicensePool.open_access == True,
+                LicensePool.licenses_available > 0
+            )
+        elif self.availability == self.AVAILABLE_ALL:
+            availability_clause = or_(
+                LicensePool.open_access == True,
+                LicensePool.licenses_owned > 0
+            )
+        elif self.availability == self.AVAILABLE_OPEN_ACCESS:
+            availability_clause = LicensePool.open_access == True
+        qu = qu.filter(availability_clause)
+
+        if self.collection == self.COLLECTION_FULL:
+            # Include everything.
+            pass
+        elif self.collection == self.COLLECTION_FEATURED:
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
+            qu = qu.filter(
+                Work.quality >= self.library.minimum_featured_quality
+            )
+
+        return qu
+
 
 class DefaultSortOrderFacets(Facets):
     """A faceting object that changes the default sort order.
@@ -693,36 +730,13 @@ class DatabaseBackedFacets(Facets):
         return order_by_sorted, order_by
 
     def modify_database_query(self, _db, qu):
-        """Restrict a query against Work+LicensePool+Edition so that it only
-        matches works that fit this Faceting object, and so that the
+        """Restrict a query so that it matches only works
+        that fit the criteria of this faceting object. Ensure
         query is appropriately ordered and made distinct.
         """
-        if self.entrypoint:
-            qu = self.entrypoint.modify_database_query(_db, qu)
 
-        if self.availability == self.AVAILABLE_NOW:
-            availability_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_available > 0
-            )
-        elif self.availability == self.AVAILABLE_ALL:
-            availability_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_owned > 0
-            )
-        elif self.availability == self.AVAILABLE_OPEN_ACCESS:
-            availability_clause = LicensePool.open_access==True
-        qu = qu.filter(availability_clause)
-
-        if self.collection == self.COLLECTION_FULL:
-            # Include everything.
-            pass
-        elif self.collection == self.COLLECTION_FEATURED:
-            # Exclude books with a quality of less than the library's
-            # minimum featured quality.
-            qu = qu.filter(
-                Work.quality >= self.library.minimum_featured_quality
-            )
+        # Filter by facet criteria
+        qu = super(DatabaseBackedFacets, self).modify_database_query(_db, qu)
 
         # Set the ORDER BY clause.
         order_by, order_distinct = self.order_by()
