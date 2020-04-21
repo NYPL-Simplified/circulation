@@ -213,6 +213,10 @@ class RouteTest(ControllerTest):
         # Call an assertion method several times, using different
         # types of identifier in the URL, to make sure the identifier
         # is always passed through correctly.
+        #
+        # The url must contain the string '<identifier>' standing in
+        # for the place where an identifier should be plugged in, and
+        # the *args list must include the string '<identifier>'.
         authenticated = kwargs.pop('authenticated', False)
         if authenticated:
             assertion_method = self.assert_authenticated_request_calls
