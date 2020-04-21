@@ -209,6 +209,27 @@ class RouteTest(ControllerTest):
             # the mock method. This might remove the need to call the
             # mock method at all.
 
+    def assert_request_calls_method_using_identifier(self, url, method, *args, **kwargs):
+        # Call an assertion method several times, using different
+        # types of identifier in the URL, to make sure the identifier
+        # is always passed through correctly.
+        authenticated = kwargs.pop('authenticated', False)
+        if authenticated:
+            assertion_method = self.assert_authenticated_request_calls
+        else:
+            assertion_method = self.assert_request_calls
+        assert '<identifier>' in url
+        args = list(args)
+        identifier_index = args.index('<identifier>')
+        for identifier in (
+            '<identifier>', 'an/identifier/', 'http://an-identifier/', 'http://an-identifier',
+        ):
+            modified_url = url.replace('<identifier>', identifier)
+            args[identifier_index] = identifier
+            assertion_method(
+                modified_url, method, *args, **kwargs
+            )
+
     def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
         """First verify that an unauthenticated request fails. Then make an
         authenticated request to `url` and verify the results, as with
@@ -253,6 +274,13 @@ class RouteTest(ControllerTest):
             logging.debug("MethodNotAllowed should be raised on %s", method)
             assert_raises(MethodNotAllowed, self.request, url, method)
             logging.debug("And it was.")
+
+
+class TestAppConfiguration(object):
+
+    # Test the configuration of the real Flask app.
+    def test_configuration(self):
+        eq_(False, routes.app.url_map.merge_slashes)
 
 
 class TestIndex(RouteTest):
@@ -357,10 +385,10 @@ class TestSharedCollection(RouteTest):
         self.assert_supported_methods(url, 'POST')
 
     def test_shared_collection_borrow_identifier(self):
-        url = '/collections/<collection_name>/<identifier_type>/an/identifier/borrow'
-        self.assert_request_calls(
+        url = '/collections/<collection_name>/<identifier_type>/<identifier>/borrow'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.borrow, '<collection_name>',
-            '<identifier_type>', 'an/identifier', None
+            '<identifier_type>', "<identifier>", None
         )
         self.assert_supported_methods(url, 'GET', 'POST')
 
@@ -436,17 +464,19 @@ class TestLoansController(RouteTest):
         self.assert_supported_methods(url, 'GET', 'HEAD')
 
     def test_borrow(self):
-        url = '/works/<identifier_type>/an/identifier/borrow'
-        self.assert_authenticated_request_calls(
+        url = '/works/<identifier_type>/<identifier>/borrow'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.borrow,
-            "<identifier_type>", "an/identifier", None
+            "<identifier_type>", "<identifier>", None,
+            authenticated=True
         )
         self.assert_supported_methods(url, 'GET', 'PUT')
         
-        url = '/works/<identifier_type>/an/identifier/borrow/<mechanism_id>'
-        self.assert_authenticated_request_calls(
+        url = '/works/<identifier_type>/<identifier>/borrow/<mechanism_id>'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.borrow,
-            "<identifier_type>", "an/identifier", "<mechanism_id>"
+            "<identifier_type>", "<identifier>", "<mechanism_id>",
+            authenticated=True
         )
         self.assert_supported_methods(url, 'GET', 'PUT')
 
@@ -484,10 +514,10 @@ class TestLoansController(RouteTest):
         self.assert_supported_methods(url, 'GET', 'PUT', 'DELETE')
 
     def test_loan_or_hold_detail(self):
-        url = '/loans/<identifier_type>/an/identifier'
-        self.assert_authenticated_request_calls(
+        url = '/loans/<identifier_type>/<identifier>'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.detail,
-            "<identifier_type>", "an/identifier"
+            "<identifier_type>", "<identifier>", authenticated=True
         )
         self.assert_supported_methods(url, 'GET', 'DELETE')
 
@@ -511,10 +541,11 @@ class TestAnnotationsController(RouteTest):
         self.assert_supported_methods(url, 'HEAD', 'GET', 'DELETE')
 
     def test_annotations_for_work(self):
-        url = '/annotations/<identifier_type>/an/identifier/'
-        self.assert_authenticated_request_calls(
+        url = '/annotations/<identifier_type>/<identifier>'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.container_for_work,
-            '<identifier_type>', 'an/identifier'
+            '<identifier_type>', "<identifier>",
+            authenticated=True
         )
         self.assert_supported_methods(url, 'GET')
 
@@ -572,30 +603,30 @@ class TestWorkController(RouteTest):
         )
 
     def test_permalink(self):
-        url = '/works/<identifier_type>/an/identifier'
-        self.assert_request_calls(
+        url = '/works/<identifier_type>/<identifier>'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.permalink,
-            "<identifier_type>", "an/identifier"
+            "<identifier_type>", "<identifier>"
         )
 
     def test_recommendations(self):
-        url = '/works/<identifier_type>/an/identifier/recommendations'
-        self.assert_request_calls(
+        url = '/works/<identifier_type>/<identifier>/recommendations'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.recommendations,
-            "<identifier_type>", "an/identifier"
+            "<identifier_type>", "<identifier>"
         )
 
     def test_related_books(self):
-        url = '/works/<identifier_type>/an/identifier/related_books'
-        self.assert_request_calls(
-            url, self.controller.related, "<identifier_type>", "an/identifier"
+        url = '/works/<identifier_type>/<identifier>/related_books'
+        self.assert_request_calls_method_using_identifier(
+            url, self.controller.related, "<identifier_type>", "<identifier>"
         )
 
     def test_report(self):
-        url = '/works/<identifier_type>/an/identifier/report'
-        self.assert_request_calls(
+        url = '/works/<identifier_type>/<identifier>/report'
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.report,
-            "<identifier_type>", "an/identifier",
+            "<identifier_type>", "<identifier>",
         )
         self.assert_supported_methods(url, 'GET', 'POST')
 
@@ -604,13 +635,14 @@ class TestAnalyticsController(RouteTest):
     CONTROLLER_NAME = "analytics_controller"
 
     def test_track_analytics_event(self):
-        url = '/analytics/<identifier_type>/an/identifier/<event_type>'
+        url = '/analytics/<identifier_type>/<identifier>/<event_type>'
 
         # This controller can be called either authenticated or
         # unauthenticated.
-        self.assert_authenticated_request_calls(
+        self.assert_request_calls_method_using_identifier(
             url, self.controller.track_event,
-            "<identifier_type>", "an/identifier", "<event_type>",
+            "<identifier_type>", "<identifier>", "<event_type>",
+            authenticated=True,
             authentication_required=False
         )
 
