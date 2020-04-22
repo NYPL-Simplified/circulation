@@ -2377,6 +2377,40 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         facets.order_ascending = False
         eq_([barnaby_rudge], wl.works_from_database(self._db, facets, pagination).all())
 
+        # Ensure that availability facets are handled properly
+        # We still have two works:
+        # - barnaby_rudge is closed access and available
+        # - oliver_twist's access and availability is varied below
+        ot_lp = oliver_twist.license_pools[0]
+
+        # open access (thus available)
+        ot_lp.open_access = True
+
+        facets.availability = Facets.AVAILABLE_ALL
+        eq_(2, wl.works_from_database(self._db, facets).count())
+
+        facets.availability = Facets.AVAILABLE_NOW
+        eq_(2, wl.works_from_database(self._db, facets).count())
+
+        facets.availability = Facets.AVAILABLE_OPEN_ACCESS
+        eq_(1, wl.works_from_database(self._db, facets).count())
+        eq_([oliver_twist], wl.works_from_database(self._db, facets).all())
+
+        # closed access & unavailable
+        ot_lp.open_access = False
+        ot_lp.licenses_owned = 1
+        ot_lp.licenses_available = 0
+
+        facets.availability = Facets.AVAILABLE_ALL
+        eq_(2, wl.works_from_database(self._db, facets).count())
+
+        facets.availability = Facets.AVAILABLE_NOW
+        eq_(1, wl.works_from_database(self._db, facets).count())
+        eq_([barnaby_rudge], wl.works_from_database(self._db, facets).all())
+
+        facets.availability = Facets.AVAILABLE_OPEN_ACCESS
+        eq_(0, wl.works_from_database(self._db, facets).count())
+
     def test_base_query(self):
         # Verify that base_query makes the query we expect and then
         # calls some optimization methods (not tested).
