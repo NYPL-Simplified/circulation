@@ -2275,15 +2275,6 @@ class TestDatabaseBackedWorkList(DatabaseTest):
                 self.wl.stages.append(distinct)
                 return distinct
 
-        # MockFacets has to subclass DatabaseBasedFacets because we check
-        # for this, in an attempt to avoid bugs caused by passing a normal
-        # Facets into works_from_database().
-        assert_raises_regexp(
-            ValueError,
-            "Incompatible faceting object for DatabaseBackedWorkList: 'bad facet'",
-            wl.works_from_database, self._db, facets="bad facet"
-        )
-
         class MockPagination(object):
             def __init__(self, wl):
                 self.wl = wl

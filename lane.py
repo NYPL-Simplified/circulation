@@ -1941,17 +1941,18 @@ class DatabaseBackedWorkList(WorkList):
 
         :param _db: A database connection.
         :param facets: A Facets object which may place additional
-           constraints on WorkList membership.
+           constraints on WorkList membership. Other objects are ignored.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
         :param kwargs: Ignored -- only included for compatibility with works().
         :return: A Query.
         """
         if facets is not None and not isinstance(facets, Facets):
-            raise ValueError(
-                "Incompatible faceting object for DatabaseBackedWorkList: %r" %
+            logging.warning(
+                "Ignoring incompatible faceting object for DatabaseBackedWorkList: %r",
                 facets
             )
+            facets = None
 
         qu = self.base_query(_db)
 
