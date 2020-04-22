@@ -1609,7 +1609,7 @@ class WorkList(object):
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
-        return self.works_for_hits(_db, hits)
+        return self.works_for_hits(_db, hits, facets=facets)
 
     def filter(self, _db, facets):
         """Helper method to instantiate a Filter object for this WorkList.
@@ -1634,7 +1634,7 @@ class WorkList(object):
         """
         return filter
 
-    def works_for_hits(self, _db, hits):
+    def works_for_hits(self, _db, hits, facets=None):
         """Convert a list of search results into Work objects.
 
         This works by calling works_for_resultsets() on a list
@@ -1646,10 +1646,10 @@ class WorkList(object):
             script fields), WorkSearchResult objects.
         """
 
-        [results] = self.works_for_resultsets(_db, [hits])
+        [results] = self.works_for_resultsets(_db, [hits], facets=facets)
         return results
 
-    def works_for_resultsets(self, _db, resultsets):
+    def works_for_resultsets(self, _db, resultsets, facets=None):
         """Convert a list of lists of Hit objects into a list
         of lists of Work objects.
         """
@@ -1683,11 +1683,14 @@ class WorkList(object):
         # DatabaseBackedWorkList that fetches those specific Works
         # while applying the general availability filters.
         #
+        # If facets were passed in, then they are used to further
+        # filter the list.
+        #
         # TODO: There's a lot of room for improvement here, but
         # performance isn't a big concern -- it's just ugly.
         wl = SpecificWorkList(work_ids)
         wl.initialize(self.get_library(_db))
-        qu = wl.works_from_database(_db)
+        qu = wl.works_from_database(_db, facets=facets)
         a = time.time()
         all_works = qu.all()
 
@@ -1909,7 +1912,7 @@ class WorkList(object):
             filter = Filter.from_worklist(_db, lane, overview_facets)
             queries.append((None, filter, pagination))
         resultsets = list(search_engine.query_works_multi(queries))
-        works = self.works_for_resultsets(_db, resultsets)
+        works = self.works_for_resultsets(_db, resultsets, facets=facets)
 
         for i, lane in enumerate(lanes):
             results = works[i]
@@ -1937,14 +1940,14 @@ class DatabaseBackedWorkList(WorkList):
         lanes can be generated through search engine queries.
 
         :param _db: A database connection.
-        :param facets: A DatabaseBackedFacets object which may put additional
+        :param facets: A Facets object which may place additional
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
         :param kwargs: Ignored -- only included for compatibility with works().
         :return: A Query.
         """
-        if facets is not None and not isinstance(facets, DatabaseBackedFacets):
+        if facets is not None and not isinstance(facets, Facets):
             raise ValueError(
                 "Incompatible faceting object for DatabaseBackedWorkList: %r" %
                 facets

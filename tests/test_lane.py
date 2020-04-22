@@ -1884,7 +1884,7 @@ class TestWorkList(DatabaseTest):
             """Mock the process of turning work IDs into WorkSearchResult
             objects."""
             fake_work_list = "a list of works"
-            def works_for_hits(self, _db, work_ids):
+            def works_for_hits(self, _db, work_ids, facets=None):
                 self.called_with = (_db, work_ids)
                 return self.fake_work_list
 
@@ -1938,7 +1938,7 @@ class TestWorkList(DatabaseTest):
         # Verify that WorkList.works_for_hits() just calls
         # works_for_resultsets().
         class Mock(WorkList):
-            def works_for_resultsets(self, _db, resultsets):
+            def works_for_resultsets(self, _db, resultsets, facets=None):
                 self.called_with = (_db, resultsets)
                 return [["some", "results"]]
         wl = Mock()
@@ -3779,7 +3779,7 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
 
         # Here's an entry point that applies a language filter
         # that only finds one book.
-        class LQRomanceEntryPoint(object):
+        class LQRomanceEntryPoint(EntryPoint):
             URI = ""
             @classmethod
             def modify_search_filter(cls, filter):
@@ -3936,7 +3936,7 @@ class TestWorkListGroups(DatabaseTest):
                 self.overview_facets_calls.append((_db, facets))
                 return super(MockWorkList, self).overview_facets(_db, facets)
 
-            def works_for_resultsets(self, _db, resultsets):
+            def works_for_resultsets(self, _db, resultsets, facets=None):
                 # Take some lists of (mocked) of search results and turn
                 # them into lists of (mocked) Works.
                 self.works_for_resultsets_calls.append((_db, resultsets))
