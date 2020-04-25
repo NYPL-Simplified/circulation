@@ -151,6 +151,14 @@ class BaseFacets(FacetConstants):
         """
         return filter
 
+    def modify_database_query(cls, _db, qu):
+        """If necessary, modify a database query so that resulting
+        items conform the constraints of this faceting object.
+
+        The default behavior is to not modify the query.
+        """
+        return qu
+
     def scoring_functions(self, filter):
         """Create a list of ScoringFunction objects that modify how
         works in the given WorkList should be ordered.
@@ -1940,19 +1948,13 @@ class DatabaseBackedWorkList(WorkList):
         lanes can be generated through search engine queries.
 
         :param _db: A database connection.
-        :param facets: A Facets object which may place additional
-           constraints on WorkList membership. Other objects are ignored.
+        :param facets: A faceting object, which may place additional
+           constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
         :param kwargs: Ignored -- only included for compatibility with works().
         :return: A Query.
         """
-        if facets is not None and not isinstance(facets, Facets):
-            logging.warning(
-                "Ignoring incompatible faceting object for DatabaseBackedWorkList: %r",
-                facets
-            )
-            facets = None
 
         qu = self.base_query(_db)
 
