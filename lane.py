@@ -151,6 +151,14 @@ class BaseFacets(FacetConstants):
         """
         return filter
 
+    def modify_database_query(cls, _db, qu):
+        """If necessary, modify a database query so that resulting
+        items conform the constraints of this faceting object.
+
+        The default behavior is to not modify the query.
+        """
+        return qu
+
     def scoring_functions(self, filter):
         """Create a list of ScoringFunction objects that modify how
         works in the given WorkList should be ordered.
@@ -582,6 +590,43 @@ class Facets(FacetsWithEntryPoint):
             else:
                 logging.error("Unrecognized sort order: %s", self.order)
 
+    def modify_database_query(self, _db, qu):
+        """Restrict a query against Work+LicensePool+Edition so that it
+        matches only works that fit the criteria of this Faceting object.
+
+        Sort order facet cannot be handled in this method, but can be
+        handled in subclasses that override this method.
+        """
+
+        # Apply any superclass criteria
+        qu = super(Facets, self).modify_database_query(_db, qu)
+
+        if self.availability == self.AVAILABLE_NOW:
+            availability_clause = or_(
+                LicensePool.open_access == True,
+                LicensePool.licenses_available > 0
+            )
+        elif self.availability == self.AVAILABLE_ALL:
+            availability_clause = or_(
+                LicensePool.open_access == True,
+                LicensePool.licenses_owned > 0
+            )
+        elif self.availability == self.AVAILABLE_OPEN_ACCESS:
+            availability_clause = LicensePool.open_access == True
+        qu = qu.filter(availability_clause)
+
+        if self.collection == self.COLLECTION_FULL:
+            # Include everything.
+            pass
+        elif self.collection == self.COLLECTION_FEATURED:
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
+            qu = qu.filter(
+                Work.quality >= self.library.minimum_featured_quality
+            )
+
+        return qu
+
 
 class DefaultSortOrderFacets(Facets):
     """A faceting object that changes the default sort order.
@@ -693,36 +738,13 @@ class DatabaseBackedFacets(Facets):
         return order_by_sorted, order_by
 
     def modify_database_query(self, _db, qu):
-        """Restrict a query against Work+LicensePool+Edition so that it only
-        matches works that fit this Faceting object, and so that the
+        """Restrict a query so that it matches only works
+        that fit the criteria of this faceting object. Ensure
         query is appropriately ordered and made distinct.
         """
-        if self.entrypoint:
-            qu = self.entrypoint.modify_database_query(_db, qu)
 
-        if self.availability == self.AVAILABLE_NOW:
-            availability_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_available > 0
-            )
-        elif self.availability == self.AVAILABLE_ALL:
-            availability_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_owned > 0
-            )
-        elif self.availability == self.AVAILABLE_OPEN_ACCESS:
-            availability_clause = LicensePool.open_access==True
-        qu = qu.filter(availability_clause)
-
-        if self.collection == self.COLLECTION_FULL:
-            # Include everything.
-            pass
-        elif self.collection == self.COLLECTION_FEATURED:
-            # Exclude books with a quality of less than the library's
-            # minimum featured quality.
-            qu = qu.filter(
-                Work.quality >= self.library.minimum_featured_quality
-            )
+        # Filter by facet criteria
+        qu = super(DatabaseBackedFacets, self).modify_database_query(_db, qu)
 
         # Set the ORDER BY clause.
         order_by, order_distinct = self.order_by()
@@ -1595,7 +1617,7 @@ class WorkList(object):
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
-        return self.works_for_hits(_db, hits)
+        return self.works_for_hits(_db, hits, facets=facets)
 
     def filter(self, _db, facets):
         """Helper method to instantiate a Filter object for this WorkList.
@@ -1620,7 +1642,7 @@ class WorkList(object):
         """
         return filter
 
-    def works_for_hits(self, _db, hits):
+    def works_for_hits(self, _db, hits, facets=None):
         """Convert a list of search results into Work objects.
 
         This works by calling works_for_resultsets() on a list
@@ -1632,10 +1654,10 @@ class WorkList(object):
             script fields), WorkSearchResult objects.
         """
 
-        [results] = self.works_for_resultsets(_db, [hits])
+        [results] = self.works_for_resultsets(_db, [hits], facets=facets)
         return results
 
-    def works_for_resultsets(self, _db, resultsets):
+    def works_for_resultsets(self, _db, resultsets, facets=None):
         """Convert a list of lists of Hit objects into a list
         of lists of Work objects.
         """
@@ -1669,11 +1691,14 @@ class WorkList(object):
         # DatabaseBackedWorkList that fetches those specific Works
         # while applying the general availability filters.
         #
+        # If facets were passed in, then they are used to further
+        # filter the list.
+        #
         # TODO: There's a lot of room for improvement here, but
         # performance isn't a big concern -- it's just ugly.
         wl = SpecificWorkList(work_ids)
         wl.initialize(self.get_library(_db))
-        qu = wl.works_from_database(_db)
+        qu = wl.works_from_database(_db, facets=facets)
         a = time.time()
         all_works = qu.all()
 
@@ -1895,7 +1920,7 @@ class WorkList(object):
             filter = Filter.from_worklist(_db, lane, overview_facets)
             queries.append((None, filter, pagination))
         resultsets = list(search_engine.query_works_multi(queries))
-        works = self.works_for_resultsets(_db, resultsets)
+        works = self.works_for_resultsets(_db, resultsets, facets=facets)
 
         for i, lane in enumerate(lanes):
             results = works[i]
@@ -1923,18 +1948,13 @@ class DatabaseBackedWorkList(WorkList):
         lanes can be generated through search engine queries.
 
         :param _db: A database connection.
-        :param facets: A DatabaseBackedFacets object which may put additional
+        :param facets: A faceting object, which may place additional
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
         :param kwargs: Ignored -- only included for compatibility with works().
         :return: A Query.
         """
-        if facets is not None and not isinstance(facets, DatabaseBackedFacets):
-            raise ValueError(
-                "Incompatible faceting object for DatabaseBackedWorkList: %r" %
-                facets
-            )
 
         qu = self.base_query(_db)
 

@@ -1884,7 +1884,7 @@ class TestWorkList(DatabaseTest):
             """Mock the process of turning work IDs into WorkSearchResult
             objects."""
             fake_work_list = "a list of works"
-            def works_for_hits(self, _db, work_ids):
+            def works_for_hits(self, _db, work_ids, facets=None):
                 self.called_with = (_db, work_ids)
                 return self.fake_work_list
 
@@ -1938,7 +1938,7 @@ class TestWorkList(DatabaseTest):
         # Verify that WorkList.works_for_hits() just calls
         # works_for_resultsets().
         class Mock(WorkList):
-            def works_for_resultsets(self, _db, resultsets):
+            def works_for_resultsets(self, _db, resultsets, facets=None):
                 self.called_with = (_db, resultsets)
                 return [["some", "results"]]
         wl = Mock()
@@ -2275,15 +2275,6 @@ class TestDatabaseBackedWorkList(DatabaseTest):
                 self.wl.stages.append(distinct)
                 return distinct
 
-        # MockFacets has to subclass DatabaseBasedFacets because we check
-        # for this, in an attempt to avoid bugs caused by passing a normal
-        # Facets into works_from_database().
-        assert_raises_regexp(
-            ValueError,
-            "Incompatible faceting object for DatabaseBackedWorkList: 'bad facet'",
-            wl.works_from_database, self._db, facets="bad facet"
-        )
-
         class MockPagination(object):
             def __init__(self, wl):
                 self.wl = wl
@@ -2385,6 +2376,40 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         facets.order_ascending = False
         eq_([barnaby_rudge], wl.works_from_database(self._db, facets, pagination).all())
+
+        # Ensure that availability facets are handled properly
+        # We still have two works:
+        # - barnaby_rudge is closed access and available
+        # - oliver_twist's access and availability is varied below
+        ot_lp = oliver_twist.license_pools[0]
+
+        # open access (thus available)
+        ot_lp.open_access = True
+
+        facets.availability = Facets.AVAILABLE_ALL
+        eq_(2, wl.works_from_database(self._db, facets).count())
+
+        facets.availability = Facets.AVAILABLE_NOW
+        eq_(2, wl.works_from_database(self._db, facets).count())
+
+        facets.availability = Facets.AVAILABLE_OPEN_ACCESS
+        eq_(1, wl.works_from_database(self._db, facets).count())
+        eq_([oliver_twist], wl.works_from_database(self._db, facets).all())
+
+        # closed access & unavailable
+        ot_lp.open_access = False
+        ot_lp.licenses_owned = 1
+        ot_lp.licenses_available = 0
+
+        facets.availability = Facets.AVAILABLE_ALL
+        eq_(2, wl.works_from_database(self._db, facets).count())
+
+        facets.availability = Facets.AVAILABLE_NOW
+        eq_(1, wl.works_from_database(self._db, facets).count())
+        eq_([barnaby_rudge], wl.works_from_database(self._db, facets).all())
+
+        facets.availability = Facets.AVAILABLE_OPEN_ACCESS
+        eq_(0, wl.works_from_database(self._db, facets).count())
 
     def test_base_query(self):
         # Verify that base_query makes the query we expect and then
@@ -3779,7 +3804,7 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
 
         # Here's an entry point that applies a language filter
         # that only finds one book.
-        class LQRomanceEntryPoint(object):
+        class LQRomanceEntryPoint(EntryPoint):
             URI = ""
             @classmethod
             def modify_search_filter(cls, filter):
@@ -3936,7 +3961,7 @@ class TestWorkListGroups(DatabaseTest):
                 self.overview_facets_calls.append((_db, facets))
                 return super(MockWorkList, self).overview_facets(_db, facets)
 
-            def works_for_resultsets(self, _db, resultsets):
+            def works_for_resultsets(self, _db, resultsets, facets=None):
                 # Take some lists of (mocked) of search results and turn
                 # them into lists of (mocked) Works.
                 self.works_for_resultsets_calls.append((_db, resultsets))
