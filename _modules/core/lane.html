@@ -186,6 +186,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">filter</span></div>
 
+<div class="viewcode-block" id="BaseFacets.modify_database_query"><a class="viewcode-back" href="../../core.html#core.lane.BaseFacets.modify_database_query">[docs]</a>    <span class="k">def</span> <span class="nf">modify_database_query</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If necessary, modify a database query so that resulting</span>
+<span class="sd">        items conform the constraints of this faceting object.</span>
+
+<span class="sd">        The default behavior is to not modify the query.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">qu</span></div>
+
 <div class="viewcode-block" id="BaseFacets.scoring_functions"><a class="viewcode-back" href="../../core.html#core.lane.BaseFacets.scoring_functions">[docs]</a>    <span class="k">def</span> <span class="nf">scoring_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a list of ScoringFunction objects that modify how</span>
 <span class="sd">        works in the given WorkList should be ordered.</span>
@@ -615,7 +623,44 @@
                 <span class="nb">filter</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
                 <span class="nb">filter</span><span class="o">.</span><span class="n">order_ascending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">order_ascending</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Unrecognized sort order: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">)</span></div></div>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Unrecognized sort order: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Facets.modify_database_query"><a class="viewcode-back" href="../../core.html#core.lane.Facets.modify_database_query">[docs]</a>    <span class="k">def</span> <span class="nf">modify_database_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restrict a query against Work+LicensePool+Edition so that it</span>
+<span class="sd">        matches only works that fit the criteria of this Faceting object.</span>
+
+<span class="sd">        Sort order facet cannot be handled in this method, but can be</span>
+<span class="sd">        handled in subclasses that override this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Apply any superclass criteria</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">Facets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">modify_database_query</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_NOW</span><span class="p">:</span>
+            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_ALL</span><span class="p">:</span>
+            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_OPEN_ACCESS</span><span class="p">:</span>
+            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span> <span class="o">==</span> <span class="kc">True</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">availability_clause</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FULL</span><span class="p">:</span>
+            <span class="c1"># Include everything.</span>
+            <span class="k">pass</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FEATURED</span><span class="p">:</span>
+            <span class="c1"># Exclude books with a quality of less than the library&#39;s</span>
+            <span class="c1"># minimum featured quality.</span>
+            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                <span class="n">Work</span><span class="o">.</span><span class="n">quality</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">qu</span></div></div>
 
 
 <div class="viewcode-block" id="DefaultSortOrderFacets"><a class="viewcode-back" href="../../core.html#core.lane.DefaultSortOrderFacets">[docs]</a><span class="k">class</span> <span class="nc">DefaultSortOrderFacets</span><span class="p">(</span><span class="n">Facets</span><span class="p">):</span>
@@ -728,36 +773,13 @@
         <span class="k">return</span> <span class="n">order_by_sorted</span><span class="p">,</span> <span class="n">order_by</span></div>
 
 <div class="viewcode-block" id="DatabaseBackedFacets.modify_database_query"><a class="viewcode-back" href="../../core.html#core.lane.DatabaseBackedFacets.modify_database_query">[docs]</a>    <span class="k">def</span> <span class="nf">modify_database_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Restrict a query against Work+LicensePool+Edition so that it only</span>
-<span class="sd">        matches works that fit this Faceting object, and so that the</span>
+        <span class="sd">&quot;&quot;&quot;Restrict a query so that it matches only works</span>
+<span class="sd">        that fit the criteria of this faceting object. Ensure</span>
 <span class="sd">        query is appropriately ordered and made distinct.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">entrypoint</span><span class="p">:</span>
-            <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entrypoint</span><span class="o">.</span><span class="n">modify_database_query</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_NOW</span><span class="p">:</span>
-            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">==</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_available</span> <span class="o">&gt;</span> <span class="mi">0</span>
-            <span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_ALL</span><span class="p">:</span>
-            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">or_</span><span class="p">(</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">==</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">LicensePool</span><span class="o">.</span><span class="n">licenses_owned</span> <span class="o">&gt;</span> <span class="mi">0</span>
-            <span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_OPEN_ACCESS</span><span class="p">:</span>
-            <span class="n">availability_clause</span> <span class="o">=</span> <span class="n">LicensePool</span><span class="o">.</span><span class="n">open_access</span><span class="o">==</span><span class="kc">True</span>
-        <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">availability_clause</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FULL</span><span class="p">:</span>
-            <span class="c1"># Include everything.</span>
-            <span class="k">pass</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_FEATURED</span><span class="p">:</span>
-            <span class="c1"># Exclude books with a quality of less than the library&#39;s</span>
-            <span class="c1"># minimum featured quality.</span>
-            <span class="n">qu</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="n">Work</span><span class="o">.</span><span class="n">quality</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">minimum_featured_quality</span>
-            <span class="p">)</span>
+        <span class="c1"># Filter by facet criteria</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">DatabaseBackedFacets</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">modify_database_query</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">qu</span><span class="p">)</span>
 
         <span class="c1"># Set the ORDER BY clause.</span>
         <span class="n">order_by</span><span class="p">,</span> <span class="n">order_distinct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">order_by</span><span class="p">()</span>
@@ -1630,7 +1652,7 @@
             <span class="n">query_string</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="o">=</span><span class="n">pagination</span><span class="p">,</span>
             <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_for_hits</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">hits</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_for_hits</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="WorkList.filter"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.filter">[docs]</a>    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Helper method to instantiate a Filter object for this WorkList.</span>
@@ -1655,7 +1677,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">filter</span></div>
 
-<div class="viewcode-block" id="WorkList.works_for_hits"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.works_for_hits">[docs]</a>    <span class="k">def</span> <span class="nf">works_for_hits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">hits</span><span class="p">):</span>
+<div class="viewcode-block" id="WorkList.works_for_hits"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.works_for_hits">[docs]</a>    <span class="k">def</span> <span class="nf">works_for_hits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Convert a list of search results into Work objects.</span>
 
 <span class="sd">        This works by calling works_for_resultsets() on a list</span>
@@ -1667,10 +1689,10 @@
 <span class="sd">            script fields), WorkSearchResult objects.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="p">[</span><span class="n">results</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_for_resultsets</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="p">[</span><span class="n">hits</span><span class="p">])</span>
+        <span class="p">[</span><span class="n">results</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_for_resultsets</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="p">[</span><span class="n">hits</span><span class="p">],</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">results</span></div>
 
-<div class="viewcode-block" id="WorkList.works_for_resultsets"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.works_for_resultsets">[docs]</a>    <span class="k">def</span> <span class="nf">works_for_resultsets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">resultsets</span><span class="p">):</span>
+<div class="viewcode-block" id="WorkList.works_for_resultsets"><a class="viewcode-back" href="../../core.html#core.lane.WorkList.works_for_resultsets">[docs]</a>    <span class="k">def</span> <span class="nf">works_for_resultsets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_db</span><span class="p">,</span> <span class="n">resultsets</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Convert a list of lists of Hit objects into a list</span>
 <span class="sd">        of lists of Work objects.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1704,11 +1726,14 @@
         <span class="c1"># DatabaseBackedWorkList that fetches those specific Works</span>
         <span class="c1"># while applying the general availability filters.</span>
         <span class="c1">#</span>
+        <span class="c1"># If facets were passed in, then they are used to further</span>
+        <span class="c1"># filter the list.</span>
+        <span class="c1">#</span>
         <span class="c1"># TODO: There&#39;s a lot of room for improvement here, but</span>
         <span class="c1"># performance isn&#39;t a big concern -- it&#39;s just ugly.</span>
         <span class="n">wl</span> <span class="o">=</span> <span class="n">SpecificWorkList</span><span class="p">(</span><span class="n">work_ids</span><span class="p">)</span>
         <span class="n">wl</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_library</span><span class="p">(</span><span class="n">_db</span><span class="p">))</span>
-        <span class="n">qu</span> <span class="o">=</span> <span class="n">wl</span><span class="o">.</span><span class="n">works_from_database</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
+        <span class="n">qu</span> <span class="o">=</span> <span class="n">wl</span><span class="o">.</span><span class="n">works_from_database</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
         <span class="n">a</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">all_works</span> <span class="o">=</span> <span class="n">qu</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
@@ -1930,7 +1955,7 @@
             <span class="nb">filter</span> <span class="o">=</span> <span class="n">Filter</span><span class="o">.</span><span class="n">from_worklist</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">lane</span><span class="p">,</span> <span class="n">overview_facets</span><span class="p">)</span>
             <span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">pagination</span><span class="p">))</span>
         <span class="n">resultsets</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search_engine</span><span class="o">.</span><span class="n">query_works_multi</span><span class="p">(</span><span class="n">queries</span><span class="p">))</span>
-        <span class="n">works</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_for_resultsets</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">resultsets</span><span class="p">)</span>
+        <span class="n">works</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">works_for_resultsets</span><span class="p">(</span><span class="n">_db</span><span class="p">,</span> <span class="n">resultsets</span><span class="p">,</span> <span class="n">facets</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">lane</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lanes</span><span class="p">):</span>
             <span class="n">results</span> <span class="o">=</span> <span class="n">works</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
@@ -1958,18 +1983,13 @@
 <span class="sd">        lanes can be generated through search engine queries.</span>
 
 <span class="sd">        :param _db: A database connection.</span>
-<span class="sd">        :param facets: A DatabaseBackedFacets object which may put additional</span>
+<span class="sd">        :param facets: A faceting object, which may place additional</span>
 <span class="sd">           constraints on WorkList membership.</span>
 <span class="sd">        :param pagination: A Pagination object indicating which part of</span>
 <span class="sd">           the WorkList the caller is looking at.</span>
 <span class="sd">        :param kwargs: Ignored -- only included for compatibility with works().</span>
 <span class="sd">        :return: A Query.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">facets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">facets</span><span class="p">,</span> <span class="n">DatabaseBackedFacets</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Incompatible faceting object for DatabaseBackedWorkList: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span>
-                <span class="n">facets</span>
-            <span class="p">)</span>
 
         <span class="n">qu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_query</span><span class="p">(</span><span class="n">_db</span><span class="p">)</span>
 

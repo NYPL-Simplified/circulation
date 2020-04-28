@@ -3509,6 +3509,14 @@ settings.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="core.lane.BaseFacets.modify_database_query">
+<code class="descname">modify_database_query</code><span class="sig-paren">(</span><em>_db</em>, <em>qu</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#BaseFacets.modify_database_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.BaseFacets.modify_database_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>If necessary, modify a database query so that resulting
+items conform the constraints of this faceting object.</p>
+<p>The default behavior is to not modify the query.</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="core.lane.BaseFacets.modify_search_filter">
 <code class="descname">modify_search_filter</code><span class="sig-paren">(</span><em>filter</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#BaseFacets.modify_search_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.BaseFacets.modify_search_filter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Modify an external_search.Filter object to filter out works
@@ -3566,8 +3574,8 @@ Elasticsearch searches.)</p>
 <dl class="method">
 <dt id="core.lane.DatabaseBackedFacets.modify_database_query">
 <code class="descname">modify_database_query</code><span class="sig-paren">(</span><em>_db</em>, <em>qu</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#DatabaseBackedFacets.modify_database_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.DatabaseBackedFacets.modify_database_query" title="Permalink to this definition">¶</a></dt>
-<dd><p>Restrict a query against Work+LicensePool+Edition so that it only
-matches works that fit this Faceting object, and so that the
+<dd><p>Restrict a query so that it matches only works
+that fit the criteria of this faceting object. Ensure
 query is appropriately ordered and made distinct.</p>
 </dd></dl>
 
@@ -3685,7 +3693,7 @@ lanes can be generated through search engine queries.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>_db</strong> – A database connection.</li>
-<li><strong>facets</strong> – A DatabaseBackedFacets object which may put additional
+<li><strong>facets</strong> – A faceting object, which may place additional
 constraints on WorkList membership.</li>
 <li><strong>pagination</strong> – A Pagination object indicating which part of
 the WorkList the caller is looking at.</li>
@@ -3788,6 +3796,15 @@ which must be handled separately.</p>
 <code class="descname">items</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Facets.items"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Facets.items" title="Permalink to this definition">¶</a></dt>
 <dd><p>Yields a 2-tuple for every active facet setting.</p>
 <p>In this class that just means the entrypoint.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="core.lane.Facets.modify_database_query">
+<code class="descname">modify_database_query</code><span class="sig-paren">(</span><em>_db</em>, <em>qu</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#Facets.modify_database_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.Facets.modify_database_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restrict a query against Work+LicensePool+Edition so that it
+matches only works that fit the criteria of this Faceting object.</p>
+<p>Sort order facet cannot be handled in this method, but can be
+handled in subclasses that override this method.</p>
 </dd></dl>
 
 <dl class="method">
@@ -4850,7 +4867,7 @@ that generates such a list when executed.</p>
 
 <dl class="method">
 <dt id="core.lane.WorkList.works_for_hits">
-<code class="descname">works_for_hits</code><span class="sig-paren">(</span><em>_db</em>, <em>hits</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.works_for_hits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.works_for_hits" title="Permalink to this definition">¶</a></dt>
+<code class="descname">works_for_hits</code><span class="sig-paren">(</span><em>_db</em>, <em>hits</em>, <em>facets=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.works_for_hits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.works_for_hits" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert a list of search results into Work objects.</p>
 <p>This works by calling works_for_resultsets() on a list
 containing a single list of search results.</p>
@@ -4874,7 +4891,7 @@ script fields), WorkSearchResult objects.</p>
 
 <dl class="method">
 <dt id="core.lane.WorkList.works_for_resultsets">
-<code class="descname">works_for_resultsets</code><span class="sig-paren">(</span><em>_db</em>, <em>resultsets</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.works_for_resultsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.works_for_resultsets" title="Permalink to this definition">¶</a></dt>
+<code class="descname">works_for_resultsets</code><span class="sig-paren">(</span><em>_db</em>, <em>resultsets</em>, <em>facets=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/core/lane.html#WorkList.works_for_resultsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#core.lane.WorkList.works_for_resultsets" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert a list of lists of Hit objects into a list
 of lists of Work objects.</p>
 </dd></dl>
@@ -5058,7 +5075,7 @@ it is formatted using formatException() and appended to the message.</p>
 
 <dl class="attribute">
 <dt id="core.log.JSONFormatter.hostname">
-<code class="descname">hostname</code><em class="property"> = 'travis-job-61a56454-df42-4bb6-8ab9-c4e9f4bf3df3'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hostname</code><em class="property"> = 'travis-job-2ce066d6-7f7b-46f6-b3ae-3aa9e41a2a26'</em><a class="headerlink" href="#core.log.JSONFormatter.hostname" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
