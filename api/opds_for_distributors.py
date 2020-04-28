@@ -362,6 +362,13 @@ class OPDSForDistributorsReaperMonitor(OPDSForDistributorsImportMonitor):
         """
         super(OPDSForDistributorsReaperMonitor, self).run_once(progress)
 
+        # self.seen_identifiers is full of URNs. We need the values
+        # that go in Identifier.identifier.
+        identifiers, failures = Identifier.parse_urns(
+            self._db, self.seen_identifiers
+        )
+        identifier_ids = [x.id for x in identifiers.values()]
+
         # At this point we've gone through the feed and collected all the identifiers.
         # If there's anything we didn't see, we know it's no longer available.
         qu = self._db.query(
@@ -371,11 +378,10 @@ class OPDSForDistributorsReaperMonitor(OPDSForDistributorsImportMonitor):
         ).filter(
             LicensePool.collection_id==self.collection.id
         ).filter(
-            ~Identifier.identifier.in_(self.seen_identifiers)
+            ~Identifier.id.in_(identifier_ids)
         ).filter(
             LicensePool.licenses_available > 0
         )
-
         pools_reaped = qu.count()
         self.log.info(
             "Reaping %s license pools for collection %s." % (pools_reaped, self.collection.name)

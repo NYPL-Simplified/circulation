@@ -1246,9 +1246,9 @@ class TestExtractData(OverdriveAPITest):
             json, "ebook-overdrive-manifest", "http://bar.com/"
         )
         
-        # The {errorpageurl} has been filed in, the {odreadauthurl} parameter
-        # has been removed, and contentfile=true has been appended.
-        eq_(base_url + '?errorpageurl=http://bar.com/&contentfile=true', link)
+        # The {errorpageurl} and {odreadauthurl} parameters
+        # have been removed, and contentfile=true has been appended.
+        eq_(base_url + '?contentfile=true', link)
 
     def test_extract_download_link(self):
         # Verify that extract_download_link can or cannot find a 
@@ -1323,9 +1323,9 @@ class TestExtractData(OverdriveAPITest):
             do_not_fetch_manifest)
 
         # If we do want a manifest, make_direct_download_link is called
-        # after the template is filled in.
+        # without errorpageurl being affected.
         do_fetch_manifest = m(working, error_url, fetch_manifest=True)
-        eq_("http://download/?errorpageurl=http://error/",
+        eq_("http://download/?errorpageurl={errorpageurl}",
             Mock.called_with)
         eq_("http://manifest/", do_fetch_manifest)
 

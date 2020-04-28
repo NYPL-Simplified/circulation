@@ -77,6 +77,12 @@ from core.s3 import MockS3Uploader
 from core.mirror import MirrorUploader
 
 from core.marc import MARCExporter
+
+from core.util.flask_util import (
+    Response,
+    OPDSFeedResponse
+)
+
 from api.marc import LibraryAnnotator as  MARCLibraryAnnotator
 
 from . import (
@@ -224,8 +230,10 @@ class TestCacheRepresentationPerLane(TestLaneScript):
             generated = []
             def do_generate(self, lane, facets, pagination):
                 value = (lane, facets, pagination)
-                self.generated.append(value)
-                return value
+                response = Response("mock response")
+                response.value = value
+                self.generated.append(response)
+                return response
 
             def facets(self, lane):
                 yield facets1
@@ -240,7 +248,7 @@ class TestCacheRepresentationPerLane(TestLaneScript):
         generated = script.process_lane(lane)
         eq_(generated, script.generated)
 
-        c1, c2, c3, c4 = script.generated
+        c1, c2, c3, c4 = [x.value for x in script.generated]
         eq_((lane, facets1, page1), c1)
         eq_((lane, facets1, page2), c2)
         eq_((lane, facets2, page1), c3)
@@ -393,10 +401,12 @@ class TestCacheFacetListsPerLane(TestLaneScript):
                 annotator.feed_url(lane, facets=facets, pagination=pagination)
             )
 
-            # Try again without mocking AcquisitionFeed to verify that
-            # we get something that looks like an OPDS feed.
-            result = script.do_generate(lane, facets, pagination)
-            assert result.startswith('<feed')
+            # Try again without mocking AcquisitionFeed, to verify that
+            # we get a Flask Response containing an OPDS feed.
+            response = script.do_generate(lane, facets, pagination)
+            assert isinstance(response, OPDSFeedResponse)
+            eq_(AcquisitionFeed.ACQUISITION_FEED_TYPE, response.content_type)
+            assert response.data.startswith('<feed')
 
 
 class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
@@ -460,9 +470,10 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             eq_(args['url'], annotator.groups_url(lane, facets))
 
             # Try again without mocking AcquisitionFeed to verify that
-            # we get something that looks like an OPDS feed.
-            result = script.do_generate(lane, facets, pagination)
-            assert result.startswith('<feed')
+            # we get a Flask response.
+            response = script.do_generate(lane, facets, pagination)
+            eq_(AcquisitionFeed.ACQUISITION_FEED_TYPE, response.content_type)
+            assert response.data.startswith('<feed')
 
     def test_facets(self):
         # Normally we yield one FeaturedFacets object for each of the
