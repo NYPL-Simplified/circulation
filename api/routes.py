@@ -15,6 +15,10 @@ from werkzeug.exceptions import HTTPException
 
 from app import app, babel
 
+# We use URIs as identifiers throughout the application, meaning that
+# we never want werkzeug's merge_slashes feature.
+app.url_map.merge_slashes = False
+
 from config import Configuration
 from core.app_server import (
     ErrorHandler,
@@ -371,7 +375,7 @@ def annotations():
 def annotation_detail(annotation_id):
     return app.manager.annotations.detail(annotation_id)
 
-@library_route('/annotations/<identifier_type>/<path:identifier>/', methods=['GET'])
+@library_route('/annotations/<identifier_type>/<path:identifier>', methods=['GET'])
 @has_library
 @allows_patron_web
 @requires_auth
