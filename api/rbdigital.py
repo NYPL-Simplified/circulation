@@ -1264,50 +1264,22 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         """
         Gets the changes to the library's catalog.
 
-        Note:  As of now, RBDigital saves deltas for past 6 months, and can display them
-        in max 2-month increments.
-
         :return A dictionary listing items added/removed/modified in the collection.
         """
-        url = "%s/libraries/%s/media/delta" % (self.base_url, str(self.library_id))
-
-        today = datetime.datetime.now()
-        two_months = datetime.timedelta(days=60)
-        six_months = datetime.timedelta(days=180)
-
-        # from_date must be real, and less than 6 months ago
-        if from_date and isinstance(from_date, basestring):
-            from_date = datetime.datetime.strptime(from_date[:10], self.DATE_FORMAT)
-            if (from_date > today) or ((today-from_date) > six_months):
-                raise ValueError("from_date %s must be real, in the past, and less than 6 months ago." % from_date)
-
-        # to_date must be real, and not in the future or too far in the past
-        if to_date and isinstance(to_date, basestring):
-            to_date = datetime.datetime.strptime(to_date[:10], self.DATE_FORMAT)
-            if (to_date > today) or ((today - to_date) > six_months):
-                raise ValueError("to_date %s must be real, and neither in the future nor too far in the past." % to_date)
+        url = "%s/libraries/%s/book-holdings/delta" % (self.base_url, str(self.library_id))
 
         # can't reverse time direction
         if from_date and to_date and (from_date > to_date):
             raise ValueError("from_date %s cannot be after to_date %s." % (from_date, to_date))
 
-        # can request no more that two month date range for catalog delta
-        if from_date and to_date and ((to_date - from_date) > two_months):
-            raise ValueError("from_date %s - to_date %s asks for too-wide date range." % (from_date, to_date))
-
-        if from_date and not to_date:
-            to_date = from_date + two_months
-            if to_date > today:
-                to_date = today
-
-        if to_date and not from_date:
-            from_date = to_date - two_months
-            if from_date < today - six_months:
-                from_date = today - six_months
-
-        if not from_date and not to_date:
-            from_date = today - two_months
-            to_date = today
+        from_date, to_date = self.align_dates_to_available_snapshots(from_date, to_date)
+        if from_date == to_date:
+            # This can happen because from_date and to_date from the call were the same,
+            # but can also occur for the following reasons:
+            # - only a single snapshot is available
+            # - both dates are less than the date of the first snapshot
+            # - both dates are greater than the date of the last snapshot
+            raise ValueError("The effective begin and end RBDigital catalog snapshot dates cannot be the same.")
 
         args = dict()
         args['begin'] = from_date
@@ -1315,6 +1287,106 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         response = self.request(url, params=args, verbosity=verbosity)
         return response.json()
+
+    def align_dates_to_available_snapshots(self, from_date=None, to_date=None):
+        """
+        Given specified begin and end dates for a delta, return the best dates from those available.
+
+        Note: It might be useful to raise an exception or log a message if either of the
+        "best" dates is too distant from the associated specified date.
+
+        The endpoint utilized returns a JSON array of "snapshot" objects (nb: tenantId is the library ID):
+            Example snapshot format:
+                "tenantId": 525,
+                "asOf": "2020-04-07",
+                "eBookCount": 1630,
+                "eAudioCount": 13414,
+                "totalCount": 15044
+
+        :return Best available begin and end dates.
+        """
+        SNAPSHOT_DATE_FORMAT = "%Y-%m-%d"
+        # fuzzy_binary_search relative match values
+        INDEXED_EQUALS_MATCH = 0
+        INDEXED_GREATER_THAN_MATCH = -1
+        INDEXED_LESS_THAN_MATCH = 1
+
+        url = "%s/libraries/%s/book-holdings/delta/available-dates" % (self.base_url, str(self.library_id))
+
+        response = self.request(url)
+        try:
+            snapshots = response.json()
+        except Exception as e:
+            raise BadResponseException(url, "RBDigital available-dates response not parseable.")
+
+        if len(snapshots) < 1:
+            raise BadResponseException(url, "RBDigital available-dates response contains no snapshots.")
+
+        def fuzzy_binary_search(array, value=None, key=None):
+            """
+            Search for value in array, returning matching or "adjacent" index.
+            Return the selected index and the relative direction to a match.
+            (0 => match, -1 => value < match's value, 1 => value > match's value).
+            An empty array returns None for both offset and direction.
+
+            :param array: array
+            :param value: the value to find
+            :param key: a function of one argument that is used to extract a comparison key from each element in array.
+                    The default value is None (compare value to complete array element).
+            :return: offset (index), direction
+            """
+
+            if key is None:
+                key = lambda e: e
+            start, stop = 0, len(array)
+            index = None
+            direction = None
+            while start < stop:
+                index = start + stop >> 1
+                current = key(array[index])
+                if current < value:
+                    start = index + 1
+                    direction = INDEXED_LESS_THAN_MATCH
+                elif current > value:
+                    stop = index
+                    direction = INDEXED_GREATER_THAN_MATCH
+                else:
+                    return index, INDEXED_EQUALS_MATCH
+            return index, direction
+
+        def get_snapshot_date(snapshot):
+            return snapshot["asOf"]
+
+        snapshots = sorted(snapshots, key=get_snapshot_date)
+
+        # need date strings here
+        if from_date and isinstance(from_date, datetime.datetime):
+            from_date = from_date.strftime(SNAPSHOT_DATE_FORMAT)
+        if to_date and isinstance(to_date, datetime.datetime):
+            to_date = to_date.strftime((SNAPSHOT_DATE_FORMAT))
+
+        # Find the best snapshot for the begin date and for the end date.
+        # The approach here is to widen the net when there is not an exact
+        # match, such that begin date would be adjusted back and end date
+        # forward. A missing begin date will be assigned the date of the
+        # earliest snapshot; a missing end date, gets the date of the latest.
+        if from_date is None:
+            begin_date = get_snapshot_date(snapshots[0])
+        else:
+            index, relative = fuzzy_binary_search(snapshots, value=from_date, key=get_snapshot_date)
+            if relative == INDEXED_GREATER_THAN_MATCH and index > 0:
+                index -= 1
+            begin_date = get_snapshot_date(snapshots[index])
+
+        if to_date is None:
+            end_date = get_snapshot_date(snapshots[-1])
+        else:
+            index, relative = fuzzy_binary_search(snapshots, value=to_date, key=get_snapshot_date)
+            if relative == INDEXED_LESS_THAN_MATCH and index < len(snapshots) - 1:
+                index += 1
+            end_date = get_snapshot_date(snapshots[index])
+
+        return begin_date, end_date
 
     def get_ebook_availability_info(self, media_type='ebook'):
         """
@@ -1442,15 +1514,16 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         delta = self.get_delta(from_date=(today - time_ago), to_date=today)
         if not delta or len(delta) < 1:
             return None, None
-        [delta] = delta
-        items_added = delta.get("addedTitles", [])
-        items_removed = delta.get("removedTitles", [])
+        items_added = delta.get("addedBooks", [])
+        items_removed = delta.get("removedBooks", [])
         items_transmitted = len(items_added) + len(items_removed)
         items_updated = 0
         coverage_provider = RBDigitalBibliographicCoverageProvider(
             collection=self.collection, api_class=self
         )
-        for catalog_item in items_added:
+        for item in items_added:
+            isbn = item["isbn"]
+            catalog_item = self.get_metadata_by_isbn(isbn)
             result = coverage_provider.update_metadata(catalog_item)
             if not isinstance(result, CoverageFailure):
                 items_updated += 1
