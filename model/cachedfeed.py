@@ -122,7 +122,7 @@ class CachedFeed(Base):
 
         # Calculate the maximum cache age, converting from timedelta
         # to seconds if necessary.
-        max_age = cls.max_cache_age(worklist, keys.feed_type, max_age)
+        max_age = cls.max_cache_age(worklist, keys.feed_type, max_age, facets)
 
         # These arguments will probably be passed into get_one, and
         # will be passed into get_one_or_create in the event of a cache
@@ -205,21 +205,26 @@ class CachedFeed(Base):
         return type
 
     @classmethod
-    def max_cache_age(cls, worklist, type, override=None):
+    def max_cache_age(cls, worklist, type, facets, override=None):
         """Determine the number of seconds that a cached feed
         of a given type can remain fresh.
 
-        :param worklist: A WorkList.
+        Order of precedence: `override`, `facets`, `worklist`.
+
+        :param worklist: A WorkList which may have an opinion on this
+           topic.
         :param type: The type of feed being generated.
-        :param override: A specific value passed in by the user. This
+        :param facets: A faceting object that may have an opinion on this
+           topic.
+        :param override: A specific value passed in by the caller. This
             may either be a number of seconds or a timedelta.
 
         :return: A number of seconds, or CACHE_FOREVER.
         """
-        value = None
-        if override is not None:
-            value = override
-        elif worklist:
+        value = override
+        if value is None and facets is not None:
+            value = facets.max_cache_age(type)
+        if value is None and worklist is not None:
             value = worklist.max_cache_age(type)
 
         if value == cls.CACHE_FOREVER:

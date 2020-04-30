@@ -8,6 +8,9 @@ class FacetConstants(object):
     ENTRY_POINT_REL = 'http://librarysimplified.org/terms/rel/entrypoint'
     ENTRY_POINT_FACET_GROUP_NAME = 'entrypoint'
 
+    # Query arguments can change how long a feed is to be cached.
+    MAX_CACHE_AGE_NAME = 'max_age'
+
     # Subset the collection, roughly, by quality.
     COLLECTION_FACET_GROUP_NAME = 'collection'
     COLLECTION_FULL = "full"
