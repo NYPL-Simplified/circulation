@@ -1448,7 +1448,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 return None
             else:
                 # something more serious went wrong
-                error_message = "get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % (identifier_string, str(self.library_id), error_message)
+                error_message = "get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % (identifier_string, str(self.library_id), message)
                 raise BadResponseException(url, message)
 
         return respdict
@@ -1544,8 +1544,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 # generate a CoverageFailure to let the system know to revisit this book
                 # TODO:  if did not create a Work, but have a CoverageFailure for the isbn,
                 # check that re-processing that coverage would generate the work.
-                e = "Could not extract metadata from RBDigital data: %r" % catalog_item
-                make_note = CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
+                # e = "Could not extract metadata from RBDigital data: %r" % catalog_item
+                # make_note = CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
+                continue
 
             # convert IdentifierData into Identifier, if can
             identifier, made_new = metadata.primary_identifier.load(_db=self._db)

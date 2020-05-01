@@ -951,6 +951,54 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         eq_(0, emperor.licenses_owned)
         eq_(0, emperor.licenses_available)
 
+    def test_populate_delta_remove_item_missing_metadata(self):
+        item_media_str, item_media = self.get_data("response_catalog_media_isbn.json")
+
+        _, add_remove_same_delta = self.get_data("response_catalog_delta.json")
+        add_remove_same_delta["addedBooks"] = [
+            {
+                "id": 1301944,
+                "isbn": item_media["isbn"],
+                "mediaType": item_media["mediaType"]
+            }
+        ]
+        add_remove_same_delta["booksAddedCount"] = 1
+        add_remove_same_delta["removedBooks"] = add_remove_same_delta["addedBooks"]
+        add_remove_same_delta["booksRemovedCount"] = add_remove_same_delta["booksAddedCount"]
+
+        # ensure test conditions are valid
+        eq_(item_media["isbn"], add_remove_same_delta["addedBooks"][0]["isbn"])
+        eq_(item_media["isbn"], add_remove_same_delta["removedBooks"][0]["isbn"])
+        eq_(1, len(add_remove_same_delta["removedBooks"]))
+
+        add_remove_same_delta["addedBooks"] = add_remove_same_delta["removedBooks"]
+        add_remove_same_delta["booksAddedCount"] = add_remove_same_delta["booksRemovedCount"]
+
+        delta_no_remove_isbn = json.loads(json.dumps(add_remove_same_delta))
+        _ = delta_no_remove_isbn["removedBooks"][0].pop("isbn")
+
+        class GoodMetaRBDigitalAPI(MockRBDigitalAPI):
+            def get_delta(self, *args, **kwargs):
+                return add_remove_same_delta
+
+        api = GoodMetaRBDigitalAPI(self._db, self.collection, base_path=self.base_path)
+        api.queue_response(status_code=200, content=item_media_str)
+        items_transmitted, items_updated = api.populate_delta()
+        eq_(2, items_transmitted)
+        eq_(2, items_updated)
+
+        # Exercise RBDigitalAPI.populate_delta when attempting to
+        # remove item with no metadata.
+        class NoneMetaRBDigitalAPI(MockRBDigitalAPI):
+            def get_delta(self, *args, **kwargs):
+                return delta_no_remove_isbn
+
+        api = NoneMetaRBDigitalAPI(self._db, self.collection, base_path=self.base_path)
+        api.queue_response(status_code=200, content=item_media_str)
+        items_transmitted, items_updated = api.populate_delta()
+        eq_(2, items_transmitted)
+        eq_(1, items_updated)
+
     def test_circulate_item(self):
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
