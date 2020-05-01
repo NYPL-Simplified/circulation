@@ -356,6 +356,14 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             self.api.align_dates_to_available_snapshots
         )
 
+        # exception for invalid json
+        self.api.queue_response(status_code=200, content="this is not JSON")
+        assert_raises_regexp(
+            BadResponseException, ".*RBDigital available-dates response not parsable.",
+            self.api.align_dates_to_available_snapshots
+        )
+
+
     def test_get_delta(self):
         assert_raises_regexp(
             ValueError, 'from_date 2000-02-02 cannot be after to_date 2000-01-01.',

@@ -1316,8 +1316,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url)
         try:
             snapshots = response.json()
-        except Exception as e:
-            raise BadResponseException(url, "RBDigital available-dates response not parseable.")
+        except ValueError as e:
+            raise BadResponseException(url, "RBDigital available-dates response not parsable.")
 
         if len(snapshots) < 1:
             raise BadResponseException(url, "RBDigital available-dates response contains no snapshots.")
@@ -1411,7 +1411,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         try:
             resplist = response.json()
         except Exception, e:
-            raise BadResponseException(url, "RBDigital availability response not parseable.")
+            raise BadResponseException(url, "RBDigital availability response not parsable.")
         return resplist
 
     def get_metadata_by_isbn(self, identifier):
