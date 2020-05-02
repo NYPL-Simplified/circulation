@@ -1288,6 +1288,63 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=args, verbosity=verbosity)
         return response.json()
 
+    class _FuzzyBinarySearcher(object):
+        """
+        A fuzzy binary searcher sorts an array by its key, and then must either:
+          - find an exact match, if one exists; or
+          - return an "adjacent" index and the direction in which a match
+            would have been found, had one existed.
+        """
+        INDEXED_GREATER_THAN_MATCH = -1
+        INDEXED_EQUALS_MATCH = 0
+        INDEXED_LESS_THAN_MATCH = 1
+
+        def __init__(self, array, key=None):
+            """
+            Initialize the object with a sorted array.
+
+            :param array: An array
+            :param key: A function of one argument that is used to extract
+                a comparison key from each element in array and by which
+                the array is sorted. The default value is None (compare
+                value to complete array element).
+            """
+
+            self.key = key or (lambda e: e)
+            if not callable(self.key):
+                raise TypeError("'key' must be 'None' or a callable.")
+            self.sorted_list = sorted(array, key=self.key, )
+            self._count = len(self.sorted_list)
+
+        def __call__(self, value):
+            """
+            Search for value in array, returning a matching or "adjacent" index.
+            Return the selected index and the relative direction to a match.
+            (0 => match, -1 => value < match's value, 1 => value > match's value).
+            An empty array returns None for both offset and direction.
+
+            :param value: the value to find
+            :return: offset (index), direction
+            """
+            if self._count == 0:
+                return None, None
+
+            start, stop = 0, self._count
+            index = None
+            direction = None
+            while start < stop:
+                index = start + stop >> 1
+                current = self.key(self.sorted_list[index])
+                if current < value:
+                    start = index + 1
+                    direction = self.INDEXED_LESS_THAN_MATCH
+                elif current > value:
+                    stop = index
+                    direction = self.INDEXED_GREATER_THAN_MATCH
+                else:
+                    return index, self.INDEXED_EQUALS_MATCH
+            return index, direction
+
     def align_dates_to_available_snapshots(self, from_date=None, to_date=None):
         """
         Given specified begin and end dates for a delta, return the best dates from those available.
@@ -1306,10 +1363,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         :return Best available begin and end dates.
         """
         SNAPSHOT_DATE_FORMAT = "%Y-%m-%d"
-        # fuzzy_binary_search relative match values
-        INDEXED_EQUALS_MATCH = 0
-        INDEXED_GREATER_THAN_MATCH = -1
-        INDEXED_LESS_THAN_MATCH = 1
 
         url = "%s/libraries/%s/book-holdings/delta/available-dates" % (self.base_url, str(self.library_id))
 
@@ -1322,42 +1375,11 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         if len(snapshots) < 1:
             raise BadResponseException(url, "RBDigital available-dates response contains no snapshots.")
 
-        def fuzzy_binary_search(array, value=None, key=None):
-            """
-            Search for value in array, returning matching or "adjacent" index.
-            Return the selected index and the relative direction to a match.
-            (0 => match, -1 => value < match's value, 1 => value > match's value).
-            An empty array returns None for both offset and direction.
-
-            :param array: array
-            :param value: the value to find
-            :param key: a function of one argument that is used to extract a comparison key from each element in array.
-                    The default value is None (compare value to complete array element).
-            :return: offset (index), direction
-            """
-
-            if key is None:
-                key = lambda e: e
-            start, stop = 0, len(array)
-            index = None
-            direction = None
-            while start < stop:
-                index = start + stop >> 1
-                current = key(array[index])
-                if current < value:
-                    start = index + 1
-                    direction = INDEXED_LESS_THAN_MATCH
-                elif current > value:
-                    stop = index
-                    direction = INDEXED_GREATER_THAN_MATCH
-                else:
-                    return index, INDEXED_EQUALS_MATCH
-            return index, direction
-
         def get_snapshot_date(snapshot):
             return snapshot["asOf"]
 
-        snapshots = sorted(snapshots, key=get_snapshot_date)
+        fuzzy_snapshot_search = self._FuzzyBinarySearcher(snapshots, key=get_snapshot_date)
+        snapshots = fuzzy_snapshot_search.sorted_list
 
         # need date strings here
         if from_date and isinstance(from_date, datetime.datetime):
@@ -1373,16 +1395,16 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         if from_date is None:
             begin_date = get_snapshot_date(snapshots[0])
         else:
-            index, relative = fuzzy_binary_search(snapshots, value=from_date, key=get_snapshot_date)
-            if relative == INDEXED_GREATER_THAN_MATCH and index > 0:
+            index, relative = fuzzy_snapshot_search(from_date)
+            if relative == fuzzy_snapshot_search.INDEXED_GREATER_THAN_MATCH and index > 0:
                 index -= 1
             begin_date = get_snapshot_date(snapshots[index])
 
         if to_date is None:
             end_date = get_snapshot_date(snapshots[-1])
         else:
-            index, relative = fuzzy_binary_search(snapshots, value=to_date, key=get_snapshot_date)
-            if relative == INDEXED_LESS_THAN_MATCH and index < len(snapshots) - 1:
+            index, relative = fuzzy_snapshot_search(to_date)
+            if relative == fuzzy_snapshot_search.INDEXED_LESS_THAN_MATCH and index < len(snapshots) - 1:
                 index += 1
             end_date = get_snapshot_date(snapshots[index])
 

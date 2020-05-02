@@ -305,6 +305,68 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             [x['title'] for x in catalog]
         )
 
+
+    def test_fuzzy_binary_searcher(self):
+        # A fuzzy binary searcher sorts an array by its key, and then must either:
+        # - find an exact match, if one exists; or
+        # - return an "adjacent" index and the direction in which a match
+        #   would have been found, had one existed.
+        array = [5, 3, 10, 19, -1, 8, -7]  # => [-7, -1, 3, 5, 8, 10, 19]
+        search = self.api._FuzzyBinarySearcher(array)
+
+        nine_idx, nine_rel = search(9)
+        eq_((nine_idx == 4 and nine_rel == search.INDEXED_LESS_THAN_MATCH) or
+            (nine_idx == 4 and nine_rel == search.INDEXED_GREATER_THAN_MATCH), True)
+
+        ten = search(10)
+        eq_(True, ten == (5, search.INDEXED_EQUALS_MATCH))
+
+        neg5 = search(-5)
+        eq_(True, neg5 == (0, search.INDEXED_LESS_THAN_MATCH) or (1, search.INDEXED_GREATER_THAN_MATCH))
+
+        # make sure we can hit the edges
+        neg7 = search(-7)
+        nineteen = search(19)
+        eq_(True, neg7 == (0, search.INDEXED_EQUALS_MATCH))
+        eq_(True, nineteen == (6, search.INDEXED_EQUALS_MATCH))
+
+        # and beyond the edges
+        neg100 = search(-100)
+        pos100 = search(100)
+        eq_(True, neg100 == (0, search.INDEXED_GREATER_THAN_MATCH))
+        eq_(True, pos100 == (6, search.INDEXED_LESS_THAN_MATCH))
+
+        # Lookups in more complicated objects
+        _, snapshots = self.api.get_data("response_catalog_availability_dates_multi.json")
+        snapshots_max_index = len(snapshots) -1
+        # The following are the earliest and latest dates in the snapshot test file.
+        first_snapshot = "2016-04-01"
+        last_snapshot = "2020-04-14"
+        # dates that are well before and well after any available snapshot
+        neg_infinity = "1960-01-01"
+        pos_infinity = "2999-12-31"
+
+        # create the searcher object
+        snap_date_searcher = self.api._FuzzyBinarySearcher(snapshots, key=lambda s: s["asOf"])
+        sorted_snapshots = snap_date_searcher.sorted_list
+        eq_(first_snapshot, sorted_snapshots[0]["asOf"])
+        eq_(last_snapshot, sorted_snapshots[snapshots_max_index]["asOf"])
+
+        first = snap_date_searcher(first_snapshot)
+        last = snap_date_searcher(last_snapshot)
+        eq_(first, (0, snap_date_searcher.INDEXED_EQUALS_MATCH))
+        eq_(last, (snapshots_max_index, snap_date_searcher.INDEXED_EQUALS_MATCH))
+
+        very_neg = snap_date_searcher(neg_infinity)
+        very_pos = snap_date_searcher(pos_infinity)
+        eq_(very_neg, (0, snap_date_searcher.INDEXED_GREATER_THAN_MATCH))
+        eq_(very_pos, (snapshots_max_index, snap_date_searcher.INDEXED_LESS_THAN_MATCH))
+
+        assert_raises_regexp(
+            TypeError, ".*'key' must be 'None' or a callable.",
+            self.api._FuzzyBinarySearcher, snapshots, key="not a callable"
+        )
+
     def test_align_delta_dates_to_available_snapshots(self):
         datastr, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
         # The following are the earliest and latest dates in the snapshot test file.
