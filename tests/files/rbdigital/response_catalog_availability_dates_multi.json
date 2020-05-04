@@ -1,0 +1,793 @@
+[
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-14",
+    "eBookCount": 1646,
+    "eAudioCount": 13468,
+    "totalCount": 15114
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-13",
+    "eBookCount": 1646,
+    "eAudioCount": 13468,
+    "totalCount": 15114
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-12",
+    "eBookCount": 1646,
+    "eAudioCount": 13468,
+    "totalCount": 15114
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-11",
+    "eBookCount": 1646,
+    "eAudioCount": 13468,
+    "totalCount": 15114
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-10",
+    "eBookCount": 1646,
+    "eAudioCount": 13468,
+    "totalCount": 15114
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-09",
+    "eBookCount": 1640,
+    "eAudioCount": 13468,
+    "totalCount": 15108
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-08",
+    "eBookCount": 1635,
+    "eAudioCount": 13430,
+    "totalCount": 15065
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-07",
+    "eBookCount": 1630,
+    "eAudioCount": 13414,
+    "totalCount": 15044
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-06",
+    "eBookCount": 1631,
+    "eAudioCount": 13414,
+    "totalCount": 15045
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-05",
+    "eBookCount": 1631,
+    "eAudioCount": 13414,
+    "totalCount": 15045
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-04",
+    "eBookCount": 1631,
+    "eAudioCount": 13414,
+    "totalCount": 15045
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-03",
+    "eBookCount": 1631,
+    "eAudioCount": 13414,
+    "totalCount": 15045
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-02",
+    "eBookCount": 1631,
+    "eAudioCount": 13413,
+    "totalCount": 15044
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-04-01",
+    "eBookCount": 1631,
+    "eAudioCount": 13404,
+    "totalCount": 15035
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-31",
+    "eBookCount": 1633,
+    "eAudioCount": 13386,
+    "totalCount": 15019
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-30",
+    "eBookCount": 1633,
+    "eAudioCount": 13386,
+    "totalCount": 15019
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-29",
+    "eBookCount": 1633,
+    "eAudioCount": 13386,
+    "totalCount": 15019
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-28",
+    "eBookCount": 1634,
+    "eAudioCount": 13386,
+    "totalCount": 15020
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-27",
+    "eBookCount": 1634,
+    "eAudioCount": 13378,
+    "totalCount": 15012
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-26",
+    "eBookCount": 1634,
+    "eAudioCount": 13378,
+    "totalCount": 15012
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-25",
+    "eBookCount": 1571,
+    "eAudioCount": 13325,
+    "totalCount": 14896
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-24",
+    "eBookCount": 1571,
+    "eAudioCount": 13325,
+    "totalCount": 14896
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-23",
+    "eBookCount": 1571,
+    "eAudioCount": 13325,
+    "totalCount": 14896
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-22",
+    "eBookCount": 1571,
+    "eAudioCount": 13308,
+    "totalCount": 14879
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-20",
+    "eBookCount": 1571,
+    "eAudioCount": 13308,
+    "totalCount": 14879
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-19",
+    "eBookCount": 1571,
+    "eAudioCount": 13308,
+    "totalCount": 14879
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-18",
+    "eBookCount": 1571,
+    "eAudioCount": 13308,
+    "totalCount": 14879
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-17",
+    "eBookCount": 1571,
+    "eAudioCount": 13308,
+    "totalCount": 14879
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-16",
+    "eBookCount": 1571,
+    "eAudioCount": 13300,
+    "totalCount": 14871
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-15",
+    "eBookCount": 1571,
+    "eAudioCount": 13300,
+    "totalCount": 14871
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-14",
+    "eBookCount": 1571,
+    "eAudioCount": 13300,
+    "totalCount": 14871
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-13",
+    "eBookCount": 1572,
+    "eAudioCount": 13309,
+    "totalCount": 14881
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-12",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-11",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-10",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-09",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-08",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-07",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-06",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-05",
+    "eBookCount": 1572,
+    "eAudioCount": 13311,
+    "totalCount": 14883
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-04",
+    "eBookCount": 1569,
+    "eAudioCount": 13307,
+    "totalCount": 14876
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-03",
+    "eBookCount": 1570,
+    "eAudioCount": 13307,
+    "totalCount": 14877
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-02",
+    "eBookCount": 1571,
+    "eAudioCount": 13300,
+    "totalCount": 14871
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-03-01",
+    "eBookCount": 1571,
+    "eAudioCount": 13299,
+    "totalCount": 14870
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-29",
+    "eBookCount": 1571,
+    "eAudioCount": 13217,
+    "totalCount": 14788
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-28",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-27",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-26",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-25",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-24",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-23",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-22",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-21",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-20",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-18",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-17",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-16",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-15",
+    "eBookCount": 1570,
+    "eAudioCount": 13202,
+    "totalCount": 14772
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-14",
+    "eBookCount": 1570,
+    "eAudioCount": 13155,
+    "totalCount": 14725
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-13",
+    "eBookCount": 1570,
+    "eAudioCount": 13155,
+    "totalCount": 14725
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-12",
+    "eBookCount": 1570,
+    "eAudioCount": 13156,
+    "totalCount": 14726
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-11",
+    "eBookCount": 1570,
+    "eAudioCount": 13156,
+    "totalCount": 14726
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-10",
+    "eBookCount": 1570,
+    "eAudioCount": 13156,
+    "totalCount": 14726
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-09",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-08",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-07",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-06",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-05",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-04",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-03",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-02",
+    "eBookCount": 1572,
+    "eAudioCount": 13156,
+    "totalCount": 14728
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-02-01",
+    "eBookCount": 1572,
+    "eAudioCount": 13344,
+    "totalCount": 14916
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-31",
+    "eBookCount": 1572,
+    "eAudioCount": 13279,
+    "totalCount": 14851
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-30",
+    "eBookCount": 1572,
+    "eAudioCount": 13279,
+    "totalCount": 14851
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-29",
+    "eBookCount": 1572,
+    "eAudioCount": 13279,
+    "totalCount": 14851
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-28",
+    "eBookCount": 1572,
+    "eAudioCount": 13279,
+    "totalCount": 14851
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-27",
+    "eBookCount": 1572,
+    "eAudioCount": 13279,
+    "totalCount": 14851
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-26",
+    "eBookCount": 1572,
+    "eAudioCount": 13281,
+    "totalCount": 14853
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-25",
+    "eBookCount": 1572,
+    "eAudioCount": 13281,
+    "totalCount": 14853
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-24",
+    "eBookCount": 1572,
+    "eAudioCount": 13281,
+    "totalCount": 14853
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-23",
+    "eBookCount": 1572,
+    "eAudioCount": 13270,
+    "totalCount": 14842
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-22",
+    "eBookCount": 1572,
+    "eAudioCount": 13270,
+    "totalCount": 14842
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-21",
+    "eBookCount": 1539,
+    "eAudioCount": 13248,
+    "totalCount": 14787
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-20",
+    "eBookCount": 1539,
+    "eAudioCount": 13248,
+    "totalCount": 14787
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-19",
+    "eBookCount": 1539,
+    "eAudioCount": 13248,
+    "totalCount": 14787
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-18",
+    "eBookCount": 1539,
+    "eAudioCount": 13248,
+    "totalCount": 14787
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-17",
+    "eBookCount": 1539,
+    "eAudioCount": 13248,
+    "totalCount": 14787
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-16",
+    "eBookCount": 1505,
+    "eAudioCount": 13211,
+    "totalCount": 14716
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-15",
+    "eBookCount": 1505,
+    "eAudioCount": 13211,
+    "totalCount": 14716
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2020-01-01",
+    "eBookCount": 1510,
+    "eAudioCount": 13026,
+    "totalCount": 14536
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2019-12-01",
+    "eBookCount": 1510,
+    "eAudioCount": 12974,
+    "totalCount": 14484
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-17",
+    "eBookCount": 1513,
+    "eAudioCount": 12919,
+    "totalCount": 14432
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-16",
+    "eBookCount": 1517,
+    "eAudioCount": 12766,
+    "totalCount": 14283
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-15",
+    "eBookCount": 1489,
+    "eAudioCount": 12670,
+    "totalCount": 14159
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-14",
+    "eBookCount": 1313,
+    "eAudioCount": 12502,
+    "totalCount": 13815
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-13",
+    "eBookCount": 1313,
+    "eAudioCount": 12502,
+    "totalCount": 13815
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-12",
+    "eBookCount": 1481,
+    "eAudioCount": 12345,
+    "totalCount": 13826
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-11",
+    "eBookCount": 1482,
+    "eAudioCount": 12264,
+    "totalCount": 13746
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-09",
+    "eBookCount": 1458,
+    "eAudioCount": 12157,
+    "totalCount": 13615
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-08",
+    "eBookCount": 1461,
+    "eAudioCount": 12115,
+    "totalCount": 13576
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-07",
+    "eBookCount": 1362,
+    "eAudioCount": 12069,
+    "totalCount": 13431
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-06",
+    "eBookCount": 1374,
+    "eAudioCount": 12022,
+    "totalCount": 13396
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-05",
+    "eBookCount": 1380,
+    "eAudioCount": 12106,
+    "totalCount": 13486
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-04",
+    "eBookCount": 1385,
+    "eAudioCount": 11969,
+    "totalCount": 13354
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2018-10-03",
+    "eBookCount": 1364,
+    "eAudioCount": 11836,
+    "totalCount": 13200
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-02",
+    "eBookCount": 1349,
+    "eAudioCount": 11757,
+    "totalCount": 13106
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-10-01",
+    "eBookCount": 1355,
+    "eAudioCount": 11710,
+    "totalCount": 13065
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-09-01",
+    "eBookCount": 1367,
+    "eAudioCount": 11679,
+    "totalCount": 13046
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-08-01",
+    "eBookCount": 1542,
+    "eAudioCount": 11596,
+    "totalCount": 13138
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-07-01",
+    "eBookCount": 1514,
+    "eAudioCount": 11471,
+    "totalCount": 12985
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-06-01",
+    "eBookCount": 1514,
+    "eAudioCount": 11471,
+    "totalCount": 12985
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-05-01",
+    "eBookCount": 1514,
+    "eAudioCount": 11471,
+    "totalCount": 12985
+  },
+  {
+    "tenantId": 1931,
+    "asOf": "2016-04-01",
+    "eBookCount": 1511,
+    "eAudioCount": 11424,
+    "totalCount": 12935
+  }
+]

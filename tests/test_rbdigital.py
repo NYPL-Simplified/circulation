@@ -305,35 +305,184 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             [x['title'] for x in catalog]
         )
 
+
+    def test_fuzzy_binary_searcher(self):
+        # A fuzzy binary searcher sorts an array by its key, and then must either:
+        # - find an exact match, if one exists; or
+        # - return an "adjacent" index and the direction in which a match
+        #   would have been found, had one existed.
+        array = [5, 3, 10, 19, -1, 8, -7]  # => [-7, -1, 3, 5, 8, 10, 19]
+        search = self.api._FuzzyBinarySearcher(array)
+
+        nine_idx, nine_rel = search(9)
+        eq_((nine_idx == 4 and nine_rel == search.INDEXED_LESS_THAN_MATCH) or
+            (nine_idx == 4 and nine_rel == search.INDEXED_GREATER_THAN_MATCH), True)
+
+        ten = search(10)
+        eq_(True, ten == (5, search.INDEXED_EQUALS_MATCH))
+
+        neg5 = search(-5)
+        eq_(True, neg5 == (0, search.INDEXED_LESS_THAN_MATCH) or (1, search.INDEXED_GREATER_THAN_MATCH))
+
+        # make sure we can hit the edges
+        neg7 = search(-7)
+        nineteen = search(19)
+        eq_(True, neg7 == (0, search.INDEXED_EQUALS_MATCH))
+        eq_(True, nineteen == (6, search.INDEXED_EQUALS_MATCH))
+
+        # and beyond the edges
+        neg100 = search(-100)
+        pos100 = search(100)
+        eq_(True, neg100 == (0, search.INDEXED_GREATER_THAN_MATCH))
+        eq_(True, pos100 == (6, search.INDEXED_LESS_THAN_MATCH))
+
+        # Lookups in more complicated objects
+        _, snapshots = self.api.get_data("response_catalog_availability_dates_multi.json")
+        snapshots_max_index = len(snapshots) -1
+        # The following are the earliest and latest dates in the snapshot test file.
+        first_snapshot = "2016-04-01"
+        last_snapshot = "2020-04-14"
+        # dates that are well before and well after any available snapshot
+        neg_infinity = "1960-01-01"
+        pos_infinity = "2999-12-31"
+
+        # create the searcher object
+        snap_date_searcher = self.api._FuzzyBinarySearcher(snapshots, key=lambda s: s["asOf"])
+        sorted_snapshots = snap_date_searcher.sorted_list
+        eq_(first_snapshot, sorted_snapshots[0]["asOf"])
+        eq_(last_snapshot, sorted_snapshots[snapshots_max_index]["asOf"])
+
+        first = snap_date_searcher(first_snapshot)
+        last = snap_date_searcher(last_snapshot)
+        eq_(first, (0, snap_date_searcher.INDEXED_EQUALS_MATCH))
+        eq_(last, (snapshots_max_index, snap_date_searcher.INDEXED_EQUALS_MATCH))
+
+        very_neg = snap_date_searcher(neg_infinity)
+        very_pos = snap_date_searcher(pos_infinity)
+        eq_(very_neg, (0, snap_date_searcher.INDEXED_GREATER_THAN_MATCH))
+        eq_(very_pos, (snapshots_max_index, snap_date_searcher.INDEXED_LESS_THAN_MATCH))
+
+        assert_raises_regexp(
+            TypeError, ".*'key' must be 'None' or a callable.",
+            self.api._FuzzyBinarySearcher, snapshots, key="not a callable"
+        )
+
+    def test_align_delta_dates_to_available_snapshots(self):
+        datastr, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
+        # The following are the earliest and latest dates in the snapshot test file.
+        first_snapshot = "2016-04-01"
+        last_snapshot = "2020-04-14"
+
+        # A missing begin date should be assigned the date of the earliest
+        # snapshot; a missing end date, should get the date of the latest.
+        self.api.queue_response(status_code=200, content=datastr)
+        from_date, to_date = self.api.align_dates_to_available_snapshots()
+        eq_(first_snapshot, from_date)
+        eq_(last_snapshot, to_date)
+
+        # Items at the temporal beginning and end of
+        # the snapshot list should match when specified
+        self.api.queue_response(status_code=200, content=datastr)
+        from_date, to_date = self.api.align_dates_to_available_snapshots(from_date=first_snapshot, to_date=last_snapshot)
+        eq_(first_snapshot, from_date)
+        eq_(last_snapshot, to_date)
+
+        # A unmatched from_date should be assigned the date of the previous
+        # snapshot (or the first snapshot, if there is not an earlier one).
+        # An unmatched to_date should be assigned the date of the next
+        # snapshot (or the last snapshot, if there is not a later one).
+        self.api.queue_response(status_code=200, content=datastr)
+        from_date, to_date = self.api.align_dates_to_available_snapshots(from_date="2016-06-15", to_date="2020-03-22")
+        eq_("2016-06-01", from_date)
+        eq_("2020-03-22", to_date)
+
+        self.api.queue_response(status_code=200, content=datastr)
+        from_date, to_date = self.api.align_dates_to_available_snapshots(from_date="2016-05-31", to_date="2016-09-02")
+        eq_("2016-05-01", from_date)
+        eq_("2016-10-01", to_date)
+
+        self.api.queue_response(status_code=200, content=datastr)
+        from_date, to_date = self.api.align_dates_to_available_snapshots(from_date="1960-01-01", to_date="2999-12-31")
+        eq_(first_snapshot, from_date)
+        eq_(last_snapshot, to_date)
+
+        # date alignment cannot work without at least one snapshot
+        self.api.queue_response(status_code=200, content=u"[]")
+        assert_raises_regexp(
+            BadResponseException, ".*RBDigital available-dates response contains no snapshots.",
+            self.api.align_dates_to_available_snapshots, from_date="2000-02-02", to_date="2000-01-01"
+        )
+        self.api.queue_response(status_code=200, content=u"[]")
+        assert_raises_regexp(
+            BadResponseException, ".*RBDigital available-dates response contains no snapshots.",
+            self.api.align_dates_to_available_snapshots
+        )
+
+        # exception for invalid json
+        self.api.queue_response(status_code=200, content="this is not JSON")
+        assert_raises_regexp(
+            BadResponseException, ".*RBDigital available-dates response not parsable.",
+            self.api.align_dates_to_available_snapshots
+        )
+
+
     def test_get_delta(self):
+        assert_raises_regexp(
+            ValueError, 'from_date 2000-02-02 cannot be after to_date 2000-01-01.',
+            self.api.get_delta, from_date="2000-02-02", to_date="2000-01-01"
+        )
+
+        # The effective begin and end snapshot dates (after availability alignment)
+        # cannot be the same.
+        # This can happen when from_date and to_date from the call were the same
+        # and there is an exact snapshot date match, ...
+        available_dates_string, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
+        self.api.queue_response(status_code=200, content=available_dates_string)
+        assert_raises_regexp(
+            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
+            self.api.get_delta, from_date="2020-04-01", to_date="2020-04-01"
+        )
+        # but can also occur when:
+        # - both dates are less than the date of the first snapshot, ...
+        self.api.queue_response(status_code=200, content=available_dates_string)
+        assert_raises_regexp(
+            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
+            self.api.get_delta, from_date="1960-01-01", to_date="1960-01-02"
+        )
+        # - both dates are greater than the date of the last snapshot, or ...
+        self.api.queue_response(status_code=200, content=available_dates_string)
+        assert_raises_regexp(
+            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
+            self.api.get_delta, from_date="2999-12-31", to_date="2999-12-31"
+        )
+        # - only a single snapshot is available
+        datastr, datadict = self.api.get_data("response_catalog_availability_dates_only_one.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        assert_raises_regexp(
+            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
+            self.api.get_delta, from_date="1960-01-01", to_date="2999-12-31"
+        )
+        self.api.queue_response(status_code=200, content=datastr)
+        assert_raises_regexp(
+            ValueError, 'The effective begin and end RBDigital catalog snapshot dates cannot be the same.',
+            self.api.get_delta
+        )
+
+        # Retrieving a delta requires first retrieving a list of dated
+        # snapshots, then retrieving the changes between those dates.
+        datastr, datadict = self.api.get_data("response_catalog_availability_dates_multi.json")
+        self.api.queue_response(status_code=200, content=datastr)
         datastr, datadict = self.api.get_data("response_catalog_delta.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        assert_raises_regexp(
-            ValueError, 'from_date 2000-01-01 00:00:00 must be real, in the past, and less than 6 months ago.',
-            self.api.get_delta, from_date="2000-01-01", to_date="2000-02-01"
-        )
-
-        today = datetime.datetime.now()
-        three_months = relativedelta(months=3)
-        assert_raises_regexp(
-            ValueError, "from_date .* - to_date .* asks for too-wide date range.",
-            self.api.get_delta, from_date=(today - three_months), to_date=today
-        )
-
         delta = self.api.get_delta()
-        eq_(1931, delta[0]["libraryId"])
-        eq_("Wethersfield Public Library", delta[0]["libraryName"])
-        eq_("2016-10-17", delta[0]["beginDate"])
-        eq_("2016-10-18", delta[0]["endDate"])
-        eq_(0, delta[0]["eBookAddedCount"])
-        eq_(0, delta[0]["eBookRemovedCount"])
-        eq_(1, delta[0]["eAudioAddedCount"])
-        eq_(1, delta[0]["eAudioRemovedCount"])
-        eq_(1, delta[0]["titleAddedCount"])
-        eq_(1, delta[0]["titleRemovedCount"])
-        eq_(1, len(delta[0]["addedTitles"]))
-        eq_(1, len(delta[0]["removedTitles"]))
+        eq_(1931, delta["tenantId"])
+        eq_("2020-03-14", delta["beginDate"])
+        eq_("2020-04-14", delta["endDate"])
+        eq_(1, delta["booksAddedCount"])
+        eq_(1, delta["booksRemovedCount"])
+        eq_([{u'isbn': u'9781934180723', u'id': 1301944, u'mediaType': u'eAudio'}], delta["addedBooks"])
+        eq_([{u'isbn': u'9780590543439', u'id': 1031919, u'mediaType': u'eAudio'}], delta["removedBooks"])
 
     def test_patron_remote_identifier_new_patron(self):
         # End-to-end test of patron_remote_identifier, in the case
@@ -821,7 +970,15 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         tricks.licenses_owned = 10
         tricks.licenses_available = 5
 
+        # Retrieving a delta requires first retrieving a list of dated
+        # snapshots, then retrieving the changes between those dates.
+        datastr, datadict = self.get_data("response_catalog_availability_dates_multi.json")
+        self.api.queue_response(status_code=200, content=datastr)
         datastr, datadict = self.get_data("response_catalog_delta.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        # RBDigitalAPI.populate_delta then retrieves a complete media entry
+        # for the ISBN of each added item. This is not needed for removals.
+        datastr, datadict = self.get_data("response_catalog_media_isbn.json")
         self.api.queue_response(status_code=200, content=datastr)
         result = self.api.populate_delta()
 
@@ -847,7 +1004,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             "9781934180723", collection=self.collection
         )
         work = emperor.work
-        eq_("Emperor Mage: The Immortals", work.title)
+        eq_("Emperor Mage", work.title)
         eq_(True, work.presentation_ready)
 
         # However, we have not set availability information on this
@@ -855,6 +1012,54 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # RBDigitalAPI.process_availability is called.
         eq_(0, emperor.licenses_owned)
         eq_(0, emperor.licenses_available)
+
+    def test_populate_delta_remove_item_missing_metadata(self):
+        item_media_str, item_media = self.get_data("response_catalog_media_isbn.json")
+
+        _, add_remove_same_delta = self.get_data("response_catalog_delta.json")
+        add_remove_same_delta["addedBooks"] = [
+            {
+                "id": 1301944,
+                "isbn": item_media["isbn"],
+                "mediaType": item_media["mediaType"]
+            }
+        ]
+        add_remove_same_delta["booksAddedCount"] = 1
+        add_remove_same_delta["removedBooks"] = add_remove_same_delta["addedBooks"]
+        add_remove_same_delta["booksRemovedCount"] = add_remove_same_delta["booksAddedCount"]
+
+        # ensure test conditions are valid
+        eq_(item_media["isbn"], add_remove_same_delta["addedBooks"][0]["isbn"])
+        eq_(item_media["isbn"], add_remove_same_delta["removedBooks"][0]["isbn"])
+        eq_(1, len(add_remove_same_delta["removedBooks"]))
+
+        add_remove_same_delta["addedBooks"] = add_remove_same_delta["removedBooks"]
+        add_remove_same_delta["booksAddedCount"] = add_remove_same_delta["booksRemovedCount"]
+
+        delta_no_remove_isbn = json.loads(json.dumps(add_remove_same_delta))
+        _ = delta_no_remove_isbn["removedBooks"][0].pop("isbn")
+
+        class GoodMetaRBDigitalAPI(MockRBDigitalAPI):
+            def get_delta(self, *args, **kwargs):
+                return add_remove_same_delta
+
+        api = GoodMetaRBDigitalAPI(self._db, self.collection, base_path=self.base_path)
+        api.queue_response(status_code=200, content=item_media_str)
+        items_transmitted, items_updated = api.populate_delta()
+        eq_(2, items_transmitted)
+        eq_(2, items_updated)
+
+        # Exercise RBDigitalAPI.populate_delta when attempting to
+        # remove item with no metadata.
+        class NoneMetaRBDigitalAPI(MockRBDigitalAPI):
+            def get_delta(self, *args, **kwargs):
+                return delta_no_remove_isbn
+
+        api = NoneMetaRBDigitalAPI(self._db, self.collection, base_path=self.base_path)
+        api.queue_response(status_code=200, content=item_media_str)
+        items_transmitted, items_updated = api.populate_delta()
+        eq_(2, items_transmitted)
+        eq_(1, items_updated)
 
     def test_circulate_item(self):
         edition, pool = self._edition(
