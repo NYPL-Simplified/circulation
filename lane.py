@@ -197,7 +197,7 @@ class FacetsWithEntryPoint(BaseFacets):
         """
         self.entrypoint = entrypoint
         self.entrypoint_is_default = entrypoint_is_default
-        self.max_cache_age = max_cache_age
+        self._max_cache_age = max_cache_age
         self.constructor_kwargs = kwargs
 
     @classmethod
@@ -221,7 +221,7 @@ class FacetsWithEntryPoint(BaseFacets):
         """
         return self.__class__(
             entrypoint=entrypoint, entrypoint_is_default=False,
-            max_cache_age=self.max_cache_age,
+            max_cache_age=self._max_cache_age,
             **self.constructor_kwargs
         )
 
@@ -288,28 +288,13 @@ class FacetsWithEntryPoint(BaseFacets):
             Facets.MAX_CACHE_AGE_NAME, None
         )
         max_cache_age = cls.load_max_cache_age(max_cache_age)
-        if max_cache_age is not None:
-            try:
-                max_cache_age = int(max_cache_age)
-            except ValueError, e:
-                max_cache_age = None
-
-            # At the moment, the only acceptable value that can be set
-            # through the web is zero -- i.e. don't use the cache at
-            # all. We can't give web clients fine-grained control over
-            # the internal workings of our cache; the most we can do
-            # is give them the opportunity not to use it.
-            if max_cache_age != 0:
-                max_cache_age = None
+        if isinstance(max_cache_age, ProblemDetail):
+            return max_cache_age
 
         return cls(
             entrypoint=entrypoint, entrypoint_is_default=is_default,
             max_cache_age=max_cache_age, **extra_kwargs
         )
-
-    @classmethod
-    def load_max_cache_age(cls, value):
-        """Convert a value for the MAX_CACHE_AGE_NAME parameter to a numeric value."""
 
     @classmethod
     def load_entrypoint(cls, name, valid_entrypoints, default=None):
@@ -336,6 +321,28 @@ class FacetsWithEntryPoint(BaseFacets):
         if not ep or ep not in valid_entrypoints:
             return default, True
         return ep, False
+
+    @classmethod
+    def load_max_cache_age(cls, value):
+        """Convert a value for the MAX_CACHE_AGE_NAME parameter to a numeric value."""
+        if value is None:
+            return value
+
+        try:
+            value = int(value)
+        except ValueError, e:
+            value = None
+
+        # At the moment, the only acceptable value that can be set
+        # through the web is zero -- i.e. don't use the cache at
+        # all. We can't give web clients fine-grained control over
+        # the internal workings of our cache; the most we can do
+        # is give them the opportunity to opt out.
+        #
+        # Thus, any nonzero value will be ignored.
+        if value != 0:
+            value = None
+        return value
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.
@@ -368,7 +375,7 @@ class FacetsWithEntryPoint(BaseFacets):
         :param type: The type of feed being generated.
         :return: The value stored by the constructor.
         """
-        return self.max_cache_age
+        return self._max_cache_age
 
 
 class Facets(FacetsWithEntryPoint):

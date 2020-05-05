@@ -106,7 +106,8 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         old_entrypoint = object()
         kwargs = dict(extra_key="extra_value")
         facets = FacetsWithEntryPoint(
-            old_entrypoint, entrypoint_is_default=True, **kwargs
+            old_entrypoint, entrypoint_is_default=True, 
+            max_cache_age=123, **kwargs
         )
         new_entrypoint = object()
         new_facets = facets.navigate(new_entrypoint)
@@ -120,6 +121,9 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # Since navigating from one Facets object to another is a choice,
         # the new Facets object is not using a default EntryPoint.
         eq_(False, new_facets.entrypoint_is_default)
+
+        # The max_cache_age was preserved.
+        eq_(123, new_facets.max_cache_age("feed"))
 
         # The keyword arguments used to create the original faceting
         # object were propagated to its constructor.
@@ -150,13 +154,13 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(expect, result)
 
     def test__from_request(self):
-        # _from_request calls load_entrypoint() and instantiates the
-        # class with the result.
-
-        # Mock load_entrypoint() to return whatever value we have set up
-        # ahead of time.
+        # _from_request calls load_entrypoint() and
+        # load_max_cache_age() and instantiates the class with the
+        # result.
 
         class MockFacetsWithEntryPoint(FacetsWithEntryPoint):
+            # Mock load_entrypoint() and load_max_cache_age() to
+            # return whatever values we have set up ahead of time.
 
             @classmethod
             def selectable_entrypoints(cls, facet_config):
@@ -166,16 +170,24 @@ class TestFacetsWithEntryPoint(DatabaseTest):
             @classmethod
             def load_entrypoint(cls, entrypoint_name, entrypoints, default=None):
                 cls.load_entrypoint_called_with = (entrypoint_name, entrypoints, default)
-                return cls.expect
+                return cls.expect_load_entrypoint
+
+            @classmethod
+            def load_max_cache_age(cls, max_cache_age):
+                cls.load_max_cache_age_called_with = max_cache_age
+                return cls.expect_max_cache_age
 
         # Mock the functions that pull information out of an HTTP
         # request.
 
-        # EntryPoint.load_entrypoint pulls the facet group name out of
-        # the 'request' and passes it into load_entrypoint().
+        # EntryPoint.load_entrypoint pulls the facet group name and
+        # the maximum cache age out of the 'request' and passes those
+        # values into load_entrypoint() and load_max_cache_age.
         def get_argument(key, default):
-            eq_(key, Facets.ENTRY_POINT_FACET_GROUP_NAME)
-            return "name of the entrypoint"
+            if key == Facets.ENTRY_POINT_FACET_GROUP_NAME:
+                return "entrypoint name from request"
+            elif key == Facets.MAX_CACHE_AGE_NAME:
+                return "max cache age from request"
 
         # FacetsWithEntryPoint.load_entrypoint does not use
         # get_header().
@@ -184,43 +196,48 @@ class TestFacetsWithEntryPoint(DatabaseTest):
 
         config = self.MockFacetConfig
         mock_worklist = object()
+        default_entrypoint = object()
+
+        def m():
+            return MockFacetsWithEntryPoint._from_request(
+                config, get_argument, get_header, mock_worklist,
+                default_entrypoint=default_entrypoint, extra="extra kwarg"
+            )
 
         # First, test failure. If load_entrypoint() returns a
         # ProblemDetail, that object is returned instead of the
         # faceting class.
-        MockFacetsWithEntryPoint.expect = INVALID_INPUT
-        eq_(
-            MockFacetsWithEntryPoint.expect,
-            MockFacetsWithEntryPoint._from_request(
-                config, get_argument, get_header, mock_worklist,
-                extra="extra kwarg"
-            )
-        )
+        MockFacetsWithEntryPoint.expect_load_entrypoint = INVALID_INPUT
+        eq_(INVALID_INPUT, m())
 
-        # Now, test success. If load_entrypoint() returns an object,
-        # that object is passed as 'entrypoint' into the
-        # FacetsWithEntryPoint constructor.
+        # Similarly if load_entrypoint() works but load_max_cache_age
+        # returns a ProblemDetail.
+        expect_entrypoint = object()
+        expect_is_default = object()
+        MockFacetsWithEntryPoint.expect_load_entrypoint = (expect_entrypoint, expect_is_default)
+        MockFacetsWithEntryPoint.expect_max_cache_age = INVALID_INPUT
+        eq_(INVALID_INPUT, m())
+
+        # Next, test success. The return value of load_entrypoint() is
+        # is passed as 'entrypoint' into the FacetsWithEntryPoint
+        # constructor. The object returned by load_max_cache_age is
+        # passed as 'max_cache_age'.
         #
         # The object returned by load_entrypoint() does not need to be a
         # currently enabled entrypoint for the library.
-        expect_entrypoint = object()
-        expect_is_default = object()
-        MockFacetsWithEntryPoint.expect = (expect_entrypoint, expect_is_default)
-        config = self.MockFacetConfig
-        default_entrypoint = object()
-        facets = MockFacetsWithEntryPoint._from_request(
-            config, get_argument, get_header, mock_worklist,
-            default_entrypoint=default_entrypoint, extra="extra kwarg"
-        )
+        MockFacetsWithEntryPoint.expect_max_cache_age = 345
+        facets = m()
         assert isinstance(facets, FacetsWithEntryPoint)
         eq_(expect_entrypoint, facets.entrypoint)
         eq_(expect_is_default, facets.entrypoint_is_default)
         eq_(
-            ("name of the entrypoint", ["Selectable entrypoints"], default_entrypoint),
+            ("entrypoint name from request", ["Selectable entrypoints"], default_entrypoint),
             MockFacetsWithEntryPoint.load_entrypoint_called_with
         )
+        eq_(345, facets.max_cache_age("feed"))
         eq_(dict(extra="extra kwarg"), facets.constructor_kwargs)
         eq_(MockFacetsWithEntryPoint.selectable_entrypoints_called_with, config)
+        eq_(MockFacetsWithEntryPoint.load_max_cache_age_called_with, "max cache age from request")
 
     def test_load_entrypoint(self):
         audio = AudiobooksEntryPoint
@@ -255,6 +272,31 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # If no EntryPoints are available, load_entrypoint returns
         # nothing.
         eq_((None, True), m(audio.INTERNAL_NAME, []))
+
+    def test_load_max_cache_age(self):
+        m = FacetsWithEntryPoint.load_max_cache_age
+
+        # The two valid options for max_cache_age as loaded in from a request are
+        # zero (do not pull from cache) and None (no opinion).
+        eq_(None, m(""))
+        eq_(None, m(None))
+        eq_(0, m(0))
+        eq_(0, m("0"))
+
+        # All other values are ignored.
+        eq_(None, m("1"))
+        eq_(None, m(2))
+        eq_(None, m("not a number"))
+
+    def test_cache_age(self):
+        # No matter what type of feed we ask about, the max_cache_age of a 
+        # FacetsWithEntryPoint is whatever is stored in its .max_cache_age.
+        #
+        # This is true even for 'feed types' that make no sense.
+        max_cache_age = object()
+        facets = FacetsWithEntryPoint(max_cache_age=max_cache_age)
+        for type in ('groups', 'feed', object(), None):
+            eq_(max_cache_age, facets.max_cache_age(type))
 
     def test_selectable_entrypoints(self):
         """The default implementation of selectable_entrypoints just returns
