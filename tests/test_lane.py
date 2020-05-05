@@ -91,7 +91,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         f.max_cache_age = 41
         expect_items = [
             (f.ENTRY_POINT_FACET_GROUP_NAME, ep.INTERNAL_NAME),
-            (f.MAX_CACHE_AGE_NAME, 41),
+            (f.MAX_CACHE_AGE_NAME, "41"),
         ]
         eq_(expect_items, list(f.items()))
 

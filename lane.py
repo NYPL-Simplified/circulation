@@ -349,7 +349,7 @@ class FacetsWithEntryPoint(BaseFacets):
             yield (self.ENTRY_POINT_FACET_GROUP_NAME,
                    self.entrypoint.INTERNAL_NAME)
         if self.max_cache_age is not None:
-            yield (self.MAX_CACHE_AGE_NAME, self.max_cache_age)
+            yield (self.MAX_CACHE_AGE_NAME, unicode(self.max_cache_age))
 
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
