@@ -88,6 +88,14 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_([expect_items], list(f.items()))
         eq_("%s=%s" % expect_items, f.query_string)
 
+        f.max_cache_age = 41
+        expect_items = [
+            (f.ENTRY_POINT_FACET_GROUP_NAME, ep.INTERNAL_NAME),
+            (f.MAX_CACHE_AGE_NAME, 41),
+        ]
+        eq_(expect_items, list(f.items()))
+
+
     def test_modify_database_query(self):
         class MockEntryPoint(object):
             def modify_database_query(self, _db, qu):
@@ -106,7 +114,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         old_entrypoint = object()
         kwargs = dict(extra_key="extra_value")
         facets = FacetsWithEntryPoint(
-            old_entrypoint, entrypoint_is_default=True, 
+            old_entrypoint, entrypoint_is_default=True,
             max_cache_age=123, **kwargs
         )
         new_entrypoint = object()
@@ -123,7 +131,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(False, new_facets.entrypoint_is_default)
 
         # The max_cache_age was preserved.
-        eq_(123, new_facets.max_cache_age("feed"))
+        eq_(123, new_facets.max_cache_age)
 
         # The keyword arguments used to create the original faceting
         # object were propagated to its constructor.
@@ -234,7 +242,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
             ("entrypoint name from request", ["Selectable entrypoints"], default_entrypoint),
             MockFacetsWithEntryPoint.load_entrypoint_called_with
         )
-        eq_(345, facets.max_cache_age("feed"))
+        eq_(345, facets.max_cache_age)
         eq_(dict(extra="extra kwarg"), facets.constructor_kwargs)
         eq_(MockFacetsWithEntryPoint.selectable_entrypoints_called_with, config)
         eq_(MockFacetsWithEntryPoint.load_max_cache_age_called_with, "max cache age from request")
@@ -289,14 +297,13 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(None, m("not a number"))
 
     def test_cache_age(self):
-        # No matter what type of feed we ask about, the max_cache_age of a 
+        # No matter what type of feed we ask about, the max_cache_age of a
         # FacetsWithEntryPoint is whatever is stored in its .max_cache_age.
         #
         # This is true even for 'feed types' that make no sense.
         max_cache_age = object()
         facets = FacetsWithEntryPoint(max_cache_age=max_cache_age)
-        for type in ('groups', 'feed', object(), None):
-            eq_(max_cache_age, facets.max_cache_age(type))
+        eq_(max_cache_age, facets.max_cache_age)
 
     def test_selectable_entrypoints(self):
         """The default implementation of selectable_entrypoints just returns
@@ -346,8 +353,7 @@ class TestFacets(DatabaseTest):
             self._default_library,
             Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE
         )
-        for type in ('groups', 'feed', object(), None):
-            eq_(None, facets.max_cache_age(type))
+        eq_(None, facets.max_cache_age)
 
     def test_facet_groups(self):
 

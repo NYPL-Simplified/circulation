@@ -112,6 +112,10 @@ class BaseFacets(FacetConstants):
     # associated with the WorkList.
     CACHED_FEED_TYPE = None
 
+    # By default, faceting objects have no opinion on how long the feeds
+    # generated using them should be cached.
+    max_cache_age = None
+
     def items(self):
         """Yields a 2-tuple for every active facet setting.
 
@@ -168,20 +172,12 @@ class BaseFacets(FacetConstants):
         """
         return []
 
-    def max_cache_age(self, type):
-        """How long should a feed generated using this faceting object be cached?
-
-        :param type: The type of feed being generated.
-        :return: None. By default, faceting objects have no opinion on this topic.
-        """
-        return None
-
 
 class FacetsWithEntryPoint(BaseFacets):
     """Basic Facets class that knows how to filter a query based on a
     selected EntryPoint.
     """
-    def __init__(self, entrypoint=None, entrypoint_is_default=False, 
+    def __init__(self, entrypoint=None, entrypoint_is_default=False,
                  max_cache_age=None, **kwargs):
         """Constructor.
 
@@ -197,7 +193,7 @@ class FacetsWithEntryPoint(BaseFacets):
         """
         self.entrypoint = entrypoint
         self.entrypoint_is_default = entrypoint_is_default
-        self._max_cache_age = max_cache_age
+        self.max_cache_age = max_cache_age
         self.constructor_kwargs = kwargs
 
     @classmethod
@@ -221,7 +217,7 @@ class FacetsWithEntryPoint(BaseFacets):
         """
         return self.__class__(
             entrypoint=entrypoint, entrypoint_is_default=False,
-            max_cache_age=self._max_cache_age,
+            max_cache_age=self.max_cache_age,
             **self.constructor_kwargs
         )
 
@@ -347,11 +343,13 @@ class FacetsWithEntryPoint(BaseFacets):
     def items(self):
         """Yields a 2-tuple for every active facet setting.
 
-        In this class that just means the entrypoint.
+        In this class that just means the entrypoint and any max_cache_age.
         """
         if self.entrypoint:
             yield (self.ENTRY_POINT_FACET_GROUP_NAME,
                    self.entrypoint.INTERNAL_NAME)
+        if self.max_cache_age is not None:
+            yield (self.MAX_CACHE_AGE_NAME, self.max_cache_age)
 
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
@@ -368,14 +366,6 @@ class FacetsWithEntryPoint(BaseFacets):
         if self.entrypoint:
             qu = self.entrypoint.modify_database_query(_db, qu)
         return qu
-
-    def max_cache_age(self, type):
-        """How long should a feed generated using this faceting object be cached?
-
-        :param type: The type of feed being generated.
-        :return: The value stored by the constructor.
-        """
-        return self._max_cache_age
 
 
 class Facets(FacetsWithEntryPoint):

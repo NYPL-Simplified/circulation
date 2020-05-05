@@ -122,7 +122,7 @@ class CachedFeed(Base):
 
         # Calculate the maximum cache age, converting from timedelta
         # to seconds if necessary.
-        max_age = cls.max_cache_age(worklist, keys.feed_type, max_age, facets)
+        max_age = cls.max_cache_age(worklist, keys.feed_type, facets, max_age)
 
         # These arguments will probably be passed into get_one, and
         # will be passed into get_one_or_create in the event of a cache
@@ -223,7 +223,7 @@ class CachedFeed(Base):
         """
         value = override
         if value is None and facets is not None:
-            value = facets.max_cache_age(type)
+            value = facets.max_cache_age
         if value is None and worklist is not None:
             value = worklist.max_cache_age(type)
 

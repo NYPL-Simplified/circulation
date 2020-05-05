@@ -131,7 +131,7 @@ class TestCachedFeed(DatabaseTest):
         # We then called max_cache_age on the WorkList, the page
         # type, and the max_age object passed in to fetch().
         eq_(
-            (worklist, "mock type", max_age),
+            (worklist, "mock type", facets, max_age),
             Mock.max_cache_age_called_with,
         )
 
@@ -437,13 +437,9 @@ class TestCachedFeed(DatabaseTest):
 
         # Otherwise, the faceting object gets a chance to weigh in.
         class MockFacets(object):
-            value = 22
-            def max_cache_age(self, type):
-                self.called_with = type
-                return self.value
+            max_cache_age = 22
         facets = MockFacets()
         eq_(22, m(None, "feed type", facets=facets))
-        eq_("feed type", facets.called_with)
 
         # If there is no override and the faceting object doesn't
         # care, CachedFeed.max_cache_age depends on
@@ -468,10 +464,10 @@ class TestCachedFeed(DatabaseTest):
 
         # The faceting object still takes precedence, assuming it has
         # an opinion.
-        facets.value = None
+        facets.max_cache_age = None
         eq_(CachedFeed.CACHE_FOREVER, m(wl, "expensive", facets))
 
-        facets.value = 22
+        facets.max_cache_age = 22
         eq_(22, m(wl, "expensive", facets))
 
         # And an override takes precedence over that.
