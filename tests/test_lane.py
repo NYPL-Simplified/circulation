@@ -338,6 +338,17 @@ class TestFacets(DatabaseTest):
         for key, value in default.items():
             library.default_facet_setting(key).value = value
 
+    def test_max_cache_age(self):
+
+        # A default Facets object has no opinion on what max_cache_age
+        # should be.
+        facets = Facets(
+            self._default_library,
+            Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE
+        )
+        for type in ('groups', 'feed', object(), None):
+            eq_(None, facets.max_cache_age(type))
+
     def test_facet_groups(self):
 
         facets = Facets(
