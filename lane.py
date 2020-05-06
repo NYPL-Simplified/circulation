@@ -127,6 +127,16 @@ class BaseFacets(FacetConstants):
         return []
 
     @property
+    def cached(self):
+        """This faceting object's opinion on whether feeds should be cached.
+
+        :return: A boolean, or None for 'no opinion'.
+        """
+        if self.max_cache_age is None:
+            return None
+        return (self.max_cache_age != 0)
+
+    @property
     def query_string(self):
         """A query string fragment that propagates all active facet
         settings.

@@ -78,6 +78,7 @@ class CachedFeed(Base):
 
     # Special constants for cache durations.
     CACHE_FOREVER = object()
+    DO_NOT_CACHE = object()
 
     log = logging.getLogger("CachedFeed")
 
@@ -158,6 +159,9 @@ class CachedFeed(Base):
             feed_data = unicode(refresher_method())
             generation_time = datetime.datetime.utcnow()
 
+            if max_age != cls.DO_NOT_CACHE:
+                # We've generated a feed but we don't want to cache it.
+
             # Since it can take a while to generate a feed, and we know
             # that the feed in the database is stale, it's possible that
             # another thread _also_ noticed that feed was stale, and
@@ -219,7 +223,7 @@ class CachedFeed(Base):
         :param override: A specific value passed in by the caller. This
             may either be a number of seconds or a timedelta.
 
-        :return: A number of seconds, or CACHE_FOREVER.
+        :return: A number of seconds, or CACHE_FOREVER or DO_NOT_CACHE
         """
         value = override
         if value is None and facets is not None:
@@ -227,8 +231,8 @@ class CachedFeed(Base):
         if value is None and worklist is not None:
             value = worklist.max_cache_age(type)
 
-        if value == cls.CACHE_FOREVER:
-            # This feed should be cached forever.
+        if value in (cls.CACHE_FOREVER, cls.DO_NOT_CACHE):
+            # Special caching rules apply.
             return value
 
         if value is None:
@@ -246,8 +250,8 @@ class CachedFeed(Base):
         :param feed_obj: A CachedFeed. This may be None, which is why
             this is a class method.
 
-        :param max_age: Either a number of seconds, or the constant
-            CACHE_FOREVER.
+        :param max_age: Either a number of seconds, or one of the constants
+            CACHE_FOREVER or DO_NOT_CACHE.
         """
         should_refresh = False
         if feed_obj is None:
