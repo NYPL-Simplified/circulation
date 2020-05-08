@@ -57,6 +57,7 @@ from core.model import (
     production_session,
     Admin,
     Annotation,
+    CachedFeed,
     CachedMARCFile,
     CirculationEvent,
     Collection,
@@ -293,7 +294,17 @@ class CirculationManager(object):
         return self._external_search
 
     def cdn_url_for(self, view, *args, **kwargs):
-        return cdn_url_for(view, *args, **kwargs)
+        m = cdn_url_for
+        if 'facets' in kwargs:
+            # The faceting object in play may have disabled caching.
+            # If that's the case, we should disable CDN URLs as well
+            # in the feed we won't be caching. This will make it more
+            # likely that the client sees a completely up-to-date
+            # feed.
+            facets = kwargs.pop('facets')
+            if facets and facets.max_cache_age is CachedFeed.IGNORE_CACHE:
+                m = self.url_for
+        return m(view, *args, **kwargs)
 
     def url_for(self, view, *args, **kwargs):
         kwargs['_external'] = True
@@ -737,7 +748,7 @@ class OPDSFeedController(CirculationManagerController):
 
         url = self.cdn_url_for(
             "acquisition_groups", lane_identifier=lane_identifier,
-            library_short_name=library.short_name,
+            library_short_name=library.short_name, facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets)
@@ -770,7 +781,7 @@ class OPDSFeedController(CirculationManagerController):
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "feed", lane_identifier=lane_identifier,
-            library_short_name=library_short_name,
+            library_short_name=library_short_name, facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets=facets)
