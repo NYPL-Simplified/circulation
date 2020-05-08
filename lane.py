@@ -363,8 +363,12 @@ class FacetsWithEntryPoint(BaseFacets):
         if self.entrypoint:
             yield (self.ENTRY_POINT_FACET_GROUP_NAME,
                    self.entrypoint.INTERNAL_NAME)
-        if self.max_cache_age is not None:
-            yield (self.MAX_CACHE_AGE_NAME, unicode(self.max_cache_age))
+        if self.max_cache_age not in (None, CachedFeed.CACHE_FOREVER):
+            if self.max_cache_age == CachedFeed.IGNORE_CACHE:
+                value = 0
+            else:
+                value = self.max_cache_age
+            yield (self.MAX_CACHE_AGE_NAME, unicode(value))
 
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
@@ -540,6 +544,7 @@ class Facets(FacetsWithEntryPoint):
             enabled_facets=self.facets_enabled_at_init,
             entrypoint=(entrypoint or self.entrypoint),
             entrypoint_is_default=False,
+            max_cache_age=self.max_cache_age
         )
 
 
@@ -856,7 +861,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         """
         minimum_featured_quality = minimum_featured_quality or self.minimum_featured_quality
         entrypoint = entrypoint or self.entrypoint
-        return self.__class__(minimum_featured_quality, entrypoint)
+        return self.__class__(minimum_featured_quality, entrypoint, max_cache_age=self.max_cache_age)
 
     def modify_search_filter(self, filter):
         super(FeaturedFacets, self).modify_search_filter(filter)
