@@ -169,15 +169,19 @@
         <span class="p">(</span><span class="n">overdrive_audiobook_manifest</span><span class="p">,</span> <span class="n">libby_drm</span><span class="p">):</span> <span class="s1">&#39;audiobook-overdrive-manifest&#39;</span>
     <span class="p">}</span>
 
-    <span class="c1"># Once you choose an Adobe format you&#39;re locked into it and can&#39;t</span>
-    <span class="c1"># use other formats.</span>
-    <span class="n">LOCK_IN_FORMATS</span> <span class="o">=</span> <span class="p">[</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">BaseOverdriveAPI</span><span class="o">.</span><span class="n">FORMATS</span> <span class="k">if</span> <span class="s1">&#39;adobe&#39;</span> <span class="ow">in</span> <span class="n">x</span> <span class="p">]</span>
-
     <span class="c1"># These formats can be delivered either as manifest files or as</span>
     <span class="c1"># links to websites that stream the content.</span>
     <span class="n">STREAMING_FORMATS</span> <span class="o">=</span> <span class="p">[</span>
         <span class="s1">&#39;ebook-overdrive&#39;</span><span class="p">,</span>
         <span class="s1">&#39;audiobook-overdrive&#39;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Once you choose a non-streaming format you&#39;re locked into it and can&#39;t</span>
+    <span class="c1"># use other formats.</span>
+    <span class="n">LOCK_IN_FORMATS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">BaseOverdriveAPI</span><span class="o">.</span><span class="n">FORMATS</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">STREAMING_FORMATS</span>
+        <span class="ow">and</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">MANIFEST_INTERNAL_FORMATS</span>
     <span class="p">]</span>
 
     <span class="c1"># TODO: This is a terrible choice but this URL should never be</span>
