@@ -134,15 +134,19 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         (overdrive_audiobook_manifest, libby_drm): 'audiobook-overdrive-manifest'
     }
 
-    # Once you choose an Adobe format you're locked into it and can't
-    # use other formats.
-    LOCK_IN_FORMATS = [ x for x in BaseOverdriveAPI.FORMATS if 'adobe' in x ]
-
     # These formats can be delivered either as manifest files or as
     # links to websites that stream the content.
     STREAMING_FORMATS = [
         'ebook-overdrive',
         'audiobook-overdrive',
+    ]
+
+    # Once you choose a non-streaming format you're locked into it and can't
+    # use other formats.
+    LOCK_IN_FORMATS = [
+        x for x in BaseOverdriveAPI.FORMATS
+        if x not in STREAMING_FORMATS
+        and x not in MANIFEST_INTERNAL_FORMATS
     ]
 
     # TODO: This is a terrible choice but this URL should never be
