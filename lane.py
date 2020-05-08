@@ -330,7 +330,12 @@ class FacetsWithEntryPoint(BaseFacets):
 
     @classmethod
     def load_max_cache_age(cls, value):
-        """Convert a value for the MAX_CACHE_AGE_NAME parameter to a numeric value."""
+        """Convert a value for the MAX_CACHE_AGE_NAME parameter to a value
+        that CachedFeed will understand.
+
+        :param value: A string.
+        :return: For now, either CachedFeed.IGNORE_CACHE or None.
+        """
         if value is None:
             return value
 
@@ -346,8 +351,8 @@ class FacetsWithEntryPoint(BaseFacets):
         # is give them the opportunity to opt out.
         #
         # Thus, any nonzero value will be ignored.
-        if value != 0:
-            value = None
+        if value == 0:
+            value = CachedFeed.IGNORE_CACHE
         return value
 
     def items(self):
