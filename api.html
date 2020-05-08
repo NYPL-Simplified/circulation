@@ -3259,12 +3259,12 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.hold_limit_reached">
-<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x48c43b0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">hold_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x51cc260&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.hold_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.loan_limit_reached">
-<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x48c4b10&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
+<code class="descname">loan_limit_reached</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x51cbf90&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.loan_limit_reached" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3279,7 +3279,7 @@ changes will be overwritten by run_once().</li>
 
 <dl class="attribute">
 <dt id="api.bibliotheca.ErrorParser.wrong_status">
-<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x48c47c0&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
+<code class="descname">wrong_status</code><em class="property"> = &lt;_sre.SRE_Pattern object at 0x51cbc40&gt;</em><a class="headerlink" href="#api.bibliotheca.ErrorParser.wrong_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -8486,7 +8486,7 @@ the patron belongs to the library associated with thie BasicAuthenticationProvid
 
 <dl class="attribute">
 <dt id="api.millenium_patron.MockMilleniumPatronAPI.the_future">
-<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 5, 11, 17, 41, 1, 840814)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
+<code class="descname">the_future</code><em class="property"> = datetime.datetime(2020, 5, 18, 15, 41, 24, 67825)</em><a class="headerlink" href="#api.millenium_patron.MockMilleniumPatronAPI.the_future" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -11809,6 +11809,27 @@ us live-test as we write.</p>
 <code class="descname">SETTINGS</code><em class="property"> = [{'required': True, 'key': u'password', 'label': l'Basic Token'}, {'required': True, 'type': 'number', 'key': u'external_account_id', 'label': l'Library ID (numeric)'}, {'default': 'https://api.rbdigital.com/', 'format': 'url', 'required': True, 'key': u'url', 'label': l'URL'}]</em><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.SETTINGS" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="api.rbdigital.RBDigitalAPI.align_dates_to_available_snapshots">
+<code class="descname">align_dates_to_available_snapshots</code><span class="sig-paren">(</span><em>from_date=None</em>, <em>to_date=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.align_dates_to_available_snapshots"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.align_dates_to_available_snapshots" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given specified begin and end dates for a delta, return the best dates from those available.</p>
+<p>Note: It might be useful to raise an exception or log a message if either of the
+“best” dates is too distant from the associated specified date.</p>
+<dl class="docutils">
+<dt>The endpoint utilized returns a JSON array of “snapshot” objects (nb: tenantId is the library ID):</dt>
+<dd><dl class="first last docutils">
+<dt>Example snapshot format:</dt>
+<dd>“tenantId”: 525,
+“asOf”: “2020-04-07”,
+“eBookCount”: 1630,
+“eAudioCount”: 13414,
+“totalCount”: 15044</dd>
+</dl>
+</dd>
+</dl>
+<p>:return Best available begin and end dates.</p>
+</dd></dl>
+
 <dl class="attribute">
 <dt id="api.rbdigital.RBDigitalAPI.authorization_headers">
 <code class="descname">authorization_headers</code><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.authorization_headers" title="Permalink to this definition">¶</a></dt>
@@ -12009,8 +12030,6 @@ If want more metadata, perform a search.</p>
 <dt id="api.rbdigital.RBDigitalAPI.get_delta">
 <code class="descname">get_delta</code><span class="sig-paren">(</span><em>from_date=None</em>, <em>to_date=None</em>, <em>verbosity=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/api/rbdigital.html#RBDigitalAPI.get_delta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#api.rbdigital.RBDigitalAPI.get_delta" title="Permalink to this definition">¶</a></dt>
 <dd><p>Gets the changes to the library’s catalog.</p>
-<p>Note:  As of now, RBDigital saves deltas for past 6 months, and can display them
-in max 2-month increments.</p>
 <p>:return A dictionary listing items added/removed/modified in the collection.</p>
 </dd></dl>
 
