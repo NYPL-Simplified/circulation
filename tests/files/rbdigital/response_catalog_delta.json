@@ -1,73 +1,21 @@
-[
-  {
-    "libraryId": 1931,
-    "libraryName": "Wethersfield Public Library",
-    "beginDate": "2016-10-17",
-    "endDate": "2016-10-18",
-    "addedTitles": [
-      {
-        "publisher": "Recorded Books, Inc.",
-        "narrators": "Jackson, J.D.",
-        "audience": "Childrens",
-        "genres": "JUVENILE NONFICTION / Biography & Autobiography / Sports & Recreation",
-        "primaryGenre": "biography-autobiography-memoir,history,juvenile-nonfiction,sports",
-        "isbn": "9781934180723",
-        "mediaType": "eAudio",
-        "title": "Emperor Mage: The Immortals",
-        "authors": "Myers, Walter Dean",
-        "language": "English",
-        "images": [
-          {
-            "name": "small",
-            "url": "http://images.oneclickdigital.com/78226/78226_image_71x108.jpg"
-          },
-          {
-            "name": "medium",
-            "url": "http://images.oneclickdigital.com/78226/78226_image_95x140.jpg"
-          },
-          {
-            "name": "large",
-            "url": "http://images.oneclickdigital.com/78226/78226_image_128x192.jpg"
-          }
-        ],
-        "titleId": 226
-      }
-    ],
-    "removedTitles": [
-      {
-        "description": "\"Float like a butterfly, sting like a bee.\" This was one of the most famous catch-phrases of boxing legend Muhammad Ali. Rising from poverty-stricken Louisville in the 1950s he became one of the world's greatest athletes. Beginning life as Cassius Clay, Ali would struggle against opponents both in and out of the ring. Segregation and racism stood as obstacles in his path, but as he climbed the boxing ranks, his social conscience grew. He refused to be pigeonholed as a stereotypical black athlete in the 1960s and changed his name to Muhammad Ali after converting to Islam. Fighting for social justice even as his brutal profession took its toll on his body and mind, his spirit was never defeated. Best-selling author of the Coretta Scott King Honor book Monster (RB# 96335), Walter Dean Myers pens this inspirational biography of a true champion. Acclaimed narrator JD Jackson adds the perfect voice to this triumphant true story. \"... the kind of universal story that needs a writer as talented as Myers to retell it for every generation.\"-Booklist",
-        "publisher": "Recorded Books, Inc.",
-        "narrators": "Jackson, J.D.",
-        "audience": "Childrens",
-        "genres": "JUVENILE NONFICTION / Biography & Autobiography / Sports & Recreation",
-        "primaryGenre": "biography-autobiography-memoir,history,juvenile-nonfiction,sports",
-        "isbn": "9780590543439",
-        "mediaType": "eAudio",
-        "title": "Greatest: Muhammad Ali, The",
-        "authors": "Myers, Walter Dean",
-        "language": "English",
-        "images": [
-          {
-            "name": "small",
-            "url": "http://images.oneclickdigital.com/78226/78226_image_71x108.jpg"
-          },
-          {
-            "name": "medium",
-            "url": "http://images.oneclickdigital.com/78226/78226_image_95x140.jpg"
-          },
-          {
-            "name": "large",
-            "url": "http://images.oneclickdigital.com/78226/78226_image_128x192.jpg"
-          }
-        ],
-        "titleId": 226
-      }
-    ],
-    "eBookAddedCount": 0,
-    "eBookRemovedCount": 0,
-    "eAudioAddedCount": 1,
-    "eAudioRemovedCount": 1,
-    "titleAddedCount": 1,
-    "titleRemovedCount": 1
-  }
-]
+{
+  "tenantId": 1931,
+  "beginDate": "2020-03-14",
+  "endDate": "2020-04-14",
+  "addedBooks": [
+    {
+      "id": 1301944,
+      "isbn": "9781934180723",
+      "mediaType": "eAudio"
+    }
+  ],
+  "removedBooks": [
+    {
+      "id": 1031919,
+      "isbn": "9780590543439",
+      "mediaType": "eAudio"
+    }
+  ],
+  "booksAddedCount": 1,
+  "booksRemovedCount": 1
+}

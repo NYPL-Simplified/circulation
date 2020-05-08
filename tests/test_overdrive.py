@@ -93,6 +93,23 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(self.collection.external_integration,
             self.api.external_integration(self._db))
 
+    def test_lock_in_format(self):
+        # Verify which formats do or don't need to be locked in before
+        # fulfillment.
+        needs_lock_in = self.api.LOCK_IN_FORMATS
+
+        # Streaming and manifest-based formats are exempt; all
+        # other formats need lock-in.
+        exempt = (
+            list(self.api.STREAMING_FORMATS) +
+            list(self.api.MANIFEST_INTERNAL_FORMATS)
+        )
+        for i in self.api.FORMATS:
+            if i not in exempt:
+                assert i in needs_lock_in
+        for i in exempt:
+            assert i not in needs_lock_in
+
     def test__run_self_tests(self):
         """Verify that OverdriveAPI._run_self_tests() calls the right
         methods.
@@ -1245,13 +1262,13 @@ class TestExtractData(OverdriveAPITest):
         link = MockOverdriveAPI.get_download_link(
             json, "ebook-overdrive-manifest", "http://bar.com/"
         )
-        
+
         # The {errorpageurl} and {odreadauthurl} parameters
         # have been removed, and contentfile=true has been appended.
         eq_(base_url + '?contentfile=true', link)
 
     def test_extract_download_link(self):
-        # Verify that extract_download_link can or cannot find a 
+        # Verify that extract_download_link can or cannot find a
         # download link for a given format subdocument.
 
         class Mock(OverdriveAPI):
