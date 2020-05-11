@@ -44,7 +44,6 @@ class TestCatalogServicesController(SettingsControllerTest):
                 goal=ExternalIntegration.CATALOG_GOAL,
                 name="name",
             )
-            integration.setting(MARCExporter.STORAGE_PROTOCOL).value = ExternalIntegration.S3
             integration.libraries += [self._default_library]
             ConfigurationSetting.for_library_and_externalintegration(
                 self._db, MARCExporter.MARC_ORGANIZATION_CODE,
@@ -62,7 +61,6 @@ class TestCatalogServicesController(SettingsControllerTest):
                 eq_(integration.id, service.get("id"))
                 eq_(integration.name, service.get("name"))
                 eq_(integration.protocol, service.get("protocol"))
-                eq_(ExternalIntegration.S3, service.get("settings").get(MARCExporter.STORAGE_PROTOCOL))
                 [library] = service.get("libraries")
                 eq_(self._default_library.short_name, library.get("short_name"))
                 eq_("US-MaBoDPL", library.get(MARCExporter.MARC_ORGANIZATION_CODE))
@@ -151,7 +149,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "new name"),
                 ("protocol", ME.NAME),
-                (ME.STORAGE_PROTOCOL, ExternalIntegration.S3),
+                ("mirror_integration_id", s3.id),
             ])
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_catalog_services_controller.process_catalog_services)
@@ -204,9 +202,9 @@ class TestCatalogServicesController(SettingsControllerTest):
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CATALOG_GOAL)
         # There was one S3 integration and it was selected. The service has an 
         # External Integration Link to the storage integration that is created
-        # in a POST with purpose of "MARC".
+        # in a POST with purpose of ExternalIntegrationLink.MARC.
         integration_link = get_one(
-            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose="MARC"
+            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
 
         eq_(service.id, int(response.response[0]))
@@ -253,7 +251,7 @@ class TestCatalogServicesController(SettingsControllerTest):
             eq_(response.status_code, 200)
 
         integration_link = get_one(
-            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose="MARC"
+            self._db, ExternalIntegrationLink, external_integration_id=service.id, purpose=ExternalIntegrationLink.MARC
         )
         eq_(service.id, int(response.response[0]))
         eq_(ME.NAME, service.protocol)

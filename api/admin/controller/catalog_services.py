@@ -106,7 +106,7 @@ class CatalogServicesController(SettingsController):
             self._db, ExternalIntegrationLink,
             library_id=None,
             external_integration_id=service.id,
-            purpose="MARC"
+            purpose=ExternalIntegrationLink.MARC
         )
 
         if mirror_integration_id == self.NO_MIRROR_INTEGRATION:
