@@ -353,6 +353,8 @@ class FacetsWithEntryPoint(BaseFacets):
         # Thus, any nonzero value will be ignored.
         if value == 0:
             value = CachedFeed.IGNORE_CACHE
+        else:
+            value = None
         return value
 
     def items(self):

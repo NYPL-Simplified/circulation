@@ -285,13 +285,13 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         m = FacetsWithEntryPoint.load_max_cache_age
 
         # The two valid options for max_cache_age as loaded in from a request are
-        # zero (do not pull from cache) and None (no opinion).
+        # IGNORE_CACHE (do not pull from cache) and None (no opinion).
         eq_(None, m(""))
         eq_(None, m(None))
-        eq_(0, m(0))
-        eq_(0, m("0"))
+        eq_(CachedFeed.IGNORE_CACHE, m(0))
+        eq_(CachedFeed.IGNORE_CACHE, m("0"))
 
-        # All other values are ignored.
+        # All other values are treated as 'no opinion'.
         eq_(None, m("1"))
         eq_(None, m(2))
         eq_(None, m("not a number"))
