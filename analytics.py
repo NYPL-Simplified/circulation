@@ -52,7 +52,6 @@ class Analytics(object):
                 self.initialization_exceptions[integration.id] = e
 
     def collect_event(self, library, license_pool, event_type, time=None, **kwargs):
-        return
         if not time:
             time = datetime.datetime.utcnow()
         providers = list(self.sitewide_providers)
