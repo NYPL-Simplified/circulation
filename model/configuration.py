@@ -40,6 +40,8 @@ class ExternalIntegrationLink(Base, HasFullTableCache):
 
     NO_MIRROR_INTEGRATION = u"NO_MIRROR"
     # Possible purposes that a storage external integration can be used for.
+    # These string literals may be stored in the database, so changes to them
+    # may need to be accompanied by a DB migration.
     COVERS = "covers_mirror"
     BOOKS = "books_mirror"
     MARC = "MARC_mirror"

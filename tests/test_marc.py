@@ -505,8 +505,6 @@ class TestMARCExporter(DatabaseTest):
         search_engine = MockExternalSearchIndex()
         search_engine.bulk_update([w1, w2])
 
-        integration.setting(MARCExporter.STORAGE_PROTOCOL).value = ExternalIntegration.S3
-
         # If there's a storage protocol but not corresponding storage integration,
         # it raises an exception.
         assert_raises(Exception, exporter.records, lane, annotator)
