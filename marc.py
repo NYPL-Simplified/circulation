@@ -483,7 +483,6 @@ class MARCExporter(object):
     WEB_CLIENT_URL = u'marc_web_client_url'
     INCLUDE_SUMMARY = u'include_summary'
     INCLUDE_SIMPLIFIED_GENRES = u'include_simplified_genres'
-    STORAGE_PROTOCOL = u'storage_protocol'
 
     LIBRARY_SETTINGS = [
         { "key": UPDATE_FREQUENCY,
@@ -639,7 +638,7 @@ class MARCExporter(object):
         # We mirror the content, if it's not empty. If it's empty, we create a CachedMARCFile
         # and Representation, but don't actually mirror it.
         if not mirror:
-            storage_protocol = mirror_integration.setting(self.STORAGE_PROTOCOL).value
+            storage_protocol = mirror_integration.protocol
             mirror = MirrorUploader.implementation(mirror_integration)
             if mirror.NAME != storage_protocol:
                 raise Exception("Mirror integration does not match configured storage protocol")
