@@ -78,6 +78,7 @@ class CachedFeed(Base):
 
     # Special constants for cache durations.
     CACHE_FOREVER = object()
+    IGNORE_CACHE = object()
 
     log = logging.getLogger("CachedFeed")
 
@@ -122,7 +123,7 @@ class CachedFeed(Base):
 
         # Calculate the maximum cache age, converting from timedelta
         # to seconds if necessary.
-        max_age = cls.max_cache_age(worklist, keys.feed_type, max_age)
+        max_age = cls.max_cache_age(worklist, keys.feed_type, facets, max_age)
 
         # These arguments will probably be passed into get_one, and
         # will be passed into get_one_or_create in the event of a cache
@@ -143,8 +144,8 @@ class CachedFeed(Base):
             facets=keys.facets_key,
             pagination=keys.pagination_key
         )
-
-        if isinstance(max_age, int) and max_age <= 0:
+        feed_data = None
+        if (max_age is cls.IGNORE_CACHE or isinstance(max_age, int) and max_age <= 0):
             # Don't even bother checking for a CachedFeed: we're
             # just going to replace it.
             feed_obj = None
@@ -158,23 +159,29 @@ class CachedFeed(Base):
             feed_data = unicode(refresher_method())
             generation_time = datetime.datetime.utcnow()
 
-            # Since it can take a while to generate a feed, and we know
-            # that the feed in the database is stale, it's possible that
-            # another thread _also_ noticed that feed was stale, and
-            # generated a similar feed while we were working.
-            #
-            # To avoid a database error, fetch the feed _again_ from the
-            # database rather than assuming we have the up-to-date
-            # object.
-            feed_obj, is_new = get_one_or_create(_db, cls, **kwargs)
-            if feed_obj.timestamp is None or feed_obj.timestamp < generation_time:
-                # Either there was no contention for this object, or there
-                # was contention but our feed is more up-to-date than
-                # the other thread(s). Our feed takes priority.
-                feed_obj.content = feed_data
-                feed_obj.timestamp = generation_time
+            if max_age is not cls.IGNORE_CACHE:
+                # Having gone through all the trouble of generating
+                # the feed, we want to cache it in the database.
 
-        if raw:
+                # Since it can take a while to generate a feed, and we know
+                # that the feed in the database is stale, it's possible that
+                # another thread _also_ noticed that feed was stale, and
+                # generated a similar feed while we were working.
+                #
+                # To avoid a database error, fetch the feed _again_ from the
+                # database rather than assuming we have the up-to-date
+                # object.
+                feed_obj, is_new = get_one_or_create(_db, cls, **kwargs)
+                if feed_obj.timestamp is None or feed_obj.timestamp < generation_time:
+                    # Either there was no contention for this object, or there
+                    # was contention but our feed is more up-to-date than
+                    # the other thread(s). Our feed takes priority.
+                    feed_obj.content = feed_data
+                    feed_obj.timestamp = generation_time
+        elif feed_obj:
+            feed_data = feed_obj.content
+
+        if raw and feed_obj:
             return feed_obj
 
         # We have the information necessary to create a useful
@@ -183,8 +190,15 @@ class CachedFeed(Base):
         # Set some defaults in case the caller didn't pass them in.
         if isinstance(max_age, int):
             response_kwargs.setdefault('max_age', max_age)
+
+        if max_age == cls.IGNORE_CACHE:
+            # If we were asked to ignore our internal cache, we should
+            # also tell the client not to store this document in _its_
+            # internal cache.
+            response_kwargs['max_age'] = 0
+
         return OPDSFeedResponse(
-            response=feed_obj.content,
+            response=feed_data,
             **response_kwargs
         )
 
@@ -205,25 +219,30 @@ class CachedFeed(Base):
         return type
 
     @classmethod
-    def max_cache_age(cls, worklist, type, override=None):
+    def max_cache_age(cls, worklist, type, facets, override=None):
         """Determine the number of seconds that a cached feed
         of a given type can remain fresh.
 
-        :param worklist: A WorkList.
+        Order of precedence: `override`, `facets`, `worklist`.
+
+        :param worklist: A WorkList which may have an opinion on this
+           topic.
         :param type: The type of feed being generated.
-        :param override: A specific value passed in by the user. This
+        :param facets: A faceting object that may have an opinion on this
+           topic.
+        :param override: A specific value passed in by the caller. This
             may either be a number of seconds or a timedelta.
 
-        :return: A number of seconds, or CACHE_FOREVER.
+        :return: A number of seconds, or CACHE_FOREVER or IGNORE_CACHE
         """
-        value = None
-        if override is not None:
-            value = override
-        elif worklist:
+        value = override
+        if value is None and facets is not None:
+            value = facets.max_cache_age
+        if value is None and worklist is not None:
             value = worklist.max_cache_age(type)
 
-        if value == cls.CACHE_FOREVER:
-            # This feed should be cached forever.
+        if value in (cls.CACHE_FOREVER, cls.IGNORE_CACHE):
+            # Special caching rules apply.
             return value
 
         if value is None:
@@ -241,13 +260,16 @@ class CachedFeed(Base):
         :param feed_obj: A CachedFeed. This may be None, which is why
             this is a class method.
 
-        :param max_age: Either a number of seconds, or the constant
-            CACHE_FOREVER.
+        :param max_age: Either a number of seconds, or one of the constants
+            CACHE_FOREVER or IGNORE_CACHE.
         """
         should_refresh = False
         if feed_obj is None:
             # If we didn't find a CachedFeed (maybe because we didn't
             # bother looking), we must always refresh.
+            should_refresh = True
+        elif max_age == cls.IGNORE_CACHE:
+            # If we are ignoring the cache, we must always refresh.
             should_refresh = True
         elif max_age == cls.CACHE_FOREVER:
             # If we found *anything*, and the cache time is CACHE_FOREVER,

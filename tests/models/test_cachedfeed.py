@@ -131,7 +131,7 @@ class TestCachedFeed(DatabaseTest):
         # We then called max_cache_age on the WorkList, the page
         # type, and the max_age object passed in to fetch().
         eq_(
-            (worklist, "mock type", max_age),
+            (worklist, "mock type", facets, max_age),
             Mock.max_cache_age_called_with,
         )
 
@@ -432,10 +432,17 @@ class TestCachedFeed(DatabaseTest):
         m = CachedFeed.max_cache_age
 
         # If override is provided, that value is always used.
-        eq_(60, m(None, None, 60))
-        eq_(60, m(None, None, datetime.timedelta(minutes=1)))
+        eq_(60, m(None, None, None, 60))
+        eq_(60, m(None, None, None, datetime.timedelta(minutes=1)))
 
-        # Otherwise, CachedFeed.max_cache_age depends on
+        # Otherwise, the faceting object gets a chance to weigh in.
+        class MockFacets(object):
+            max_cache_age = 22
+        facets = MockFacets()
+        eq_(22, m(None, "feed type", facets=facets))
+
+        # If there is no override and the faceting object doesn't
+        # care, CachedFeed.max_cache_age depends on
         # WorkList.max_cache_age. This method can return a few
         # different data types.
         class MockWorklist(object):
@@ -450,13 +457,21 @@ class TestCachedFeed(DatabaseTest):
         # The result is always either a number of seconds or
         # CACHE_FOREVER.
         wl = MockWorklist()
-        eq_(1, m(wl, "number"))
-        eq_(2, m(wl, "timedelta"))
-        eq_(CachedFeed.CACHE_FOREVER, m(wl, "expensive"))
-        eq_(0, m(wl, "dont_cache"))
+        eq_(1, m(wl, "number", None))
+        eq_(2, m(wl, "timedelta", None))
+        eq_(0, m(wl, "dont_cache", None))
+        eq_(CachedFeed.CACHE_FOREVER, m(wl, "expensive", None))
 
-        # override still takes precedence.
-        eq_(60, m(wl, "expensive", 60))
+        # The faceting object still takes precedence, assuming it has
+        # an opinion.
+        facets.max_cache_age = None
+        eq_(CachedFeed.CACHE_FOREVER, m(wl, "expensive", facets))
+
+        facets.max_cache_age = 22
+        eq_(22, m(wl, "expensive", facets))
+
+        # And an override takes precedence over that.
+        eq_(60, m(wl, "expensive", facets, 60))
 
     def test__prepare_keys(self):
         # Verify the method that turns WorkList, Facets, and Pagination
