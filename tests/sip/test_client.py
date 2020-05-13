@@ -104,7 +104,8 @@ class TestSIPClient(object):
             assert isinstance(connection, MockSocket)
             eq_(set(['keyfile', 'certfile']), set(kwargs.keys()))
             for tmpfile in kwargs.values():
-                assert tmpfile.startswith("/tmp")
+                tmpfile = os.path.abspath(tmpfile)
+                assert os.path.basename(tmpfile).startswith("tmp")
                 # By the time the SSL socket has been wrapped, the
                 # temporary file has already been removed.  Because of
                 # that we can't verify from within a unit test that the
