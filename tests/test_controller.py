@@ -3179,6 +3179,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.controller.cdn_url_for(
                 "feed", lane_identifier=lane_id,
                 library_short_name=self._default_library.short_name,
+                _facets=load_facets_from_request()
             )
 
         assert isinstance(response, Response)
@@ -3285,6 +3286,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.cdn_url_for(
                 "acquisition_groups", lane_identifier=None,
                 library_short_name=library.short_name,
+                _facets=load_facets_from_request()
             )
 
         kwargs = self.groups_called_with
@@ -3322,6 +3324,7 @@ class TestOPDSFeedController(CirculationControllerTest):
             expect_url = self.manager.opds_feeds.cdn_url_for(
                 "feed", lane_identifier=self.english_adult_fiction.id,
                 library_short_name=library.short_name,
+                _facets=load_facets_from_request()
             )
 
         eq_(self.english_adult_fiction, self.page_called_with.pop('worklist'))
