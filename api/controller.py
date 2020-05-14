@@ -294,19 +294,36 @@ class CirculationManager(object):
         return self._external_search
 
     def cdn_url_for(self, view, *args, **kwargs):
-        m = cdn_url_for
-        if 'facets' in kwargs:
-            # The faceting object in play may have disabled caching.
-            # If that's the case, we should disable CDN URLs as well
-            # in the feed we won't be caching. This will make it more
-            # likely that the client sees a completely up-to-date
-            # feed.
-            facets = kwargs.pop('facets')
-            if facets and facets.max_cache_age is CachedFeed.IGNORE_CACHE:
-                m = self.url_for
-        return m(view, *args, **kwargs)
+        """Generate a URL for a view that (probably) passes through a CDN.
+
+        :param view: Name of the view.
+        :param facets: The faceting object used to generate the document that's calling
+           this method. This may change which function is actually used to generate the
+           URL; in particular, it may disable a CDN that would otherwise be used.
+        :param args: Positional arguments to the view function.
+        :param kwargs: Keyword arguments to the view function.
+        """
+        url_for = self._cdn_url_for
+        facets = kwargs.pop('_facets', None)
+        if facets and facets.max_cache_age is CachedFeed.IGNORE_CACHE:
+            # The faceting object in play has disabled cache
+            # checking. A CDN is also a cache, so we should disable
+            # CDN URLs in the feed to make it more likely that the
+            # client continues to see up-to-the-minute feeds as they
+            # click around.
+            url_for = self.url_for
+        return url_for(view, *args, **kwargs)
+
+    def _cdn_url_for(self, *args, **kwargs):
+        """Call the cdn_url_for function.
+
+        Defined solely to be overridden in tests.
+        """
+        return cdn_url_for(*args, **kwargs)
 
     def url_for(self, view, *args, **kwargs):
+        """Call the url_for function, ensuring that Flask generates an absolute URL.
+        """
         kwargs['_external'] = True
         return url_for(view, *args, **kwargs)
 

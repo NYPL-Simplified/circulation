@@ -656,6 +656,64 @@ class TestCirculationManager(CirculationControllerTest):
             assert isinstance(annotator, CirculationManagerAnnotator)
             eq_(worklist, annotator.lane)
 
+    def test_cdn_url_for(self):
+        # Test the various rules for generating a URL for a view while
+        # passing it through a CDN (or not).
+
+        # The CDN configuration itself is handled inside the
+        # cdn_url_for function imported from core.app_server. So
+        # mainly we just need to check when a CirculationManager calls
+        # that function (via self._cdn_url_for), versus when it
+        # decides to bail on the CDN and call self.url_for instead.
+        class Mock(CirculationManager):
+            _cdn_url_for_calls = []
+            url_for_calls = []
+
+            def _cdn_url_for(self, view, *args, **kwargs):
+                self._cdn_url_for_calls.append((view, args, kwargs))
+                return "http://cdn/"
+
+            def url_for(self, view, *args, **kwargs):
+                self.url_for_calls.append((view, args, kwargs))
+                return "http://url/"
+
+        manager = Mock(self._db, testing=True)
+
+        # Normally, cdn_url_for calls _cdn_url_for to generate a URL.
+        args = ("arg1", "arg2")
+        kwargs = dict(key="value")
+        url = manager.cdn_url_for("view", *args, **kwargs)
+        eq_("http://cdn/", url)
+        eq_(("view", args, kwargs), manager._cdn_url_for_calls.pop())
+        eq_([], manager._cdn_url_for_calls)
+
+        # But if a faceting object is passed in as _facets, it's checked
+        # to see if it wants to disable caching.
+        class MockFacets(object):
+            max_cache_age = None
+        kwargs_with_facets = dict(kwargs)
+        kwargs_with_facets.update(_facets=MockFacets)
+        url = manager.cdn_url_for("view", *args, **kwargs_with_facets)
+
+        # Here, the faceting object has no opinion on the matter, so
+        # _cdn_url_for is called again.
+        eq_("http://cdn/", url)
+        eq_(("view", args, kwargs), manager._cdn_url_for_calls.pop())
+        eq_([], manager._cdn_url_for_calls)
+
+        # Here, the faceting object does have an opinion: the document
+        # being generated should not be stored in a cache. This
+        # implies that the documents it links to should _also_ not be
+        # stored in a cache.
+        MockFacets.max_cache_age = CachedFeed.IGNORE_CACHE
+        url = manager.cdn_url_for("view", *args, **kwargs_with_facets)
+
+        # And so, url_for is called instead of _cdn_url_for.
+        eq_("http://url/", url)
+        eq_([], manager._cdn_url_for_calls)
+        eq_(("view", args, kwargs), manager.url_for_calls.pop())
+        eq_([], manager.url_for_calls)
+
 
 class TestBaseController(CirculationControllerTest):
 
