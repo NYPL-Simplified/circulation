@@ -679,6 +679,14 @@ class TestBibliothecaParser(BibliothecaAPITest):
 
 class TestEventParser(BibliothecaAPITest):
 
+    def test_parse_empty_list(self):
+        data = self.sample_data("empty_event_list.xml")
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "No events returned from server. This may not be an error, but treating it as one to be safe.",
+            list, EventParser().process_all(data)
+        )
+
     def test_parse_empty_end_date_event(self):
         data = self.sample_data("empty_end_date_event.xml")
         [event] = list(EventParser().process_all(data))
