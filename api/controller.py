@@ -297,9 +297,11 @@ class CirculationManager(object):
         """Generate a URL for a view that (probably) passes through a CDN.
 
         :param view: Name of the view.
-        :param facets: The faceting object used to generate the document that's calling
+        :param _facets: The faceting object used to generate the document that's calling
            this method. This may change which function is actually used to generate the
-           URL; in particular, it may disable a CDN that would otherwise be used.
+           URL; in particular, it may disable a CDN that would otherwise be used. This is
+           called _facets just in case there's ever a view that takes 'facets' as a real
+           keyword argument.
         :param args: Positional arguments to the view function.
         :param kwargs: Keyword arguments to the view function.
         """
@@ -765,7 +767,7 @@ class OPDSFeedController(CirculationManagerController):
 
         url = self.cdn_url_for(
             "acquisition_groups", lane_identifier=lane_identifier,
-            library_short_name=library.short_name, facets=facets
+            library_short_name=library.short_name, _facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets)
@@ -798,7 +800,7 @@ class OPDSFeedController(CirculationManagerController):
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "feed", lane_identifier=lane_identifier,
-            library_short_name=library_short_name, facets=facets
+            library_short_name=library_short_name, _facets=facets
         )
 
         annotator = self.manager.annotator(lane, facets=facets)
