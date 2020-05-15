@@ -680,7 +680,7 @@ class TestBibliothecaParser(BibliothecaAPITest):
 class TestEventParser(BibliothecaAPITest):
 
     def test_parse_empty_list(self):
-        data = self.sample_data("empty_event_list.xml")
+        data = self.sample_data("empty_event_batch.xml")
         assert_raises_regexp(
             RemoteInitiatedServerError,
             "No events returned from server. This may not be an error, but treating it as one to be safe.",
@@ -996,7 +996,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         two_days_ago = now - timedelta(hours=36)
         three_days_ago = now - timedelta(hours=50)
 
-        # Simulate that this script last ran 36 hours ago
+        # Simulate that this script last ran 24 hours ago
         before_timestamp = TimestampData(
             start=three_days_ago, finish=two_days_ago
         )
@@ -1009,7 +1009,10 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             200, content=self.sample_data("item_metadata_single.xml")
         )
         api.queue_response(
-            200, content=self.sample_data("empty_event_batch.xml")
+            200, content=self.sample_data("empty_end_date_event.xml")
+        )
+        api.queue_response(
+            200, content=self.sample_data("empty_end_date_event.xml")
         )
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=api
@@ -1025,9 +1028,12 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # 2. Looking up detailed information about the single book
         #    whose event we learned of in that first slice.
         #
-        # 3. Retrieving the (empty) 'slice' of events between 12 hours ago
+        # 3. Retrieving the 'slice' of events between 12 hours ago
         #    and now.
         eq_(3, len(api.requests))
+
+        # There is no second 'detailed information' lookup because both events
+        # relate to the same book.
 
         # A LicensePool was created for the identifier referred to
         # in empty_end_date_event.xml.
@@ -1045,17 +1051,17 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # 'finish' date associated with the old timestamp, and ends
         # around the time run_once() was called.
         #
-        # The event we found was from 2016, but that's not considered
-        # when setting the timestamp.
+        # The events we found were both from 2016, but that's not
+        # considered when setting the timestamp.
         eq_(two_days_ago-monitor.OVERLAP, after_timestamp.start)
         self.time_eq(after_timestamp.finish, now)
 
         # The timestamp's achivements have been updated.
-        eq_("Events handled: 1.", after_timestamp.achievements)
+        eq_("Events handled: 2.", after_timestamp.achievements)
 
         # If we tell run_once() to work through an amount of time
-        # where the are no events, it does nothing but update the
-        # timestamp.
+        # where the are no events, it errors out, because we can't distinguish
+        # between a slow day and a problem with the API.
         api.queue_response(
             200, content=self.sample_data("empty_event_batch.xml")
         )
