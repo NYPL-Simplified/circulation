@@ -1526,11 +1526,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return items_transmitted, items_created
 
-    def populate_delta(self, months=1):
+    def populate_delta(self, months=1, today=None):
         """ Call get_delta for the last month to get all of the library's book info changes
         from RBDigital.  Update Work, Edition, LicensePool objects in our database.
+
+        :param today: A date to use instead of the current date, for use in tests.
         """
-        today = datetime.datetime.utcnow()
+        today = today or datetime.datetime.utcnow()
         time_ago = relativedelta(months=months)
 
         delta = self.get_delta(from_date=(today - time_ago), to_date=today)

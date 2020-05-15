@@ -980,7 +980,9 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # for the ISBN of each added item. This is not needed for removals.
         datastr, datadict = self.get_data("response_catalog_media_isbn.json")
         self.api.queue_response(status_code=200, content=datastr)
-        result = self.api.populate_delta()
+        result = self.api.populate_delta(
+            today=datetime.datetime(2020,04,30)
+        )
 
         # populate_delta returns two numbers, as required by
         # RBDigitalSyncMonitor.
