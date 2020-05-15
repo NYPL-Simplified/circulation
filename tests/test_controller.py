@@ -81,6 +81,7 @@ from core.entrypoint import (
 )
 from core.local_analytics_provider import LocalAnalyticsProvider
 from core.model import (
+    Admin,
     Annotation,
     CachedMARCFile,
     Collection,
@@ -655,6 +656,60 @@ class TestCirculationManager(CirculationControllerTest):
             annotator = self.manager.annotator(worklist, facets)
             assert isinstance(annotator, CirculationManagerAnnotator)
             eq_(worklist, annotator.lane)
+
+    def test_load_facets_from_request(self):
+        # Test our customization to the core load_facets_from_request
+        # function.
+        #
+        # Specifically, only an authenticated admin can ask to disable
+        # caching.
+        class MockAdminSignInController(object):
+            # Pretend to be able to find (or not) an Admin authenticated
+            # to make the current request.
+            admin = None
+
+            def authenticated_admin_from_request(self):
+                return self.admin
+        admin = Admin()
+        controller = MockAdminSignInController()
+
+        self.manager.admin_sign_in_controller = controller
+
+        with self.request_context_with_library("/"):
+            # If you don't specify a max cache age, nothing happens,
+            # whether or not you're an admin.
+            for value in INVALID_CREDENTIALS, admin:
+                controller.admin = value
+                facets = self.manager.load_facets_from_request()
+                eq_(None, facets.max_cache_age)
+
+        with self.request_context_with_library("/?max_age=0"):
+            # Not an admin, max cache age requested.
+            controller.admin = INVALID_CREDENTIALS
+            facets = self.manager.load_facets_from_request()
+            eq_(None, facets.max_cache_age)
+
+            # Admin, max age requested. This is the only case where
+            # nonstandard caching rules make it through
+            # load_facets_from_request().
+            controller.admin = admin
+            facets = self.manager.load_facets_from_request()
+            eq_(CachedFeed.IGNORE_CACHE, facets.max_cache_age)
+
+        # Since the admin sign-in controller is part of the admin
+        # package and not the API proper, test a situation where, for
+        # whatever reason, that controller was never initialized.
+        del self.manager.admin_sign_in_controller
+
+        # Now what controller.admin says doesn't matter, because the
+        # controller's not associated with the CirculationManager.
+        # But everything still basically works; you just can't
+        # disable the cache.
+        with self.request_context_with_library("/?max_age=0"):
+            for value in (INVALID_CREDENTIALS, admin):
+                controller.admin = value
+                facets = self.manager.load_facets_from_request()
+                eq_(None, facets.max_cache_age)
 
     def test_cdn_url_for(self):
         # Test the various rules for generating a URL for a view while
